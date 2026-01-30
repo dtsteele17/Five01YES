@@ -1,0 +1,148 @@
+import { MatchVisit } from '@/lib/utils/match-persistence';
+
+export interface PlayerMatchStats {
+  threeDartAverage: number;
+  first9Average: number;
+  first9TotalScore: number;
+  first9DartsThrown: number;
+  first9PointsScored: number;
+  checkoutAttempts: number;
+  checkoutsMade: number;
+  checkoutPercent: number;
+  checkoutDartsAttempted: number;
+  highestCheckout: number;
+  highestVisit: number;
+  oneEighties: number;
+  totalPointsScored: number;
+  totalDartsThrown: number;
+  count100Plus: number;
+  count140Plus: number;
+  bestLegAverage: number;
+  legsWon: number;
+}
+
+export function computeMatchStats(
+  visits: MatchVisit[],
+  player: 'user' | 'opponent',
+  gameMode: '301' | '501',
+  checkoutDartsAttemptedOverride?: number,
+  checkoutsMadeOverride?: number
+): PlayerMatchStats {
+  const playerVisits = visits.filter(v => v.player === player && !v.isBust);
+
+  if (playerVisits.length === 0) {
+    return {
+      threeDartAverage: 0,
+      first9Average: 0,
+      first9TotalScore: 0,
+      first9DartsThrown: 0,
+      first9PointsScored: 0,
+      checkoutAttempts: 0,
+      checkoutsMade: 0,
+      checkoutPercent: 0,
+      checkoutDartsAttempted: 0,
+      highestCheckout: 0,
+      highestVisit: 0,
+      oneEighties: 0,
+      totalPointsScored: 0,
+      totalDartsThrown: 0,
+      count100Plus: 0,
+      count140Plus: 0,
+      bestLegAverage: 0,
+      legsWon: 0,
+    };
+  }
+
+  const totalPointsScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+  const totalDartsThrown = playerVisits.length * 3;
+  const threeDartAverage = totalDartsThrown > 0 ? (totalPointsScored / totalDartsThrown) * 3 : 0;
+
+  const legNumbers = Array.from(new Set(playerVisits.map(v => v.legNumber)));
+  const legsWon = legNumbers.length > 0 ? playerVisits.filter(v => v.isCheckout).length : 0;
+
+  let first9DartsThrown = 0;
+  let first9PointsScored = 0;
+
+  legNumbers.forEach(legNum => {
+    const legVisits = playerVisits.filter(v => v.legNumber === legNum);
+    const first3VisitsInLeg = legVisits.slice(0, 3);
+    first9DartsThrown += first3VisitsInLeg.length * 3;
+    first9PointsScored += first3VisitsInLeg.reduce((sum, v) => sum + v.score, 0);
+  });
+
+  const first9Average = first9DartsThrown > 0 ? (first9PointsScored / first9DartsThrown) * 3 : 0;
+
+  const oneEighties = playerVisits.filter(v => v.score === 180).length;
+  const count100Plus = playerVisits.filter(v => v.score >= 100).length;
+  const count140Plus = playerVisits.filter(v => v.score >= 140).length;
+  const highestVisit = playerVisits.length > 0 ? Math.max(...playerVisits.map(v => v.score)) : 0;
+
+  let checkoutDartsAttempted = checkoutDartsAttemptedOverride ?? 0;
+  let checkoutsMade = checkoutsMadeOverride ?? playerVisits.filter(v => v.checkoutSuccess || v.isCheckout).length;
+
+  if (checkoutDartsAttemptedOverride === undefined) {
+    checkoutDartsAttempted = playerVisits.reduce((sum, v) => {
+      return sum + (v.dartsAtDouble ?? 0);
+    }, 0);
+  }
+
+  const checkoutAttempts = playerVisits.filter(v => {
+    return v.wasCheckoutAttempt ||
+           v.dartsAtDouble !== undefined ||
+           v.checkoutSuccess ||
+           v.isCheckout;
+  }).length;
+
+  const checkoutPercent = checkoutDartsAttempted > 0 ? (checkoutsMade / checkoutDartsAttempted) * 100 : 0;
+
+  let highestCheckout = 0;
+  const startingScore = gameMode === '301' ? 301 : 501;
+
+  playerVisits.forEach((visit, index) => {
+    if (visit.checkoutSuccess || visit.isCheckout) {
+      const remainingBeforeVisit = index > 0
+        ? playerVisits[index - 1].remainingScore
+        : (visit.legNumber === 1 && index === 0 ? startingScore : visit.remainingScore + visit.score);
+
+      const checkoutValue = Math.min(remainingBeforeVisit, visit.score);
+      if (checkoutValue > highestCheckout && checkoutValue > 0 && checkoutValue <= 170) {
+        highestCheckout = checkoutValue;
+      }
+    }
+  });
+
+  let bestLegAverage = 0;
+
+  legNumbers.forEach(legNum => {
+    const legVisits = playerVisits.filter(v => v.legNumber === legNum && !v.isBust);
+    if (legVisits.length > 0) {
+      const legPoints = legVisits.reduce((sum, v) => sum + v.score, 0);
+      const legDarts = legVisits.length * 3;
+      const legAvg = (legPoints / legDarts) * 3;
+      if (legAvg > bestLegAverage) {
+        bestLegAverage = legAvg;
+      }
+    }
+  });
+
+  return {
+    threeDartAverage: Math.round(threeDartAverage * 100) / 100,
+    first9Average: Math.round(first9Average * 100) / 100,
+    first9TotalScore: first9PointsScored,
+    first9DartsThrown,
+    first9PointsScored,
+    checkoutAttempts,
+    checkoutsMade,
+    checkoutPercent: Math.round(checkoutPercent * 100) / 100,
+    checkoutDartsAttempted,
+    highestCheckout,
+    highestVisit,
+    oneEighties,
+    totalPointsScored,
+    totalDartsThrown,
+    count100Plus,
+    count140Plus,
+    bestLegAverage: Math.round(bestLegAverage * 100) / 100,
+    legsWon,
+  };
+}
