@@ -232,11 +232,12 @@ export default function QuickMatchRoomPage() {
       isPoliteRef.current = isPolite;
 
       console.log('[WEBRTC] ========== CREATING PEER CONNECTION ==========');
+      console.log('[WEBRTC] Room ID:', matchId);
       console.log('[WEBRTC] My ID:', currentUserId);
       console.log('[WEBRTC] Opponent ID:', opponentId);
       console.log('[WEBRTC] I am:', isPolite ? 'POLITE' : 'IMPOLITE');
-      console.log('[WEBRTC] ICE servers count:', iceServers.length);
-      console.log('[WEBRTC] ICE servers:', iceServers.map(s => s.urls).flat());
+      console.log('[WEBRTC] Using Xirsys ICE servers:', iceServers.length, 'servers');
+      console.log('[WEBRTC] Connection will persist across all legs (BO5/BO7)');
 
       setCallStatus('connecting');
 
@@ -747,61 +748,74 @@ export default function QuickMatchRoomPage() {
   useEffect(() => {
     if (!matchId || !currentUserId || !room) return;
 
-    console.log('[SIGNAL DEBUG] Setting up signal subscription:', {
-      matchId,
-      myId: currentUserId,
+    console.log('[WEBRTC] Setting up room-based signal subscription:', {
+      roomId: matchId,
+      myUserId: currentUserId,
       opponentId
     });
 
     const callSignalChannel = supabase
-      .channel(`call_signals:${matchId}:${currentUserId}`)
+      .channel(`call_signals:${matchId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "match_signals",
-          filter: `to_user_id=eq.${currentUserId}`,
+          table: "match_call_signals",
+          filter: `room_id=eq.${matchId}`,
         },
         async (payload) => {
           const signal = payload.new as any;
 
-          console.log('✅ [SIGNAL RECEIVED]', {
+          // CRITICAL: Ignore signals I sent myself
+          if (signal.from_user === currentUserId) {
+            console.log('[WEBRTC] Ignoring own signal:', signal.type);
+            return;
+          }
+
+          console.log('[WEBRTC] Received signal from opponent:', {
             type: signal.type,
-            from: signal.from_user_id,
-            to: signal.to_user_id,
+            from: signal.from_user,
+            to: signal.to_user,
             room: signal.room_id
           });
 
           try {
             switch (signal.type) {
               case 'offer':
-                console.log('📥 [SIGNAL] Processing offer from opponent');
+                console.log('[WEBRTC] Processing offer from opponent');
                 await handleOffer(signal.payload.offer);
                 break;
               case 'answer':
-                console.log('📥 [SIGNAL] Processing answer from opponent');
+                console.log('[WEBRTC] Processing answer from opponent');
                 await handleAnswer(signal.payload.answer);
                 break;
               case 'ice':
-                console.log('📥 [SIGNAL] Processing ICE candidate from opponent');
+                console.log('[WEBRTC] Processing ICE candidate from opponent');
                 await handleIceCandidate(signal.payload.candidate);
                 break;
+              case 'hangup':
+                console.log('[WEBRTC] Received hangup signal');
+                if (signal.payload.reason === 'match_ended' || signal.payload.reason === 'user_left' || signal.payload.reason === 'forfeit') {
+                  console.log('[WEBRTC] Valid hangup reason, cleaning up');
+                  stopCamera(`opponent ${signal.payload.reason || 'hung up'}`);
+                }
+                break;
               default:
-                console.warn('⚠️ [SIGNAL] Unknown signal type:', signal.type);
+                console.log('[WEBRTC] Ignoring non-critical signal type:', signal.type);
                 break;
             }
           } catch (error) {
-            console.error('[SIGNAL] Error processing signal:', error);
+            console.error('[WEBRTC] Error processing signal:', error);
           }
         }
       )
       .subscribe((status) => {
-        console.log('[SIGNAL DEBUG] Subscription status:', status);
+        console.log('[WEBRTC] Subscription status:', status);
       });
 
     return () => {
-      console.log('[SIGNAL DEBUG] Cleaning up signal subscription');
+      console.log('[WEBRTC] Cleaning up signal subscription');
       supabase.removeChannel(callSignalChannel);
     };
   }, [matchId, currentUserId, room, opponentId]);
@@ -1097,25 +1111,26 @@ export default function QuickMatchRoomPage() {
       iceServersFetchedRef.current = true;
 
       try {
-        console.log('[ICE] Fetching ICE servers from /api/turn');
+        console.log('[WEBRTC] Fetching Xirsys STUN/TURN servers from /api/turn');
         const res = await fetch('/api/turn');
         const data = await res.json();
 
         if (data.iceServers && Array.isArray(data.iceServers)) {
-          console.log('[ICE] Received ICE servers:', data.iceServers);
+          console.log('[WEBRTC] Xirsys servers loaded successfully:', data.iceServers.length, 'servers');
+          console.log('[WEBRTC] Server URLs:', data.iceServers.map((s: any) => s.urls).flat());
           setIceServers(data.iceServers);
         } else if (data.error) {
-          console.warn('[ICE] API returned error:', data.error);
-          console.log('[ICE] Using fallback STUN server');
+          console.warn('[WEBRTC] Xirsys API error:', data.error);
+          console.log('[WEBRTC] Using fallback STUN server');
           setIceServers([{ urls: 'stun:stun.l.google.com:19302' }]);
         } else {
-          console.warn('[ICE] Unexpected response format:', data);
-          console.log('[ICE] Using fallback STUN server');
+          console.warn('[WEBRTC] Unexpected response format:', data);
+          console.log('[WEBRTC] Using fallback STUN server');
           setIceServers([{ urls: 'stun:stun.l.google.com:19302' }]);
         }
       } catch (err) {
-        console.error('[ICE] Failed to fetch ICE servers:', err);
-        console.log('[ICE] Using fallback STUN server');
+        console.error('[WEBRTC] Failed to fetch Xirsys servers:', err);
+        console.log('[WEBRTC] Using fallback STUN server');
         setIceServers([{ urls: 'stun:stun.l.google.com:19302' }]);
       }
     };
@@ -1124,17 +1139,14 @@ export default function QuickMatchRoomPage() {
   }, []);
 
   /*
-   * SIGNAL TYPES - Must match Supabase constraint:
-   * Allowed: 'offer' | 'answer' | 'ice' | 'hangup' | 'state'
-   * - Use 'state' for camera/mic state changes (payload: { cameraOn: boolean, micOn: boolean })
-   *
-   * Signals are routed directly to recipient via RLS (to_user_id filtering).
-   * The match_signals table only accepts: 'offer', 'answer', 'ice'
-   * Non-WebRTC signals (hangup, state) are filtered out in this function.
+   * Send WebRTC signal via room-based match_call_signals table
+   * Uses Xirsys STUN/TURN servers fetched at match start
+   * Signal types: 'offer' | 'answer' | 'ice' | 'hangup' | 'state'
+   * Signals are room-based - receiver filters out own signals (from_user === auth.uid())
    */
   const sendSignal = async (type: 'offer' | 'answer' | 'ice' | 'hangup' | 'state', payload: any) => {
     if (!matchId || !currentUserId || !room) {
-      console.log('⚠️ [SIGNAL] Cannot send - missing required data');
+      console.log('[WEBRTC] Cannot send signal - missing required data');
       return;
     }
 
@@ -1144,28 +1156,22 @@ export default function QuickMatchRoomPage() {
 
     // Validate opponent exists
     if (!opponentId) {
-      console.warn('⚠️ [SIGNAL] No opponent yet');
+      console.warn('[WEBRTC] No opponent yet');
       if (['offer', 'answer', 'ice'].includes(type)) {
         toast.info('Waiting for opponent…');
       }
       return;
     }
 
-    // Skip non-WebRTC signals - only WebRTC signals go through match_signals table
-    if (!['offer', 'answer', 'ice'].includes(type)) {
-      console.log(`ℹ️ [SIGNAL] Skipping non-WebRTC signal: ${type}`);
-      return;
-    }
-
     const signalData = {
       room_id: matchId,
-      from_user_id: myUserId,
-      to_user_id: opponentId,
+      from_user: myUserId,
+      to_user: opponentId,
       type,
       payload: payload || {},
     };
 
-    console.log('📤 [SIGNAL SENT]', {
+    console.log('[WEBRTC] Sending signal:', {
       type,
       from: myUserId,
       to: opponentId,
@@ -1173,32 +1179,21 @@ export default function QuickMatchRoomPage() {
     });
 
     try {
-      const { error } = await supabase.from('match_signals').insert(signalData);
+      const { error } = await supabase.from('match_call_signals').insert(signalData);
 
       if (error) {
-        console.error('❌ [SIGNAL ERROR] Failed to send signal:');
-        console.error('  Signal type:', type);
-        console.error('  Payload:', JSON.stringify(payload, null, 2));
-        console.error('  Full signal data:', JSON.stringify(signalData, null, 2));
-        console.error('  Supabase error:', JSON.stringify(error, null, 2));
-        console.error('  Error code:', error.code);
-        console.error('  Error message:', error.message);
-        console.error('  Error details:', error.details);
-        console.error('  Error hint:', error.hint);
+        console.error('[WEBRTC] Failed to send signal:', type);
+        console.error('[WEBRTC] Error:', error.message);
 
         // Only show toast for critical signals (offer, answer, ice)
         if (['offer', 'answer', 'ice'].includes(type)) {
           toast.error(`Failed to send ${type} signal`);
-        } else {
-          console.warn(`[SIGNAL WARN] Non-critical signal "${type}" failed, continuing anyway`);
         }
       } else {
-        console.log('✅ [SIGNAL] Successfully sent:', type);
+        console.log('[WEBRTC] Signal sent successfully:', type);
       }
     } catch (error) {
-      console.error('❌ [SIGNAL EXCEPTION] Exception sending signal:', error);
-      console.error('  Signal type:', type);
-      console.error('  Payload:', payload);
+      console.error('[WEBRTC] Exception sending signal:', error);
 
       // Only show toast for critical signals
       if (['offer', 'answer', 'ice'].includes(type)) {
