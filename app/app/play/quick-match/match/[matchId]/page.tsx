@@ -190,6 +190,10 @@ export default function QuickMatchRoomPage() {
       liveVideoRef.current.play().catch((err) => {
         console.error('[VIDEO DISPLAY] Error playing video:', err);
       });
+
+      if (!isMyTurn && liveStreamToShow) {
+        console.log('🎥 [REMOTE STREAM ATTACHED] Opponent stream attached to video element');
+      }
     } else {
       liveVideoRef.current.srcObject = null;
     }
@@ -756,64 +760,35 @@ export default function QuickMatchRoomPage() {
         {
           event: "INSERT",
           schema: "public",
-          table: "match_call_signals",
-          filter: `room_id=eq.${matchId}`,
+          table: "match_signals",
+          filter: `to_user_id=eq.${currentUserId}`,
         },
         async (payload) => {
           const signal = payload.new as any;
 
-          console.log('[SIGNAL DEBUG] Received signal:', {
+          console.log('✅ [SIGNAL RECEIVED]', {
             type: signal.type,
-            from_user: signal.from_user,
-            to_user: signal.to_user,
-            myId: currentUserId,
-            opponentId,
-            isForMe: signal.to_user === currentUserId
+            from: signal.from_user_id,
+            to: signal.to_user_id,
+            room: signal.room_id
           });
-
-          // CRITICAL: Only process signals where to_user === myId (using auth user ID)
-          if (signal.to_user !== currentUserId) {
-            console.log('[SIGNAL DEBUG] Ignoring signal - not for me');
-            return;
-          }
-
-          console.log('[SIGNAL DEBUG] Processing signal:', signal.type);
 
           try {
             switch (signal.type) {
               case 'offer':
-                console.log('[SIGNAL] Received offer from', signal.from_user, 'to', signal.to_user);
+                console.log('📥 [SIGNAL] Processing offer from opponent');
                 await handleOffer(signal.payload.offer);
                 break;
               case 'answer':
-                console.log('[SIGNAL] Received answer from', signal.from_user, 'to', signal.to_user);
+                console.log('📥 [SIGNAL] Processing answer from opponent');
                 await handleAnswer(signal.payload.answer);
                 break;
               case 'ice':
-                console.log('[SIGNAL] Received ice from', signal.from_user, 'to', signal.to_user);
+                console.log('📥 [SIGNAL] Processing ICE candidate from opponent');
                 await handleIceCandidate(signal.payload.candidate);
                 break;
-              case 'video_enabled':
-                console.log('[SIGNAL] Opponent video state changed:', signal.payload.enabled);
-                // Just log the state change - UI will update based on remoteStream presence
-                // DO NOT cleanup or modify remoteStream here
-                break;
-              case 'hangup':
-                console.log('[SIGNAL] ===== HANGUP RECEIVED =====');
-                console.log('[SIGNAL] Reason:', signal.payload.reason || 'unknown');
-                console.log('[SIGNAL] This should only happen on match end/forfeit/leave');
-                // Only process hangup for true match end events
-                if (signal.payload.reason === 'match_ended' || signal.payload.reason === 'user_left' || signal.payload.reason === 'forfeit') {
-                  console.log('[SIGNAL] Valid hangup reason, cleaning up');
-                  stopCamera(`opponent ${signal.payload.reason || 'hung up'}`);
-                  toast.info('Call ended');
-                } else {
-                  console.warn('[SIGNAL] Ignoring hangup with invalid reason:', signal.payload.reason);
-                }
-                break;
-              case 'camera_ready':
-                // Deprecated: camera_ready signal no longer needed
-                console.log('[SIGNAL] Received camera_ready (deprecated) from', signal.from_user);
+              default:
+                console.warn('⚠️ [SIGNAL] Unknown signal type:', signal.type);
                 break;
             }
           } catch (error) {
@@ -1153,50 +1128,52 @@ export default function QuickMatchRoomPage() {
    * Allowed: 'offer' | 'answer' | 'ice' | 'hangup' | 'state'
    * - Use 'state' for camera/mic state changes (payload: { cameraOn: boolean, micOn: boolean })
    *
-   * To expand the constraint in Supabase (optional):
-   * ALTER TABLE match_call_signals DROP CONSTRAINT match_call_signals_type_check;
-   * ALTER TABLE match_call_signals ADD CONSTRAINT match_call_signals_type_check
-   *   CHECK (type IN ('offer','answer','ice','hangup','state','video_enabled','camera_ready'));
+   * Signals are routed directly to recipient via RLS (to_user_id filtering).
+   * The match_signals table only accepts: 'offer', 'answer', 'ice'
+   * Non-WebRTC signals (hangup, state) are filtered out in this function.
    */
   const sendSignal = async (type: 'offer' | 'answer' | 'ice' | 'hangup' | 'state', payload: any) => {
     if (!matchId || !currentUserId || !room) {
-      console.log('[SIGNAL DEBUG] Cannot send signal - missing required data');
+      console.log('⚠️ [SIGNAL] Cannot send - missing required data');
       return;
     }
 
-    // Always compute opponentId from room (NOT from current_turn) - using auth user IDs
-    const me = currentUserId;
-    const otherUser = room.player1_id === me ? room.player2_id : room.player1_id;
+    // Determine opponent from room data
+    const myUserId = currentUserId;
+    const opponentId = room.player1_id === myUserId ? room.player2_id : room.player1_id;
 
-    console.log('[SIGNAL DEBUG] sendSignal called:', {
-      type,
-      from_user: me,
-      to_user: otherUser,
-      hasPayload: !!payload
-    });
-
-    // Validate opponentId before sending
-    if (!otherUser) {
-      console.warn('[SIGNAL DEBUG] Cannot send signal: waiting for opponent...');
-      // Only show toast for critical signals
+    // Validate opponent exists
+    if (!opponentId) {
+      console.warn('⚠️ [SIGNAL] No opponent yet');
       if (['offer', 'answer', 'ice'].includes(type)) {
         toast.info('Waiting for opponent…');
       }
       return;
     }
 
-    console.log(`[SIGNAL DEBUG] Sending "${type}" signal from ${me} to ${otherUser}`);
+    // Skip non-WebRTC signals - only WebRTC signals go through match_signals table
+    if (!['offer', 'answer', 'ice'].includes(type)) {
+      console.log(`ℹ️ [SIGNAL] Skipping non-WebRTC signal: ${type}`);
+      return;
+    }
 
     const signalData = {
       room_id: matchId,
-      from_user: me,
-      to_user: otherUser,
+      from_user_id: myUserId,
+      to_user_id: opponentId,
       type,
       payload: payload || {},
     };
 
+    console.log('📤 [SIGNAL SENT]', {
+      type,
+      from: myUserId,
+      to: opponentId,
+      room: matchId
+    });
+
     try {
-      const { error } = await supabase.from('match_call_signals').insert(signalData);
+      const { error } = await supabase.from('match_signals').insert(signalData);
 
       if (error) {
         console.error('❌ [SIGNAL ERROR] Failed to send signal:');
@@ -1216,7 +1193,7 @@ export default function QuickMatchRoomPage() {
           console.warn(`[SIGNAL WARN] Non-critical signal "${type}" failed, continuing anyway`);
         }
       } else {
-        console.log('✅ [SIGNAL DEBUG] Signal sent successfully:', type);
+        console.log('✅ [SIGNAL] Successfully sent:', type);
       }
     } catch (error) {
       console.error('❌ [SIGNAL EXCEPTION] Exception sending signal:', error);
