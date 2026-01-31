@@ -311,31 +311,39 @@ export default function QuickMatchRoomPage() {
 
         // Remote track handler - build stable remoteStream
         pc.ontrack = (event) => {
-          console.log('📹 [WEBRTC ONTRACK] ========== ONTRACK FIRED ==========');
-          console.log('📹 [WEBRTC ONTRACK] Track kind:', event.track.kind);
-          console.log('📹 [WEBRTC ONTRACK] Track readyState:', event.track.readyState);
-          console.log('📹 [WEBRTC ONTRACK] Track enabled:', event.track.enabled);
+          console.log('[WEBRTC] ========== ONTRACK FIRED ==========');
+          console.log('[WEBRTC] Track received from opponent');
+          console.log('[WEBRTC] Track kind:', event.track.kind);
+          console.log('[WEBRTC] Track readyState:', event.track.readyState);
+          console.log('[WEBRTC] Track enabled:', event.track.enabled);
+          console.log('[WEBRTC] Track ID:', event.track.id);
 
           // Build stable remoteStream by adding tracks
           if (!remoteStreamRef.current) {
-            console.log('📹 [WEBRTC ONTRACK] Creating new MediaStream for remote');
+            console.log('[WEBRTC] Creating new MediaStream for remote tracks');
             remoteStreamRef.current = new MediaStream();
           }
 
           // Add track to remote stream
           remoteStreamRef.current.addTrack(event.track);
-          console.log('✅ [WEBRTC ONTRACK] Track added to remoteStream');
-          console.log('   Total tracks:', remoteStreamRef.current.getTracks().length);
-          console.log('   Tracks:', remoteStreamRef.current.getTracks().map(t => ({
-            kind: t.kind,
-            enabled: t.enabled,
-            readyState: t.readyState
-          })));
+          console.log('[WEBRTC] ✅ Track added to remoteStream');
+          console.log('[WEBRTC] Total remote tracks now:', remoteStreamRef.current.getTracks().length);
+
+          const tracks = remoteStreamRef.current.getTracks();
+          tracks.forEach((t, idx) => {
+            console.log(`[WEBRTC] Remote track ${idx + 1}:`, {
+              kind: t.kind,
+              enabled: t.enabled,
+              readyState: t.readyState,
+              id: t.id
+            });
+          });
 
           // Update state to trigger re-render
           setRemoteStream(remoteStreamRef.current);
-          console.log('✅ [WEBRTC ONTRACK] remoteStream state updated');
-          console.log('📹 [WEBRTC ONTRACK] =======================================');
+          console.log('[WEBRTC] ✅ remoteStream state updated - UI should re-render');
+          console.log('[WEBRTC] Remote stream will be visible during opponent turns');
+          console.log('[WEBRTC] =======================================');
         };
 
         // Connection state handler
@@ -443,6 +451,23 @@ export default function QuickMatchRoomPage() {
       console.log('[CAMERA] Keeping peer connection alive');
     }
   };
+
+  // Track remoteStream changes
+  useEffect(() => {
+    if (remoteStream) {
+      console.log('[WEBRTC] ========== REMOTE STREAM STATE CHANGED ==========');
+      console.log('[WEBRTC] Remote stream is now available');
+      console.log('[WEBRTC] Tracks:', remoteStream.getTracks().map(t => ({
+        kind: t.kind,
+        enabled: t.enabled,
+        readyState: t.readyState
+      })));
+      console.log('[WEBRTC] Remote stream will be displayed during opponent turns');
+      console.log('[WEBRTC] ====================================================');
+    } else {
+      console.log('[WEBRTC] Remote stream is NULL');
+    }
+  }, [remoteStream]);
 
   // Cleanup WebRTC on component unmount
   useEffect(() => {
@@ -748,56 +773,76 @@ export default function QuickMatchRoomPage() {
   useEffect(() => {
     if (!matchId || !currentUserId || !room) return;
 
-    console.log('[WEBRTC] Setting up room-based signal subscription:', {
-      roomId: matchId,
-      myUserId: currentUserId,
-      opponentId
-    });
+    const opponentIdLocal = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
+
+    console.log('[WEBRTC] ========== SUBSCRIPTION SETUP ==========');
+    console.log('[WEBRTC] Creating subscription for room:', matchId);
+    console.log('[WEBRTC] My user ID:', currentUserId);
+    console.log('[WEBRTC] Opponent ID:', opponentIdLocal);
+    console.log('[WEBRTC] Filter: room_id=eq.' + matchId + ',to_user=eq.' + currentUserId);
+    console.log('[WEBRTC] =======================================');
 
     const callSignalChannel = supabase
-      .channel(`call_signals:${matchId}`)
+      .channel(`call_signals:${matchId}:${currentUserId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "match_call_signals",
-          filter: `room_id=eq.${matchId}`,
+          filter: `room_id=eq.${matchId},to_user=eq.${currentUserId}`,
         },
         async (payload) => {
           const signal = payload.new as any;
 
-          // CRITICAL: Ignore signals I sent myself
+          console.log('[WEBRTC] ========== SIGNAL RECEIVED ==========');
+          console.log('[WEBRTC] Type:', signal.type);
+          console.log('[WEBRTC] From:', signal.from_user);
+          console.log('[WEBRTC] To:', signal.to_user);
+          console.log('[WEBRTC] Room:', signal.room_id);
+          console.log('[WEBRTC] Payload keys:', Object.keys(signal.payload || {}));
+
+          // Safety check: Ignore signals I sent myself (should not happen with correct filter)
           if (signal.from_user === currentUserId) {
-            console.log('[WEBRTC] Ignoring own signal:', signal.type);
+            console.warn('[WEBRTC] WARNING: Received own signal (filter may be incorrect):', signal.type);
             return;
           }
 
-          console.log('[WEBRTC] Received signal from opponent:', {
-            type: signal.type,
-            from: signal.from_user,
-            to: signal.to_user,
-            room: signal.room_id
-          });
+          // Safety check: Verify room matches
+          if (signal.room_id !== matchId) {
+            console.warn('[WEBRTC] WARNING: Signal for wrong room:', signal.room_id, 'expected:', matchId);
+            return;
+          }
+
+          // Safety check: Verify to_user matches
+          if (signal.to_user !== currentUserId) {
+            console.warn('[WEBRTC] WARNING: Signal for wrong user:', signal.to_user, 'expected:', currentUserId);
+            return;
+          }
+
+          console.log('[WEBRTC] Signal validation passed, processing...');
 
           try {
             switch (signal.type) {
               case 'offer':
-                console.log('[WEBRTC] Processing offer from opponent');
+                console.log('[WEBRTC] Processing OFFER from opponent');
                 await handleOffer(signal.payload.offer);
+                console.log('[WEBRTC] OFFER processed successfully');
                 break;
               case 'answer':
-                console.log('[WEBRTC] Processing answer from opponent');
+                console.log('[WEBRTC] Processing ANSWER from opponent');
                 await handleAnswer(signal.payload.answer);
+                console.log('[WEBRTC] ANSWER processed successfully');
                 break;
               case 'ice':
                 console.log('[WEBRTC] Processing ICE candidate from opponent');
                 await handleIceCandidate(signal.payload.candidate);
+                console.log('[WEBRTC] ICE candidate processed successfully');
                 break;
               case 'hangup':
-                console.log('[WEBRTC] Received hangup signal');
+                console.log('[WEBRTC] Received HANGUP signal, reason:', signal.payload.reason);
                 if (signal.payload.reason === 'match_ended' || signal.payload.reason === 'user_left' || signal.payload.reason === 'forfeit') {
-                  console.log('[WEBRTC] Valid hangup reason, cleaning up');
+                  console.log('[WEBRTC] Valid hangup reason, cleaning up camera');
                   stopCamera(`opponent ${signal.payload.reason || 'hung up'}`);
                 }
                 break;
@@ -806,19 +851,33 @@ export default function QuickMatchRoomPage() {
                 break;
             }
           } catch (error) {
-            console.error('[WEBRTC] Error processing signal:', error);
+            console.error('[WEBRTC] ========== ERROR PROCESSING SIGNAL ==========');
+            console.error('[WEBRTC] Signal type:', signal.type);
+            console.error('[WEBRTC] Error:', error);
+            console.error('[WEBRTC] ================================================');
           }
+
+          console.log('[WEBRTC] ========================================');
         }
       )
       .subscribe((status) => {
-        console.log('[WEBRTC] Subscription status:', status);
+        console.log('[WEBRTC] Subscription status changed:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[WEBRTC] ✅ Successfully subscribed to match_call_signals');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[WEBRTC] ❌ Subscription error');
+        } else if (status === 'TIMED_OUT') {
+          console.error('[WEBRTC] ❌ Subscription timed out');
+        }
       });
 
     return () => {
-      console.log('[WEBRTC] Cleaning up signal subscription');
+      console.log('[WEBRTC] ========== SUBSCRIPTION CLEANUP ==========');
+      console.log('[WEBRTC] Removing channel for room:', matchId);
+      console.log('[WEBRTC] ==========================================');
       supabase.removeChannel(callSignalChannel);
     };
-  }, [matchId, currentUserId, room, opponentId]);
+  }, [matchId, currentUserId, room]);
 
   const handleDartClick = (type: 'singles' | 'doubles' | 'triples' | 'bulls', number: number) => {
     if (currentVisit.length >= 3) return;
