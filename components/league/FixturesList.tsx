@@ -3,20 +3,25 @@
 import { League, Fixture } from '@/lib/context/LeaguesContext';
 import { useLeagues } from '@/lib/context/LeaguesContext';
 import { useState } from 'react';
-import { Calendar, Clock, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Calendar, Clock, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 interface FixturesListProps {
   league: League;
 }
 
 export default function FixturesList({ league }: FixturesListProps) {
+  const router = useRouter();
   const { state } = useLeagues();
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [playerFilter, setPlayerFilter] = useState<string>('all');
+  const [startingMatch, setStartingMatch] = useState<string | null>(null);
 
   let filteredFixtures = league.fixtures;
 
@@ -44,6 +49,27 @@ export default function FixturesList({ league }: FixturesListProps) {
   const sortedMatchdays = Object.keys(groupedFixtures)
     .map(Number)
     .sort((a, b) => a - b);
+
+  const handleStartMatch = async (matchId: string) => {
+    setStartingMatch(matchId);
+    const supabase = createClient();
+
+    try {
+      const { data, error } = await supabase.rpc('create_room_for_league_match', {
+        p_league_match_id: matchId
+      });
+
+      if (error) throw error;
+
+      const roomId = data;
+      toast.success('Match starting!');
+      router.push(`/app/play/quick-match/match/${roomId}`);
+    } catch (error: any) {
+      console.error('Failed to start match:', error);
+      toast.error(error.message || 'Failed to start match');
+      setStartingMatch(null);
+    }
+  };
 
   return (
     <div>
@@ -193,9 +219,23 @@ export default function FixturesList({ league }: FixturesListProps) {
                         </Badge>
 
                         {canPlayMatch ? (
-                          <Button size="sm" className="bg-teal-600 hover:bg-teal-700">
-                            Play Match
-                            <ChevronRight className="w-4 h-4 ml-1" />
+                          <Button
+                            size="sm"
+                            className="bg-teal-600 hover:bg-teal-700"
+                            onClick={() => handleStartMatch(fixture.matchId)}
+                            disabled={startingMatch === fixture.matchId}
+                          >
+                            {startingMatch === fixture.matchId ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Starting...
+                              </>
+                            ) : (
+                              <>
+                                Play Match
+                                <ChevronRight className="w-4 h-4 ml-1" />
+                              </>
+                            )}
                           </Button>
                         ) : fixture.status === 'Completed' ? (
                           <Button size="sm" variant="outline">
