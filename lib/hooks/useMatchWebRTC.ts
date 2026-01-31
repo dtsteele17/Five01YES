@@ -231,7 +231,7 @@ export function useMatchWebRTC({
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
           console.log('[WEBRTC QS] 🧊 Local ICE candidate generated:', event.candidate.type);
-          await sendSignal(roomId, opponentUserId, 'ice', {
+          await sendSignal(roomId, myUserId, opponentUserId, 'ice', {
             candidate: event.candidate
           });
         } else {
@@ -353,7 +353,7 @@ export function useMatchWebRTC({
         await pc.setLocalDescription(answer);
         console.log('[WEBRTC QS] ✅ Local description set (answer)');
 
-        await sendSignal(roomId, opponentUserId, 'answer', {
+        await sendSignal(roomId, myUserId, opponentUserId, 'answer', {
           answer: pc.localDescription?.toJSON()
         });
         console.log('[WEBRTC QS] ✅ Answer sent');
@@ -482,7 +482,7 @@ export function useMatchWebRTC({
         await pc.setLocalDescription(offer);
         console.log('[WEBRTC QS] ✅ Local description set (offer)');
 
-        await sendSignal(roomId!, opponentUserId!, 'offer', {
+        await sendSignal(roomId!, myUserId!, opponentUserId!, 'offer', {
           offer: pc.localDescription?.toJSON()
         });
         console.log('[WEBRTC QS] ✅ Offer sent to player2');
@@ -556,8 +556,8 @@ export function useMatchWebRTC({
       }
 
       // Send camera state to opponent
-      if (roomId && opponentUserId) {
-        await sendSignal(roomId, opponentUserId, 'state', { camera: true });
+      if (roomId && myUserId && opponentUserId) {
+        await sendSignal(roomId, myUserId, opponentUserId, 'state', { camera: true });
       }
 
     } catch (error: any) {
@@ -583,12 +583,12 @@ export function useMatchWebRTC({
     setCallStatus('idle');
 
     // Send camera state to opponent
-    if (opponentUserId && roomId) {
-      sendSignal(roomId, opponentUserId, 'state', { camera: false });
+    if (roomId && myUserId && opponentUserId) {
+      sendSignal(roomId, myUserId, opponentUserId, 'state', { camera: false });
     }
 
     console.log('[WEBRTC QS] Camera stopped, peer connection stays alive');
-  }, [localStream, opponentUserId, roomId]);
+  }, [localStream, myUserId, opponentUserId, roomId]);
 
   const toggleMic = useCallback(() => {
     if (localStream) {
