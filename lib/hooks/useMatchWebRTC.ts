@@ -2,11 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 export interface UseMatchWebRTCProps {
-  matchId: string | null;
-  currentUserId: string | null;
-  opponentId: string | null;
-  isMyTurn: boolean;
-  isMatchActive: boolean;
+  roomId: string | null;
+  myUserId: string | null;
+  isMyTurn: boolean; // Only for UI display, does NOT gate signaling
 }
 
 export interface UseMatchWebRTCReturn {
@@ -31,19 +29,20 @@ export interface UseMatchWebRTCReturn {
  * Uses public.match_call_signals table for signaling
  * Xirsys ICE servers for STUN/TURN
  *
- * Architecture:
- * - Creates RTCPeerConnection ONCE per match room
- * - Stable peer connection across turn/leg changes
- * - Realtime subscription filters: room_id AND to_user
- * - Perfect negotiation pattern for offer collision handling
- * - Remote stream displayed during opponent turns
+ * State Machine:
+ * 1. Fetch ICE servers
+ * 2. Fetch match_rooms row to compute opponent
+ * 3. Create RTCPeerConnection
+ * 4. Subscribe to realtime signals
+ * 5. Begin negotiation (impolite peer sends offer)
+ *
+ * Signaling Prerequisites: roomId, myUserId, opponentUserId
+ * NO gating on isMyTurn or match status - negotiation happens independently
  */
 export function useMatchWebRTC({
-  matchId,
-  currentUserId,
-  opponentId,
-  isMyTurn,
-  isMatchActive
+  roomId,
+  myUserId,
+  isMyTurn
 }: UseMatchWebRTCProps): UseMatchWebRTCReturn {
   const supabase = createClient();
 
@@ -56,6 +55,7 @@ export function useMatchWebRTC({
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [iceServers, setIceServers] = useState<RTCIceServer[] | null>(null);
+  const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -69,67 +69,97 @@ export function useMatchWebRTC({
   const audioSenderRef = useRef<RTCRtpSender | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
-  console.log('[WEBRTC HOOK] Initialized with:', {
-    matchId,
-    currentUserId,
-    opponentId,
-    isMyTurn,
-    isMatchActive
+  console.log('[WEBRTC HOOK] Render with:', {
+    roomId,
+    myUserId,
+    opponentUserId,
+    isMyTurn: isMyTurn ? 'ME' : 'OPPONENT'
   });
 
-  // ========== VIDEO DISPLAY SWITCHING ==========
-  // Updates video element based on whose turn it is
+  // ========== FETCH OPPONENT FROM MATCH_ROOMS ==========
   useEffect(() => {
-    console.log('[WEBRTC HOOK] ===== VIDEO DISPLAY EFFECT =====');
-    console.log('[WEBRTC HOOK] This effect ONLY updates video display, NO cleanup');
-
-    if (!liveVideoRef.current) {
-      console.log('[WEBRTC HOOK] No video ref, skipping');
+    if (!roomId || !myUserId) {
+      console.log('[WEBRTC HOOK] Waiting for roomId and myUserId');
       return;
     }
 
-    const liveStreamToShow = isMyTurn ? localStream : remoteStream;
-    const turnLabel = isMyTurn ? 'me' : 'opponent';
+    const fetchOpponent = async () => {
+      console.log('[WEBRTC HOOK] ========== FETCHING OPPONENT ==========');
+      console.log('[WEBRTC HOOK] Room ID:', roomId);
+      console.log('[WEBRTC HOOK] My User ID:', myUserId);
 
-    console.log('[WEBRTC HOOK] Turn:', turnLabel);
-    console.log('[WEBRTC HOOK] Local stream exists:', !!localStream);
-    console.log('[WEBRTC HOOK] Remote stream exists:', !!remoteStream);
-    console.log('[WEBRTC HOOK] Stream to show:', liveStreamToShow ? 'YES' : 'NO');
+      try {
+        const { data, error } = await supabase
+          .from('match_rooms')
+          .select('player1_id, player2_id')
+          .eq('id', roomId)
+          .single();
+
+        if (error) {
+          console.error('[WEBRTC HOOK] ❌ Error fetching match_rooms:', error);
+          return;
+        }
+
+        if (!data) {
+          console.error('[WEBRTC HOOK] ❌ No match_rooms data found');
+          return;
+        }
+
+        console.log('[WEBRTC HOOK] Match room data:', {
+          player1_id: data.player1_id,
+          player2_id: data.player2_id
+        });
+
+        // Compute opponent
+        const opponent = myUserId === data.player1_id ? data.player2_id : data.player1_id;
+
+        if (!opponent) {
+          console.warn('[WEBRTC HOOK] ⚠️ No opponent yet (player2 not joined)');
+          setOpponentUserId(null);
+          return;
+        }
+
+        console.log('[WEBRTC HOOK] ✅ Opponent resolved:', opponent);
+        setOpponentUserId(opponent);
+
+      } catch (err) {
+        console.error('[WEBRTC HOOK] ❌ Exception fetching opponent:', err);
+      }
+    };
+
+    fetchOpponent();
+  }, [roomId, myUserId]);
+
+  // ========== VIDEO DISPLAY SWITCHING ==========
+  // Updates video element based on whose turn it is (UI ONLY)
+  useEffect(() => {
+    if (!liveVideoRef.current) return;
+
+    const liveStreamToShow = isMyTurn ? localStream : remoteStream;
+    const turnLabel = isMyTurn ? 'ME' : 'OPPONENT';
+
+    console.log('[WEBRTC HOOK] Video display - Turn:', turnLabel, 'Stream:', liveStreamToShow ? 'YES' : 'NO');
 
     if (!isMyTurn && remoteStream) {
-      console.log('[WEBRTC HOOK] 👤 OPPONENT TURN - Should show remote stream');
-      console.log('[WEBRTC HOOK] Remote stream tracks:', remoteStream.getTracks().map(t => ({
-        kind: t.kind,
-        enabled: t.enabled,
-        readyState: t.readyState
-      })));
-      console.log('[WEBRTC HOOK] PC connectionState:', peerConnectionRef.current?.connectionState);
-      console.log('[WEBRTC HOOK] PC iceConnectionState:', peerConnectionRef.current?.iceConnectionState);
-      console.log('[WEBRTC HOOK] callStatus:', callStatus);
+      console.log('[WEBRTC HOOK] 👤 Opponent turn - showing remote stream');
     }
 
     if (liveStreamToShow) {
       liveVideoRef.current.srcObject = liveStreamToShow;
-      liveVideoRef.current.muted = isMyTurn; // Only mute local stream
+      liveVideoRef.current.muted = isMyTurn;
       liveVideoRef.current.autoplay = true;
       liveVideoRef.current.playsInline = true;
       liveVideoRef.current.play().catch((err) => {
         console.error('[WEBRTC HOOK] Error playing video:', err);
       });
-
-      if (!isMyTurn && liveStreamToShow) {
-        console.log('[WEBRTC HOOK] 🎥 Opponent stream attached to video element');
-      }
     } else {
       liveVideoRef.current.srcObject = null;
     }
-
-    console.log('[WEBRTC HOOK] Video display updated, NO cleanup performed');
-  }, [isMyTurn, localStream, remoteStream, callStatus]);
+  }, [isMyTurn, localStream, remoteStream]);
 
   // ========== FETCH XIRSYS ICE SERVERS ==========
   useEffect(() => {
-    if (!matchId || iceServersFetchedRef.current) return;
+    if (!roomId || iceServersFetchedRef.current) return;
 
     const fetchIceServers = async () => {
       console.log('[WEBRTC HOOK] ========== FETCHING XIRSYS ICE SERVERS ==========');
@@ -155,31 +185,43 @@ export function useMatchWebRTC({
     };
 
     fetchIceServers();
-  }, [matchId]);
+  }, [roomId]);
 
   // ========== CREATE PEER CONNECTION ==========
   useEffect(() => {
-    if (!matchId || !currentUserId || !iceServers) {
-      console.log('[WEBRTC HOOK] Waiting for prerequisites:', {
-        matchId: !!matchId,
-        currentUserId: !!currentUserId,
-        iceServers: !!iceServers
-      });
+    // Prerequisites check
+    if (!roomId) {
+      console.log('[WEBRTC HOOK] Waiting for roomId');
+      return;
+    }
+    if (!myUserId) {
+      console.log('[WEBRTC HOOK] Waiting for myUserId');
+      return;
+    }
+    if (!opponentUserId) {
+      console.log('[WEBRTC HOOK] Waiting for opponentUserId');
+      return;
+    }
+    if (!iceServers) {
+      console.log('[WEBRTC HOOK] Waiting for iceServers');
       return;
     }
 
     // Only create once
     if (peerConnectionRef.current) {
-      console.log('[WEBRTC HOOK] Peer connection already exists, skipping creation');
+      console.log('[WEBRTC HOOK] Peer connection already exists');
       return;
     }
 
     console.log('[WEBRTC HOOK] ========== CREATING PEER CONNECTION ==========');
-    console.log('[WEBRTC HOOK] Match ID:', matchId);
-    console.log('[WEBRTC HOOK] ICE servers:', iceServers);
+    console.log('[WEBRTC HOOK] Prerequisites resolved:', {
+      roomId,
+      myUserId,
+      opponentUserId
+    });
 
-    // Determine polite peer (player2 is polite)
-    const isPolite = opponentId ? currentUserId > opponentId : false;
+    // Determine polite peer (player with larger UUID is polite)
+    const isPolite = myUserId > opponentUserId;
     isPoliteRef.current = isPolite;
     console.log('[WEBRTC HOOK] I am', isPolite ? 'POLITE' : 'IMPOLITE', 'peer');
 
@@ -201,8 +243,13 @@ export function useMatchWebRTC({
       pc.onnegotiationneeded = async () => {
         console.log('[WEBRTC HOOK] 🔄 NEGOTIATION NEEDED');
 
-        if (!opponentId) {
-          console.log('[WEBRTC HOOK] No opponent yet, skipping negotiation');
+        // Prerequisites check before sending offer
+        if (!roomId || !myUserId || !opponentUserId) {
+          console.error('[WEBRTC HOOK] ❌ Cannot negotiate - missing prerequisites:', {
+            roomId: !!roomId,
+            myUserId: !!myUserId,
+            opponentUserId: !!opponentUserId
+          });
           return;
         }
 
@@ -236,7 +283,6 @@ export function useMatchWebRTC({
         console.log('[WEBRTC HOOK] Track kind:', event.track.kind);
         console.log('[WEBRTC HOOK] Track readyState:', event.track.readyState);
         console.log('[WEBRTC HOOK] Track enabled:', event.track.enabled);
-        console.log('[WEBRTC HOOK] Track ID:', event.track.id);
 
         // Build stable remoteStream
         if (!remoteStreamRef.current) {
@@ -251,7 +297,6 @@ export function useMatchWebRTC({
         // Update state
         setRemoteStream(remoteStreamRef.current);
         console.log('[WEBRTC HOOK] ✅ remoteStream state updated');
-        console.log('[WEBRTC HOOK] =======================================');
       };
 
       // Connection state handler
@@ -279,9 +324,12 @@ export function useMatchWebRTC({
         if (event.candidate) {
           console.log('[WEBRTC HOOK] 🧊 Local ICE candidate generated:', event.candidate.type);
 
-          if (opponentId) {
+          // Prerequisites check before sending ICE
+          if (roomId && myUserId && opponentUserId) {
             await sendSignal('ice', { candidate: event.candidate });
             console.log('[WEBRTC HOOK] ✅ ICE candidate sent to opponent');
+          } else {
+            console.warn('[WEBRTC HOOK] ⚠️ Cannot send ICE - prerequisites missing');
           }
         } else {
           console.log('[WEBRTC HOOK] 🧊 All ICE candidates generated');
@@ -304,35 +352,39 @@ export function useMatchWebRTC({
         console.log('[WEBRTC HOOK] Peer connection closed');
       }
     };
-  }, [matchId, currentUserId, opponentId, iceServers]);
+  }, [roomId, myUserId, opponentUserId, iceServers]);
 
   // ========== SIGNALING SUBSCRIPTION ==========
   useEffect(() => {
-    if (!matchId || !currentUserId || !opponentId) {
-      console.log('[WEBRTC HOOK] Waiting for signaling prerequisites:', {
-        matchId: !!matchId,
-        currentUserId: !!currentUserId,
-        opponentId: !!opponentId
-      });
+    // Prerequisites check
+    if (!roomId) {
+      console.log('[WEBRTC HOOK] Subscription waiting for roomId');
+      return;
+    }
+    if (!myUserId) {
+      console.log('[WEBRTC HOOK] Subscription waiting for myUserId');
+      return;
+    }
+    if (!opponentUserId) {
+      console.log('[WEBRTC HOOK] Subscription waiting for opponentUserId');
       return;
     }
 
     console.log('[WEBRTC HOOK] ========== SUBSCRIPTION SETUP ==========');
-    console.log('[WEBRTC HOOK] Creating subscription for room:', matchId);
-    console.log('[WEBRTC HOOK] My user ID:', currentUserId);
-    console.log('[WEBRTC HOOK] Opponent ID:', opponentId);
-    console.log('[WEBRTC HOOK] Filter: room_id=eq.' + matchId + ',to_user=eq.' + currentUserId);
-    console.log('[WEBRTC HOOK] =======================================');
+    console.log('[WEBRTC HOOK] Creating subscription for room:', roomId);
+    console.log('[WEBRTC HOOK] My user ID:', myUserId);
+    console.log('[WEBRTC HOOK] Opponent ID:', opponentUserId);
+    console.log('[WEBRTC HOOK] Filter: room_id=eq.' + roomId + ',to_user=eq.' + myUserId);
 
     const callSignalChannel = supabase
-      .channel(`call_signals:${matchId}:${currentUserId}`)
+      .channel(`call_signals:${roomId}:${myUserId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "match_call_signals",
-          filter: `room_id=eq.${matchId},to_user=eq.${currentUserId}`,
+          filter: `room_id=eq.${roomId},to_user=eq.${myUserId}`,
         },
         async (payload) => {
           const signal = payload.new as any;
@@ -344,17 +396,17 @@ export function useMatchWebRTC({
           console.log('[WEBRTC HOOK] Room:', signal.room_id);
 
           // Safety checks
-          if (signal.from_user === currentUserId) {
+          if (signal.from_user === myUserId) {
             console.warn('[WEBRTC HOOK] WARNING: Received own signal');
             return;
           }
 
-          if (signal.room_id !== matchId) {
+          if (signal.room_id !== roomId) {
             console.warn('[WEBRTC HOOK] WARNING: Signal for wrong room');
             return;
           }
 
-          if (signal.to_user !== currentUserId) {
+          if (signal.to_user !== myUserId) {
             console.warn('[WEBRTC HOOK] WARNING: Signal for wrong user');
             return;
           }
@@ -389,10 +441,7 @@ export function useMatchWebRTC({
             console.error('[WEBRTC HOOK] ========== ERROR PROCESSING SIGNAL ==========');
             console.error('[WEBRTC HOOK] Signal type:', signal.type);
             console.error('[WEBRTC HOOK] Error:', error);
-            console.error('[WEBRTC HOOK] ================================================');
           }
-
-          console.log('[WEBRTC HOOK] ========================================');
         }
       )
       .subscribe((status) => {
@@ -408,39 +457,51 @@ export function useMatchWebRTC({
 
     return () => {
       console.log('[WEBRTC HOOK] ========== SUBSCRIPTION CLEANUP ==========');
-      console.log('[WEBRTC HOOK] Removing channel for room:', matchId);
+      console.log('[WEBRTC HOOK] Removing channel for room:', roomId);
       supabase.removeChannel(callSignalChannel);
     };
-  }, [matchId, currentUserId, opponentId]);
-
-  // ========== TRACK REMOTE STREAM CHANGES ==========
-  useEffect(() => {
-    if (remoteStream) {
-      console.log('[WEBRTC HOOK] ========== REMOTE STREAM AVAILABLE ==========');
-      console.log('[WEBRTC HOOK] Tracks:', remoteStream.getTracks().map(t => ({
-        kind: t.kind,
-        enabled: t.enabled,
-        readyState: t.readyState
-      })));
-    }
-  }, [remoteStream]);
+  }, [roomId, myUserId, opponentUserId]);
 
   // ========== SIGNAL SENDING ==========
   const sendSignal = async (type: string, payload: any) => {
-    if (!matchId || !currentUserId || !opponentId) {
-      console.error('[WEBRTC HOOK] Cannot send signal: missing prerequisites');
+    // Prerequisites check with detailed logging
+    console.log('[WEBRTC HOOK] ========== SEND SIGNAL ==========');
+    console.log('[WEBRTC HOOK] Type:', type);
+    console.log('[WEBRTC HOOK] Prerequisites check:', {
+      roomId: roomId || 'MISSING',
+      myUserId: myUserId || 'MISSING',
+      opponentUserId: opponentUserId || 'MISSING'
+    });
+
+    if (!roomId) {
+      console.error('[WEBRTC HOOK] ❌ Cannot send signal: roomId is missing');
+      return;
+    }
+
+    if (!myUserId) {
+      console.error('[WEBRTC HOOK] ❌ Cannot send signal: myUserId is missing');
+      return;
+    }
+
+    if (!opponentUserId) {
+      console.error('[WEBRTC HOOK] ❌ Cannot send signal: opponentUserId is missing');
       return;
     }
 
     const signalData = {
-      room_id: matchId,
-      from_user: currentUserId,
-      to_user: opponentId,
+      room_id: roomId,
+      from_user: myUserId,
+      to_user: opponentUserId,
       type,
       payload
     };
 
-    console.log('[WEBRTC HOOK] 📤 Sending signal:', type);
+    console.log('[WEBRTC HOOK] 📤 Inserting into match_call_signals:', {
+      room_id: roomId,
+      from_user: myUserId,
+      to_user: opponentUserId,
+      type
+    });
 
     try {
       const { error } = await supabase.from('match_call_signals').insert(signalData);
@@ -621,7 +682,9 @@ export function useMatchWebRTC({
         }
 
         // Send camera state
-        await sendSignal('state', { camera: true });
+        if (roomId && myUserId && opponentUserId) {
+          await sendSignal('state', { camera: true });
+        }
       }
 
     } catch (error: any) {
@@ -647,12 +710,12 @@ export function useMatchWebRTC({
     setCallStatus('idle');
 
     // Send camera state
-    if (opponentId && matchId) {
+    if (opponentUserId && roomId && myUserId) {
       sendSignal('state', { camera: false });
     }
 
     console.log('[WEBRTC HOOK] Camera stopped, keeping peer connection alive');
-  }, [localStream, opponentId, matchId]);
+  }, [localStream, opponentUserId, roomId, myUserId]);
 
   const toggleMic = useCallback(() => {
     if (localStream) {

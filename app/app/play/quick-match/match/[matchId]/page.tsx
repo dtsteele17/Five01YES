@@ -120,15 +120,11 @@ export default function QuickMatchRoomPage() {
   const [editingVisit, setEditingVisit] = useState<{ id: string; score: number; visitNumber: number } | null>(null);
 
   // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
-  // Note: We pass room data to hook, it computes turn internally
-  const isMatchActive = room?.status === 'in_progress';
-
+  // Hook fetches opponent from match_rooms and manages all signaling
   const webrtc = useMatchWebRTC({
-    matchId,
-    currentUserId,
-    opponentId,
-    isMyTurn: room?.current_turn === currentUserId,
-    isMatchActive
+    roomId: matchId,
+    myUserId: currentUserId,
+    isMyTurn: room?.current_turn === currentUserId
   });
 
   // Destructure for backward compatibility
