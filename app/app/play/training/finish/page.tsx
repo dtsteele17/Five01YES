@@ -55,6 +55,7 @@ function FinishTrainingContent() {
   const [totalDarts, setTotalDarts] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [successfulCheckouts, setSuccessfulCheckouts] = useState(0);
+  const [finishesHit, setFinishesHit] = useState<number[]>([]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -125,6 +126,7 @@ function FinishTrainingContent() {
     let dartsCount = 0;
     let attemptsCount = 0;
     let successCount = 0;
+    const successfulTargets: number[] = [];
 
     Object.keys(attemptMap).forEach((key) => {
       const attemptDarts = attemptMap[key];
@@ -146,6 +148,7 @@ function FinishTrainingContent() {
       if (lastDart.result?.success) {
         result = 'Success';
         successCount += 1;
+        successfulTargets.push(target);
       } else if (lastDart.result?.bust) {
         result = 'Bust';
       }
@@ -180,6 +183,7 @@ function FinishTrainingContent() {
     setTotalDarts(dartsCount);
     setTotalAttempts(attemptsCount);
     setSuccessfulCheckouts(successCount);
+    setFinishesHit(successfulTargets);
   };
 
   const getNewTarget = async () => {
@@ -275,6 +279,63 @@ function FinishTrainingContent() {
     }
   };
 
+  const handleBustClick = async () => {
+    if (!currentTarget || !sessionId) return;
+
+    const dartsThrown = currentDarts.length;
+
+    // Update stats - only count darts actually thrown
+    setTotalDarts(totalDarts + dartsThrown);
+    setTotalAttempts(totalAttempts + 1);
+
+    // Calculate visit total from current darts
+    const visitTotal = currentDarts.reduce((sum, dart) => sum + dart.value, 0);
+
+    // Record bust in database if any darts were thrown
+    const supabase = createClient();
+    if (dartsThrown > 0) {
+      // Record a final "bust" dart to mark the end
+      await supabase.rpc('rpc_finish_training_record_dart', {
+        p_session_id: sessionId,
+        p_attempt_no: attemptNo,
+        p_dart_no: dartsThrown,
+        p_input: {
+          mode: 'bust_button',
+          target: currentTarget,
+          attempt_no: attemptNo,
+          dart_no: dartsThrown,
+        },
+        p_result: {
+          remaining_before: remaining,
+          remaining_after: remaining,
+          bust: true,
+          success: false,
+        },
+      });
+    }
+
+    // Add to history
+    const dartsStr = dartsThrown > 0
+      ? currentDarts.map((d) => d.label).join(', ')
+      : 'No darts thrown';
+
+    setHistory([
+      {
+        target: currentTarget,
+        attemptNo,
+        darts: dartsStr,
+        visitTotal,
+        result: 'Bust',
+      },
+      ...history,
+    ]);
+
+    toast.error('Bust!');
+    setCurrentDarts([]);
+    setRemaining(currentTarget);
+    await incrementAttempt();
+  };
+
   const handleTypedVisitSubmit = async () => {
     if (!currentTarget || !sessionId) return;
 
@@ -324,10 +385,9 @@ function FinishTrainingContent() {
       });
     }
 
-    // Add to history
+    // Add to history (newest first)
     const result = success ? 'Success' : bust ? 'Bust' : 'Fail';
     setHistory([
-      ...history,
       {
         target: currentTarget,
         attemptNo,
@@ -335,7 +395,13 @@ function FinishTrainingContent() {
         visitTotal: total,
         result: result as 'Success' | 'Fail' | 'Bust',
       },
+      ...history,
     ]);
+
+    // Track successful finishes
+    if (success) {
+      setFinishesHit([...finishesHit, currentTarget]);
+    }
 
     setTypedVisitValue('');
 
@@ -362,9 +428,8 @@ function FinishTrainingContent() {
     // Calculate visit total
     const visitTotal = darts.reduce((sum, dart) => sum + dart.value, 0);
 
-    // Add to history
+    // Add to history (newest first)
     setHistory([
-      ...history,
       {
         target: currentTarget!,
         attemptNo,
@@ -372,7 +437,13 @@ function FinishTrainingContent() {
         visitTotal,
         result,
       },
+      ...history,
     ]);
+
+    // Track successful finishes
+    if (result === 'Success') {
+      setFinishesHit([...finishesHit, currentTarget!]);
+    }
 
     if (result === 'Success') {
       toast.success('Checkout complete!');
@@ -601,7 +672,7 @@ function FinishTrainingContent() {
                   </TabsContent>
                 </Tabs>
 
-                <div className="flex justify-center pt-2">
+                <div className="grid grid-cols-2 gap-4 pt-2 max-w-2xl mx-auto">
                   <Button
                     onClick={() =>
                       handleDartClick({
@@ -611,9 +682,15 @@ function FinishTrainingContent() {
                       })
                     }
                     disabled={currentDarts.length >= 3}
-                    className="h-16 w-full max-w-md bg-slate-600 hover:bg-slate-700 text-white text-lg font-bold disabled:opacity-30"
+                    className="h-16 bg-slate-600 hover:bg-slate-700 text-white text-lg font-bold disabled:opacity-30"
                   >
                     MISS (0)
+                  </Button>
+                  <Button
+                    onClick={handleBustClick}
+                    className="h-16 bg-red-600 hover:bg-red-700 text-white text-lg font-bold"
+                  >
+                    BUST
                   </Button>
                 </div>
               </div>
@@ -635,13 +712,21 @@ function FinishTrainingContent() {
                     className="bg-slate-700/50 border-slate-600 text-white text-lg h-14"
                   />
                 </div>
-                <Button
-                  onClick={handleTypedVisitSubmit}
-                  disabled={!typedVisitValue}
-                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
-                >
-                  Submit Visit
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={handleTypedVisitSubmit}
+                    disabled={!typedVisitValue}
+                    className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                  >
+                    Submit Visit
+                  </Button>
+                  <Button
+                    onClick={handleBustClick}
+                    className="h-12 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    BUST
+                  </Button>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -743,6 +828,45 @@ function FinishTrainingContent() {
                 <div className="text-blue-300 text-sm mb-1">Checkout Success Rate</div>
                 <div className="text-2xl font-bold text-blue-400">
                   {((successfulCheckouts / totalAttempts) * 100).toFixed(1)}%
+                </div>
+              </div>
+            )}
+
+            {finishesHit.length > 0 && (
+              <>
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                  <div className="text-emerald-300 text-sm uppercase tracking-wider mb-3 text-center">
+                    Highest Finish
+                  </div>
+                  <div className="text-4xl font-bold text-emerald-400 text-center">
+                    {Math.max(...finishesHit)}
+                  </div>
+                </div>
+
+                <div className="bg-slate-700/30 rounded-lg p-4">
+                  <div className="text-slate-400 text-sm uppercase tracking-wider mb-3">
+                    Finishes Hit ({Array.from(new Set(finishesHit)).length} unique)
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(new Set(finishesHit))
+                      .sort((a, b) => b - a)
+                      .map((finish, idx) => (
+                        <Badge
+                          key={idx}
+                          className="bg-emerald-500/20 border-emerald-500 text-emerald-400 text-base px-3 py-1"
+                        >
+                          {finish}
+                        </Badge>
+                      ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {finishesHit.length === 0 && (
+              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
+                <div className="text-slate-400 text-sm">
+                  Highest Finish: <span className="font-semibold">None</span>
                 </div>
               </div>
             )}
