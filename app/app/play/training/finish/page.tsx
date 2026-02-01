@@ -7,7 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Target, ArrowLeft, RefreshCw, Trophy, X } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -41,6 +48,12 @@ function FinishTrainingContent() {
 
   const [typedVisitValue, setTypedVisitValue] = useState<string>('');
   const [inputMode, setInputMode] = useState<'dart_pad' | 'typed'>('dart_pad');
+  const [scoringTab, setScoringTab] = useState<'singles' | 'doubles' | 'trebles' | 'bulls'>('singles');
+
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [totalDarts, setTotalDarts] = useState(0);
+  const [totalAttempts, setTotalAttempts] = useState(0);
+  const [successfulCheckouts, setSuccessfulCheckouts] = useState(0);
 
   useEffect(() => {
     if (!sessionId) {
@@ -108,6 +121,9 @@ function FinishTrainingContent() {
     });
 
     const historyItems: AttemptHistory[] = [];
+    let dartsCount = 0;
+    let attemptsCount = 0;
+    let successCount = 0;
 
     Object.keys(attemptMap).forEach((key) => {
       const attemptDarts = attemptMap[key];
@@ -115,11 +131,20 @@ function FinishTrainingContent() {
       const target = firstDart.target;
       const attemptNo = firstDart.attempt_no;
 
+      // Count darts
+      if (firstDart.input?.mode !== 'typed_total') {
+        dartsCount += attemptDarts.length;
+      } else {
+        dartsCount += 3;
+      }
+      attemptsCount += 1;
+
       // Determine result
       let result: 'Success' | 'Fail' | 'Bust' = 'Fail';
       const lastDart = attemptDarts[attemptDarts.length - 1];
       if (lastDart.result?.success) {
         result = 'Success';
+        successCount += 1;
       } else if (lastDart.result?.bust) {
         result = 'Bust';
       }
@@ -143,6 +168,9 @@ function FinishTrainingContent() {
     });
 
     setHistory(historyItems);
+    setTotalDarts(dartsCount);
+    setTotalAttempts(attemptsCount);
+    setSuccessfulCheckouts(successCount);
   };
 
   const getNewTarget = async () => {
@@ -190,12 +218,22 @@ function FinishTrainingContent() {
     if (remainingAfter < 0) {
       bust = true;
     } else if (remainingAfter === 0) {
-      success = true;
+      // Double-out rule: must finish on a double
+      if (hit.segment === 'D' || hit.segment === 'DB') {
+        success = true;
+      } else {
+        // Invalid finish - not a double
+        toast.error('Checkout must end on a double');
+        return;
+      }
     }
 
     const newDarts = [...currentDarts, hit];
     setCurrentDarts(newDarts);
     setRemaining(bust ? currentTarget : remainingAfter);
+
+    // Update stats
+    setTotalDarts(totalDarts + 1);
 
     // Record dart
     const supabase = createClient();
@@ -245,6 +283,13 @@ function FinishTrainingContent() {
       bust = true;
     } else if (remainingAfter === 0) {
       success = true;
+    }
+
+    // Update stats
+    setTotalDarts(totalDarts + 3);
+    setTotalAttempts(totalAttempts + 1);
+    if (success) {
+      setSuccessfulCheckouts(successfulCheckouts + 1);
     }
 
     // Record 3 darts with typed_total mode
@@ -298,6 +343,12 @@ function FinishTrainingContent() {
   };
 
   const endAttempt = async (result: 'Success' | 'Fail' | 'Bust', darts: DartHit[]) => {
+    // Update stats
+    setTotalAttempts(totalAttempts + 1);
+    if (result === 'Success') {
+      setSuccessfulCheckouts(successfulCheckouts + 1);
+    }
+
     // Add to history
     setHistory([
       ...history,
@@ -382,12 +433,18 @@ function FinishTrainingContent() {
           </Button>
         </div>
 
-        <Card className="bg-slate-800/50 border-slate-700 p-8">
-          <div className="text-center space-y-2">
-            <div className="text-sm text-slate-400">Checkout</div>
-            <div className="text-6xl font-bold text-white">{currentTarget}</div>
-            <div className="text-sm text-slate-400">Attempt {attemptNo}/3</div>
+        <Card className="bg-slate-800/50 border-slate-700 p-6">
+          <div className="grid grid-cols-2 gap-8 mb-4">
+            <div className="text-center space-y-2">
+              <div className="text-sm text-slate-400 uppercase tracking-wider">Checkout</div>
+              <div className="text-6xl font-bold text-emerald-400">{currentTarget}</div>
+            </div>
+            <div className="text-center space-y-2">
+              <div className="text-sm text-slate-400 uppercase tracking-wider">Remaining</div>
+              <div className="text-6xl font-bold text-white">{remaining}</div>
+            </div>
           </div>
+          <div className="text-center text-sm text-slate-400">Attempt {attemptNo}/3</div>
         </Card>
 
         {currentDarts.length > 0 && (
@@ -419,115 +476,131 @@ function FinishTrainingContent() {
 
             <TabsContent value="dart_pad">
               <div className="space-y-4">
-                <div>
-                  <div className="text-sm text-slate-400 mb-2">Singles</div>
-                  <div className="grid grid-cols-10 gap-2">
-                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                <Tabs value={scoringTab} onValueChange={(v) => setScoringTab(v as any)}>
+                  <TabsList className="bg-slate-700/50 w-full grid grid-cols-4 mb-4">
+                    <TabsTrigger value="singles" className="data-[state=active]:bg-blue-500">
+                      Singles
+                    </TabsTrigger>
+                    <TabsTrigger value="doubles" className="data-[state=active]:bg-green-500">
+                      Doubles
+                    </TabsTrigger>
+                    <TabsTrigger value="trebles" className="data-[state=active]:bg-orange-500">
+                      Trebles
+                    </TabsTrigger>
+                    <TabsTrigger value="bulls" className="data-[state=active]:bg-red-500">
+                      Bulls
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="singles">
+                    <div className="grid grid-cols-10 gap-2">
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                        <Button
+                          key={`S${num}`}
+                          onClick={() =>
+                            handleDartClick({
+                              segment: 'S',
+                              value: num,
+                              label: `S${num}`,
+                            })
+                          }
+                          disabled={currentDarts.length >= 3}
+                          className="h-14 bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-30"
+                        >
+                          {num}
+                        </Button>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="doubles">
+                    <div className="grid grid-cols-10 gap-2">
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                        <Button
+                          key={`D${num}`}
+                          onClick={() =>
+                            handleDartClick({
+                              segment: 'D',
+                              value: num * 2,
+                              label: `D${num}`,
+                            })
+                          }
+                          disabled={currentDarts.length >= 3}
+                          className="h-14 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-30"
+                        >
+                          {num}
+                        </Button>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="trebles">
+                    <div className="grid grid-cols-10 gap-2">
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                        <Button
+                          key={`T${num}`}
+                          onClick={() =>
+                            handleDartClick({
+                              segment: 'T',
+                              value: num * 3,
+                              label: `T${num}`,
+                            })
+                          }
+                          disabled={currentDarts.length >= 3}
+                          className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold disabled:opacity-30"
+                        >
+                          {num}
+                        </Button>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="bulls">
+                    <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                       <Button
-                        key={`S${num}`}
                         onClick={() =>
                           handleDartClick({
-                            segment: 'S',
-                            value: num,
-                            label: `S${num}`,
+                            segment: 'SB',
+                            value: 25,
+                            label: 'SBull',
                           })
                         }
                         disabled={currentDarts.length >= 3}
-                        className="h-12 bg-blue-600 hover:bg-blue-700 text-white text-sm disabled:opacity-30"
+                        className="h-20 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold disabled:opacity-30"
                       >
-                        S{num}
+                        Single Bull (25)
                       </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm text-slate-400 mb-2">Doubles</div>
-                  <div className="grid grid-cols-10 gap-2">
-                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
                       <Button
-                        key={`D${num}`}
                         onClick={() =>
                           handleDartClick({
-                            segment: 'D',
-                            value: num * 2,
-                            label: `D${num}`,
+                            segment: 'DB',
+                            value: 50,
+                            label: 'DBull',
                           })
                         }
                         disabled={currentDarts.length >= 3}
-                        className="h-12 bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-30"
+                        className="h-20 bg-red-600 hover:bg-red-700 text-white text-lg font-semibold disabled:opacity-30"
                       >
-                        D{num}
+                        Double Bull (50)
                       </Button>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
 
-                <div>
-                  <div className="text-sm text-slate-400 mb-2">Trebles</div>
-                  <div className="grid grid-cols-10 gap-2">
-                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                      <Button
-                        key={`T${num}`}
-                        onClick={() =>
-                          handleDartClick({
-                            segment: 'T',
-                            value: num * 3,
-                            label: `T${num}`,
-                          })
-                        }
-                        disabled={currentDarts.length >= 3}
-                        className="h-12 bg-purple-600 hover:bg-purple-700 text-white text-sm disabled:opacity-30"
-                      >
-                        T{num}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm text-slate-400 mb-2">Bulls & Miss</div>
-                  <div className="grid grid-cols-3 gap-2 max-w-md">
-                    <Button
-                      onClick={() =>
-                        handleDartClick({
-                          segment: 'SB',
-                          value: 25,
-                          label: 'SBull',
-                        })
-                      }
-                      disabled={currentDarts.length >= 3}
-                      className="h-12 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-30"
-                    >
-                      SBull
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        handleDartClick({
-                          segment: 'DB',
-                          value: 50,
-                          label: 'DBull',
-                        })
-                      }
-                      disabled={currentDarts.length >= 3}
-                      className="h-12 bg-green-600 hover:bg-green-700 text-white disabled:opacity-30"
-                    >
-                      DBull
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        handleDartClick({
-                          segment: 'MISS',
-                          value: 0,
-                          label: 'Miss',
-                        })
-                      }
-                      disabled={currentDarts.length >= 3}
-                      className="h-12 bg-slate-600 hover:bg-slate-700 text-white disabled:opacity-30"
-                    >
-                      Miss
-                    </Button>
-                  </div>
+                <div className="flex justify-center pt-2">
+                  <Button
+                    onClick={() =>
+                      handleDartClick({
+                        segment: 'MISS',
+                        value: 0,
+                        label: 'Miss',
+                      })
+                    }
+                    disabled={currentDarts.length >= 3}
+                    className="h-16 w-full max-w-md bg-slate-600 hover:bg-slate-700 text-white text-lg font-bold disabled:opacity-30"
+                  >
+                    MISS (0)
+                  </Button>
                 </div>
               </div>
             </TabsContent>
@@ -602,7 +675,79 @@ function FinishTrainingContent() {
             </div>
           </Card>
         )}
+
+        <div className="flex justify-center pb-8">
+          <Button
+            onClick={() => setShowStatsModal(true)}
+            className="h-14 px-12 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
+          >
+            <TrendingUp className="mr-2 h-5 w-5" />
+            End Session
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center mb-4">
+              Session Stats
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="bg-slate-700/30 rounded-lg p-6 text-center">
+              <div className="text-slate-400 text-sm uppercase tracking-wider mb-2">
+                Total Darts Thrown
+              </div>
+              <div className="text-5xl font-bold text-emerald-400">{totalDarts}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
+                <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
+                  Total Attempts
+                </div>
+                <div className="text-3xl font-bold text-white">{totalAttempts}</div>
+              </div>
+
+              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
+                <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
+                  Successful Checkouts
+                </div>
+                <div className="text-3xl font-bold text-emerald-400">
+                  {successfulCheckouts}
+                </div>
+              </div>
+            </div>
+
+            {totalAttempts > 0 && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-center">
+                <div className="text-blue-300 text-sm mb-1">Checkout Success Rate</div>
+                <div className="text-2xl font-bold text-blue-400">
+                  {((successfulCheckouts / totalAttempts) * 100).toFixed(1)}%
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowStatsModal(false)}
+              className="flex-1 border-slate-600 text-white hover:bg-slate-700"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => router.push('/app/play')}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              Back to Play
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
