@@ -28,6 +28,7 @@ interface AttemptHistory {
   target: number;
   attemptNo: number;
   darts: string;
+  visitTotal: number;
   result: 'Success' | 'Fail' | 'Bust';
 }
 
@@ -149,20 +150,28 @@ function FinishTrainingContent() {
         result = 'Bust';
       }
 
-      // Format darts string
+      // Format darts string and calculate visit total
       let dartsStr = '';
+      let visitTotal = 0;
       if (firstDart.input?.mode === 'typed_total') {
-        dartsStr = `Total: ${firstDart.input.typed_total}`;
+        visitTotal = firstDart.input.typed_total || 0;
+        dartsStr = attemptDarts
+          .map((d: any) => d.input?.hit?.label || 'Miss')
+          .join(', ');
       } else {
         dartsStr = attemptDarts
           .map((d: any) => d.input?.hit?.label || 'Miss')
           .join(', ');
+        visitTotal = attemptDarts.reduce((sum: number, d: any) => {
+          return sum + (d.input?.hit?.value || 0);
+        }, 0);
       }
 
       historyItems.push({
         target,
         attemptNo,
         darts: dartsStr,
+        visitTotal,
         result,
       });
     });
@@ -222,9 +231,9 @@ function FinishTrainingContent() {
       if (hit.segment === 'D' || hit.segment === 'DB') {
         success = true;
       } else {
-        // Invalid finish - not a double
+        // Invalid finish - not a double, mark as BUST
+        bust = true;
         toast.error('Checkout must end on a double');
-        return;
       }
     }
 
@@ -322,7 +331,8 @@ function FinishTrainingContent() {
       {
         target: currentTarget,
         attemptNo,
-        darts: `Total: ${total}`,
+        darts: `Visit (typed)`,
+        visitTotal: total,
         result: result as 'Success' | 'Fail' | 'Bust',
       },
     ]);
@@ -349,6 +359,9 @@ function FinishTrainingContent() {
       setSuccessfulCheckouts(successfulCheckouts + 1);
     }
 
+    // Calculate visit total
+    const visitTotal = darts.reduce((sum, dart) => sum + dart.value, 0);
+
     // Add to history
     setHistory([
       ...history,
@@ -356,6 +369,7 @@ function FinishTrainingContent() {
         target: currentTarget!,
         attemptNo,
         darts: darts.map((d) => d.label).join(', '),
+        visitTotal,
         result,
       },
     ]);
@@ -635,14 +649,14 @@ function FinishTrainingContent() {
 
         {history.length > 0 && (
           <Card className="bg-slate-800/50 border-slate-700 p-4">
-            <div className="text-sm font-semibold text-white mb-3">History</div>
+            <div className="text-sm font-semibold text-white mb-3">Visit History</div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {history.map((item, idx) => (
                 <div
                   key={idx}
                   className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <div className="text-white font-semibold">
                       <Target className="inline w-4 h-4 mr-1" />
                       {item.target}
@@ -651,6 +665,9 @@ function FinishTrainingContent() {
                       Attempt {item.attemptNo}/3
                     </div>
                     <div className="text-slate-300 text-sm">{item.darts}</div>
+                    <div className="text-emerald-400 font-semibold text-sm">
+                      Total: {item.visitTotal}
+                    </div>
                   </div>
                   <Badge
                     variant={

@@ -89,8 +89,8 @@ export default function PlayPage() {
   const [atcSegmentRule, setAtcSegmentRule] = useState<'singles_only' | 'doubles_only' | 'trebles_only' | 'increase_by_segment'>('increase_by_segment');
 
   // Finish Training settings
-  const [finishMin, setFinishMin] = useState<number>(2);
-  const [finishMax, setFinishMax] = useState<number>(40);
+  const [finishMin, setFinishMin] = useState<string>('');
+  const [finishMax, setFinishMax] = useState<string>('');
 
   useEffect(() => {
     fetchRecentMatches();
@@ -356,8 +356,31 @@ export default function PlayPage() {
         router.push('/app/play/training/form-analysis');
       } else if (practiceGameMode === 'finish-training') {
         // Validate finish training settings
-        if (finishMin < 2 || finishMin > 150 || finishMax > 170 || finishMin >= finishMax) {
-          toast.error('Invalid min/max values');
+        if (finishMin === '' || finishMax === '') {
+          toast.error('Both boxes should have a number in');
+          return;
+        }
+
+        const minVal = parseInt(finishMin);
+        const maxVal = parseInt(finishMax);
+
+        if (isNaN(minVal) || isNaN(maxVal)) {
+          toast.error('Both boxes should have a number in');
+          return;
+        }
+
+        if (minVal < 2 || minVal > 150) {
+          toast.error('Minimum must be between 2-150');
+          return;
+        }
+
+        if (maxVal < 2 || maxVal > 170) {
+          toast.error('Maximum must be between 2-170');
+          return;
+        }
+
+        if (minVal >= maxVal) {
+          toast.error('Minimum must be less than maximum');
           return;
         }
 
@@ -365,8 +388,8 @@ export default function PlayPage() {
         const supabase = createClient();
         try {
           const { data, error } = await supabase.rpc('rpc_finish_training_create_session', {
-            p_min: finishMin,
-            p_max: finishMax,
+            p_min: minVal,
+            p_max: maxVal,
           });
 
           if (error || !data?.ok) {
@@ -379,8 +402,8 @@ export default function PlayPage() {
 
           // Get first random checkout
           const { data: checkoutData, error: checkoutError } = await supabase.rpc('rpc_finish_training_random_checkout', {
-            p_min: finishMin,
-            p_max: finishMax,
+            p_min: minVal,
+            p_max: maxVal,
           });
 
           if (checkoutError || !checkoutData?.ok) {
@@ -646,14 +669,15 @@ export default function PlayPage() {
                               min="2"
                               max="150"
                               value={finishMin}
-                              onChange={(e) => setFinishMin(parseInt(e.target.value) || 2)}
-                              className={`w-full px-3 py-2 bg-slate-800/50 border rounded-lg text-white ${
-                                finishMin < 2 || finishMin > 150 || finishMin >= finishMax
+                              onChange={(e) => setFinishMin(e.target.value)}
+                              placeholder="2-150"
+                              className={`w-full px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder:text-gray-500 ${
+                                finishMin !== '' && (parseInt(finishMin) < 2 || parseInt(finishMin) > 150 || (finishMax !== '' && parseInt(finishMin) >= parseInt(finishMax)))
                                   ? 'border-red-500/50'
                                   : 'border-emerald-500/30'
                               }`}
                             />
-                            {(finishMin < 2 || finishMin > 150) && (
+                            {finishMin !== '' && (parseInt(finishMin) < 2 || parseInt(finishMin) > 150) && (
                               <p className="text-xs text-red-400 mt-1">Must be between 2-150</p>
                             )}
                           </div>
@@ -665,20 +689,21 @@ export default function PlayPage() {
                               min="2"
                               max="170"
                               value={finishMax}
-                              onChange={(e) => setFinishMax(parseInt(e.target.value) || 40)}
-                              className={`w-full px-3 py-2 bg-slate-800/50 border rounded-lg text-white ${
-                                finishMax > 170 || finishMax <= finishMin
+                              onChange={(e) => setFinishMax(e.target.value)}
+                              placeholder="2-170"
+                              className={`w-full px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder:text-gray-500 ${
+                                finishMax !== '' && (parseInt(finishMax) > 170 || (finishMin !== '' && parseInt(finishMax) <= parseInt(finishMin)))
                                   ? 'border-red-500/50'
                                   : 'border-emerald-500/30'
                               }`}
                             />
-                            {finishMax > 170 && (
+                            {finishMax !== '' && parseInt(finishMax) > 170 && (
                               <p className="text-xs text-red-400 mt-1">Must be 170 or less</p>
                             )}
                           </div>
                         </div>
 
-                        {finishMin >= finishMax && (
+                        {finishMin !== '' && finishMax !== '' && parseInt(finishMin) >= parseInt(finishMax) && (
                           <p className="text-xs text-red-400">Minimum must be less than maximum</p>
                         )}
                       </div>
@@ -740,7 +765,10 @@ export default function PlayPage() {
                 disabled={
                   trainingMode === 'practice-games' &&
                   practiceGameMode === 'finish-training' &&
-                  (finishMin < 2 || finishMin > 150 || finishMax > 170 || finishMin >= finishMax)
+                  (finishMin === '' || finishMax === '' ||
+                   parseInt(finishMin) < 2 || parseInt(finishMin) > 150 ||
+                   parseInt(finishMax) < 2 || parseInt(finishMax) > 170 ||
+                   parseInt(finishMin) >= parseInt(finishMax))
                 }
                 className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
               >
