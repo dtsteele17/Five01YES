@@ -524,100 +524,44 @@ export default function PlayPage() {
                       <div className="space-y-3">
                         <div>
                           <label className="text-sm font-medium text-white mb-2 block">Target order</label>
-                          <p className="text-xs text-gray-400 mb-3">Choose how the targets are presented during the session.</p>
-                          <div className="space-y-2">
-                            <label className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
-                              <input
-                                type="radio"
-                                name="atc-order"
-                                value="in_order"
-                                checked={atcOrderMode === 'in_order'}
-                                onChange={(e) => setAtcOrderMode(e.target.value as 'in_order' | 'random')}
-                                className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-white font-medium">In order (1–20 + Bull)</div>
-                                <div className="text-xs text-gray-400 mt-1">Progress from 1 to 20, then finish on Bull.</div>
-                              </div>
-                            </label>
-                            <label className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
-                              <input
-                                type="radio"
-                                name="atc-order"
-                                value="random"
-                                checked={atcOrderMode === 'random'}
-                                onChange={(e) => setAtcOrderMode(e.target.value as 'in_order' | 'random')}
-                                className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-white font-medium">Random (1–20 + Bull)</div>
-                                <div className="text-xs text-gray-400 mt-1">You'll be given a random target each time until all are completed.</div>
-                              </div>
-                            </label>
-                          </div>
+                          <p className="text-xs text-gray-400 mb-2">Choose how the targets are presented during the session.</p>
+                          <Select value={atcOrderMode} onValueChange={(v) => setAtcOrderMode(v as 'in_order' | 'random')}>
+                            <SelectTrigger className="bg-slate-800/50 border-emerald-500/30 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-emerald-500/30">
+                              <SelectItem value="in_order" className="text-white hover:bg-emerald-500/20">
+                                In order (1–20 + Bull)
+                              </SelectItem>
+                              <SelectItem value="random" className="text-white hover:bg-emerald-500/20">
+                                Random (1–20 + Bull)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div>
                           <label className="text-sm font-medium text-white mb-2 block">Segment rule</label>
-                          <p className="text-xs text-gray-400 mb-3">Choose what counts as a valid hit and how progress advances.</p>
-                          <div className="space-y-2">
-                            <label className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
-                              <input
-                                type="radio"
-                                name="atc-segment"
-                                value="singles_only"
-                                checked={atcSegmentRule === 'singles_only'}
-                                onChange={(e) => setAtcSegmentRule(e.target.value as any)}
-                                className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-white font-medium">Singles only</div>
-                                <div className="text-xs text-gray-400 mt-1">Any hit on the target number counts as 1 step (no skipping).</div>
-                              </div>
-                            </label>
-                            <label className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
-                              <input
-                                type="radio"
-                                name="atc-segment"
-                                value="doubles_only"
-                                checked={atcSegmentRule === 'doubles_only'}
-                                onChange={(e) => setAtcSegmentRule(e.target.value as any)}
-                                className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-white font-medium">Doubles only</div>
-                                <div className="text-xs text-gray-400 mt-1">Only doubles on the target number count.</div>
-                              </div>
-                            </label>
-                            <label className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
-                              <input
-                                type="radio"
-                                name="atc-segment"
-                                value="trebles_only"
-                                checked={atcSegmentRule === 'trebles_only'}
-                                onChange={(e) => setAtcSegmentRule(e.target.value as any)}
-                                className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-white font-medium">Trebles only</div>
-                                <div className="text-xs text-gray-400 mt-1">Only trebles on the target number count.</div>
-                              </div>
-                            </label>
-                            <label className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-lg border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
-                              <input
-                                type="radio"
-                                name="atc-segment"
-                                value="increase_by_segment"
-                                checked={atcSegmentRule === 'increase_by_segment'}
-                                onChange={(e) => setAtcSegmentRule(e.target.value as any)}
-                                className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                              />
-                              <div className="flex-1">
-                                <div className="text-white font-medium">Increase by segment</div>
-                                <div className="text-xs text-gray-400 mt-1">Singles advance 1, doubles advance 2, trebles advance 3 (can skip targets).</div>
-                              </div>
-                            </label>
-                          </div>
+                          <p className="text-xs text-gray-400 mb-2">Choose what counts as a valid hit and how progress advances.</p>
+                          <Select value={atcSegmentRule} onValueChange={(v) => setAtcSegmentRule(v as any)}>
+                            <SelectTrigger className="bg-slate-800/50 border-emerald-500/30 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-emerald-500/30">
+                              <SelectItem value="singles_only" className="text-white hover:bg-emerald-500/20">
+                                Singles only
+                              </SelectItem>
+                              <SelectItem value="doubles_only" className="text-white hover:bg-emerald-500/20">
+                                Doubles only
+                              </SelectItem>
+                              <SelectItem value="trebles_only" className="text-white hover:bg-emerald-500/20">
+                                Trebles only
+                              </SelectItem>
+                              <SelectItem value="increase_by_segment" className="text-white hover:bg-emerald-500/20">
+                                Increase by segment
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </>

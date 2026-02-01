@@ -23,11 +23,21 @@ import {
   getTotalTargetsCount,
   getCompletedCount,
   getAccuracy,
-  formatThrowInput,
   type ATCSessionState,
   type ATCThrowInput,
   type ATCSegment,
+  type AroundClockSegmentRule,
 } from '@/lib/training/aroundTheClock';
+
+interface DartThrow {
+  segment: ATCSegment;
+  number?: number;
+  label: string;
+}
+
+interface Visit {
+  darts: DartThrow[];
+}
 
 export default function AroundTheClockPage() {
   const router = useRouter();
@@ -36,22 +46,22 @@ export default function AroundTheClockPage() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [startTime, setStartTime] = useState<number>(Date.now());
 
+  // Visit tracking
+  const [currentVisit, setCurrentVisit] = useState<DartThrow[]>([]);
+  const [visitHistory, setVisitHistory] = useState<Visit[]>([]);
+  const [dartNumberInVisit, setDartNumberInVisit] = useState<number>(1);
+
   useEffect(() => {
-    // Check if we have training config with ATC settings
     if (!config || config.mode !== 'around-the-clock' || !config.atcSettings) {
       console.error('[ATC] No valid training config found, redirecting to Play');
       router.push('/app/play');
       return;
     }
 
-    // Initialize session
     const initialState = initSession(config.atcSettings);
     setState(initialState);
     setStartTime(Date.now());
-
-    // Create session in database
     createTrainingSession(config.atcSettings);
-
     setIsInitializing(false);
   }, [config, router]);
 
@@ -104,6 +114,10 @@ export default function AroundTheClockPage() {
     }
   };
 
+  const formatThrowLabel = (dart: DartThrow): string => {
+    return dart.label;
+  };
+
   const handleDart = (segment: ATCSegment, number?: number) => {
     if (!state || state.isComplete) return;
 
@@ -112,8 +126,43 @@ export default function AroundTheClockPage() {
 
     setState(newState);
 
-    // Record throw in database
-    recordThrow(1, throwInput, result); // Using dart_number=1 since we're recording individual throws
+    // Create label for display
+    let label = '';
+    if (segment === 'MISS') {
+      label = 'Miss';
+    } else if (segment === 'SB') {
+      label = 'SBull';
+    } else if (segment === 'DB') {
+      label = 'DBull';
+    } else if (segment === 'S') {
+      label = `S${number}`;
+    } else if (segment === 'D') {
+      label = `D${number}`;
+    } else if (segment === 'T') {
+      label = `T${number}`;
+    }
+
+    const dartThrow: DartThrow = { segment, number, label };
+
+    // Add to current visit
+    const newCurrentVisit = [...currentVisit, dartThrow];
+    setCurrentVisit(newCurrentVisit);
+
+    // Record throw in database with cycling dart_number 1-3
+    recordThrow(dartNumberInVisit, throwInput, result);
+
+    // Check if visit is complete (3 darts)
+    if (newCurrentVisit.length === 3) {
+      // Move current visit to history
+      setVisitHistory(prev => [...prev, { darts: newCurrentVisit }]);
+      // Reset current visit
+      setCurrentVisit([]);
+      // Reset dart number
+      setDartNumberInVisit(1);
+    } else {
+      // Increment dart number for next throw
+      setDartNumberInVisit(dartNumberInVisit + 1);
+    }
 
     // Check if session completed
     if (newState.isComplete && state.sessionId) {
@@ -147,11 +196,203 @@ export default function AroundTheClockPage() {
     const initialState = initSession(config.atcSettings);
     setState(initialState);
     setStartTime(Date.now());
+    setCurrentVisit([]);
+    setVisitHistory([]);
+    setDartNumberInVisit(1);
     createTrainingSession(config.atcSettings);
   };
 
   const handleReturn = () => {
     router.push('/app/play');
+  };
+
+  const renderThrowButtons = () => {
+    if (!state || !config?.atcSettings) return null;
+
+    const { currentTarget } = state;
+    const { segmentRule } = config.atcSettings;
+
+    if (state.isComplete) {
+      return (
+        <div className="text-center py-8 text-slate-400">
+          Session completed! View your stats in the summary.
+        </div>
+      );
+    }
+
+    // Mode-specific buttons
+    if (currentTarget === 'bull') {
+      // Bull target
+      if (segmentRule === 'singles_only') {
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleDart('SB')}
+              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              SBull
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      } else if (segmentRule === 'doubles_only') {
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleDart('DB')}
+              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+            >
+              DBull
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      } else if (segmentRule === 'trebles_only') {
+        // Treble bull doesn't exist, show SBull and DBull
+        return (
+          <div className="grid grid-cols-3 gap-3">
+            <Button
+              onClick={() => handleDart('SB')}
+              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              SBull
+            </Button>
+            <Button
+              onClick={() => handleDart('DB')}
+              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+            >
+              DBull
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      } else {
+        // increase_by_segment
+        return (
+          <div className="grid grid-cols-3 gap-3">
+            <Button
+              onClick={() => handleDart('SB')}
+              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              SBull
+            </Button>
+            <Button
+              onClick={() => handleDart('DB')}
+              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+            >
+              DBull
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      }
+    } else {
+      // Number target (1-20)
+      const targetNumber = currentTarget as number;
+
+      if (segmentRule === 'singles_only') {
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleDart('S', targetNumber)}
+              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              S{targetNumber}
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      } else if (segmentRule === 'doubles_only') {
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleDart('D', targetNumber)}
+              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+            >
+              D{targetNumber}
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      } else if (segmentRule === 'trebles_only') {
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleDart('T', targetNumber)}
+              className="h-16 text-lg bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              T{targetNumber}
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      } else {
+        // increase_by_segment
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={() => handleDart('S', targetNumber)}
+              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              S{targetNumber}
+            </Button>
+            <Button
+              onClick={() => handleDart('D', targetNumber)}
+              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+            >
+              D{targetNumber}
+            </Button>
+            <Button
+              onClick={() => handleDart('T', targetNumber)}
+              className="h-16 text-lg bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              T{targetNumber}
+            </Button>
+            <Button
+              onClick={() => handleDart('MISS')}
+              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+            >
+              Miss
+            </Button>
+          </div>
+        );
+      }
+    }
   };
 
   if (isInitializing || !state) {
@@ -166,9 +407,7 @@ export default function AroundTheClockPage() {
   const completedCount = getCompletedCount(state);
   const totalCount = getTotalTargetsCount();
   const accuracy = getAccuracy(state);
-  const elapsedTime = state.isComplete
-    ? (Date.now() - startTime)
-    : (Date.now() - startTime);
+  const elapsedTime = Date.now() - startTime;
 
   const formatTime = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -194,7 +433,7 @@ export default function AroundTheClockPage() {
         </div>
 
         <Card className="bg-slate-800/50 border-slate-700 p-6">
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Target className="h-8 w-8 text-blue-400" />
@@ -245,63 +484,42 @@ export default function AroundTheClockPage() {
 
         <Card className="bg-slate-800/50 border-slate-700 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Throw Dart</h3>
-          {state.currentTarget === 'bull' ? (
-            <div className="grid grid-cols-3 gap-3">
-              <Button
-                onClick={() => handleDart('SB')}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Single Bull
-              </Button>
-              <Button
-                onClick={() => handleDart('DB')}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-              >
-                Bullseye
-              </Button>
-              <Button
-                onClick={() => handleDart('MISS')}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-              >
-                Miss
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={() => handleDart('S', state.currentTarget as number)}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Single {currentTargetLabel}
-              </Button>
-              <Button
-                onClick={() => handleDart('D', state.currentTarget as number)}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-              >
-                Double {currentTargetLabel}
-              </Button>
-              <Button
-                onClick={() => handleDart('T', state.currentTarget as number)}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Treble {currentTargetLabel}
-              </Button>
-              <Button
-                onClick={() => handleDart('MISS')}
-                disabled={state.isComplete}
-                className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-              >
-                Miss
-              </Button>
-            </div>
-          )}
+          {renderThrowButtons()}
         </Card>
+
+        {/* Current Visit */}
+        {currentVisit.length > 0 && (
+          <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <div className="text-sm font-semibold text-white mb-2">Current Visit</div>
+            <div className="flex gap-4">
+              {currentVisit.map((dart, idx) => (
+                <div key={idx} className="text-slate-300">
+                  <span className="text-slate-500">Dart {idx + 1}:</span> {formatThrowLabel(dart)}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Visit History */}
+        {visitHistory.length > 0 && (
+          <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <div className="text-sm font-semibold text-white mb-3">Visit History</div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {visitHistory.map((visit, visitIdx) => (
+                <div key={visitIdx} className="text-slate-300 text-sm">
+                  <span className="text-slate-500">Visit {visitIdx + 1}:</span>{' '}
+                  {visit.darts.map((dart, dartIdx) => (
+                    <span key={dartIdx}>
+                      {formatThrowLabel(dart)}
+                      {dartIdx < visit.darts.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
 
       <Dialog open={state.isComplete} onOpenChange={() => {}}>
