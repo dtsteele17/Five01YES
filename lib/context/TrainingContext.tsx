@@ -9,6 +9,11 @@ export interface TrainingConfig {
   doubleOut: boolean;
   bestOf: 'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7';
   atcOpponent: 'solo' | 'bot';
+  atcSettings?: {
+    orderMode: 'in_order' | 'random';
+    segmentRule: 'singles_only' | 'doubles_only' | 'trebles_only' | 'increase_by_segment';
+    includeBull: boolean;
+  };
 }
 
 interface TrainingContextType {
