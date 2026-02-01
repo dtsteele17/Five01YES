@@ -79,7 +79,7 @@ export default function PlayPage() {
   const autoQueueAttempted = useRef(false);
 
   const [trainingMode, setTrainingMode] = useState<'301' | '501' | 'practice-games'>('501');
-  const [practiceGameMode, setPracticeGameMode] = useState<'around-the-clock' | 'form-analysis'>('around-the-clock');
+  const [practiceGameMode, setPracticeGameMode] = useState<'around-the-clock' | 'form-analysis' | 'finish-training'>('around-the-clock');
   const [botDifficulty, setBotDifficulty] = useState<keyof typeof BOT_DIFFICULTY_CONFIG>('intermediate');
   const [doubleOut, setDoubleOut] = useState(true);
   const [bestOf, setBestOf] = useState<'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7'>('best-of-3');
@@ -87,6 +87,10 @@ export default function PlayPage() {
   // Around The Clock settings
   const [atcOrderMode, setAtcOrderMode] = useState<'in_order' | 'random'>('in_order');
   const [atcSegmentRule, setAtcSegmentRule] = useState<'singles_only' | 'doubles_only' | 'trebles_only' | 'increase_by_segment'>('increase_by_segment');
+
+  // Finish Training settings
+  const [finishMin, setFinishMin] = useState<number>(2);
+  const [finishMax, setFinishMax] = useState<number>(40);
 
   useEffect(() => {
     fetchRecentMatches();
@@ -346,10 +350,65 @@ export default function PlayPage() {
     };
   }, []);
 
-  const handleStartTraining = () => {
+  const handleStartTraining = async () => {
     if (trainingMode === 'practice-games') {
       if (practiceGameMode === 'form-analysis') {
         router.push('/app/play/training/form-analysis');
+      } else if (practiceGameMode === 'finish-training') {
+        // Validate finish training settings
+        if (finishMin < 2 || finishMin > 150 || finishMax > 170 || finishMin >= finishMax) {
+          toast.error('Invalid min/max values');
+          return;
+        }
+
+        // Create session
+        const supabase = createClient();
+        try {
+          const { data, error } = await supabase.rpc('rpc_finish_training_create_session', {
+            p_min: finishMin,
+            p_max: finishMax,
+          });
+
+          if (error || !data?.ok) {
+            console.error('[Finish Training] Failed to create session:', error);
+            toast.error('Failed to create training session');
+            return;
+          }
+
+          const sessionId = data.session_id;
+
+          // Get first random checkout
+          const { data: checkoutData, error: checkoutError } = await supabase.rpc('rpc_finish_training_random_checkout', {
+            p_min: finishMin,
+            p_max: finishMax,
+          });
+
+          if (checkoutError || !checkoutData?.ok) {
+            console.error('[Finish Training] Failed to get checkout:', checkoutError);
+            toast.error('Failed to get checkout number');
+            return;
+          }
+
+          const checkout = checkoutData.checkout;
+
+          // Set initial state
+          const { error: stateError } = await supabase.rpc('rpc_finish_training_set_state', {
+            p_session_id: sessionId,
+            p_state: { current_target: checkout, attempt_no: 1 },
+          });
+
+          if (stateError) {
+            console.error('[Finish Training] Failed to set state:', stateError);
+            toast.error('Failed to set training state');
+            return;
+          }
+
+          // Navigate to finish training page
+          router.push(`/app/play/training/finish?session_id=${sessionId}`);
+        } catch (err) {
+          console.error('[Finish Training] Exception:', err);
+          toast.error('Failed to start training');
+        }
       } else {
         // Around The Clock with settings
         const config: TrainingConfig = {
@@ -504,7 +563,7 @@ export default function PlayPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Training Game</label>
-                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as 'around-the-clock' | 'form-analysis')}>
+                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as 'around-the-clock' | 'form-analysis' | 'finish-training')}>
                       <SelectTrigger className="bg-slate-800/50 border-emerald-500/30 text-white">
                         <SelectValue />
                       </SelectTrigger>
@@ -514,6 +573,9 @@ export default function PlayPage() {
                         </SelectItem>
                         <SelectItem value="form-analysis" className="text-white hover:bg-emerald-500/20">
                           Throwing Form Analysis
+                        </SelectItem>
+                        <SelectItem value="finish-training" className="text-white hover:bg-emerald-500/20">
+                          Finish Training
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -563,6 +625,62 @@ export default function PlayPage() {
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+                    </>
+                  )}
+
+                  {practiceGameMode === 'finish-training' && (
+                    <>
+                      <div className="space-y-3">
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                          <p className="text-sm text-blue-200">
+                            Finish training generates a random checkout you can complete in 3 darts (up to 170). You get 3 attempts per number, then it changes.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-sm font-medium text-white mb-2 block">Minimum</label>
+                            <input
+                              type="number"
+                              min="2"
+                              max="150"
+                              value={finishMin}
+                              onChange={(e) => setFinishMin(parseInt(e.target.value) || 2)}
+                              className={`w-full px-3 py-2 bg-slate-800/50 border rounded-lg text-white ${
+                                finishMin < 2 || finishMin > 150 || finishMin >= finishMax
+                                  ? 'border-red-500/50'
+                                  : 'border-emerald-500/30'
+                              }`}
+                            />
+                            {(finishMin < 2 || finishMin > 150) && (
+                              <p className="text-xs text-red-400 mt-1">Must be between 2-150</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-white mb-2 block">Maximum</label>
+                            <input
+                              type="number"
+                              min="2"
+                              max="170"
+                              value={finishMax}
+                              onChange={(e) => setFinishMax(parseInt(e.target.value) || 40)}
+                              className={`w-full px-3 py-2 bg-slate-800/50 border rounded-lg text-white ${
+                                finishMax > 170 || finishMax <= finishMin
+                                  ? 'border-red-500/50'
+                                  : 'border-emerald-500/30'
+                              }`}
+                            />
+                            {finishMax > 170 && (
+                              <p className="text-xs text-red-400 mt-1">Must be 170 or less</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {finishMin >= finishMax && (
+                          <p className="text-xs text-red-400">Minimum must be less than maximum</p>
+                        )}
                       </div>
                     </>
                   )}
@@ -619,7 +737,12 @@ export default function PlayPage() {
 
               <Button
                 onClick={handleStartTraining}
-                className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
+                disabled={
+                  trainingMode === 'practice-games' &&
+                  practiceGameMode === 'finish-training' &&
+                  (finishMin < 2 || finishMin > 150 || finishMax > 170 || finishMin >= finishMax)
+                }
+                className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Start Training
               </Button>
