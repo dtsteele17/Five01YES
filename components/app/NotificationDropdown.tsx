@@ -41,7 +41,8 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
       if (data?.ok) {
         toast.success('Joining match!');
-        router.push(`/app/play/private/lobby/${data.room_id}`);
+        const matchId = data.match_id || data.room_id;
+        router.push(`/app/match/online/${matchId}`);
         refreshNotifications();
       } else {
         toast.error(data?.error || 'Failed to accept invite');

@@ -60,11 +60,11 @@ Deno.serve(async (req: Request) => {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name")
+      .select("username")
       .eq("id", user.id)
       .maybeSingle();
 
-    const playerName = profile?.display_name || "Player";
+    const playerName = profile?.username || "Player";
 
     const inviteCode = generateInviteCode();
     const matchFormat = bestOf === 1 ? "best-of-1" : bestOf === 3 ? "best-of-3" : "best-of-5";

@@ -93,7 +93,8 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           if (newStatus === 'accepted') {
             setWaitingForFriend(false);
             toast.success(`${invitedFriendName} accepted!`);
-            router.push(`/app/play/private/lobby/${payload.new.room_id}`);
+            onClose();
+            router.push(`/app/match/online/${payload.new.room_id}`);
           } else if (newStatus === 'declined') {
             setWaitingForFriend(false);
             toast.info(`${invitedFriendName} can't right now`);
@@ -107,7 +108,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [inviteId, invitedFriendName]);
+  }, [inviteId, invitedFriendName, router, onClose]);
 
   const loadFriends = async () => {
     try {
@@ -173,7 +174,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
     setCreating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.access_token) {
         toast.error('Please log in to create an online match');
         router.push('/login');
         return;
@@ -181,26 +182,22 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
 
       const bestOf = matchFormat === 'best-of-1' ? 1 : matchFormat === 'best-of-3' ? 3 : 5;
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-online-match`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            gameMode,
-            bestOf,
-            doubleOut,
-            straightIn,
-          }),
-        }
-      );
+      const { data: result, error: functionError } = await supabase.functions.invoke('create-online-match', {
+        body: {
+          gameMode,
+          bestOf,
+          doubleOut,
+          straightIn,
+        },
+      });
 
-      const result = await response.json();
+      if (functionError) {
+        console.error('Edge function error:', functionError);
+        toast.error(functionError.message || 'Failed to create match');
+        return;
+      }
 
-      if (response.ok && result.success) {
+      if (result?.success) {
         const link = `${window.location.origin}/app/play/private/join?code=${result.match.inviteCode}`;
         setInviteLink(link);
         toast.success('Match created!');
@@ -223,7 +220,13 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
             }
           );
 
-          if (inviteError) throw inviteError;
+          if (inviteError) {
+            console.error('Invite error:', inviteError);
+            toast.error('Failed to send invite');
+            onClose();
+            router.push(`/app/play/private/lobby/${result.match.id}`);
+            return;
+          }
 
           if (inviteData?.ok) {
             const friend = friends.find((f) => f.id === selectedFriendId);
@@ -241,11 +244,116 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           router.push(`/app/play/private/lobby/${result.match.id}`);
         }
       } else {
-        toast.error(result.error || 'Failed to create match');
+        toast.error(result?.error || 'Failed to create match');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating match:', error);
-      toast.error('Failed to create match');
+      toast.error(error?.message || 'Failed to create match');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSendUsernameInvite = async () => {
+    if (!username.trim()) {
+      toast.error('Please enter a username');
+      return;
+    }
+
+    if (gameMode === 'Around the Clock') {
+      toast.error('Online matches only support 301 and 501');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Please log in to send an invite');
+        router.push('/login');
+        return;
+      }
+
+      const { data: targetUser, error: userError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('username', username.trim())
+        .maybeSingle();
+
+      if (userError) {
+        console.error('Error looking up user:', userError);
+        toast.error('Failed to find user');
+        return;
+      }
+
+      if (!targetUser) {
+        toast.error(`User "${username}" not found`);
+        return;
+      }
+
+      if (targetUser.id === session.user.id) {
+        toast.error("You can't invite yourself");
+        return;
+      }
+
+      const bestOf = matchFormat === 'best-of-1' ? 1 : matchFormat === 'best-of-3' ? 3 : 5;
+
+      const { data: result, error: functionError } = await supabase.functions.invoke('create-online-match', {
+        body: {
+          gameMode,
+          bestOf,
+          doubleOut,
+          straightIn,
+        },
+      });
+
+      if (functionError) {
+        console.error('Edge function error:', functionError);
+        toast.error(functionError.message || 'Failed to create match');
+        return;
+      }
+
+      if (result?.success) {
+        const matchOptions = {
+          gameMode,
+          bestOf,
+          doubleOut,
+          straightIn,
+        };
+
+        const { data: inviteData, error: inviteError } = await supabase.rpc(
+          'rpc_create_private_match_invite',
+          {
+            p_to_user_id: targetUser.id,
+            p_room_id: result.match.id,
+            p_match_options: matchOptions,
+          }
+        );
+
+        if (inviteError) {
+          console.error('Invite error:', inviteError);
+          toast.error('Failed to send invite');
+          onClose();
+          router.push(`/app/play/private/lobby/${result.match.id}`);
+          return;
+        }
+
+        if (inviteData?.ok) {
+          setInviteId(inviteData.invite_id);
+          setInvitedFriendName(targetUser.username || username);
+          setWaitingForFriend(true);
+          toast.success(`Invite sent to ${username}`);
+        } else {
+          toast.error(inviteData?.error || 'Failed to send invite');
+          onClose();
+          router.push(`/app/play/private/lobby/${result.match.id}`);
+        }
+      } else {
+        toast.error(result?.error || 'Failed to create match');
+      }
+    } catch (error: any) {
+      console.error('Error sending invite:', error);
+      toast.error(error?.message || 'Failed to send invite');
     } finally {
       setCreating(false);
     }
@@ -472,10 +580,20 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                     placeholder="Enter username..."
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !creating) {
+                        handleSendUsernameInvite();
+                      }
+                    }}
                     className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                    disabled={creating}
                   />
-                  <Button className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                    Send Invite
+                  <Button
+                    onClick={handleSendUsernameInvite}
+                    disabled={creating || !username.trim()}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+                  >
+                    {creating ? 'Sending...' : 'Send Invite'}
                   </Button>
                 </div>
               </div>
