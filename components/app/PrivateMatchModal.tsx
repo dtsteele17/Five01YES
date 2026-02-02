@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+
+const DEBUG_INVITES = true;
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -79,7 +81,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   useEffect(() => {
     if (!inviteId) return;
 
-    console.debug('[INVITE] Setting up realtime subscription for invite:', inviteId);
+    if (DEBUG_INVITES) console.log('[INVITE] Setting up realtime subscription for invite:', inviteId);
 
     const channel = supabase
       .channel(`private_invite_${inviteId}`)
@@ -92,17 +94,15 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           filter: `id=eq.${inviteId}`,
         },
         (payload) => {
-          console.debug('[INVITE] Realtime update received:', {
-            id: payload.new.id,
-            status: payload.new.status,
-            room_id: payload.new.room_id,
-          });
-
           const newStatus = payload.new.status;
           const roomId = payload.new.room_id;
 
+          if (DEBUG_INVITES) {
+            console.log('[INVITE] Subscription update:', newStatus, 'room_id:', roomId);
+          }
+
           if (newStatus === 'accepted') {
-            console.debug('[INVITE] Invite accepted by friend, navigating to match');
+            if (DEBUG_INVITES) console.log('[INVITE] Invite accepted by friend, navigating to match');
             setWaitingForFriend(false);
             toast.success(`${invitedFriendName} accepted!`);
             onClose();
@@ -110,13 +110,13 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
             // Navigate sender to the same match room
             router.push(`/app/play/quick-match/match/${roomId}`);
           } else if (newStatus === 'declined') {
-            console.debug('[INVITE] Invite declined by friend');
+            if (DEBUG_INVITES) console.log('[INVITE] Invite declined by friend');
             setWaitingForFriend(false);
             setInviteId(null);
             setCurrentRoomId(null);
-            toast.info(`${invitedFriendName} can't right now`);
+            toast.info(`${invitedFriendName} can't play right now`);
           } else if (newStatus === 'cancelled') {
-            console.debug('[INVITE] Invite was cancelled');
+            if (DEBUG_INVITES) console.log('[INVITE] Invite was cancelled');
             setWaitingForFriend(false);
             setInviteId(null);
             setCurrentRoomId(null);
@@ -124,11 +124,11 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         }
       )
       .subscribe((status) => {
-        console.debug('[INVITE] Subscription status:', status);
+        if (DEBUG_INVITES) console.log('[INVITE] Subscription status:', status);
       });
 
     return () => {
-      console.debug('[INVITE] Cleaning up realtime subscription');
+      if (DEBUG_INVITES) console.log('[INVITE] Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [inviteId, invitedFriendName, router, onClose, supabase]);

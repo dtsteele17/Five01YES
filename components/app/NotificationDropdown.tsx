@@ -8,12 +8,21 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Users, Trophy, Award, Megaphone, Check, X } from 'lucide-react';
+import { Bell, Users, Trophy, Award, Megaphone, Check, X, UserPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+
+const DEBUG_INVITES = true;
 
 interface NotificationDropdownProps {
   children: React.ReactNode;
@@ -22,20 +31,26 @@ interface NotificationDropdownProps {
 export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const router = useRouter();
   const supabase = createClient();
-  const { notifications, unreadCount, markAllAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
+  const { notifications, unreadCount, markAllAsRead, markAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [selectedInvite, setSelectedInvite] = useState<any>(null);
 
-  const handleAcceptInvite = async (notification: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const handleAcceptInvite = async (notification: any, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
 
     if (!notification.data?.invite_id) {
-      console.error('[INVITE] No invite_id in notification data');
+      if (DEBUG_INVITES) console.error('[INVITE] No invite_id in notification data');
       toast.error('Invalid invite notification');
       return;
     }
 
-    console.debug('[INVITE] Accepting invite:', notification.data.invite_id);
+    const inviteId = notification.data.invite_id;
+    if (DEBUG_INVITES) console.log('[INVITE] Join clicked', inviteId);
+
     setProcessingInvite(notification.id);
 
     try {
@@ -47,122 +62,73 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Get the invite details
-      const { data: invite, error: inviteError } = await supabase
-        .from('private_match_invites')
-        .select('*')
-        .eq('id', notification.data.invite_id)
-        .single();
+      // Call RPC function to accept invite
+      if (DEBUG_INVITES) console.log('[INVITE] Calling rpc_accept_private_match_invite', inviteId);
 
-      if (inviteError) throw inviteError;
+      const { data: result, error: rpcError } = await supabase.rpc('rpc_accept_private_match_invite', {
+        p_invite_id: inviteId
+      });
 
-      // Verify this invite is for current user
-      if (invite.to_user_id !== user.id) {
-        toast.error('This invite is not for you');
-        return;
+      if (rpcError) {
+        if (DEBUG_INVITES) console.error('[INVITE] RPC error:', rpcError);
+        throw rpcError;
       }
 
-      if (invite.status !== 'pending') {
-        toast.info('This invite is no longer available');
+      if (!result || !result.ok) {
+        const errorMsg = result?.error || 'Unknown error';
+        if (DEBUG_INVITES) console.error('[INVITE] RPC returned error:', errorMsg);
+
+        if (errorMsg === 'invite_not_found') {
+          toast.info('This invite is no longer available');
+        } else if (errorMsg === 'not_authenticated') {
+          toast.error('Please log in');
+          router.push('/login');
+        } else {
+          toast.error('Could not join invite');
+        }
         refreshNotifications();
         return;
       }
 
-      console.debug('[INVITE] Fetched invite details:', {
-        id: invite.id,
-        room_id: invite.room_id,
-        status: invite.status,
-      });
+      const roomId = result.room_id;
+      if (DEBUG_INVITES) console.log('[INVITE] RPC accept result - room_id:', roomId);
 
-      // Update invite status to accepted
-      const { error: updateError } = await supabase
-        .from('private_match_invites')
-        .update({
-          status: 'accepted',
-          responded_at: new Date().toISOString(),
-        })
-        .eq('id', notification.data.invite_id);
-
-      if (updateError) throw updateError;
-      console.debug('[INVITE] Updated invite status to accepted');
-
-      // Check if match_room already exists
-      const { data: existingRoom } = await supabase
-        .from('match_rooms')
-        .select('id, status')
-        .eq('id', invite.room_id)
-        .maybeSingle();
-
-      if (existingRoom) {
-        // Match room exists, update status to active if it's still open
-        if (existingRoom.status === 'open') {
-          console.debug('[INVITE] Activating match room from open state');
-          const { error: activateError } = await supabase
-            .from('match_rooms')
-            .update({ status: 'active' })
-            .eq('id', invite.room_id);
-
-          if (activateError) {
-            console.error('[INVITE] Error activating match room:', activateError);
-          }
-        }
-      } else {
-        // Fallback: create match_room if it doesn't exist
-        console.debug('[INVITE] Creating new match_room (fallback)');
-        const options = invite.options as any;
-        const bestOf = options.bestOf || 1;
-        const legsToWin = Math.ceil(bestOf / 2);
-        const matchFormat = `best-of-${bestOf}`;
-
-        const { error: roomError } = await supabase
-          .from('match_rooms')
-          .insert({
-            id: invite.room_id,
-            player1_id: invite.from_user_id,
-            player2_id: invite.to_user_id,
-            game_mode: options.gameMode,
-            match_format: matchFormat,
-            legs_to_win: legsToWin,
-            player1_remaining: options.gameMode,
-            player2_remaining: options.gameMode,
-            current_turn: invite.from_user_id,
-            status: 'active',
-            match_type: 'private',
-            source: 'private',
-          });
-
-        if (roomError) {
-          console.error('[INVITE] Error creating match room:', roomError);
-          throw roomError;
-        }
-        console.debug('[INVITE] Match room created successfully');
-      }
-
-      toast.success('Joining match!');
+      // Mark notification as read
+      await markAsRead(notification.id);
       refreshNotifications();
 
-      // Navigate to match
-      console.debug('[INVITE] Navigating to match:', invite.room_id);
-      router.push(`/app/play/quick-match/match/${invite.room_id}`);
+      toast.success('Joining match!');
+
+      // Close invite modal if open
+      setInviteModalOpen(false);
+      setSelectedInvite(null);
+
+      // Navigate to match using room_id
+      if (DEBUG_INVITES) console.log('[INVITE] Navigating to match:', roomId);
+      router.push(`/app/play/quick-match/match/${roomId}`);
     } catch (err) {
-      console.error('[INVITE] Error accepting invite:', err);
-      toast.error('Failed to accept invite');
+      if (DEBUG_INVITES) console.error('[INVITE] Error accepting invite:', err);
+      toast.error('Could not join invite');
     } finally {
       setProcessingInvite(null);
     }
   };
 
-  const handleDeclineInvite = async (notification: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const handleDeclineInvite = async (notification: any, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
 
     if (!notification.data?.invite_id) {
-      console.error('[INVITE] No invite_id in notification data');
+      if (DEBUG_INVITES) console.error('[INVITE] No invite_id in notification data');
       toast.error('Invalid invite notification');
       return;
     }
 
-    console.debug('[INVITE] Declining invite:', notification.data.invite_id);
+    const inviteId = notification.data.invite_id;
+    if (DEBUG_INVITES) console.log('[INVITE] Decline clicked', inviteId);
+
     setProcessingInvite(notification.id);
 
     try {
@@ -173,23 +139,31 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Update invite status to declined
-      const { error } = await supabase
-        .from('private_match_invites')
-        .update({
-          status: 'declined',
-          responded_at: new Date().toISOString(),
-        })
-        .eq('id', notification.data.invite_id)
-        .eq('to_user_id', user.id);
+      // Call RPC function to decline invite
+      if (DEBUG_INVITES) console.log('[INVITE] Calling rpc_decline_private_match_invite', inviteId);
 
-      if (error) throw error;
-      console.debug('[INVITE] Invite declined successfully');
+      const { error: rpcError } = await supabase.rpc('rpc_decline_private_match_invite', {
+        p_invite_id: inviteId
+      });
+
+      if (rpcError) {
+        if (DEBUG_INVITES) console.error('[INVITE] RPC error:', rpcError);
+        throw rpcError;
+      }
+
+      if (DEBUG_INVITES) console.log('[INVITE] Invite declined successfully');
+
+      // Mark notification as read
+      await markAsRead(notification.id);
+      refreshNotifications();
 
       toast.info('Invite declined');
-      refreshNotifications();
+
+      // Close invite modal if open
+      setInviteModalOpen(false);
+      setSelectedInvite(null);
     } catch (err) {
-      console.error('[INVITE] Error declining invite:', err);
+      if (DEBUG_INVITES) console.error('[INVITE] Error declining invite:', err);
       toast.error('Failed to decline invite');
     } finally {
       setProcessingInvite(null);
@@ -200,19 +174,80 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     return notification.type === 'match_invite' && notification.data?.kind === 'private_match_invite';
   };
 
-  // Deduplicate notifications by invite_id to avoid showing multiple notifications for the same invite
+  // Deduplicate notifications by invite_id, keeping the newest by created_at
   const deduplicatedNotifications = notifications.filter((notification, index, self) => {
     // If it's a private match invite, check for duplicates by invite_id
     if (isPrivateMatchInvite(notification) && notification.data?.invite_id) {
       const inviteId = notification.data.invite_id;
-      // Keep only the first occurrence of each invite_id
-      return index === self.findIndex((n) =>
+      // Find all notifications with same invite_id
+      const duplicates = self.filter((n) =>
         isPrivateMatchInvite(n) && n.data?.invite_id === inviteId
       );
+      // If there are duplicates, keep only the newest (most recent created_at)
+      if (duplicates.length > 1) {
+        const newest = duplicates.reduce((prev, current) =>
+          new Date(current.created_at) > new Date(prev.created_at) ? current : prev
+        );
+        return notification.id === newest.id;
+      }
+      return true;
     }
     // For non-invite notifications, keep all
     return true;
   });
+
+  const handleInviteClick = async (notification: any) => {
+    if (!isPrivateMatchInvite(notification)) {
+      handleNotificationClick(notification);
+      return;
+    }
+
+    // For private match invites, check if still pending
+    const inviteId = notification.data?.invite_id;
+    if (!inviteId) {
+      toast.error('Invalid invite');
+      return;
+    }
+
+    try {
+      const { data: invite, error } = await supabase
+        .from('private_match_invites')
+        .select('status, from_user_id, options')
+        .eq('id', inviteId)
+        .maybeSingle();
+
+      if (error || !invite) {
+        toast.info('Invite not found');
+        refreshNotifications();
+        return;
+      }
+
+      if (invite.status !== 'pending') {
+        toast.info('Invite expired');
+        await markAsRead(notification.id);
+        refreshNotifications();
+        return;
+      }
+
+      // Get sender username
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', invite.from_user_id)
+        .maybeSingle();
+
+      // Open modal with invite details
+      setSelectedInvite({
+        ...notification,
+        senderName: profile?.username || 'Unknown',
+        options: invite.options,
+      });
+      setInviteModalOpen(true);
+    } catch (err) {
+      if (DEBUG_INVITES) console.error('[INVITE] Error checking invite:', err);
+      toast.error('Failed to load invite');
+    }
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -263,6 +298,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {children}
@@ -307,9 +343,8 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                     className="w-full px-4 py-3 hover:bg-white/5 transition-colors"
                   >
                     <button
-                      onClick={() => !isInvite && handleNotificationClick(notification)}
+                      onClick={() => handleInviteClick(notification)}
                       className="w-full text-left flex items-start space-x-3 group"
-                      disabled={isInvite}
                     >
                       <div className="flex-shrink-0 mt-0.5">
                         {getNotificationIcon(notification.type)}
@@ -366,5 +401,68 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* Invite Modal */}
+    <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <UserPlus className="w-6 h-6 text-emerald-400" />
+            Private Match Invite
+          </DialogTitle>
+          <DialogDescription className="text-gray-400">
+            {selectedInvite?.senderName} has invited you to a private match
+          </DialogDescription>
+        </DialogHeader>
+
+        {selectedInvite && (
+          <div className="space-y-4 py-4">
+            <div className="bg-white/5 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Game Mode:</span>
+                <span className="text-white font-semibold">
+                  {selectedInvite.options?.gameMode || '501'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Format:</span>
+                <span className="text-white font-semibold">
+                  Best of {selectedInvite.options?.bestOf || 3}
+                </span>
+              </div>
+              {selectedInvite.options?.doubleOut !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Double Out:</span>
+                  <span className="text-white font-semibold">
+                    {selectedInvite.options.doubleOut ? 'Yes' : 'No'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => handleAcceptInvite(selectedInvite)}
+                disabled={processingInvite === selectedInvite.id}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-12"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                {processingInvite === selectedInvite.id ? 'Joining...' : 'Join'}
+              </Button>
+              <Button
+                onClick={() => handleDeclineInvite(selectedInvite)}
+                disabled={processingInvite === selectedInvite.id}
+                variant="outline"
+                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 h-12"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Not right now
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
