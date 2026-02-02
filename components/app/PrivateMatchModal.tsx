@@ -318,7 +318,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           player1_remaining: numericGameMode,
           player2_remaining: numericGameMode,
           current_turn: user.id,
-          status: 'waiting',
+          status: 'open',
           match_type: 'private',
           source: 'private',
         });

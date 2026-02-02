@@ -97,8 +97,8 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           throw roomError;
         }
         console.debug('[INVITE] Match room created successfully');
-      } else if (existingRoom.status === 'waiting') {
-        console.debug('[INVITE] Activating match room from waiting state');
+      } else if (existingRoom.status === 'open') {
+        console.debug('[INVITE] Activating match room from open state');
         const { error: updateError } = await supabase
           .from('match_rooms')
           .update({ status: 'active' })
