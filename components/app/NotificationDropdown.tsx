@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/lib/context/NotificationsContext';
 import {
   DropdownMenu,
@@ -8,15 +10,81 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Users, Trophy, Award, Megaphone } from 'lucide-react';
+import { Bell, Users, Trophy, Award, Megaphone, Check, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 interface NotificationDropdownProps {
   children: React.ReactNode;
 }
 
 export function NotificationDropdown({ children }: NotificationDropdownProps) {
-  const { notifications, unreadCount, markAllAsRead, handleNotificationClick } = useNotifications();
+  const router = useRouter();
+  const supabase = createClient();
+  const { notifications, unreadCount, markAllAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
+  const [processingInvite, setProcessingInvite] = useState<string | null>(null);
+
+  const handleAcceptInvite = async (notification: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!notification.data?.invite_id) return;
+
+    setProcessingInvite(notification.id);
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_accept_private_match_invite', {
+        p_invite_id: notification.data.invite_id,
+      });
+
+      if (error) throw error;
+
+      if (data?.ok) {
+        toast.success('Joining match!');
+        router.push(`/app/play/private/lobby/${data.room_id}`);
+        refreshNotifications();
+      } else {
+        toast.error(data?.error || 'Failed to accept invite');
+      }
+    } catch (err) {
+      console.error('Error accepting invite:', err);
+      toast.error('Failed to accept invite');
+    } finally {
+      setProcessingInvite(null);
+    }
+  };
+
+  const handleDeclineInvite = async (notification: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!notification.data?.invite_id) return;
+
+    setProcessingInvite(notification.id);
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_decline_private_match_invite', {
+        p_invite_id: notification.data.invite_id,
+      });
+
+      if (error) throw error;
+
+      if (data?.ok) {
+        toast.info('Invite declined');
+        refreshNotifications();
+      } else {
+        toast.error(data?.error || 'Failed to decline invite');
+      }
+    } catch (err) {
+      console.error('Error declining invite:', err);
+      toast.error('Failed to decline invite');
+    } finally {
+      setProcessingInvite(null);
+    }
+  };
+
+  const isPrivateMatchInvite = (notification: any) => {
+    return notification.title === 'Private Match Invite' || notification.data?.invite_id;
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -102,36 +170,69 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         ) : (
           <ScrollArea className="max-h-[320px]">
             <div className="py-2">
-              {notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className="w-full px-4 py-3 hover:bg-white/5 transition-colors text-left flex items-start space-x-3 group"
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getNotificationIcon(notification.type)}
+              {notifications.map((notification) => {
+                const isInvite = isPrivateMatchInvite(notification);
+
+                return (
+                  <div
+                    key={notification.id}
+                    className="w-full px-4 py-3 hover:bg-white/5 transition-colors"
+                  >
+                    <button
+                      onClick={() => !isInvite && handleNotificationClick(notification)}
+                      className="w-full text-left flex items-start space-x-3 group"
+                      disabled={isInvite}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 mt-1.5" />
+                          )}
+                        </div>
+
+                        <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">
+                          {notification.message}
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatTimestamp(notification.created_at)}
+                        </p>
+
+                        {isInvite && (
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              onClick={(e) => handleAcceptInvite(notification, e)}
+                              disabled={processingInvite === notification.id}
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Join
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleDeclineInvite(notification, e)}
+                              disabled={processingInvite === notification.id}
+                              className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Not right now
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </button>
                   </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                        {notification.title}
-                      </p>
-                      {!notification.read && (
-                        <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0 mt-1.5" />
-                      )}
-                    </div>
-
-                    <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">
-                      {notification.message}
-                    </p>
-
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatTimestamp(notification.created_at)}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}

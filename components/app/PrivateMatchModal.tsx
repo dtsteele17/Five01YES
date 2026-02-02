@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -25,12 +26,20 @@ import {
   Link as LinkIcon,
   Target,
   Loader2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PrivateMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface Friend {
+  id: string;
+  username: string;
+  avatar_url: string;
+  is_online: boolean;
 }
 
 export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
@@ -53,6 +62,91 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   const [atcOvershootHandling, setAtcOvershootHandling] = useState('cap');
 
   const [inviteLink, setInviteLink] = useState('');
+
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [waitingForFriend, setWaitingForFriend] = useState(false);
+  const [inviteId, setInviteId] = useState<string | null>(null);
+  const [invitedFriendName, setInvitedFriendName] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      loadFriends();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!inviteId) return;
+
+    const channel = supabase
+      .channel(`invite_${inviteId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'private_match_invites',
+          filter: `id=eq.${inviteId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          if (newStatus === 'accepted') {
+            setWaitingForFriend(false);
+            toast.success(`${invitedFriendName} accepted!`);
+            router.push(`/app/play/private/lobby/${payload.new.room_id}`);
+          } else if (newStatus === 'declined') {
+            setWaitingForFriend(false);
+            toast.info(`${invitedFriendName} can't right now`);
+          } else if (newStatus === 'cancelled') {
+            setWaitingForFriend(false);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [inviteId, invitedFriendName]);
+
+  const loadFriends = async () => {
+    try {
+      const { data, error } = await supabase.rpc('rpc_get_friends_overview');
+      if (error) throw error;
+      if (data?.ok) {
+        setFriends(data.friends || []);
+      }
+    } catch (err) {
+      console.error('Error loading friends:', err);
+    }
+  };
+
+  const handleFriendSelect = (friendId: string) => {
+    const friend = friends.find((f) => f.id === friendId);
+    if (friend) {
+      setSelectedFriendId(friendId);
+      setUsername(friend.username);
+    }
+  };
+
+  const handleCancelInvite = async () => {
+    if (!inviteId) return;
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_cancel_private_match_invite', {
+        p_invite_id: inviteId,
+      });
+
+      if (error) throw error;
+
+      setWaitingForFriend(false);
+      setInviteId(null);
+      toast.info('Invite cancelled');
+    } catch (err) {
+      console.error('Error cancelling invite:', err);
+      toast.error('Failed to cancel invite');
+    }
+  };
 
   const handleCopyLink = async () => {
     if (inviteLink) {
@@ -103,8 +197,42 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         const link = `${window.location.origin}/app/play/private/join?code=${result.match.inviteCode}`;
         setInviteLink(link);
         toast.success('Match created!');
-        onClose();
-        router.push(`/app/play/private/lobby/${result.match.id}`);
+
+        // If a friend was selected, send them an invite
+        if (selectedFriendId) {
+          const matchOptions = {
+            gameMode,
+            bestOf,
+            doubleOut,
+            straightIn,
+          };
+
+          const { data: inviteData, error: inviteError } = await supabase.rpc(
+            'rpc_create_private_match_invite',
+            {
+              p_to_user_id: selectedFriendId,
+              p_room_id: result.match.id,
+              p_match_options: matchOptions,
+            }
+          );
+
+          if (inviteError) throw inviteError;
+
+          if (inviteData?.ok) {
+            const friend = friends.find((f) => f.id === selectedFriendId);
+            setInviteId(inviteData.invite_id);
+            setInvitedFriendName(friend?.username || '');
+            setWaitingForFriend(true);
+            toast.success(`Invite sent to ${friend?.username}`);
+          } else {
+            toast.error(inviteData?.error || 'Failed to send invite');
+            onClose();
+            router.push(`/app/play/private/lobby/${result.match.id}`);
+          }
+        } else {
+          onClose();
+          router.push(`/app/play/private/lobby/${result.match.id}`);
+        }
       } else {
         toast.error(result.error || 'Failed to create match');
       }
@@ -153,6 +281,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -281,18 +410,60 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
               )}
             </div>
 
-            <div className="border-t border-white/10 pt-6">
-              <Label className="text-gray-300 mb-3 block">Invite by Username</Label>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Enter username..."
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-                />
-                <Button className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                  Send Invite
-                </Button>
+            <div className="border-t border-white/10 pt-6 space-y-4">
+              {friends.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-gray-300">Invite Friend</Label>
+                  <Select
+                    value={selectedFriendId || ''}
+                    onValueChange={(value) => value ? handleFriendSelect(value) : setSelectedFriendId(null)}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue placeholder="Select a friend..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/10">
+                      <SelectItem value="">None</SelectItem>
+                      {friends.map((friend) => (
+                        <SelectItem key={friend.id} value={friend.id}>
+                          <div className="flex items-center space-x-2">
+                            <div className="relative">
+                              <Avatar className="w-6 h-6">
+                                <AvatarImage src={friend.avatar_url} />
+                                <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs">
+                                  {friend.username.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {friend.is_online && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-400 border border-slate-900 rounded-full" />
+                              )}
+                            </div>
+                            <span>{friend.username}</span>
+                            {friend.is_online ? (
+                              <span className="text-xs text-emerald-400">(online)</span>
+                            ) : (
+                              <span className="text-xs text-slate-500">(offline)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-gray-300">Invite by Username</Label>
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Enter username..."
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                  />
+                  <Button className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                    Send Invite
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -483,5 +654,42 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    {/* Waiting Modal */}
+    <Dialog open={waitingForFriend} onOpenChange={() => {}}>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold text-center">Waiting for {invitedFriendName}</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center space-y-6 py-6">
+          <div className="relative">
+            <Loader2 className="w-16 h-16 text-emerald-400 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <UserPlus className="w-8 h-8 text-emerald-400" />
+            </div>
+          </div>
+
+          <div className="text-center space-y-2">
+            <p className="text-gray-300">
+              Waiting for {invitedFriendName} to accept the invite...
+            </p>
+            <p className="text-sm text-gray-500">
+              They will be notified and can join from their notifications
+            </p>
+          </div>
+
+          <Button
+            onClick={handleCancelInvite}
+            variant="outline"
+            className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel Invite
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
