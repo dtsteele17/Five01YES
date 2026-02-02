@@ -322,7 +322,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
       setCurrentRoomId(roomId);
 
       // Build match options
-      const bestOf = matchFormat === 'best-of-1' ? 1 : matchFormat === 'best-of-3' ? 3 : 5;
+      const bestOf = matchFormat === 'best-of-1' ? 1 : matchFormat === 'best-of-3' ? 3 : matchFormat === 'best-of-5' ? 5 : 7;
       const legsToWin = Math.ceil(bestOf / 2);
       const numericGameMode = parseInt(gameMode);
       const matchOptions = {
@@ -562,6 +562,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                     <SelectItem value="best-of-1">Best of 1</SelectItem>
                     <SelectItem value="best-of-3">Best of 3</SelectItem>
                     <SelectItem value="best-of-5">Best of 5</SelectItem>
+                    <SelectItem value="best-of-7">Best of 7</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -794,6 +795,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                     <SelectItem value="best-of-1">Best of 1</SelectItem>
                     <SelectItem value="best-of-3">Best of 3</SelectItem>
                     <SelectItem value="best-of-5">Best of 5</SelectItem>
+                    <SelectItem value="best-of-7">Best of 7</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
