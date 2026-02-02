@@ -50,7 +50,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     }
 
     const inviteId = notification.data.invite_id;
-    console.log('[INVITE] Join clicked', inviteId);
+    if (DEBUG_INVITES) console.log('[INVITE] Join clicked', inviteId);
 
     setProcessingInvite(notification.id);
 
@@ -65,14 +65,13 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       }
 
       // Call RPC function to accept invite
-      console.log('[INVITE] Calling rpc_accept_private_match_invite', inviteId);
+      if (DEBUG_INVITES) console.log('[INVITE] Calling rpc_accept_private_match_invite', inviteId);
 
       const { data, error: rpcError } = await supabase.rpc('rpc_accept_private_match_invite', {
         p_invite_id: inviteId
       });
 
-      // Log raw response immediately
-      console.log('[INVITE] RPC raw data:', data);
+      if (DEBUG_INVITES) console.log('[INVITE] RPC response:', data);
 
       // Handle RPC error
       if (rpcError) {
@@ -87,21 +86,16 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Derive matchRoomId with fallback logic
-      let matchRoomId: string | null = null;
-
-      if (typeof data === 'string') {
-        // If data is a string, use it directly
-        matchRoomId = data;
-      } else if (data && typeof data === 'object') {
-        // Try multiple possible property names
-        matchRoomId = data.match_room_id || data.matchRoomId || data.matchRoomID || data.room_id || null;
+      // Validate response structure
+      if (!data || typeof data !== 'object') {
+        console.error('[INVITE] Invalid response format:', data);
+        toast.error("Couldn't join invite. Please try again.");
+        setProcessingInvite(null);
+        return;
       }
 
-      console.log('[INVITE] matchRoomId resolved:', matchRoomId);
-
       // Check for logical errors in result
-      if (data && typeof data === 'object' && data.ok === false) {
+      if (data.ok === false) {
         const errorMsg = data.error || 'Unknown error';
         console.error('[INVITE] RPC returned error:', errorMsg);
         toast.error("Couldn't join invite. Please try again.");
@@ -109,12 +103,24 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Validate matchRoomId exists
-      if (!matchRoomId) {
-        console.error('[INVITE] No matchRoomId found in response:', data);
+      // Extract room_id
+      const roomId = data.room_id;
+      const gameMode = data.game_mode;
+      const matchFormat = data.match_format;
+
+      if (!roomId) {
+        console.error('[INVITE] No room_id in response:', data);
         toast.error("Couldn't join invite. Please try again.");
         setProcessingInvite(null);
         return;
+      }
+
+      if (DEBUG_INVITES) {
+        console.log('[INVITE] ========== JOINING PRIVATE MATCH ==========');
+        console.log('[INVITE] room_id:', roomId);
+        console.log('[INVITE] game_mode:', gameMode);
+        console.log('[INVITE] match_format:', matchFormat);
+        console.log('[INVITE] user:', user.id);
       }
 
       // Mark notification as read
@@ -128,9 +134,9 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
       toast.success('Joining match!');
 
-      // Navigate immediately to match using matchRoomId
-      console.log('[INVITE] Navigating to match', matchRoomId);
-      router.push(`/app/play/quick-match/match/${matchRoomId}`);
+      // Navigate to match using room_id
+      if (DEBUG_INVITES) console.log('[INVITE] Navigating to /app/play/quick-match/match/' + roomId);
+      router.push(`/app/play/quick-match/match/${roomId}`);
     } catch (err: any) {
       console.error('[INVITE] Exception accepting invite:', {
         message: err?.message,
@@ -213,6 +219,52 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const isPrivateMatchInvite = (notification: any) => {
     return notification.type === 'match_invite' && notification.data?.kind === 'private_match_invite';
   };
+
+  const isPrivateMatchAccepted = (notification: any) => {
+    return notification.type === 'system' && notification.data?.kind === 'private_match_accepted';
+  };
+
+  // Listen for invite acceptances (inviter side)
+  useEffect(() => {
+    if (!supabase) return;
+
+    const handleAcceptedNotification = async (notification: any) => {
+      if (!isPrivateMatchAccepted(notification)) return;
+
+      const roomId = notification.data?.room_id;
+      const gameMode = notification.data?.game_mode;
+      const matchFormat = notification.data?.match_format;
+
+      if (!roomId) {
+        console.error('[INVITE] Accepted notification missing room_id:', notification);
+        return;
+      }
+
+      if (DEBUG_INVITES) {
+        console.log('[INVITE] ========== INVITE ACCEPTED (INVITER SIDE) ==========');
+        console.log('[INVITE] room_id:', roomId);
+        console.log('[INVITE] game_mode:', gameMode);
+        console.log('[INVITE] match_format:', matchFormat);
+      }
+
+      // Mark as read
+      await markAsRead(notification.id);
+
+      // Show toast
+      toast.success('Your invite was accepted! Joining match...');
+
+      // Navigate to match
+      if (DEBUG_INVITES) console.log('[INVITE] Navigating to /app/play/quick-match/match/' + roomId);
+      router.push(`/app/play/quick-match/match/${roomId}`);
+    };
+
+    // Check existing notifications for accepted invites
+    notifications.forEach(notification => {
+      if (isPrivateMatchAccepted(notification) && !notification.read) {
+        handleAcceptedNotification(notification);
+      }
+    });
+  }, [notifications, supabase, router, markAsRead]);
 
   // Deduplicate notifications by invite_id, keeping the newest by created_at
   const deduplicatedNotifications = notifications.filter((notification, index, self) => {
