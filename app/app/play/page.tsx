@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { PrivateMatchModal } from '@/components/app/PrivateMatchModal';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
+import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import {
   Select,
   SelectContent,
@@ -125,25 +126,36 @@ export default function PlayPage() {
     setLoadingMatches(true);
     const supabase = createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoadingMatches(false);
+        return;
+      }
+
+      setUserId(user.id);
+
+      const { data: matchesData, error } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error('Error fetching recent matches:', error);
+        setRecentMatches([]);
+      } else {
+        setRecentMatches(matchesData || []);
+      }
+    } catch (err) {
+      console.error('Error in fetchRecentMatches:', err);
+      setRecentMatches([]);
+    } finally {
       setLoadingMatches(false);
-      return;
     }
-
-    setUserId(user.id);
-
-    const { data: matchesData } = await supabase
-      .from('matches')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .not('completed_at', 'is', null)
-      .order('completed_at', { ascending: false })
-      .limit(3);
-
-    setRecentMatches(matchesData || []);
-    setLoadingMatches(false);
   }
 
   const startRankedSearch = async () => {
@@ -911,10 +923,12 @@ export default function PlayPage() {
         </div>
       </Card>
 
-      <PrivateMatchModal
-        isOpen={showPrivateModal}
-        onClose={() => setShowPrivateModal(false)}
-      />
+      <MatchErrorBoundary>
+        <PrivateMatchModal
+          isOpen={showPrivateModal}
+          onClose={() => setShowPrivateModal(false)}
+        />
+      </MatchErrorBoundary>
 
       {selectedMatchId && (
         <MatchStatsModal

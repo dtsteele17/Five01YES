@@ -64,7 +64,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   const [inviteLink, setInviteLink] = useState('');
 
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | undefined>(undefined);
   const [waitingForFriend, setWaitingForFriend] = useState(false);
   const [inviteId, setInviteId] = useState<string | null>(null);
   const [invitedFriendName, setInvitedFriendName] = useState('');
@@ -112,12 +112,19 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   const loadFriends = async () => {
     try {
       const { data, error } = await supabase.rpc('rpc_get_friends_overview');
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading friends:', error);
+        setFriends([]);
+        return;
+      }
       if (data?.ok) {
         setFriends(data.friends || []);
+      } else {
+        setFriends([]);
       }
     } catch (err) {
       console.error('Error loading friends:', err);
+      setFriends([]);
     }
   };
 
@@ -415,14 +422,21 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                 <div className="space-y-2">
                   <Label className="text-gray-300">Invite Friend</Label>
                   <Select
-                    value={selectedFriendId || ''}
-                    onValueChange={(value) => value ? handleFriendSelect(value) : setSelectedFriendId(null)}
+                    value={selectedFriendId}
+                    onValueChange={(value) => {
+                      if (value === '__none__') {
+                        setSelectedFriendId(undefined);
+                        setUsername('');
+                      } else {
+                        handleFriendSelect(value);
+                      }
+                    }}
                   >
                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
                       <SelectValue placeholder="Select a friend..." />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-white/10">
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {friends.map((friend) => (
                         <SelectItem key={friend.id} value={friend.id}>
                           <div className="flex items-center space-x-2">

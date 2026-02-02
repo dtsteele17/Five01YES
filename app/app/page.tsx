@@ -76,67 +76,82 @@ export default function DashboardPage() {
 
       const supabase = createClient();
 
-      const { data: playerStats } = await supabase
-        .from('player_stats')
-        .select('*')
-        .eq('user_id', profile.id)
-        .maybeSingle();
+      try {
+        const { data: playerStats, error: statsError } = await supabase
+          .from('player_stats')
+          .select('*')
+          .eq('user_id', profile.id)
+          .maybeSingle();
 
-      const { data: rankedData } = await supabase.rpc('rpc_ranked_get_my_state');
-      if (rankedData) {
-        setSeason(rankedData.season);
-        setRankedState(rankedData.player_state);
+        if (statsError) {
+          console.error('Error fetching player stats:', statsError);
+        }
+
+        const { data: rankedData, error: rankedError } = await supabase.rpc('rpc_ranked_get_my_state');
+        if (rankedError) {
+          console.error('Error fetching ranked data:', rankedError);
+        }
+
+        if (rankedData) {
+          setSeason(rankedData.season);
+          setRankedState(rankedData.player_state);
+        }
+
+        if (playerStats) {
+          const totalMatches = (playerStats.wins_total || 0) + (playerStats.losses_total || 0);
+          const winRate = totalMatches > 0 ? Math.round(((playerStats.wins_total || 0) / totalMatches) * 100) : 0;
+
+          setStats({
+            totalMatches,
+            wins: playerStats.wins_total || 0,
+            losses: playerStats.losses_total || 0,
+            winRate,
+            currentStreak: playerStats.current_win_streak || 0,
+            bestStreak: playerStats.best_win_streak || 0,
+            rankedPoints: rankedData?.player_state?.rp || 0,
+          });
+        } else {
+          setStats({
+            totalMatches: 0,
+            wins: 0,
+            losses: 0,
+            winRate: 0,
+            currentStreak: 0,
+            bestStreak: 0,
+            rankedPoints: rankedData?.player_state?.rp || 0,
+          });
+        }
+
+        const { data: achievements, error: achievementsError } = await supabase
+          .from('user_achievements')
+          .select(`
+            id,
+            achievement_id,
+            unlocked_at,
+            achievements_master!inner (
+              name,
+              description,
+              icon
+            )
+          `)
+          .eq('user_id', profile.id)
+          .order('unlocked_at', { ascending: false })
+          .limit(3);
+
+        if (achievementsError) {
+          console.error('Error fetching achievements:', achievementsError);
+          setRecentAchievements([]);
+        } else if (achievements) {
+          setRecentAchievements(achievements.map((a: any) => ({
+            ...a,
+            achievements_master: Array.isArray(a.achievements_master) ? a.achievements_master[0] : a.achievements_master
+          })) as RecentAchievement[]);
+        }
+      } catch (err) {
+        console.error('Error in fetchDashboardData:', err);
+      } finally {
+        setLoading(false);
       }
-
-      if (playerStats) {
-        const totalMatches = (playerStats.wins_total || 0) + (playerStats.losses_total || 0);
-        const winRate = totalMatches > 0 ? Math.round(((playerStats.wins_total || 0) / totalMatches) * 100) : 0;
-
-        setStats({
-          totalMatches,
-          wins: playerStats.wins_total || 0,
-          losses: playerStats.losses_total || 0,
-          winRate,
-          currentStreak: playerStats.current_win_streak || 0,
-          bestStreak: playerStats.best_win_streak || 0,
-          rankedPoints: rankedData?.player_state?.rp || 0,
-        });
-      } else {
-        setStats({
-          totalMatches: 0,
-          wins: 0,
-          losses: 0,
-          winRate: 0,
-          currentStreak: 0,
-          bestStreak: 0,
-          rankedPoints: rankedData?.player_state?.rp || 0,
-        });
-      }
-
-      const { data: achievements } = await supabase
-        .from('user_achievements')
-        .select(`
-          id,
-          achievement_id,
-          unlocked_at,
-          achievements_master!inner (
-            name,
-            description,
-            icon
-          )
-        `)
-        .eq('user_id', profile.id)
-        .order('unlocked_at', { ascending: false })
-        .limit(3);
-
-      if (achievements) {
-        setRecentAchievements(achievements.map((a: any) => ({
-          ...a,
-          achievements_master: Array.isArray(a.achievements_master) ? a.achievements_master[0] : a.achievements_master
-        })) as RecentAchievement[]);
-      }
-
-      setLoading(false);
     }
 
     fetchDashboardData();
