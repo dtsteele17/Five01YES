@@ -44,13 +44,13 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     }
 
     if (!notification.data?.invite_id) {
-      if (DEBUG_INVITES) console.error('[INVITE] No invite_id in notification data');
+      console.error('[INVITE] No invite_id in notification data');
       toast.error('Invalid invite notification');
       return;
     }
 
     const inviteId = notification.data.invite_id;
-    if (DEBUG_INVITES) console.log('[INVITE] Join clicked', inviteId);
+    console.log('[INVITE] Join clicked', inviteId);
 
     setProcessingInvite(notification.id);
 
@@ -65,15 +65,11 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       }
 
       // Call RPC function to accept invite
-      if (DEBUG_INVITES) console.log('[INVITE] Calling rpc_accept_private_match_invite', inviteId);
+      console.log('[INVITE] Calling rpc_accept_private_match_invite', inviteId);
 
       const { data: result, error: rpcError } = await supabase.rpc('rpc_accept_private_match_invite', {
         p_invite_id: inviteId
       });
-
-      if (DEBUG_INVITES) {
-        console.log('[INVITE] RPC response:', { result, error: rpcError });
-      }
 
       // Handle RPC error
       if (rpcError) {
@@ -83,44 +79,53 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           hint: rpcError.hint,
           code: rpcError.code
         });
-        toast.error('Failed to join private match');
+        toast.error("Couldn't join invite. Please try again.");
         setProcessingInvite(null);
         return;
       }
 
-      // Handle RPC success
-      if (result && result.ok && result.room_id) {
-        const roomId = result.room_id;
-        if (DEBUG_INVITES) console.log('[INVITE] RPC success - room_id:', roomId);
+      // Extract match_room_id from RPC result
+      const matchRoomId = result?.room_id;
+      console.log('[INVITE] RPC returned matchRoomId', matchRoomId);
 
-        // Mark notification as read
-        await markAsRead(notification.id);
-        refreshNotifications();
-
-        // Close dropdown and modal
-        setDropdownOpen(false);
-        setInviteModalOpen(false);
-        setSelectedInvite(null);
-
-        toast.success('Joining match!');
-
-        // Navigate to match using room_id (same route as quick match)
-        router.push(`/app/play/quick-match/match/${roomId}`);
+      // Validate matchRoomId exists
+      if (!matchRoomId) {
+        console.error('[INVITE] RPC returned null/undefined matchRoomId:', result);
+        toast.error("Couldn't join invite. Please try again.");
+        setProcessingInvite(null);
         return;
       }
 
-      // Handle RPC logical error (ok: false)
-      const errorMsg = result?.error || 'Unknown error';
-      if (DEBUG_INVITES) console.error('[INVITE] RPC returned error:', errorMsg);
-      toast.error(`Failed to join: ${errorMsg}`);
-      setProcessingInvite(null);
+      // Check for logical errors in result
+      if (result?.ok === false) {
+        const errorMsg = result?.error || 'Unknown error';
+        console.error('[INVITE] RPC returned error:', errorMsg);
+        toast.error("Couldn't join invite. Please try again.");
+        setProcessingInvite(null);
+        return;
+      }
+
+      // Mark notification as read
+      await markAsRead(notification.id);
+      refreshNotifications();
+
+      // Close dropdown and modal
+      setDropdownOpen(false);
+      setInviteModalOpen(false);
+      setSelectedInvite(null);
+
+      toast.success('Joining match!');
+
+      // Navigate immediately to match using matchRoomId
+      console.log('[INVITE] Navigating to match', matchRoomId);
+      router.push(`/app/play/quick-match/match/${matchRoomId}`);
     } catch (err: any) {
       console.error('[INVITE] Exception accepting invite:', {
         message: err?.message,
         stack: err?.stack,
         error: err
       });
-      toast.error('Failed to join private match');
+      toast.error("Couldn't join invite. Please try again.");
       setProcessingInvite(null);
     }
   };
