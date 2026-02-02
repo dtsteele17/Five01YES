@@ -114,7 +114,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
             setWaitingForFriend(false);
             setInviteId(null);
             setCurrentRoomId(null);
-            toast.info(`${invitedFriendName} can't play right now`);
+            toast.info(`${invitedFriendName} can't right now`);
           } else if (newStatus === 'cancelled') {
             if (DEBUG_INVITES) console.log('[INVITE] Invite was cancelled');
             setWaitingForFriend(false);
