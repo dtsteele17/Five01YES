@@ -191,15 +191,28 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
       if (!user) {
         toast.error('Please log in to create an online match');
         router.push('/login');
+        setCreating(false);
         return;
       }
 
       // Get current user's username
-      const { data: myProfile } = await supabase
+      const { data: myProfile, error: profileError } = await supabase
         .from('profiles')
         .select('username')
         .eq('id', user.id)
         .maybeSingle();
+
+      if (profileError) {
+        console.error('[INVITE] Error loading profile:', {
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint,
+          code: profileError.code,
+        });
+        toast.error(`Failed to load profile: ${profileError.message}`);
+        setCreating(false);
+        return;
+      }
 
       const myUsername = myProfile?.username || 'Player';
 
@@ -216,18 +229,29 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           .maybeSingle();
 
         if (userError) {
-          console.error('Error looking up user:', userError);
-          toast.error('Failed to find user');
+          console.error('[INVITE] Error looking up user:', {
+            message: userError.message,
+            details: userError.details,
+            hint: userError.hint,
+            code: userError.code,
+          });
+          const errorMsg = userError.code
+            ? `Failed to find user (${userError.code}): ${userError.message}`
+            : `Failed to find user: ${userError.message}`;
+          toast.error(errorMsg);
+          setCreating(false);
           return;
         }
 
         if (!targetUser) {
           toast.error(`User "${username}" not found`);
+          setCreating(false);
           return;
         }
 
         if (targetUser.id === user.id) {
           toast.error("You can't invite yourself");
+          setCreating(false);
           return;
         }
 
@@ -238,8 +262,16 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         inviteeName = friend?.username || username;
       }
 
+      // Final validation before insert
       if (!inviteeId) {
-        toast.error('Could not determine invitee');
+        toast.error('Please select a friend or enter a valid username');
+        setCreating(false);
+        return;
+      }
+
+      if (inviteeId === user.id) {
+        toast.error("You can't invite yourself");
+        setCreating(false);
         return;
       }
 
@@ -256,27 +288,68 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         straightIn,
       };
 
-      // Insert invite
+      // Validate all required fields before insert
+      const invitePayload = {
+        room_id: roomId,
+        from_user_id: user.id,
+        to_user_id: inviteeId,
+        status: 'pending' as const,
+        options: matchOptions,
+      };
+
+      // Log payload for debugging
+      console.log('[INVITE] Creating invite with payload:', {
+        room_id: invitePayload.room_id,
+        from_user_id: invitePayload.from_user_id,
+        to_user_id: invitePayload.to_user_id,
+        status: invitePayload.status,
+        options: invitePayload.options,
+      });
+
+      // Ensure all required fields are present
+      if (!invitePayload.room_id || !invitePayload.from_user_id || !invitePayload.to_user_id) {
+        console.error('[INVITE] Missing required fields:', invitePayload);
+        toast.error('Invalid invite data. Please try again.');
+        setCreating(false);
+        return;
+      }
+
+      // Insert invite with detailed error handling
       const { data: invite, error: inviteError } = await supabase
         .from('private_match_invites')
-        .insert({
-          room_id: roomId,
-          from_user_id: user.id,
-          to_user_id: inviteeId,
-          status: 'pending',
-          options: matchOptions,
-        })
+        .insert(invitePayload)
         .select()
         .single();
 
       if (inviteError) {
-        console.error('Error creating invite:', inviteError);
-        toast.error('Failed to create invite');
+        console.error('[INVITE] Supabase insert error:', {
+          message: inviteError.message,
+          details: inviteError.details,
+          hint: inviteError.hint,
+          code: inviteError.code,
+          payload: invitePayload,
+        });
+
+        const errorMsg = inviteError.code
+          ? `Failed to create invite (${inviteError.code}): ${inviteError.message}`
+          : `Failed to create invite: ${inviteError.message}`;
+
+        toast.error(errorMsg);
+        setCreating(false);
         return;
       }
 
-      // Create notification for invitee
-      await supabase
+      if (!invite) {
+        console.error('[INVITE] No invite returned after insert');
+        toast.error('Failed to create invite: No data returned');
+        setCreating(false);
+        return;
+      }
+
+      console.log('[INVITE] Invite created successfully:', invite.id);
+
+      // Create notification for invitee with error handling
+      const { error: notificationError } = await supabase
         .from('notifications')
         .insert({
           user_id: inviteeId,
@@ -292,15 +365,34 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           },
         });
 
+      if (notificationError) {
+        console.error('[INVITE] Failed to create notification:', {
+          message: notificationError.message,
+          details: notificationError.details,
+          hint: notificationError.hint,
+          code: notificationError.code,
+        });
+        // Don't block the flow if notification fails, but warn user
+        toast.warning('Invite created but notification may not have been sent');
+      }
+
       setInviteId(invite.id);
       setInvitedFriendName(inviteeName);
       setWaitingForFriend(true);
       toast.success(`Invite sent to ${inviteeName}`);
     } catch (error: any) {
-      console.error('Error creating match:', error);
-      toast.error(error?.message || 'Failed to create match');
-    } finally {
+      console.error('[INVITE] Unexpected error:', {
+        message: error?.message,
+        stack: error?.stack,
+        error,
+      });
+      const errorMsg = error?.message || 'An unexpected error occurred';
+      toast.error(`Failed to create match: ${errorMsg}`);
       setCreating(false);
+    } finally {
+      if (!waitingForFriend) {
+        setCreating(false);
+      }
     }
   };
 
@@ -569,8 +661,8 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
 
             <Button
               onClick={handleCreateOnlineMatch}
-              disabled={creating}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white"
+              disabled={creating || (!selectedFriendId && !username.trim())}
+              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white disabled:opacity-50"
               size="lg"
             >
               {creating ? (
