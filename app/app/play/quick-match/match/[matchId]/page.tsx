@@ -461,6 +461,13 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
+    console.log('[HANDLE_SUBMIT] ===== SUBMIT VISIT CLICKED =====');
+    console.log('[HANDLE_SUBMIT] Room ID:', matchId);
+    console.log('[HANDLE_SUBMIT] User ID:', currentUserId);
+    console.log('[HANDLE_SUBMIT] Visit Total:', visitTotal);
+    console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
+    console.log('[HANDLE_SUBMIT] ========================');
+
     await submitScore(visitTotal);
   };
 
@@ -471,6 +478,10 @@ export default function QuickMatchRoomPage() {
 
   const handleBust = async () => {
     if (!room || !currentUserId || submitting) return;
+    console.log('[BUST] ===== BUST CLICKED =====');
+    console.log('[BUST] Room ID:', matchId);
+    console.log('[BUST] User ID:', currentUserId);
+    console.log('[BUST] ========================');
     await submitScore(0);
   };
 
@@ -490,7 +501,15 @@ export default function QuickMatchRoomPage() {
     setSubmitting(true);
 
     try {
-      console.log('[SUBMIT] Submitting score:', score);
+      console.log('[SUBMIT] ===== SUBMIT VISIT =====');
+      console.log('[SUBMIT] Room ID:', matchId);
+      console.log('[SUBMIT] User ID:', currentUserId);
+      console.log('[SUBMIT] Score:', score);
+      console.log('[SUBMIT] Match Type:', room.match_type);
+      console.log('[SUBMIT] Room Status:', room.status);
+      console.log('[SUBMIT] Current Turn:', room.current_turn);
+      console.log('[SUBMIT] Is My Turn:', isMyTurn);
+      console.log('[SUBMIT] ========================');
 
       const { data, error } = await supabase.rpc('submit_quick_match_throw', {
         p_room_id: matchId,
@@ -498,10 +517,13 @@ export default function QuickMatchRoomPage() {
       });
 
       if (error) {
+        console.error('[SUBMIT] Supabase Error:', error);
         throw error;
       }
 
+      console.log('[SUBMIT] ===== SUCCESS =====');
       console.log('[SUBMIT] Response:', data);
+      console.log('[SUBMIT] ========================');
 
       if (data.is_bust) {
         toast.error('Bust!');
