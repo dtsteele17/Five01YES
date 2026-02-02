@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/lib/context/NotificationsContext';
 import {
@@ -35,6 +35,43 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
+  const [inviteSubscription, setInviteSubscription] = useState<any>(null);
+
+  // Cleanup subscription when modal closes or component unmounts
+  const cleanupInviteSubscription = () => {
+    if (inviteSubscription) {
+      if (DEBUG_INVITES) console.log('[INVITE] Cleaning up receiver subscription');
+      supabase.removeChannel(inviteSubscription);
+      setInviteSubscription(null);
+    }
+  };
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupInviteSubscription();
+    };
+  }, [inviteSubscription]);
+
+  const navigateToMatch = (roomId: string, notification: any) => {
+    if (DEBUG_INVITES) console.log('[INVITE] Navigating to match:', roomId);
+
+    // Mark notification as read
+    markAsRead(notification.id);
+    refreshNotifications();
+
+    // Close invite modal if open
+    setInviteModalOpen(false);
+    setSelectedInvite(null);
+
+    // Cleanup subscription
+    cleanupInviteSubscription();
+
+    toast.success('Joining match!');
+
+    // Navigate to match using room_id (same route as quick match)
+    router.push(`/app/play/quick-match/match/${roomId}`);
+  };
 
   const handleAcceptInvite = async (notification: any, e?: React.MouseEvent) => {
     if (e) {
@@ -53,10 +90,45 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
     setProcessingInvite(notification.id);
 
+    // Set up realtime subscription to catch updates while we're processing
+    if (DEBUG_INVITES) console.log('[INVITE] Setting up receiver realtime subscription');
+    const channel = supabase
+      .channel(`receiver_invite_${inviteId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'private_match_invites',
+          filter: `id=eq.${inviteId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          const roomId = payload.new.room_id;
+
+          if (DEBUG_INVITES) {
+            console.log('[INVITE] Receiver subscription update:', newStatus, 'room_id:', roomId);
+          }
+
+          if (newStatus === 'accepted' && roomId) {
+            if (DEBUG_INVITES) console.log('[INVITE] Received accepted update via realtime, navigating');
+            setProcessingInvite(null);
+            navigateToMatch(roomId, notification);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (DEBUG_INVITES) console.log('[INVITE] Receiver subscription status:', status);
+      });
+
+    setInviteSubscription(channel);
+
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        cleanupInviteSubscription();
+        setProcessingInvite(null);
         toast.error('Please log in to accept invite');
         router.push('/login');
         return;
@@ -69,47 +141,70 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         p_invite_id: inviteId
       });
 
-      if (rpcError) {
-        if (DEBUG_INVITES) console.error('[INVITE] RPC error:', rpcError);
-        throw rpcError;
+      // Handle RPC success
+      if (!rpcError && result && result.ok && result.room_id) {
+        const roomId = result.room_id;
+        if (DEBUG_INVITES) console.log('[INVITE] RPC accept result - room_id:', roomId);
+        setProcessingInvite(null);
+        navigateToMatch(roomId, notification);
+        return;
       }
 
-      if (!result || !result.ok) {
-        const errorMsg = result?.error || 'Unknown error';
-        if (DEBUG_INVITES) console.error('[INVITE] RPC returned error:', errorMsg);
+      // Handle RPC error - fallback to querying invite directly
+      const errorMsg = result?.error || rpcError?.message || 'Unknown error';
+      if (DEBUG_INVITES) console.warn('[INVITE] RPC returned error:', errorMsg, '- attempting fallback query');
 
-        if (errorMsg === 'invite_not_found') {
-          toast.info('This invite is no longer available');
-        } else if (errorMsg === 'not_authenticated') {
-          toast.error('Please log in');
-          router.push('/login');
-        } else {
-          toast.error('Could not join invite');
-        }
+      // Fallback: Query the invite row directly
+      if (DEBUG_INVITES) console.log('[INVITE] Querying invite row directly as fallback');
+      const { data: invite, error: queryError } = await supabase
+        .from('private_match_invites')
+        .select('room_id, status')
+        .eq('id', inviteId)
+        .maybeSingle();
+
+      if (queryError) {
+        if (DEBUG_INVITES) console.error('[INVITE] Fallback query error:', queryError);
+        throw queryError;
+      }
+
+      if (!invite) {
+        if (DEBUG_INVITES) console.error('[INVITE] Invite not found in fallback query');
+        toast.info('This invite is no longer available');
+        cleanupInviteSubscription();
+        setProcessingInvite(null);
         refreshNotifications();
         return;
       }
 
-      const roomId = result.room_id;
-      if (DEBUG_INVITES) console.log('[INVITE] RPC accept result - room_id:', roomId);
+      if (DEBUG_INVITES) console.log('[INVITE] Fallback query result:', invite);
 
-      // Mark notification as read
-      await markAsRead(notification.id);
+      // If invite was accepted and has room_id, navigate
+      if (invite.status === 'accepted' && invite.room_id) {
+        if (DEBUG_INVITES) console.log('[INVITE] Invite already accepted with room_id, navigating via fallback');
+        setProcessingInvite(null);
+        navigateToMatch(invite.room_id, notification);
+        return;
+      }
+
+      // If invite is pending, wait for realtime update
+      if (invite.status === 'pending') {
+        if (DEBUG_INVITES) console.log('[INVITE] Invite still pending, waiting for realtime update...');
+        toast.info('Processing invite...');
+        // Keep subscription active and processing state
+        // Will navigate when realtime update arrives
+        return;
+      }
+
+      // Otherwise, couldn't join
+      if (DEBUG_INVITES) console.warn('[INVITE] Could not join - status:', invite.status);
+      toast.error('Could not join invite');
+      cleanupInviteSubscription();
+      setProcessingInvite(null);
       refreshNotifications();
-
-      toast.success('Joining match!');
-
-      // Close invite modal if open
-      setInviteModalOpen(false);
-      setSelectedInvite(null);
-
-      // Navigate to match using room_id
-      if (DEBUG_INVITES) console.log('[INVITE] Navigating to match:', roomId);
-      router.push(`/app/play/quick-match/match/${roomId}`);
     } catch (err) {
       if (DEBUG_INVITES) console.error('[INVITE] Error accepting invite:', err);
       toast.error('Could not join invite');
-    } finally {
+      cleanupInviteSubscription();
       setProcessingInvite(null);
     }
   };
@@ -195,6 +290,15 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     // For non-invite notifications, keep all
     return true;
   });
+
+  // Cleanup subscription when modal closes
+  const handleModalClose = (open: boolean) => {
+    setInviteModalOpen(open);
+    if (!open) {
+      cleanupInviteSubscription();
+      setProcessingInvite(null);
+    }
+  };
 
   const handleInviteClick = async (notification: any) => {
     if (!isPrivateMatchInvite(notification)) {
@@ -403,7 +507,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     </DropdownMenu>
 
     {/* Invite Modal */}
-    <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
+    <Dialog open={inviteModalOpen} onOpenChange={handleModalClose}>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">
