@@ -170,7 +170,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           hint: rpcError.hint,
           code: rpcError.code
         });
-        toast.error('Failed to decline invite');
+        toast.error("Couldn't decline invite. Try again.");
         setProcessingInvite(null);
         return;
       }
@@ -181,7 +181,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       await markAsRead(notification.id);
       refreshNotifications();
 
-      toast.info('Invite declined');
+      toast.success('Invite declined');
 
       // Close invite modal if open
       setInviteModalOpen(false);
@@ -193,7 +193,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         stack: err?.stack,
         error: err
       });
-      toast.error('Failed to decline invite');
+      toast.error("Couldn't decline invite. Try again.");
       setProcessingInvite(null);
     }
   };
