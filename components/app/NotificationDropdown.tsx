@@ -67,9 +67,12 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       // Call RPC function to accept invite
       console.log('[INVITE] Calling rpc_accept_private_match_invite', inviteId);
 
-      const { data: result, error: rpcError } = await supabase.rpc('rpc_accept_private_match_invite', {
+      const { data, error: rpcError } = await supabase.rpc('rpc_accept_private_match_invite', {
         p_invite_id: inviteId
       });
+
+      // Log raw response immediately
+      console.log('[INVITE] RPC raw data:', data);
 
       // Handle RPC error
       if (rpcError) {
@@ -84,22 +87,31 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Extract match_room_id from RPC result
-      const matchRoomId = result?.room_id;
-      console.log('[INVITE] RPC returned matchRoomId', matchRoomId);
+      // Derive matchRoomId with fallback logic
+      let matchRoomId: string | null = null;
 
-      // Validate matchRoomId exists
-      if (!matchRoomId) {
-        console.error('[INVITE] RPC returned null/undefined matchRoomId:', result);
+      if (typeof data === 'string') {
+        // If data is a string, use it directly
+        matchRoomId = data;
+      } else if (data && typeof data === 'object') {
+        // Try multiple possible property names
+        matchRoomId = data.match_room_id || data.matchRoomId || data.matchRoomID || data.room_id || null;
+      }
+
+      console.log('[INVITE] matchRoomId resolved:', matchRoomId);
+
+      // Check for logical errors in result
+      if (data && typeof data === 'object' && data.ok === false) {
+        const errorMsg = data.error || 'Unknown error';
+        console.error('[INVITE] RPC returned error:', errorMsg);
         toast.error("Couldn't join invite. Please try again.");
         setProcessingInvite(null);
         return;
       }
 
-      // Check for logical errors in result
-      if (result?.ok === false) {
-        const errorMsg = result?.error || 'Unknown error';
-        console.error('[INVITE] RPC returned error:', errorMsg);
+      // Validate matchRoomId exists
+      if (!matchRoomId) {
+        console.error('[INVITE] No matchRoomId found in response:', data);
         toast.error("Couldn't join invite. Please try again.");
         setProcessingInvite(null);
         return;
