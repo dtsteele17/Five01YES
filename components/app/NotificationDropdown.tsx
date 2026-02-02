@@ -30,6 +30,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
     if (!notification.data?.invite_id) return;
 
+    console.debug('[INVITE] Accepting invite from notification:', notification.data.invite_id);
     setProcessingInvite(notification.id);
 
     try {
@@ -41,6 +42,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         .single();
 
       if (inviteError) throw inviteError;
+      console.debug('[INVITE] Fetched invite details:', invite);
 
       // Update invite status
       const { error: updateError } = await supabase
@@ -49,12 +51,20 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         .eq('id', notification.data.invite_id);
 
       if (updateError) throw updateError;
+      console.debug('[INVITE] Updated invite status to accepted');
 
       // Create match_room
       const options = invite.options as any;
       const bestOf = options.bestOf || 1;
       const legsToWin = Math.ceil(bestOf / 2);
       const matchFormat = `best-of-${bestOf}`;
+
+      console.debug('[INVITE] Creating/checking match room with options:', {
+        room_id: invite.room_id,
+        gameMode: options.gameMode,
+        bestOf,
+        legsToWin,
+      });
 
       // Check if match_room already exists
       const { data: existingRoom } = await supabase
@@ -64,6 +74,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         .maybeSingle();
 
       if (!existingRoom) {
+        console.debug('[INVITE] Creating new match_room');
         const { error: roomError } = await supabase
           .from('match_rooms')
           .insert({
@@ -82,12 +93,16 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           });
 
         if (roomError) {
-          console.error('Error creating match room:', roomError);
+          console.error('[INVITE] Error creating match room:', roomError);
           throw roomError;
         }
+        console.debug('[INVITE] Match room created successfully');
+      } else {
+        console.debug('[INVITE] Match room already exists');
       }
 
       toast.success('Joining match!');
+      console.debug('[INVITE] Navigating to match:', invite.room_id);
       // Navigate to quick match route with room_id
       router.push(`/app/play/quick-match/match/${invite.room_id}`);
       refreshNotifications();
@@ -104,6 +119,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
     if (!notification.data?.invite_id) return;
 
+    console.debug('[INVITE] Declining invite from notification:', notification.data.invite_id);
     setProcessingInvite(notification.id);
 
     try {
@@ -113,6 +129,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         .eq('id', notification.data.invite_id);
 
       if (error) throw error;
+      console.debug('[INVITE] Invite declined successfully');
 
       toast.info('Invite declined');
       refreshNotifications();

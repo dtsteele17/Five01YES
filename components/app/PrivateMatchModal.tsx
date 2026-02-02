@@ -90,17 +90,21 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           filter: `id=eq.${inviteId}`,
         },
         (payload) => {
+          console.debug('[INVITE] Status update received:', payload.new);
           const newStatus = payload.new.status;
           if (newStatus === 'accepted') {
+            console.debug('[INVITE] Invite accepted, navigating to match');
             setWaitingForFriend(false);
             toast.success(`${invitedFriendName} accepted!`);
             onClose();
             // Navigate to quick match route with room_id
             router.push(`/app/play/quick-match/match/${payload.new.room_id}`);
           } else if (newStatus === 'declined') {
+            console.debug('[INVITE] Invite declined');
             setWaitingForFriend(false);
             toast.info(`${invitedFriendName} can't right now`);
           } else if (newStatus === 'cancelled') {
+            console.debug('[INVITE] Invite cancelled');
             setWaitingForFriend(false);
           }
         }
@@ -147,6 +151,8 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   const handleCancelInvite = async () => {
     if (!inviteId) return;
 
+    console.debug('[INVITE] Cancelling invite:', inviteId);
+
     try {
       const { error } = await supabase
         .from('private_match_invites')
@@ -154,13 +160,14 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         .eq('id', inviteId);
 
       if (error) throw error;
+      console.debug('[INVITE] Invite cancelled successfully');
 
       setWaitingForFriend(false);
       setInviteId(null);
       setCurrentRoomId(null);
       toast.info('Invite cancelled');
     } catch (err) {
-      console.error('Error cancelling invite:', err);
+      console.error('[INVITE] Error cancelling invite:', err);
       toast.error('Failed to cancel invite');
     }
   };
@@ -298,7 +305,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
       };
 
       // Log payload for debugging
-      console.log('[INVITE] Creating invite with payload:', {
+      console.debug('[INVITE] Creating invite with payload:', {
         room_id: invitePayload.room_id,
         from_user_id: invitePayload.from_user_id,
         to_user_id: invitePayload.to_user_id,
@@ -346,7 +353,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         return;
       }
 
-      console.log('[INVITE] Invite created successfully:', invite.id);
+      console.debug('[INVITE] Invite created successfully:', invite.id);
 
       // Create notification for invitee with error handling
       const { error: notificationError } = await supabase
