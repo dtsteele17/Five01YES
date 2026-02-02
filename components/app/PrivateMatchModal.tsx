@@ -79,8 +79,10 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   useEffect(() => {
     if (!inviteId) return;
 
+    console.debug('[INVITE] Setting up realtime subscription for invite:', inviteId);
+
     const channel = supabase
-      .channel(`invite_${inviteId}`)
+      .channel(`private_invite_${inviteId}`)
       .on(
         'postgres_changes',
         {
@@ -90,31 +92,46 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
           filter: `id=eq.${inviteId}`,
         },
         (payload) => {
-          console.debug('[INVITE] Status update received:', payload.new);
+          console.debug('[INVITE] Realtime update received:', {
+            id: payload.new.id,
+            status: payload.new.status,
+            room_id: payload.new.room_id,
+          });
+
           const newStatus = payload.new.status;
+          const roomId = payload.new.room_id;
+
           if (newStatus === 'accepted') {
-            console.debug('[INVITE] Invite accepted, navigating to match');
+            console.debug('[INVITE] Invite accepted by friend, navigating to match');
             setWaitingForFriend(false);
             toast.success(`${invitedFriendName} accepted!`);
             onClose();
-            // Navigate to quick match route with room_id
-            router.push(`/app/play/quick-match/match/${payload.new.room_id}`);
+
+            // Navigate sender to the same match room
+            router.push(`/app/play/quick-match/match/${roomId}`);
           } else if (newStatus === 'declined') {
-            console.debug('[INVITE] Invite declined');
+            console.debug('[INVITE] Invite declined by friend');
             setWaitingForFriend(false);
+            setInviteId(null);
+            setCurrentRoomId(null);
             toast.info(`${invitedFriendName} can't right now`);
           } else if (newStatus === 'cancelled') {
-            console.debug('[INVITE] Invite cancelled');
+            console.debug('[INVITE] Invite was cancelled');
             setWaitingForFriend(false);
+            setInviteId(null);
+            setCurrentRoomId(null);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.debug('[INVITE] Subscription status:', status);
+      });
 
     return () => {
+      console.debug('[INVITE] Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [inviteId, invitedFriendName, router, onClose]);
+  }, [inviteId, invitedFriendName, router, onClose, supabase]);
 
   const loadFriends = async () => {
     try {
@@ -154,13 +171,31 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
     console.debug('[INVITE] Cancelling invite:', inviteId);
 
     try {
+      // Update invite status to cancelled
       const { error } = await supabase
         .from('private_match_invites')
-        .update({ status: 'cancelled' })
+        .update({
+          status: 'cancelled',
+          responded_at: new Date().toISOString(),
+        })
         .eq('id', inviteId);
 
       if (error) throw error;
       console.debug('[INVITE] Invite cancelled successfully');
+
+      // Optionally mark the match_room as forfeited if it's still open
+      if (currentRoomId) {
+        const { error: roomError } = await supabase
+          .from('match_rooms')
+          .update({ status: 'forfeited' })
+          .eq('id', currentRoomId)
+          .eq('status', 'open');
+
+        if (roomError) {
+          console.error('[INVITE] Error forfeiting match room:', roomError);
+          // Don't throw, just log - the invite is cancelled either way
+        }
+      }
 
       setWaitingForFriend(false);
       setInviteId(null);

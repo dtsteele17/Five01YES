@@ -7,13 +7,28 @@ import { useRouter } from 'next/navigation';
 interface Notification {
   id: string;
   user_id: string;
-  type: 'league_announcement' | 'match_reminder' | 'achievement' | 'app_update';
+  type: 'league_announcement' | 'league_invite' | 'match_reminder' | 'match_invite' | 'tournament_invite' | 'quick_match_ready' | 'achievement' | 'app_update' | 'system' | string;
   title: string;
   message: string;
   link: string | null;
   read: boolean;
   created_at: string;
   reference_id: string | null;
+  data?: {
+    kind?: string;
+    invite_id?: string;
+    room_id?: string;
+    from_user_id?: string;
+    from_username?: string;
+    match_options?: any;
+    href?: string;
+    achievementId?: string;
+    achievementName?: string;
+    category?: string;
+    icon?: string;
+    xp?: number;
+    [key: string]: any;
+  } | null;
   metadata?: {
     achievementId?: string;
     achievementName?: string;

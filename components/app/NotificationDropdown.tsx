@@ -27,13 +27,26 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
   const handleAcceptInvite = async (notification: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
 
-    if (!notification.data?.invite_id) return;
+    if (!notification.data?.invite_id) {
+      console.error('[INVITE] No invite_id in notification data');
+      toast.error('Invalid invite notification');
+      return;
+    }
 
-    console.debug('[INVITE] Accepting invite from notification:', notification.data.invite_id);
+    console.debug('[INVITE] Accepting invite:', notification.data.invite_id);
     setProcessingInvite(notification.id);
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in to accept invite');
+        router.push('/login');
+        return;
+      }
+
       // Get the invite details
       const { data: invite, error: inviteError } = await supabase
         .from('private_match_invites')
@@ -42,29 +55,36 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         .single();
 
       if (inviteError) throw inviteError;
-      console.debug('[INVITE] Fetched invite details:', invite);
 
-      // Update invite status
+      // Verify this invite is for current user
+      if (invite.to_user_id !== user.id) {
+        toast.error('This invite is not for you');
+        return;
+      }
+
+      if (invite.status !== 'pending') {
+        toast.info('This invite is no longer available');
+        refreshNotifications();
+        return;
+      }
+
+      console.debug('[INVITE] Fetched invite details:', {
+        id: invite.id,
+        room_id: invite.room_id,
+        status: invite.status,
+      });
+
+      // Update invite status to accepted
       const { error: updateError } = await supabase
         .from('private_match_invites')
-        .update({ status: 'accepted' })
+        .update({
+          status: 'accepted',
+          responded_at: new Date().toISOString(),
+        })
         .eq('id', notification.data.invite_id);
 
       if (updateError) throw updateError;
       console.debug('[INVITE] Updated invite status to accepted');
-
-      // Create match_room
-      const options = invite.options as any;
-      const bestOf = options.bestOf || 1;
-      const legsToWin = Math.ceil(bestOf / 2);
-      const matchFormat = `best-of-${bestOf}`;
-
-      console.debug('[INVITE] Creating/checking match room with options:', {
-        room_id: invite.room_id,
-        gameMode: options.gameMode,
-        bestOf,
-        legsToWin,
-      });
 
       // Check if match_room already exists
       const { data: existingRoom } = await supabase
@@ -73,8 +93,27 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         .eq('id', invite.room_id)
         .maybeSingle();
 
-      if (!existingRoom) {
+      if (existingRoom) {
+        // Match room exists, update status to active if it's still open
+        if (existingRoom.status === 'open') {
+          console.debug('[INVITE] Activating match room from open state');
+          const { error: activateError } = await supabase
+            .from('match_rooms')
+            .update({ status: 'active' })
+            .eq('id', invite.room_id);
+
+          if (activateError) {
+            console.error('[INVITE] Error activating match room:', activateError);
+          }
+        }
+      } else {
+        // Fallback: create match_room if it doesn't exist
         console.debug('[INVITE] Creating new match_room (fallback)');
+        const options = invite.options as any;
+        const bestOf = options.bestOf || 1;
+        const legsToWin = Math.ceil(bestOf / 2);
+        const matchFormat = `best-of-${bestOf}`;
+
         const { error: roomError } = await supabase
           .from('match_rooms')
           .insert({
@@ -97,29 +136,16 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           throw roomError;
         }
         console.debug('[INVITE] Match room created successfully');
-      } else if (existingRoom.status === 'open') {
-        console.debug('[INVITE] Activating match room from open state');
-        const { error: updateError } = await supabase
-          .from('match_rooms')
-          .update({ status: 'active' })
-          .eq('id', invite.room_id);
-
-        if (updateError) {
-          console.error('[INVITE] Error activating match room:', updateError);
-          throw updateError;
-        }
-        console.debug('[INVITE] Match room activated successfully');
-      } else {
-        console.debug('[INVITE] Match room already exists and is active');
       }
 
       toast.success('Joining match!');
-      console.debug('[INVITE] Navigating to match:', invite.room_id);
-      // Navigate to quick match route with room_id
-      router.push(`/app/play/quick-match/match/${invite.room_id}`);
       refreshNotifications();
+
+      // Navigate to match
+      console.debug('[INVITE] Navigating to match:', invite.room_id);
+      router.push(`/app/play/quick-match/match/${invite.room_id}`);
     } catch (err) {
-      console.error('Error accepting invite:', err);
+      console.error('[INVITE] Error accepting invite:', err);
       toast.error('Failed to accept invite');
     } finally {
       setProcessingInvite(null);
@@ -128,17 +154,34 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
   const handleDeclineInvite = async (notification: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
 
-    if (!notification.data?.invite_id) return;
+    if (!notification.data?.invite_id) {
+      console.error('[INVITE] No invite_id in notification data');
+      toast.error('Invalid invite notification');
+      return;
+    }
 
-    console.debug('[INVITE] Declining invite from notification:', notification.data.invite_id);
+    console.debug('[INVITE] Declining invite:', notification.data.invite_id);
     setProcessingInvite(notification.id);
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in');
+        return;
+      }
+
+      // Update invite status to declined
       const { error } = await supabase
         .from('private_match_invites')
-        .update({ status: 'declined' })
-        .eq('id', notification.data.invite_id);
+        .update({
+          status: 'declined',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', notification.data.invite_id)
+        .eq('to_user_id', user.id);
 
       if (error) throw error;
       console.debug('[INVITE] Invite declined successfully');
@@ -146,7 +189,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       toast.info('Invite declined');
       refreshNotifications();
     } catch (err) {
-      console.error('Error declining invite:', err);
+      console.error('[INVITE] Error declining invite:', err);
       toast.error('Failed to decline invite');
     } finally {
       setProcessingInvite(null);
@@ -156,6 +199,20 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const isPrivateMatchInvite = (notification: any) => {
     return notification.type === 'match_invite' && notification.data?.kind === 'private_match_invite';
   };
+
+  // Deduplicate notifications by invite_id to avoid showing multiple notifications for the same invite
+  const deduplicatedNotifications = notifications.filter((notification, index, self) => {
+    // If it's a private match invite, check for duplicates by invite_id
+    if (isPrivateMatchInvite(notification) && notification.data?.invite_id) {
+      const inviteId = notification.data.invite_id;
+      // Keep only the first occurrence of each invite_id
+      return index === self.findIndex((n) =>
+        isPrivateMatchInvite(n) && n.data?.invite_id === inviteId
+      );
+    }
+    // For non-invite notifications, keep all
+    return true;
+  });
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -233,7 +290,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           </div>
         </div>
 
-        {notifications.length === 0 ? (
+        {deduplicatedNotifications.length === 0 ? (
           <div className="py-16 px-6 text-center">
             <Bell className="w-12 h-12 text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">No Notifications at this moment</p>
@@ -241,7 +298,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         ) : (
           <ScrollArea className="max-h-[320px]">
             <div className="py-2">
-              {notifications.map((notification) => {
+              {deduplicatedNotifications.map((notification) => {
                 const isInvite = isPrivateMatchInvite(notification);
 
                 return (
