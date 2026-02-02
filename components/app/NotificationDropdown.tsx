@@ -33,20 +33,64 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     setProcessingInvite(notification.id);
 
     try {
-      const { data, error } = await supabase.rpc('rpc_accept_private_match_invite', {
-        p_invite_id: notification.data.invite_id,
-      });
+      // Get the invite details
+      const { data: invite, error: inviteError } = await supabase
+        .from('private_match_invites')
+        .select('*')
+        .eq('id', notification.data.invite_id)
+        .single();
 
-      if (error) throw error;
+      if (inviteError) throw inviteError;
 
-      if (data?.ok) {
-        toast.success('Joining match!');
-        const matchId = data.match_id || data.room_id;
-        router.push(`/app/match/online/${matchId}`);
-        refreshNotifications();
-      } else {
-        toast.error(data?.error || 'Failed to accept invite');
+      // Update invite status
+      const { error: updateError } = await supabase
+        .from('private_match_invites')
+        .update({ status: 'accepted' })
+        .eq('id', notification.data.invite_id);
+
+      if (updateError) throw updateError;
+
+      // Create match_room
+      const options = invite.options as any;
+      const bestOf = options.bestOf || 1;
+      const legsToWin = Math.ceil(bestOf / 2);
+      const matchFormat = `best-of-${bestOf}`;
+
+      // Check if match_room already exists
+      const { data: existingRoom } = await supabase
+        .from('match_rooms')
+        .select('id')
+        .eq('id', invite.room_id)
+        .maybeSingle();
+
+      if (!existingRoom) {
+        const { error: roomError } = await supabase
+          .from('match_rooms')
+          .insert({
+            id: invite.room_id,
+            player1_id: invite.from_user_id,
+            player2_id: invite.to_user_id,
+            game_mode: options.gameMode,
+            match_format: matchFormat,
+            legs_to_win: legsToWin,
+            player1_remaining: options.gameMode,
+            player2_remaining: options.gameMode,
+            current_turn: invite.from_user_id,
+            status: 'active',
+            match_type: 'private',
+            source: 'private',
+          });
+
+        if (roomError) {
+          console.error('Error creating match room:', roomError);
+          throw roomError;
+        }
       }
+
+      toast.success('Joining match!');
+      // Navigate to quick match route with room_id
+      router.push(`/app/play/quick-match/match/${invite.room_id}`);
+      refreshNotifications();
     } catch (err) {
       console.error('Error accepting invite:', err);
       toast.error('Failed to accept invite');
@@ -63,18 +107,15 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     setProcessingInvite(notification.id);
 
     try {
-      const { data, error } = await supabase.rpc('rpc_decline_private_match_invite', {
-        p_invite_id: notification.data.invite_id,
-      });
+      const { error } = await supabase
+        .from('private_match_invites')
+        .update({ status: 'declined' })
+        .eq('id', notification.data.invite_id);
 
       if (error) throw error;
 
-      if (data?.ok) {
-        toast.info('Invite declined');
-        refreshNotifications();
-      } else {
-        toast.error(data?.error || 'Failed to decline invite');
-      }
+      toast.info('Invite declined');
+      refreshNotifications();
     } catch (err) {
       console.error('Error declining invite:', err);
       toast.error('Failed to decline invite');
