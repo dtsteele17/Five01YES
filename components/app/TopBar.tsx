@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   Award,
+  UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -178,6 +179,12 @@ export function TopBar() {
                     <Link href="/app/profile" className="flex items-center">
                       <User className="w-4 h-4 mr-2" />
                       Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="text-gray-300 hover:text-white hover:bg-white/5 cursor-pointer">
+                    <Link href="/app/friends" className="flex items-center">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Friends
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="text-gray-300 hover:text-white hover:bg-white/5 cursor-pointer">

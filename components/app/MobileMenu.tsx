@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   Award,
+  UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -106,6 +107,13 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               <Button variant="ghost" className="w-full justify-start text-gray-300 hover:text-white hover:bg-white/5">
                 <User className="w-5 h-5 mr-3" />
                 Profile
+              </Button>
+            </Link>
+
+            <Link href="/app/friends" onClick={onClose}>
+              <Button variant="ghost" className="w-full justify-start text-gray-300 hover:text-white hover:bg-white/5">
+                <UserPlus className="w-5 h-5 mr-3" />
+                Friends
               </Button>
             </Link>
 

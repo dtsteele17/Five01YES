@@ -15,6 +15,7 @@ import {
 import { UpcomingMatchesModal } from '@/components/app/UpcomingMatchesModal';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
+import { usePresence } from '@/lib/hooks/usePresence';
 
 interface DashboardStats {
   totalMatches: number;
@@ -62,6 +63,8 @@ export default function DashboardPage() {
   const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
   const [loading, setLoading] = useState(true);
+
+  usePresence();
 
   useEffect(() => {
     async function fetchDashboardData() {
