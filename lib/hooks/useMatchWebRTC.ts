@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { sendSignal, subscribeSignals, fetchOpponentId } from '@/lib/webrtc/signaling-adapter';
+import { getIceServers } from '@/lib/webrtc/ice';
 
 export interface UseMatchWebRTCProps {
   roomId: string | null;
@@ -33,10 +34,10 @@ export interface UseMatchWebRTCReturn {
  * - Best of 7 (301, 501)
  *
  * Uses public.match_signals table for signaling
- * Xirsys ICE servers for STUN/TURN
+ * Shared ICE configuration (STUN + optional TURN)
  *
  * State Machine:
- * 1. Fetch ICE servers from Xirsys
+ * 1. Get ICE servers from shared config
  * 2. Fetch opponent from match_rooms
  * 3. Create RTCPeerConnection (stable across turns/legs)
  * 4. Subscribe to match_signals
@@ -58,7 +59,6 @@ export function useMatchWebRTC({
   const [isVideoDisabled, setIsVideoDisabled] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [iceServers, setIceServers] = useState<RTCIceServer[] | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
 
@@ -66,7 +66,6 @@ export function useMatchWebRTC({
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const iceServersFetchedRef = useRef(false);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const makingOfferRef = useRef(false);
   const ignoreOfferRef = useRef(false);
@@ -79,36 +78,6 @@ export function useMatchWebRTC({
     isPlayer1,
     isMyTurn: isMyTurn ? 'ME' : 'OPPONENT'
   });
-
-  // ========== FETCH XIRSYS ICE SERVERS ==========
-  useEffect(() => {
-    if (!roomId || iceServersFetchedRef.current) return;
-
-    const fetchIceServers = async () => {
-      console.log('[WEBRTC QS] ========== FETCHING XIRSYS ICE SERVERS ==========');
-
-      try {
-        const res = await fetch('/api/turn');
-        const data = await res.json();
-
-        if (data.iceServers && data.iceServers.length > 0) {
-          console.log('[WEBRTC QS] ✅ Xirsys ICE servers received:', data.iceServers.length);
-          setIceServers(data.iceServers);
-          iceServersFetchedRef.current = true;
-        } else {
-          console.warn('[WEBRTC QS] ⚠️ No ICE servers in response, using default STUN');
-          setIceServers([{ urls: 'stun:stun.l.google.com:19302' }]);
-          iceServersFetchedRef.current = true;
-        }
-      } catch (error) {
-        console.error('[WEBRTC QS] ❌ Error fetching ICE servers:', error);
-        setIceServers([{ urls: 'stun:stun.l.google.com:19302' }]);
-        iceServersFetchedRef.current = true;
-      }
-    };
-
-    fetchIceServers();
-  }, [roomId]);
 
   // ========== FETCH OPPONENT FROM MATCH_ROOMS ==========
   useEffect(() => {
@@ -177,10 +146,6 @@ export function useMatchWebRTC({
       console.log('[WEBRTC QS] Waiting for opponentUserId');
       return;
     }
-    if (!iceServers) {
-      console.log('[WEBRTC QS] Waiting for iceServers');
-      return;
-    }
 
     // Only create once
     if (peerConnectionRef.current) {
@@ -197,6 +162,7 @@ export function useMatchWebRTC({
     });
 
     try {
+      const iceServers = getIceServers();
       const pc = new RTCPeerConnection({
         iceServers,
         iceCandidatePoolSize: 10
@@ -281,7 +247,7 @@ export function useMatchWebRTC({
         console.log('[WEBRTC QS] Peer connection closed');
       }
     };
-  }, [roomId, myUserId, opponentUserId, iceServers, isPlayer1]);
+  }, [roomId, myUserId, opponentUserId, isPlayer1]);
 
   // ========== SIGNALING SUBSCRIPTION ==========
   useEffect(() => {
