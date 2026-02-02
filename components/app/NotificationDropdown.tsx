@@ -35,43 +35,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
-  const [inviteSubscription, setInviteSubscription] = useState<any>(null);
-
-  // Cleanup subscription when modal closes or component unmounts
-  const cleanupInviteSubscription = () => {
-    if (inviteSubscription) {
-      if (DEBUG_INVITES) console.log('[INVITE] Cleaning up receiver subscription');
-      supabase.removeChannel(inviteSubscription);
-      setInviteSubscription(null);
-    }
-  };
-
-  // Cleanup on component unmount
-  useEffect(() => {
-    return () => {
-      cleanupInviteSubscription();
-    };
-  }, [inviteSubscription]);
-
-  const navigateToMatch = (roomId: string, notification: any) => {
-    if (DEBUG_INVITES) console.log('[INVITE] Navigating to match:', roomId);
-
-    // Mark notification as read
-    markAsRead(notification.id);
-    refreshNotifications();
-
-    // Close invite modal if open
-    setInviteModalOpen(false);
-    setSelectedInvite(null);
-
-    // Cleanup subscription
-    cleanupInviteSubscription();
-
-    toast.success('Joining match!');
-
-    // Navigate to match using room_id (same route as quick match)
-    router.push(`/app/play/quick-match/match/${roomId}`);
-  };
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleAcceptInvite = async (notification: any, e?: React.MouseEvent) => {
     if (e) {
@@ -90,44 +54,10 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
     setProcessingInvite(notification.id);
 
-    // Set up realtime subscription to catch updates while we're processing
-    if (DEBUG_INVITES) console.log('[INVITE] Setting up receiver realtime subscription');
-    const channel = supabase
-      .channel(`receiver_invite_${inviteId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'private_match_invites',
-          filter: `id=eq.${inviteId}`,
-        },
-        (payload) => {
-          const newStatus = payload.new.status;
-          const roomId = payload.new.room_id;
-
-          if (DEBUG_INVITES) {
-            console.log('[INVITE] Receiver subscription update:', newStatus, 'room_id:', roomId);
-          }
-
-          if (newStatus === 'accepted' && roomId) {
-            if (DEBUG_INVITES) console.log('[INVITE] Received accepted update via realtime, navigating');
-            setProcessingInvite(null);
-            navigateToMatch(roomId, notification);
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (DEBUG_INVITES) console.log('[INVITE] Receiver subscription status:', status);
-      });
-
-    setInviteSubscription(channel);
-
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        cleanupInviteSubscription();
         setProcessingInvite(null);
         toast.error('Please log in to accept invite');
         router.push('/login');
@@ -141,70 +71,56 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         p_invite_id: inviteId
       });
 
+      if (DEBUG_INVITES) {
+        console.log('[INVITE] RPC response:', { result, error: rpcError });
+      }
+
+      // Handle RPC error
+      if (rpcError) {
+        console.error('[INVITE] RPC error:', {
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: rpcError.hint,
+          code: rpcError.code
+        });
+        toast.error('Failed to join private match');
+        setProcessingInvite(null);
+        return;
+      }
+
       // Handle RPC success
-      if (!rpcError && result && result.ok && result.room_id) {
+      if (result && result.ok && result.room_id) {
         const roomId = result.room_id;
-        if (DEBUG_INVITES) console.log('[INVITE] RPC accept result - room_id:', roomId);
-        setProcessingInvite(null);
-        navigateToMatch(roomId, notification);
-        return;
-      }
+        if (DEBUG_INVITES) console.log('[INVITE] RPC success - room_id:', roomId);
 
-      // Handle RPC error - fallback to querying invite directly
-      const errorMsg = result?.error || rpcError?.message || 'Unknown error';
-      if (DEBUG_INVITES) console.warn('[INVITE] RPC returned error:', errorMsg, '- attempting fallback query');
-
-      // Fallback: Query the invite row directly
-      if (DEBUG_INVITES) console.log('[INVITE] Querying invite row directly as fallback');
-      const { data: invite, error: queryError } = await supabase
-        .from('private_match_invites')
-        .select('room_id, status')
-        .eq('id', inviteId)
-        .maybeSingle();
-
-      if (queryError) {
-        if (DEBUG_INVITES) console.error('[INVITE] Fallback query error:', queryError);
-        throw queryError;
-      }
-
-      if (!invite) {
-        if (DEBUG_INVITES) console.error('[INVITE] Invite not found in fallback query');
-        toast.info('This invite is no longer available');
-        cleanupInviteSubscription();
-        setProcessingInvite(null);
+        // Mark notification as read
+        await markAsRead(notification.id);
         refreshNotifications();
+
+        // Close dropdown and modal
+        setDropdownOpen(false);
+        setInviteModalOpen(false);
+        setSelectedInvite(null);
+
+        toast.success('Joining match!');
+
+        // Navigate to match using room_id (same route as quick match)
+        router.push(`/app/play/quick-match/match/${roomId}`);
         return;
       }
 
-      if (DEBUG_INVITES) console.log('[INVITE] Fallback query result:', invite);
-
-      // If invite was accepted and has room_id, navigate
-      if (invite.status === 'accepted' && invite.room_id) {
-        if (DEBUG_INVITES) console.log('[INVITE] Invite already accepted with room_id, navigating via fallback');
-        setProcessingInvite(null);
-        navigateToMatch(invite.room_id, notification);
-        return;
-      }
-
-      // If invite is pending, wait for realtime update
-      if (invite.status === 'pending') {
-        if (DEBUG_INVITES) console.log('[INVITE] Invite still pending, waiting for realtime update...');
-        toast.info('Processing invite...');
-        // Keep subscription active and processing state
-        // Will navigate when realtime update arrives
-        return;
-      }
-
-      // Otherwise, couldn't join
-      if (DEBUG_INVITES) console.warn('[INVITE] Could not join - status:', invite.status);
-      toast.error('Could not join invite');
-      cleanupInviteSubscription();
+      // Handle RPC logical error (ok: false)
+      const errorMsg = result?.error || 'Unknown error';
+      if (DEBUG_INVITES) console.error('[INVITE] RPC returned error:', errorMsg);
+      toast.error(`Failed to join: ${errorMsg}`);
       setProcessingInvite(null);
-      refreshNotifications();
-    } catch (err) {
-      if (DEBUG_INVITES) console.error('[INVITE] Error accepting invite:', err);
-      toast.error('Could not join invite');
-      cleanupInviteSubscription();
+    } catch (err: any) {
+      console.error('[INVITE] Exception accepting invite:', {
+        message: err?.message,
+        stack: err?.stack,
+        error: err
+      });
+      toast.error('Failed to join private match');
       setProcessingInvite(null);
     }
   };
@@ -230,6 +146,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        setProcessingInvite(null);
         toast.error('Please log in');
         return;
       }
@@ -242,8 +159,15 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       });
 
       if (rpcError) {
-        if (DEBUG_INVITES) console.error('[INVITE] RPC error:', rpcError);
-        throw rpcError;
+        console.error('[INVITE] RPC error:', {
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: rpcError.hint,
+          code: rpcError.code
+        });
+        toast.error('Failed to decline invite');
+        setProcessingInvite(null);
+        return;
       }
 
       if (DEBUG_INVITES) console.log('[INVITE] Invite declined successfully');
@@ -257,10 +181,14 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       // Close invite modal if open
       setInviteModalOpen(false);
       setSelectedInvite(null);
-    } catch (err) {
-      if (DEBUG_INVITES) console.error('[INVITE] Error declining invite:', err);
+      setProcessingInvite(null);
+    } catch (err: any) {
+      console.error('[INVITE] Exception declining invite:', {
+        message: err?.message,
+        stack: err?.stack,
+        error: err
+      });
       toast.error('Failed to decline invite');
-    } finally {
       setProcessingInvite(null);
     }
   };
@@ -291,12 +219,12 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     return true;
   });
 
-  // Cleanup subscription when modal closes
+  // Cleanup when modal closes
   const handleModalClose = (open: boolean) => {
     setInviteModalOpen(open);
     if (!open) {
-      cleanupInviteSubscription();
       setProcessingInvite(null);
+      setSelectedInvite(null);
     }
   };
 
@@ -403,7 +331,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
   return (
     <>
-    <DropdownMenu>
+    <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
       <DropdownMenuTrigger asChild>
         {children}
       </DropdownMenuTrigger>
@@ -478,17 +406,26 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                               size="sm"
                               onClick={(e) => handleAcceptInvite(notification, e)}
                               disabled={processingInvite === notification.id}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
                             >
-                              <Check className="w-3 h-3 mr-1" />
-                              Join
+                              {processingInvite === notification.id ? (
+                                <>
+                                  <div className="w-3 h-3 mr-1 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  Joining...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Join
+                                </>
+                              )}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={(e) => handleDeclineInvite(notification, e)}
                               disabled={processingInvite === notification.id}
-                              className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                              className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                             >
                               <X className="w-3 h-3 mr-1" />
                               Not right now
@@ -548,16 +485,25 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
               <Button
                 onClick={() => handleAcceptInvite(selectedInvite)}
                 disabled={processingInvite === selectedInvite.id}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-12"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-12 disabled:opacity-50"
               >
-                <Check className="w-4 h-4 mr-2" />
-                {processingInvite === selectedInvite.id ? 'Joining...' : 'Join'}
+                {processingInvite === selectedInvite.id ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Joining...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Join
+                  </>
+                )}
               </Button>
               <Button
                 onClick={() => handleDeclineInvite(selectedInvite)}
                 disabled={processingInvite === selectedInvite.id}
                 variant="outline"
-                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 h-12"
+                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 h-12 disabled:opacity-50"
               >
                 <X className="w-4 h-4 mr-2" />
                 Not right now
