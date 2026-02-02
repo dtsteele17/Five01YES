@@ -69,12 +69,12 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       // Check if match_room already exists
       const { data: existingRoom } = await supabase
         .from('match_rooms')
-        .select('id')
+        .select('id, status')
         .eq('id', invite.room_id)
         .maybeSingle();
 
       if (!existingRoom) {
-        console.debug('[INVITE] Creating new match_room');
+        console.debug('[INVITE] Creating new match_room (fallback)');
         const { error: roomError } = await supabase
           .from('match_rooms')
           .insert({
@@ -97,8 +97,20 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
           throw roomError;
         }
         console.debug('[INVITE] Match room created successfully');
+      } else if (existingRoom.status === 'waiting') {
+        console.debug('[INVITE] Activating match room from waiting state');
+        const { error: updateError } = await supabase
+          .from('match_rooms')
+          .update({ status: 'active' })
+          .eq('id', invite.room_id);
+
+        if (updateError) {
+          console.error('[INVITE] Error activating match room:', updateError);
+          throw updateError;
+        }
+        console.debug('[INVITE] Match room activated successfully');
       } else {
-        console.debug('[INVITE] Match room already exists');
+        console.debug('[INVITE] Match room already exists and is active');
       }
 
       toast.success('Joining match!');
@@ -142,7 +154,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   };
 
   const isPrivateMatchInvite = (notification: any) => {
-    return notification.title === 'Private Match Invite' || notification.data?.invite_id;
+    return notification.type === 'match_invite' && notification.data?.kind === 'private_match_invite';
   };
 
   const getNotificationIcon = (type: string) => {

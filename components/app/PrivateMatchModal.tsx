@@ -288,14 +288,56 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
 
       // Build match options
       const bestOf = matchFormat === 'best-of-1' ? 1 : matchFormat === 'best-of-3' ? 3 : 5;
+      const legsToWin = Math.ceil(bestOf / 2);
+      const numericGameMode = parseInt(gameMode);
       const matchOptions = {
-        gameMode: parseInt(gameMode),
+        gameMode: numericGameMode,
         bestOf,
         doubleOut,
         straightIn,
       };
 
-      // Validate all required fields before insert
+      console.debug('[INVITE] Creating match room first:', {
+        room_id: roomId,
+        player1_id: user.id,
+        player2_id: inviteeId,
+        game_mode: numericGameMode,
+        match_format: `best-of-${bestOf}`,
+      });
+
+      // Create match_room FIRST so room_id is valid
+      const { error: roomError } = await supabase
+        .from('match_rooms')
+        .insert({
+          id: roomId,
+          player1_id: user.id,
+          player2_id: inviteeId,
+          game_mode: numericGameMode,
+          match_format: `best-of-${bestOf}`,
+          legs_to_win: legsToWin,
+          player1_remaining: numericGameMode,
+          player2_remaining: numericGameMode,
+          current_turn: user.id,
+          status: 'waiting',
+          match_type: 'private',
+          source: 'private',
+        });
+
+      if (roomError) {
+        console.error('[INVITE] Error creating match room:', {
+          message: roomError.message,
+          details: roomError.details,
+          hint: roomError.hint,
+          code: roomError.code,
+        });
+        toast.error(`Failed to create match room: ${roomError.message}`);
+        setCreating(false);
+        return;
+      }
+
+      console.debug('[INVITE] Match room created successfully');
+
+      // Now create the invite
       const invitePayload = {
         room_id: roomId,
         from_user_id: user.id,
@@ -312,14 +354,6 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         status: invitePayload.status,
         options: invitePayload.options,
       });
-
-      // Ensure all required fields are present
-      if (!invitePayload.room_id || !invitePayload.from_user_id || !invitePayload.to_user_id) {
-        console.error('[INVITE] Missing required fields:', invitePayload);
-        toast.error('Invalid invite data. Please try again.');
-        setCreating(false);
-        return;
-      }
 
       // Insert invite with detailed error handling
       const { data: invite, error: inviteError } = await supabase
@@ -360,10 +394,11 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         .from('notifications')
         .insert({
           user_id: inviteeId,
-          type: 'system',
+          type: 'match_invite',
           title: 'Private Match Invite',
-          message: `${myUsername} has invited you to a private game`,
+          message: `${myUsername} has invited you to a private match`,
           data: {
+            kind: 'private_match_invite',
             invite_id: invite.id,
             room_id: roomId,
             from_user_id: user.id,
