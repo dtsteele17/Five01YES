@@ -31,6 +31,8 @@ import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
+import { TrustRatingModal } from '@/components/TrustRatingModal';
+import { TrustBadge, TrustLetter } from '@/components/TrustBadge';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -119,6 +121,12 @@ export default function QuickMatchRoomPage() {
   const [showEditVisitModal, setShowEditVisitModal] = useState(false);
   const [editingVisit, setEditingVisit] = useState<{ id: string; score: number; visitNumber: number } | null>(null);
 
+  // Trust Rating Modal state
+  const [showTrustModal, setShowTrustModal] = useState(false);
+  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(null);
+  const [pendingEndReason, setPendingEndReason] = useState<'win' | 'forfeit' | null>(null);
+  const [opponentTrustLetter, setOpponentTrustLetter] = useState<TrustLetter>('C');
+
   // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
   // Hook fetches opponent from match_rooms and manages all signaling
   const webrtc = useMatchWebRTC({
@@ -205,20 +213,61 @@ export default function QuickMatchRoomPage() {
 
   // WebRTC diagnostics now handled by useMatchWebRTC hook
 
+  // Fetch opponent's trust rating
+  useEffect(() => {
+    async function fetchOpponentTrust() {
+      if (!opponentId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_trust_summary')
+          .select('trust_letter')
+          .eq('user_id', opponentId)
+          .maybeSingle();
+
+        if (error) {
+          console.error('[TRUST_RATING] Error fetching opponent trust:', error);
+        } else if (data) {
+          console.log('[TRUST_RATING] Opponent trust rating:', data.trust_letter);
+          setOpponentTrustLetter(data.trust_letter as TrustLetter);
+        } else {
+          console.log('[TRUST_RATING] No trust rating found for opponent, using default C');
+          setOpponentTrustLetter('C');
+        }
+      } catch (err) {
+        console.error('[TRUST_RATING] Unexpected error:', err);
+      }
+    }
+
+    fetchOpponentTrust();
+  }, [opponentId]);
+
   useEffect(() => {
     if (!matchState) return;
 
-    if (matchState.endedReason === 'forfeit' && !didIForfeit) {
-      setShowOpponentForfeitModal(true);
-    } else if (matchState.endedReason === 'win') {
-      setShowMatchCompleteModal(true);
+    const endReason = matchState.endedReason;
+    if (!endReason) return;
+
+    // Show trust rating modal first (only once per match)
+    if (trustPromptedForMatchId !== matchId && opponentId) {
+      console.log('[TRUST_RATING] Match ended, showing trust modal first');
+      setTrustPromptedForMatchId(matchId);
+      setPendingEndReason(endReason === 'forfeit' ? 'forfeit' : 'win');
+      setShowTrustModal(true);
+    } else if (!showTrustModal) {
+      // Trust modal already shown or skipped, show game over modal
+      if (endReason === 'forfeit' && !didIForfeit) {
+        setShowOpponentForfeitModal(true);
+      } else if (endReason === 'win') {
+        setShowMatchCompleteModal(true);
+      }
     }
 
     // Clean up WebRTC when match ends
-    if (matchState.endedReason) {
-      stopCamera(`match ended: ${matchState.endedReason}`);
+    if (endReason) {
+      stopCamera(`match ended: ${endReason}`);
     }
-  }, [matchState?.endedReason, didIForfeit]);
+  }, [matchState?.endedReason, didIForfeit, trustPromptedForMatchId, matchId, opponentId, showTrustModal]);
 
   async function initializeMatch() {
     try {
@@ -728,6 +777,20 @@ export default function QuickMatchRoomPage() {
     }
   }
 
+  function handleTrustRatingDone() {
+    console.log('[TRUST_RATING] Modal done, showing game over modal');
+    setShowTrustModal(false);
+
+    // Now show the appropriate game over modal
+    if (pendingEndReason === 'forfeit' && !didIForfeit) {
+      setShowOpponentForfeitModal(true);
+    } else if (pendingEndReason === 'win') {
+      setShowMatchCompleteModal(true);
+    }
+
+    setPendingEndReason(null);
+  }
+
   const handleRematch = async () => {
     if (!room || rematchLoading || rematchDisabled) return;
 
@@ -1006,8 +1069,9 @@ export default function QuickMatchRoomPage() {
                     {opponentName.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-white">{opponentName}</p>
+                  <TrustBadge letter={opponentTrustLetter} size="sm" />
                 </div>
               </div>
               <div className="flex items-center justify-center py-6">
@@ -1490,6 +1554,16 @@ export default function QuickMatchRoomPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Trust Rating Modal - shows before game over modal */}
+      {opponentId && (
+        <TrustRatingModal
+          open={showTrustModal}
+          matchId={matchId}
+          opponentId={opponentId}
+          onDone={handleTrustRatingDone}
+        />
+      )}
 
       <Dialog open={showMatchCompleteModal || showOpponentForfeitModal} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-3xl">

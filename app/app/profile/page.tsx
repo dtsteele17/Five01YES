@@ -23,6 +23,7 @@ import { RankCard } from '@/components/app/RankCard';
 import { RankedStatsCard } from '@/components/app/RankedStatsCard';
 import { ProfileRankBadge } from '@/components/app/ProfileRankBadge';
 import { createClient } from '@/lib/supabase/client';
+import { TrustBadge, TrustLetter } from '@/components/TrustBadge';
 
 interface RankedPlayerState {
   season_id: string;
@@ -41,11 +42,19 @@ interface Season {
   name: string;
 }
 
+interface UserTrustSummary {
+  user_id: string;
+  ratings_count: number;
+  avg_score: number;
+  trust_letter: TrustLetter;
+}
+
 function ProfileContent() {
   const { profile, loading } = useProfile();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
+  const [trustSummary, setTrustSummary] = useState<UserTrustSummary | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -63,10 +72,39 @@ function ProfileContent() {
       }
     }
 
+    async function fetchTrustRating() {
+      if (!profile?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_trust_summary')
+          .select('*')
+          .eq('user_id', profile.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching trust rating:', error);
+        } else if (data) {
+          setTrustSummary(data as UserTrustSummary);
+        } else {
+          console.log('No trust rating found, defaulting to C');
+          setTrustSummary({
+            user_id: profile.id,
+            ratings_count: 0,
+            avg_score: 0,
+            trust_letter: 'C',
+          });
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching trust rating:', err);
+      }
+    }
+
     if (!loading) {
       fetchRankedState();
+      fetchTrustRating();
     }
-  }, [loading]);
+  }, [loading, profile?.id]);
 
   const getInitials = () => {
     if (!profile?.display_name) return 'JD';
@@ -151,6 +189,15 @@ function ProfileContent() {
               {profile?.about || 'No bio added yet. Click Edit Profile to add information about yourself.'}
             </p>
             <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <span className="text-gray-400">Trust Rating</span>
+                <div className="flex items-center gap-2">
+                  <TrustBadge letter={trustSummary?.trust_letter || 'C'} size="md" />
+                  <span className="text-white font-medium text-sm">
+                    ({trustSummary?.ratings_count || 0} {trustSummary?.ratings_count === 1 ? 'rating' : 'ratings'})
+                  </span>
+                </div>
+              </div>
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-gray-400">Favorite Format</span>
                 <span className="text-white font-medium">{profile?.favorite_format || 'Not set'}</span>
