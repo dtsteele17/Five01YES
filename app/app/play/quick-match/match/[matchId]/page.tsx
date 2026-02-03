@@ -35,6 +35,7 @@ import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
 import { clearMatchState } from '@/lib/utils/match-resume';
+import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -134,6 +135,9 @@ export default function QuickMatchRoomPage() {
   // Match-start sound
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showSoundBanner, setShowSoundBanner] = useState(false);
+
+  // Stale state cleanup - run once when room not found
+  const hasCleanedStaleState = useRef(false);
 
   // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
   // Hook fetches opponent from match_rooms and manages all signaling
@@ -254,6 +258,15 @@ export default function QuickMatchRoomPage() {
         });
     }
   };
+
+  // Clear stale state when room not found
+  useEffect(() => {
+    if (!loading && !room && !hasCleanedStaleState.current) {
+      console.log('[STALE_STATE] Room not found, clearing stale match state once');
+      hasCleanedStaleState.current = true;
+      clearStaleMatchState();
+    }
+  }, [loading, room]);
 
   // Debug logging for ID tracking and current_turn changes
   useEffect(() => {

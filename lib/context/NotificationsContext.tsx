@@ -3,6 +3,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import {
+  validateRoomBeforeNavigation,
+  clearStaleMatchState,
+  markInviteAsHandled,
+  isInviteAlreadyHandled,
+} from '@/lib/utils/stale-state-cleanup';
 
 interface Notification {
   id: string;
@@ -155,6 +161,41 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     await markAsRead(notification.id);
 
     if (notification.link) {
+      // Check if this is a match room link
+      const matchRoomPattern = /\/app\/(play\/quick-match\/match|ranked\/match|match\/online)\/([a-f0-9-]+)/;
+      const match = notification.link.match(matchRoomPattern);
+
+      if (match) {
+        const roomId = match[2];
+
+        // Check if already handled
+        if (isInviteAlreadyHandled(roomId)) {
+          console.warn('[NOTIFICATIONS] Room already handled, skipping navigation');
+          return;
+        }
+
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error('[NOTIFICATIONS] No user found');
+          router.push('/login');
+          return;
+        }
+
+        // Validate room before navigation
+        const validation = await validateRoomBeforeNavigation(roomId, user.id);
+
+        if (!validation.valid) {
+          console.error('[NOTIFICATIONS] Room validation failed:', validation.reason);
+          await clearStaleMatchState();
+          router.push('/app/play');
+          return;
+        }
+
+        // Mark as handled
+        markInviteAsHandled(roomId);
+      }
+
       router.push(notification.link);
     }
   };

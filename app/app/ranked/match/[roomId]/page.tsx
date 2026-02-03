@@ -30,6 +30,7 @@ import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
 import { clearMatchState } from '@/lib/utils/match-resume';
+import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -127,6 +128,9 @@ export default function RankedMatchPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showSoundBanner, setShowSoundBanner] = useState(false);
 
+  // Stale state cleanup - run once when room not found
+  const hasCleanedStaleState = useRef(false);
+
   const isMyTurn = matchState ? matchState.youArePlayer === matchState.currentTurnPlayer : false;
   const myRemaining = matchState && matchState.youArePlayer
     ? matchState.players[matchState.youArePlayer - 1].remaining
@@ -192,6 +196,15 @@ export default function RankedMatchPage() {
         });
     }
   };
+
+  // Clear stale state when room not found
+  useEffect(() => {
+    if (!loading && !room && !hasCleanedStaleState.current) {
+      console.log('[STALE_STATE] Room not found, clearing stale match state once');
+      hasCleanedStaleState.current = true;
+      clearStaleMatchState();
+    }
+  }, [loading, room]);
 
   useEffect(() => {
     if (room?.status === 'finished' && room.winner_id && room.match_type === 'ranked' && !finalizingMatch && !rankedResults) {

@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Trophy, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 import { clearMatchState } from '@/lib/utils/match-resume';
 
 interface OnlineMatchData {
@@ -60,6 +61,9 @@ export default function OnlineMatchPage() {
   // Match-start sound
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showSoundBanner, setShowSoundBanner] = useState(false);
+
+  // Stale state cleanup - run once when match not found
+  const hasCleanedStaleState = useRef(false);
 
   useEffect(() => {
     loadMatchData();
@@ -121,6 +125,15 @@ export default function OnlineMatchPage() {
         });
     }
   };
+
+  // Clear stale state when match not found
+  useEffect(() => {
+    if (!loading && !matchData && !hasCleanedStaleState.current) {
+      console.log('[STALE_STATE] Match not found, clearing stale match state once');
+      hasCleanedStaleState.current = true;
+      clearStaleMatchState();
+    }
+  }, [loading, matchData]);
 
   async function loadMatchData() {
     const supabase = createClient();

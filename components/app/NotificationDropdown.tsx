@@ -21,6 +21,12 @@ import { Bell, Users, Trophy, Award, Megaphone, Check, X, UserPlus } from 'lucid
 import { formatDistanceToNow } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import {
+  validateRoomBeforeNavigation,
+  clearStaleMatchState,
+  markInviteAsHandled,
+  isInviteAlreadyHandled,
+} from '@/lib/utils/stale-state-cleanup';
 
 const DEBUG_INVITES = true;
 
@@ -126,6 +132,28 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       // Mark notification as read
       await markAsRead(notification.id);
       refreshNotifications();
+
+      // Check if this invite has already been handled to prevent duplicates
+      if (isInviteAlreadyHandled(roomId)) {
+        console.warn('[INVITE] This invite was already handled, skipping navigation');
+        setProcessingInvite(null);
+        return;
+      }
+
+      // Validate room before navigation
+      const validation = await validateRoomBeforeNavigation(roomId, user.id);
+
+      if (!validation.valid) {
+        console.error('[INVITE] Room validation failed:', validation.reason);
+        toast.error(`Cannot join match: ${validation.reason}`);
+        await clearStaleMatchState();
+        setProcessingInvite(null);
+        router.push('/app/play');
+        return;
+      }
+
+      // Mark this invite as handled
+      markInviteAsHandled(roomId);
 
       // Close dropdown and modal
       setDropdownOpen(false);
@@ -249,6 +277,31 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
       // Mark as read
       await markAsRead(notification.id);
+
+      // Check if already handled
+      if (isInviteAlreadyHandled(roomId)) {
+        console.warn('[INVITE] Accepted notification already handled, skipping');
+        return;
+      }
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('[INVITE] No user found for accepted notification');
+        return;
+      }
+
+      // Validate room before navigation
+      const validation = await validateRoomBeforeNavigation(roomId, user.id);
+
+      if (!validation.valid) {
+        console.error('[INVITE] Room validation failed for accepted notification:', validation.reason);
+        await clearStaleMatchState();
+        return;
+      }
+
+      // Mark as handled
+      markInviteAsHandled(roomId);
 
       // Show toast
       toast.success('Your invite was accepted! Joining match...');
