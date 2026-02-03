@@ -142,6 +142,35 @@ function ProfileContent() {
           </div>
         </Card>
 
+        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Shield className="w-6 h-6 text-teal-400" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">Trust Rating</h2>
+                <p className="text-sm text-gray-400">Community reputation score</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <TrustRatingBadge rating={profile?.trust_rating_letter} size="md" />
+              <div className="text-right">
+                {profile?.trust_rating_avg !== null && profile?.trust_rating_avg !== undefined ? (
+                  <p className="text-white font-semibold">
+                    {profile.trust_rating_avg.toFixed(1)} avg
+                  </p>
+                ) : (
+                  <p className="text-gray-400 text-sm">No ratings yet</p>
+                )}
+                {profile?.trust_rating_count !== null && profile?.trust_rating_count !== undefined && profile.trust_rating_count > 0 ? (
+                  <p className="text-gray-400 text-sm">
+                    {profile.trust_rating_count} {profile.trust_rating_count === 1 ? 'vote' : 'votes'}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <RankCard rankedState={rankedState} season={season} loading={loading} />
 
         <RankedStatsCard />

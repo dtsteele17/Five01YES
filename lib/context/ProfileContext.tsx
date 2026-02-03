@@ -15,6 +15,8 @@ export interface UserProfile {
   preferred_hand: 'Left' | 'Right' | null;
   ranked_points: number;
   trust_rating_letter?: string | null;
+  trust_rating_avg?: number | null;
+  trust_rating_count?: number | null;
   created_at: string;
   updated_at: string | null;
 }
