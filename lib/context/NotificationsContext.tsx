@@ -10,6 +10,7 @@ import {
   isInviteAlreadyHandled,
   handleStaleRoom,
 } from '@/lib/utils/stale-state-cleanup';
+import { playInviteNotificationSfx, hasPlayedNotification, markNotificationAsPlayed } from '@/lib/sfx';
 
 interface Notification {
   id: string;
@@ -100,12 +101,53 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchNotifications();
 
+    // Define invite notification types
+    const inviteTypes = ['invite', 'match_invite', 'private_match_invite', 'league_invite', 'tournament_invite'];
+
     const channel = supabase
       .channel('notifications')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+        },
+        (payload) => {
+          console.log('[NOTIFICATIONS] New notification received:', payload);
+          const newNotification = payload.new as any;
+
+          // Check if this is an invite notification
+          if (
+            newNotification &&
+            inviteTypes.includes(newNotification.type) &&
+            newNotification.read_at === null &&
+            !hasPlayedNotification(newNotification.id)
+          ) {
+            console.log('[NOTIFICATIONS] Playing invite sound for notification:', newNotification.id);
+            playInviteNotificationSfx();
+            markNotificationAsPlayed(newNotification.id);
+          }
+
+          // Refresh notifications list
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
           schema: 'public',
           table: 'notifications',
         },
