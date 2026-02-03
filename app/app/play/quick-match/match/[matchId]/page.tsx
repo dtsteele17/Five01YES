@@ -109,6 +109,7 @@ export default function QuickMatchRoomPage() {
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
+  const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
   const [rematchLoading, setRematchLoading] = useState(false);
@@ -399,6 +400,37 @@ export default function QuickMatchRoomPage() {
         setIsConnected(status === 'SUBSCRIBED');
       });
 
+    const signalsChannel = supabase
+      .channel(`signals_${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'match_signals',
+          filter: `room_id=eq.${matchId}`,
+        },
+        (payload) => {
+          console.log('[SIGNALS] Signal received:', payload.new);
+          const signal = payload.new as any;
+
+          // Handle forfeit signals
+          if (signal.type === 'forfeit' && signal.to_user_id === currentUserId) {
+            console.log('[SIGNALS] Opponent forfeited, showing modal');
+            setShowOpponentForfeitSignalModal(true);
+
+            // Cleanup after short delay to allow modal to show
+            setTimeout(() => {
+              if (cleanupMatchRef.current) {
+                console.log('[SIGNALS] Auto-cleanup triggered after forfeit');
+                cleanupMatchRef.current();
+              }
+            }, 100);
+          }
+        }
+      )
+      .subscribe();
+
     const rematchChannel = supabase
       .channel(`rematch_${matchId}`)
       .on(
@@ -470,6 +502,7 @@ export default function QuickMatchRoomPage() {
 
     return () => {
       supabase.removeChannel(roomChannel);
+      supabase.removeChannel(signalsChannel);
       supabase.removeChannel(rematchChannel);
     };
   }
@@ -748,6 +781,27 @@ export default function QuickMatchRoomPage() {
       }
 
       console.log('[FORFEIT] Match forfeited successfully');
+
+      // Send forfeit signal to opponent
+      if (opponentId) {
+        console.log('[FORFEIT] Sending forfeit signal to opponent:', opponentId);
+        const { error: signalError } = await supabase
+          .from('match_signals')
+          .insert({
+            room_id: matchId,
+            from_user_id: currentUserId,
+            to_user_id: opponentId,
+            type: 'forfeit',
+            payload: { message: 'Opponent forfeited the match' }
+          });
+
+        if (signalError) {
+          console.error('[FORFEIT] Failed to send forfeit signal:', signalError);
+        } else {
+          console.log('[FORFEIT] Forfeit signal sent successfully');
+        }
+      }
+
       toast.success('Match forfeited');
 
       // Cleanup and navigate
@@ -1530,6 +1584,27 @@ export default function QuickMatchRoomPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showOpponentForfeitSignalModal} onOpenChange={() => {}}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white text-center">
+              Opponent forfeited the match.
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center">
+            <Button
+              onClick={() => {
+                setShowOpponentForfeitSignalModal(false);
+                router.push('/app/play');
+              }}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
+            >
+              Return
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showMatchCompleteModal || showOpponentForfeitModal} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-3xl">
