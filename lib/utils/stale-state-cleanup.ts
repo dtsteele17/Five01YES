@@ -16,17 +16,39 @@ export async function clearStaleMatchState() {
   try {
     const supabase = createClient();
 
-    const { error } = await supabase.rpc('rpc_clear_my_activity');
+    // Clear database activity
+    const { error: activityError } = await supabase.rpc('rpc_clear_my_activity');
 
-    if (error) {
-      console.error('[STALE_STATE_CLEANUP] Failed to clear activity in database:', error);
+    if (activityError) {
+      console.error('[STALE_STATE_CLEANUP] Failed to clear activity in database:', activityError);
     } else {
       console.log('[STALE_STATE_CLEANUP] Successfully cleared database activity');
     }
+
+    // Clear user presence
+    try {
+      console.log('[STALE_STATE_CLEANUP] Clearing user presence');
+      const { error: presenceError } = await supabase.rpc('rpc_set_presence', {
+        p_is_online: true,
+        p_activity_type: null,
+        p_activity_id: null,
+        p_activity_label: null,
+        p_score_snapshot: null,
+      });
+
+      if (presenceError) {
+        console.error('[STALE_STATE_CLEANUP] Failed to clear presence:', presenceError);
+      } else {
+        console.log('[STALE_STATE_CLEANUP] Successfully cleared user presence');
+      }
+    } catch (presenceErr) {
+      console.error('[STALE_STATE_CLEANUP] Error clearing presence:', presenceErr);
+    }
   } catch (err) {
-    console.error('[STALE_STATE_CLEANUP] Error calling rpc_clear_my_activity:', err);
+    console.error('[STALE_STATE_CLEANUP] Error calling database RPCs:', err);
   }
 
+  // Clear localStorage and sessionStorage
   STALE_KEYS.forEach((key) => {
     try {
       localStorage.removeItem(key);

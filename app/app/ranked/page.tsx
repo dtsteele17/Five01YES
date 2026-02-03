@@ -9,6 +9,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Loader2, X, Trophy, Users, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import {
+  validateRoomBeforeNavigation,
+  clearStaleMatchState,
+} from '@/lib/utils/stale-state-cleanup';
 
 interface EnqueueResponse {
   queue_id: string;
@@ -189,7 +193,32 @@ export default function RankedPage() {
 
       // Check if matched and navigate to match room
       if (poll.status === 'matched' && poll.match_room_id) {
-        console.log('[Ranked] Match found! Navigating to room:', poll.match_room_id);
+        console.log('[RESUME] Ranked match found, validating room:', poll.match_room_id);
+
+        if (!userId) {
+          console.error('[RESUME] No userId available for validation');
+          stopPolling();
+          stopSearchTimer();
+          clearStoredQueue();
+          setIsSearching(false);
+          return;
+        }
+
+        // Validate room before navigation
+        const validation = await validateRoomBeforeNavigation(poll.match_room_id, userId);
+
+        if (!validation.valid) {
+          console.log('[RESUME] invalid -> cleared room:', validation.reason);
+          await clearStaleMatchState();
+          stopPolling();
+          stopSearchTimer();
+          clearStoredQueue();
+          setIsSearching(false);
+          toast.error(`Match room unavailable: ${validation.reason}`);
+          return;
+        }
+
+        console.log('[RESUME] ok -> navigating to:', poll.match_room_id);
         stopPolling();
         stopSearchTimer();
         toast.success('Match found!');

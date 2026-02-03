@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import {
+  validateRoomBeforeNavigation,
+  clearStaleMatchState,
+} from '@/lib/utils/stale-state-cleanup';
 
 interface TournamentReadyMatch {
   match_id: string;
@@ -60,6 +64,29 @@ export function useTournamentReadyUp() {
       console.error('Error saving dismissed match:', error);
     }
   }, []);
+
+  const navigateToMatchRoom = useCallback(async (matchRoomId: string): Promise<boolean> => {
+    if (!currentUserId) {
+      console.error('[TOURNAMENT READY] No userId available for validation');
+      return false;
+    }
+
+    console.log('[RESUME] Tournament match starting, validating room:', matchRoomId);
+
+    // Validate room before navigation
+    const validation = await validateRoomBeforeNavigation(matchRoomId, currentUserId);
+
+    if (!validation.valid) {
+      console.log('[RESUME] invalid -> cleared room:', validation.reason);
+      await clearStaleMatchState();
+      toast.error(`Match room unavailable: ${validation.reason}`);
+      return false;
+    }
+
+    console.log('[RESUME] ok -> navigating to:', matchRoomId);
+    router.push(`/app/match/online/${matchRoomId}`);
+    return true;
+  }, [currentUserId, router]);
 
   const closeModal = useCallback(() => {
     setShowModal(false);
@@ -185,12 +212,13 @@ export function useTournamentReadyUp() {
           if (payload.new) {
             const match = payload.new as any;
             if (match.status === 'in_game' && match.match_room_id) {
-              console.log('[TOURNAMENT READY] Realtime: Match in_game, navigating to room:', match.match_room_id);
               const delay = 300 + Math.random() * 200;
               await new Promise(resolve => setTimeout(resolve, delay));
-              router.push(`/app/match/online/${match.match_room_id}`);
-              setShowModal(false);
-              setActiveMatch(null);
+              const success = await navigateToMatchRoom(match.match_room_id);
+              if (success) {
+                setShowModal(false);
+                setActiveMatch(null);
+              }
               return;
             }
           }
@@ -208,12 +236,13 @@ export function useTournamentReadyUp() {
           if (payload.new) {
             const match = payload.new as any;
             if (match.status === 'in_game' && match.match_room_id) {
-              console.log('[TOURNAMENT READY] Realtime: Match in_game, navigating to room:', match.match_room_id);
               const delay = 300 + Math.random() * 200;
               await new Promise(resolve => setTimeout(resolve, delay));
-              router.push(`/app/match/online/${match.match_room_id}`);
-              setShowModal(false);
-              setActiveMatch(null);
+              const success = await navigateToMatchRoom(match.match_room_id);
+              if (success) {
+                setShowModal(false);
+                setActiveMatch(null);
+              }
               return;
             }
           }
@@ -273,13 +302,14 @@ export function useTournamentReadyUp() {
       });
 
       if (data.status === 'in_game' && data.match_room_id) {
-        console.log('[TOURNAMENT READY] Match in_game with room_id, navigating to:', data.match_room_id);
         const delay = 300 + Math.random() * 200;
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        setShowModal(false);
-        setActiveMatch(null);
-        router.push(`/app/match/online/${data.match_room_id}`);
+        const success = await navigateToMatchRoom(data.match_room_id);
+        if (success) {
+          setShowModal(false);
+          setActiveMatch(null);
+        }
         return;
       }
 
@@ -299,13 +329,14 @@ export function useTournamentReadyUp() {
               code: rpcError.code,
             });
           } else if (roomId) {
-            console.log('[TOURNAMENT READY] Got room_id from RPC, navigating to:', roomId);
             const delay = 300 + Math.random() * 200;
             await new Promise(resolve => setTimeout(resolve, delay));
 
-            setShowModal(false);
-            setActiveMatch(null);
-            router.push(`/app/match/online/${roomId}`);
+            const success = await navigateToMatchRoom(roomId);
+            if (success) {
+              setShowModal(false);
+              setActiveMatch(null);
+            }
             return;
           } else {
             console.log('[TOURNAMENT READY] RPC returned null room_id in refetch');
@@ -382,12 +413,13 @@ export function useTournamentReadyUp() {
 
             // If match is in_game with room_id, navigate
             if (data.status === 'in_game' && data.match_room_id) {
-              console.log('[TOURNAMENT READY] Match started, navigating to room:', data.match_room_id);
               const delay = 300 + Math.random() * 200;
               await new Promise(resolve => setTimeout(resolve, delay));
-              setShowModal(false);
-              setActiveMatch(null);
-              router.push(`/app/match/online/${data.match_room_id}`);
+              const success = await navigateToMatchRoom(data.match_room_id);
+              if (success) {
+                setShowModal(false);
+                setActiveMatch(null);
+              }
             }
           } catch (err) {
             console.error('[TOURNAMENT READY] Error handling realtime update:', err);
@@ -511,15 +543,16 @@ export function useTournamentReadyUp() {
 
       // If room_id is returned, navigate immediately
       if (roomId) {
-        console.log('[TOURNAMENT READY] Both players ready! Navigating to room:', roomId);
         toast.success('Both players ready! Starting match...');
 
         const delay = 300 + Math.random() * 200;
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        setShowModal(false);
-        setActiveMatch(null);
-        router.push(`/app/match/online/${roomId}`);
+        const success = await navigateToMatchRoom(roomId);
+        if (success) {
+          setShowModal(false);
+          setActiveMatch(null);
+        }
         return;
       }
 

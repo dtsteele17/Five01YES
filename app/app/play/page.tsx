@@ -33,6 +33,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTraining, BOT_DIFFICULTY_CONFIG, TrainingConfig } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import {
+  validateRoomBeforeNavigation,
+  clearStaleMatchState,
+} from '@/lib/utils/stale-state-cleanup';
 
 interface RecentMatch {
   id: string;
@@ -283,7 +287,34 @@ export default function PlayPage() {
 
       if (poll.status === 'matched' && poll.match_room_id) {
         // Match found!
-        console.log('[Play/Ranked] Match found! Navigating to room:', poll.match_room_id);
+        console.log('[RESUME] Play/Ranked match found, validating room:', poll.match_room_id);
+
+        if (!userId) {
+          console.error('[RESUME] No userId available for validation');
+          stopPolling();
+          localStorage.removeItem('ranked_queue_id');
+          setShowRankedSearch(false);
+          setRankedSearching(false);
+          setRankedQueueId(null);
+          return;
+        }
+
+        // Validate room before navigation
+        const validation = await validateRoomBeforeNavigation(poll.match_room_id, userId);
+
+        if (!validation.valid) {
+          console.log('[RESUME] invalid -> cleared room:', validation.reason);
+          await clearStaleMatchState();
+          stopPolling();
+          localStorage.removeItem('ranked_queue_id');
+          setShowRankedSearch(false);
+          setRankedSearching(false);
+          setRankedQueueId(null);
+          toast.error(`Match room unavailable: ${validation.reason}`);
+          return;
+        }
+
+        console.log('[RESUME] ok -> navigating to:', poll.match_room_id);
         stopPolling();
         localStorage.removeItem('ranked_queue_id');
         toast.success('Match found!');
