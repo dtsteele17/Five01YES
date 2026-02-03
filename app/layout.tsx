@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Space_Grotesk, Inter } from 'next/font/google';
+import { ClickSfxProvider } from '@/components/app/ClickSfxProvider';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -41,7 +42,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${inter.variable} font-sans`}>{children}</body>
+      <body className={`${spaceGrotesk.variable} ${inter.variable} font-sans`}>
+        <ClickSfxProvider>
+          {children}
+        </ClickSfxProvider>
+      </body>
     </html>
   );
 }
