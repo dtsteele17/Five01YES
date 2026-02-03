@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Trophy, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { clearMatchState } from '@/lib/utils/match-resume';
 
 interface OnlineMatchData {
   match: {
@@ -293,6 +294,7 @@ export default function OnlineMatchPage() {
       if (error) throw error;
 
       toast.info('Match forfeited');
+      await clearMatchState(matchId);
       router.push('/app/play');
     } catch (error: any) {
       console.error('Failed to forfeit:', error);
@@ -314,7 +316,10 @@ export default function OnlineMatchPage() {
         <Card className="bg-slate-900 border-white/10 p-8 text-center">
           <p className="text-white text-lg mb-4">Match not found or access denied</p>
           <Button
-            onClick={() => router.push('/app/play')}
+            onClick={async () => {
+              await clearMatchState(matchId);
+              router.push('/app/play');
+            }}
             className="bg-emerald-500 hover:bg-emerald-600"
           >
             Back to Play
@@ -516,7 +521,10 @@ export default function OnlineMatchPage() {
             </p>
           </div>
           <Button
-            onClick={() => router.push('/app/play')}
+            onClick={async () => {
+              await clearMatchState(matchId);
+              router.push('/app/play');
+            }}
             className="w-full bg-emerald-500 hover:bg-emerald-600"
           >
             Back to Play

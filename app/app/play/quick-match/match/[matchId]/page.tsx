@@ -34,6 +34,7 @@ import EditVisitModal from '@/components/app/EditVisitModal';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
+import { clearMatchState } from '@/lib/utils/match-resume';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -300,12 +301,11 @@ export default function QuickMatchRoomPage() {
         console.error('[MATCH_LOAD] Match room not found, cleaning up and navigating away');
 
         // Clear all match-related storage
-        clearMatchStorage(matchId);
-
         // Show user-friendly message
         toast.error('Match no longer available');
 
         // Navigate to play page
+        await clearMatchState(matchId);
         router.push('/app/play');
         return;
       }
@@ -318,7 +318,7 @@ export default function QuickMatchRoomPage() {
       toast.error(`Error: ${error.message}`);
 
       // Clean up storage on error as well
-      clearMatchStorage(matchId);
+      await clearMatchState(matchId);
       router.push('/app/play');
     } finally {
       setLoading(false);
@@ -865,6 +865,7 @@ export default function QuickMatchRoomPage() {
       if (cleanupMatchRef.current) {
         cleanupMatchRef.current();
       }
+      await clearMatchState(matchId);
       router.push('/app/play');
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
@@ -995,7 +996,8 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  const handleReturnToApp = () => {
+  const handleReturnToApp = async () => {
+    await clearMatchState(matchId);
     if (room?.match_type === 'tournament') {
       router.push('/app/tournaments');
     } else {
@@ -1707,8 +1709,9 @@ export default function QuickMatchRoomPage() {
           </DialogHeader>
           <div className="py-4 text-center">
             <Button
-              onClick={() => {
+              onClick={async () => {
                 setShowOpponentForfeitSignalModal(false);
+                await clearMatchState(matchId);
                 router.push('/app/play');
               }}
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
@@ -1887,10 +1890,11 @@ export default function QuickMatchRoomPage() {
             <Button
               size="lg"
               variant="outline"
-              onClick={() => {
+              onClick={async () => {
                 if (cleanupMatchRef.current) {
                   cleanupMatchRef.current();
                 }
+                await clearMatchState(matchId);
                 router.push('/app/play');
               }}
               className="border-white/20 text-white hover:bg-white/10 px-8"

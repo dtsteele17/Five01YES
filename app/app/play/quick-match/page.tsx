@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,19 +73,22 @@ export default function QuickMatchLobbyPage() {
   const [realtimeStatus, setRealtimeStatus] = useState<string>('disconnected');
   const [lastRealtimeEvent, setLastRealtimeEvent] = useState<{ type: string; lobbyId: string } | null>(null);
 
+  const resumeAttemptedRef = useRef(false);
+
   useEffect(() => {
     initializeAndSubscribe();
   }, []);
 
   useEffect(() => {
     async function handleResume() {
-      // Only attempt resume once per session
-      if (hasAttemptedResume()) {
+      // Only attempt resume once - use useRef guard + session storage check
+      if (resumeAttemptedRef.current || hasAttemptedResume()) {
         return;
       }
 
       if (myLobby?.match_id && myLobby.status === 'in_progress' && userId) {
         console.log('[QUICK_MATCH_RESUME] Checking match room:', myLobby.match_id);
+        resumeAttemptedRef.current = true;
         markResumeAttempted();
 
         // Validate the room before redirecting

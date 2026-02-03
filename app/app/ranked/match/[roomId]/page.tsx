@@ -29,6 +29,7 @@ import { Target, Trophy, TrendingUp, Shield, RotateCcw, Home, X, ArrowUp, ArrowD
 import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
+import { clearMatchState } from '@/lib/utils/match-resume';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -194,6 +195,7 @@ export default function RankedMatchPage() {
     if (!roomData) {
       console.error('[RankedMatch] Failed to load room after all retries:', lastError);
       toast.error('Match room not found');
+      await clearMatchState(roomId);
       router.push('/app/ranked');
       return;
     }
@@ -202,6 +204,7 @@ export default function RankedMatchPage() {
     if (roomData.match_type !== 'ranked') {
       console.error('[RankedMatch] Wrong match type:', roomData.match_type);
       toast.error('This is not a ranked match');
+      await clearMatchState(roomId);
       router.push('/app/ranked');
       return;
     }
@@ -428,7 +431,10 @@ export default function RankedMatchPage() {
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center space-y-4">
           <div className="text-white text-lg">Match not found</div>
-          <Button onClick={() => router.push('/app/ranked')} className="bg-amber-500 hover:bg-amber-600">
+          <Button onClick={async () => {
+            await clearMatchState(roomId);
+            router.push('/app/ranked');
+          }} className="bg-amber-500 hover:bg-amber-600">
             Back to Ranked
           </Button>
         </div>

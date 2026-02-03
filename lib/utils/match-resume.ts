@@ -34,6 +34,35 @@ export function clearResumeAttempt(): void {
 }
 
 /**
+ * Clear user presence activity
+ */
+async function clearPresence(): Promise<void> {
+  const supabase = createClient();
+  try {
+    console.log('[MATCH_RESUME] Clearing user presence');
+    await supabase.rpc('rpc_set_presence', {
+      p_is_online: true,
+      p_activity_type: null,
+      p_activity_id: null,
+      p_activity_label: null,
+      p_score_snapshot: null,
+    });
+  } catch (err) {
+    console.error('[MATCH_RESUME] Error clearing presence:', err);
+  }
+}
+
+/**
+ * Clear match state completely - storage and presence
+ * Call this on match end, forfeit, or leave
+ */
+export async function clearMatchState(matchId?: string): Promise<void> {
+  console.log('[MATCH_RESUME] Clearing match state', matchId ? `for match: ${matchId}` : '');
+  clearMatchStorage(matchId);
+  await clearPresence();
+}
+
+/**
  * Validate that a match room exists and is active for the given user
  */
 export async function validateMatchRoom(
@@ -53,28 +82,33 @@ export async function validateMatchRoom(
 
     if (error) {
       console.error('[MATCH_RESUME] Error fetching room:', error);
+      clearMatchStorage(roomId);
+      await clearPresence();
       return { valid: false, shouldRedirect: false };
     }
 
     if (!room) {
-      console.log('[MATCH_RESUME] Room not found, clearing storage');
+      console.log('[MATCH_RESUME] Room not found, clearing storage and presence');
       clearMatchStorage(roomId);
+      await clearPresence();
       return { valid: false, shouldRedirect: false };
     }
 
     // Check if user is a player in this room
     const isPlayer = room.player1_id === userId || room.player2_id === userId;
     if (!isPlayer) {
-      console.log('[MATCH_RESUME] User not a player in this room');
+      console.log('[MATCH_RESUME] User not a player in this room, clearing storage and presence');
       clearMatchStorage(roomId);
+      await clearPresence();
       return { valid: false, shouldRedirect: false };
     }
 
-    // Check if room is in a resumable state
-    const resumableStatuses = ['open', 'active', 'in_progress'];
+    // Check if room is in a resumable state (active or open only)
+    const resumableStatuses = ['active', 'open'];
     if (!resumableStatuses.includes(room.status)) {
-      console.log('[MATCH_RESUME] Room status not resumable:', room.status);
+      console.log('[MATCH_RESUME] Room status not resumable:', room.status, 'clearing storage and presence');
       clearMatchStorage(roomId);
+      await clearPresence();
       return { valid: false, shouldRedirect: false };
     }
 
@@ -92,6 +126,8 @@ export async function validateMatchRoom(
     return { valid: true, shouldRedirect: true, path };
   } catch (err) {
     console.error('[MATCH_RESUME] Exception validating room:', err);
+    clearMatchStorage(roomId);
+    await clearPresence();
     return { valid: false, shouldRedirect: false };
   }
 }
@@ -120,7 +156,7 @@ export async function attemptMatchResume(userId: string): Promise<string | null>
       .from('match_rooms')
       .select('id, status, match_type, player1_id, player2_id, updated_at')
       .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-      .in('status', ['open', 'active', 'in_progress'])
+      .in('status', ['open', 'active'])
       .order('updated_at', { ascending: false })
       .limit(1);
 
