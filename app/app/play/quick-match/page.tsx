@@ -29,6 +29,7 @@ import { createClient } from '@/lib/supabase/client';
 import { requireUser } from '@/lib/supabase/auth';
 import { toast } from 'sonner';
 import { validateMatchRoom, hasAttemptedResume, markResumeAttempted } from '@/lib/utils/match-resume';
+import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 
 interface QuickMatchLobby {
   id: string;
@@ -46,6 +47,8 @@ interface QuickMatchLobby {
   player1?: {
     username: string;
     avatar_url?: string;
+    trust_rating_letter?: string;
+    trust_rating_count?: number;
   };
 }
 
@@ -229,7 +232,9 @@ export default function QuickMatchLobbyPage() {
           match_id,
           player1:profiles!quick_match_lobbies_player1_id_fkey (
             username,
-            avatar_url
+            avatar_url,
+            trust_rating_letter,
+            trust_rating_count
           )
         `)
         .eq('status', 'open')
@@ -778,6 +783,10 @@ export default function QuickMatchLobbyPage() {
                           <h3 className="text-white font-semibold">
                             {lobby.player1?.username ?? 'Player'}
                           </h3>
+                          <TrustRatingBadge
+                            rating={lobby.player1?.trust_rating_letter}
+                            showTooltip={false}
+                          />
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
                             {lobby.game_type}
                           </Badge>
