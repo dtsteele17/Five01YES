@@ -123,7 +123,13 @@ export default function QuickMatchRoomPage() {
 
   // Trust Rating Modal state
   const [showTrustModal, setShowTrustModal] = useState(false);
-  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(null);
+  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(() => {
+    // Check if we already prompted for this match (prevents re-prompt on refresh)
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(`trust_prompted_${matchId}`);
+    }
+    return null;
+  });
   const [pendingEndReason, setPendingEndReason] = useState<'win' | 'forfeit' | null>(null);
   const [opponentTrustLetter, setOpponentTrustLetter] = useState<TrustLetter>('N');
 
@@ -250,6 +256,10 @@ export default function QuickMatchRoomPage() {
     if (trustPromptedForMatchId !== matchId && opponentId) {
       console.log('[TRUST_RATING] Match ended, showing trust modal first');
       setTrustPromptedForMatchId(matchId);
+      // Store in sessionStorage to prevent re-prompt on refresh
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(`trust_prompted_${matchId}`, matchId);
+      }
       setPendingEndReason(endReason === 'forfeit' ? 'forfeit' : 'win');
       setShowTrustModal(true);
     } else if (!showTrustModal) {

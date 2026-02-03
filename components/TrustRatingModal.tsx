@@ -40,20 +40,33 @@ export function TrustRatingModal({ open, matchId, opponentId, onDone }: TrustRat
         return;
       }
 
-      if (data && typeof data === 'object' && 'rated' in data) {
-        if (data.rated === false) {
+      if (data && typeof data === 'object' && 'inserted' in data) {
+        if (data.inserted === false) {
           console.log('[TRUST_RATING] Already rated this opponent');
           setAlreadyRated(true);
+          toast.info('You already rated this player');
           setTimeout(() => {
             onDone();
           }, 1500);
           return;
         }
+
+        if (data.inserted === true) {
+          console.log('[TRUST_RATING] Rating submitted successfully');
+          toast.success('Trust rating submitted');
+          setTimeout(() => {
+            onDone();
+          }, 800);
+          return;
+        }
       }
 
-      console.log('[TRUST_RATING] Rating submitted successfully');
+      // Fallback for unexpected response
+      console.log('[TRUST_RATING] Unexpected response, assuming success');
       toast.success('Trust rating submitted');
-      onDone();
+      setTimeout(() => {
+        onDone();
+      }, 800);
     } catch (error: any) {
       console.error('[TRUST_RATING] Exception:', error);
       toast.error(`Failed to submit rating: ${error.message}`);

@@ -29,6 +29,8 @@ import { Target, Trophy, TrendingUp, Shield, RotateCcw, Home, X, ArrowUp, ArrowD
 import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
+import { TrustRatingModal } from '@/components/TrustRatingModal';
+import { TrustLetter } from '@/components/TrustBadge';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -123,6 +125,16 @@ export default function RankedMatchPage() {
   const [finalizingMatch, setFinalizingMatch] = useState(false);
   const hasHandledMatchEndRef = useRef(false);
 
+  // Trust Rating Modal state
+  const [showTrustModal, setShowTrustModal] = useState(false);
+  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(() => {
+    // Check if we already prompted for this match (prevents re-prompt on refresh)
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(`trust_prompted_${roomId}`);
+    }
+    return null;
+  });
+
   const isMyTurn = matchState ? matchState.youArePlayer === matchState.currentTurnPlayer : false;
   const myRemaining = matchState && matchState.youArePlayer
     ? matchState.players[matchState.youArePlayer - 1].remaining
@@ -135,10 +147,30 @@ export default function RankedMatchPage() {
   }, [roomId]);
 
   useEffect(() => {
-    if (room?.status === 'finished' && room.winner_id && room.match_type === 'ranked' && !finalizingMatch && !rankedResults) {
-      finalizeMatch();
+    // Show trust modal first when match ends (finished or forfeited)
+    if ((room?.status === 'finished' || room?.status === 'forfeited') && room.match_type === 'ranked') {
+      const opponentId = currentUserId && room
+        ? (currentUserId === room.player1_id ? room.player2_id : room.player1_id)
+        : null;
+
+      // Show trust modal first (only once per match)
+      if (trustPromptedForMatchId !== roomId && opponentId) {
+        console.log('[TRUST_RATING] Ranked match ended, showing trust modal first');
+        setTrustPromptedForMatchId(roomId);
+        // Store in sessionStorage to prevent re-prompt on refresh
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(`trust_prompted_${roomId}`, roomId);
+        }
+        setShowTrustModal(true);
+        return; // Don't finalize yet, wait for trust modal to complete
+      }
+
+      // Trust modal already shown or skipped, proceed with finalization
+      if (!showTrustModal && room.winner_id && !finalizingMatch && !rankedResults) {
+        finalizeMatch();
+      }
     }
-  }, [room?.status, room?.winner_id, room?.match_type]);
+  }, [room?.status, room?.winner_id, room?.match_type, trustPromptedForMatchId, currentUserId, showTrustModal, finalizingMatch, rankedResults]);
 
   function clearMatchStorage() {
     console.log('[CLEANUP] Clearing ranked match storage');
@@ -467,6 +499,16 @@ export default function RankedMatchPage() {
       toast.error(`Failed to forfeit: ${error.message}`);
     }
   };
+
+  function handleTrustRatingDone() {
+    console.log('[TRUST_RATING] Modal done, proceeding with match finalization');
+    setShowTrustModal(false);
+
+    // Now finalize the match and show results modal
+    if (room?.winner_id && !finalizingMatch && !rankedResults) {
+      finalizeMatch();
+    }
+  }
 
   const getPlayerName = (userId: string) => {
     const profile = profiles.find((p) => p.user_id === userId);
@@ -844,6 +886,16 @@ export default function RankedMatchPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Trust Rating Modal - shows before results modal */}
+      {room && currentUserId && (
+        <TrustRatingModal
+          open={showTrustModal}
+          matchId={roomId}
+          opponentId={currentUserId === room.player1_id ? room.player2_id : room.player1_id}
+          onDone={handleTrustRatingDone}
+        />
+      )}
 
       {/* Results Modal */}
       <Dialog open={showResultsModal} onOpenChange={setShowResultsModal}>
