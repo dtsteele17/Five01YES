@@ -10,8 +10,8 @@ const STALE_KEYS = [
   'inviteRoomId',
 ];
 
-export async function clearStaleMatchState() {
-  console.log('[STALE_STATE_CLEANUP] Clearing all stale match state...');
+export async function clearStaleMatchState(roomId?: string) {
+  console.log('[STALE_STATE_CLEANUP] Clearing all stale match state...', roomId ? `for room ${roomId}` : '');
 
   try {
     const supabase = createClient();
@@ -51,6 +51,11 @@ export async function clearStaleMatchState() {
   // Clear localStorage and sessionStorage
   STALE_KEYS.forEach((key) => {
     try {
+      const value = localStorage.getItem(key);
+      // If roomId is specified, only clear if it matches
+      if (roomId && value !== roomId) {
+        return;
+      }
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     } catch (err) {
@@ -58,7 +63,7 @@ export async function clearStaleMatchState() {
     }
   });
 
-  console.log('[STALE_STATE_CLEANUP] Removed all stale keys from storage');
+  console.log('[STALE_STATE_CLEANUP] Removed stale keys from storage');
 }
 
 export async function validateRoomBeforeNavigation(
@@ -125,4 +130,70 @@ export function isInviteAlreadyHandled(roomId: string): boolean {
     console.warn('[INVITE_TRACKING] Failed to check invite status:', err);
     return false;
   }
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  try {
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    console.log('[STALE_STATE_CLEANUP] Marking notification as read:', notificationId);
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: now })
+      .eq('id', notificationId);
+
+    if (error) {
+      console.error('[STALE_STATE_CLEANUP] Failed to mark notification as read:', error);
+    } else {
+      console.log('[STALE_STATE_CLEANUP] Notification marked as read');
+    }
+  } catch (err) {
+    console.error('[STALE_STATE_CLEANUP] Error marking notification as read:', err);
+  }
+}
+
+export async function expireInviteForRoom(roomId: string): Promise<void> {
+  try {
+    const supabase = createClient();
+
+    console.log('[STALE_STATE_CLEANUP] Expiring invites for room:', roomId);
+
+    const { error } = await supabase
+      .from('private_match_invites')
+      .update({ status: 'expired' })
+      .eq('room_id', roomId)
+      .in('status', ['pending', 'accepted']);
+
+    if (error) {
+      console.error('[STALE_STATE_CLEANUP] Failed to expire invite:', error);
+    } else {
+      console.log('[STALE_STATE_CLEANUP] Invite expired successfully');
+    }
+  } catch (err) {
+    console.error('[STALE_STATE_CLEANUP] Error expiring invite:', err);
+  }
+}
+
+export async function handleStaleRoom(roomId: string, notificationId?: string): Promise<void> {
+  console.log('[STALE_STATE_CLEANUP] ========== HANDLING STALE ROOM ==========');
+  console.log('[STALE_STATE_CLEANUP] Room ID:', roomId);
+  console.log('[STALE_STATE_CLEANUP] Notification ID:', notificationId);
+
+  // Mark notification as read if provided
+  if (notificationId) {
+    await markNotificationAsRead(notificationId);
+  }
+
+  // Expire any invites for this room
+  await expireInviteForRoom(roomId);
+
+  // Clear localStorage for this room
+  await clearStaleMatchState(roomId);
+
+  // Mark as handled to prevent future attempts
+  markInviteAsHandled(roomId);
+
+  console.log('[STALE_STATE_CLEANUP] Stale room cleanup complete');
 }

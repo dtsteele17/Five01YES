@@ -8,6 +8,7 @@ import {
   clearStaleMatchState,
   markInviteAsHandled,
   isInviteAlreadyHandled,
+  handleStaleRoom,
 } from '@/lib/utils/stale-state-cleanup';
 
 interface Notification {
@@ -158,8 +159,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   };
 
   const handleNotificationClick = async (notification: Notification) => {
-    await markAsRead(notification.id);
-
     if (notification.link) {
       // Check if this is a match room link
       const matchRoomPattern = /\/app\/(play\/quick-match\/match|ranked\/match|match\/online)\/([a-f0-9-]+)/;
@@ -171,6 +170,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         // Check if already handled
         if (isInviteAlreadyHandled(roomId)) {
           console.warn('[NOTIFICATIONS] Room already handled, skipping navigation');
+          await markAsRead(notification.id);
           return;
         }
 
@@ -187,7 +187,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
         if (!validation.valid) {
           console.error('[NOTIFICATIONS] Room validation failed:', validation.reason);
-          await clearStaleMatchState();
+
+          // Handle stale room: mark notification as read, expire invite, clear storage
+          await handleStaleRoom(roomId, notification.id);
+
+          // Don't navigate
           router.push('/app/play');
           return;
         }
@@ -196,7 +200,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         markInviteAsHandled(roomId);
       }
 
+      // Mark as read before navigation
+      await markAsRead(notification.id);
       router.push(notification.link);
+    } else {
+      // If there's no link, just mark as read
+      await markAsRead(notification.id);
     }
   };
 

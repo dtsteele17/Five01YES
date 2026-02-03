@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/lib/context/NotificationsContext';
 import {
@@ -26,6 +26,7 @@ import {
   clearStaleMatchState,
   markInviteAsHandled,
   isInviteAlreadyHandled,
+  handleStaleRoom,
 } from '@/lib/utils/stale-state-cleanup';
 
 const DEBUG_INVITES = true;
@@ -42,6 +43,9 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const staleRoomIdsRef = useRef<Set<string>>(new Set());
+  const processingRoomsRef = useRef<Set<string>>(new Set());
 
   const handleAcceptInvite = async (notification: any, e?: React.MouseEvent) => {
     if (e) {
@@ -268,15 +272,17 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      if (DEBUG_INVITES) {
-        console.log('[INVITE] ========== INVITE ACCEPTED (INVITER SIDE) ==========');
-        console.log('[INVITE] room_id:', roomId);
-        console.log('[INVITE] game_mode:', gameMode);
-        console.log('[INVITE] match_format:', matchFormat);
+      // Check if room is already known to be stale
+      if (staleRoomIdsRef.current.has(roomId)) {
+        console.warn('[INVITE] Room is in stale list, skipping:', roomId);
+        return;
       }
 
-      // Mark as read
-      await markAsRead(notification.id);
+      // Check if already being processed
+      if (processingRoomsRef.current.has(roomId)) {
+        console.warn('[INVITE] Room is already being processed, skipping:', roomId);
+        return;
+      }
 
       // Check if already handled
       if (isInviteAlreadyHandled(roomId)) {
@@ -284,31 +290,58 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('[INVITE] No user found for accepted notification');
-        return;
+      // Mark as being processed
+      processingRoomsRef.current.add(roomId);
+
+      try {
+        if (DEBUG_INVITES) {
+          console.log('[INVITE] ========== INVITE ACCEPTED (INVITER SIDE) ==========');
+          console.log('[INVITE] room_id:', roomId);
+          console.log('[INVITE] game_mode:', gameMode);
+          console.log('[INVITE] match_format:', matchFormat);
+        }
+
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error('[INVITE] No user found for accepted notification');
+          processingRoomsRef.current.delete(roomId);
+          return;
+        }
+
+        // Validate room before navigation
+        const validation = await validateRoomBeforeNavigation(roomId, user.id);
+
+        if (!validation.valid) {
+          console.error('[INVITE] Room validation failed for accepted notification:', validation.reason);
+
+          // Handle stale room: mark notification as read, expire invite, clear storage
+          await handleStaleRoom(roomId, notification.id);
+
+          // Add to stale list to prevent future attempts
+          staleRoomIdsRef.current.add(roomId);
+          processingRoomsRef.current.delete(roomId);
+
+          toast.error('Match room is no longer available');
+          return;
+        }
+
+        // Mark notification as read
+        await markAsRead(notification.id);
+
+        // Mark as handled
+        markInviteAsHandled(roomId);
+
+        // Show toast
+        toast.success('Your invite was accepted! Joining match...');
+
+        // Navigate to match
+        if (DEBUG_INVITES) console.log('[INVITE] Navigating to /app/play/quick-match/match/' + roomId);
+        router.push(`/app/play/quick-match/match/${roomId}`);
+      } catch (error) {
+        console.error('[INVITE] Error handling accepted notification:', error);
+        processingRoomsRef.current.delete(roomId);
       }
-
-      // Validate room before navigation
-      const validation = await validateRoomBeforeNavigation(roomId, user.id);
-
-      if (!validation.valid) {
-        console.error('[INVITE] Room validation failed for accepted notification:', validation.reason);
-        await clearStaleMatchState();
-        return;
-      }
-
-      // Mark as handled
-      markInviteAsHandled(roomId);
-
-      // Show toast
-      toast.success('Your invite was accepted! Joining match...');
-
-      // Navigate to match
-      if (DEBUG_INVITES) console.log('[INVITE] Navigating to /app/play/quick-match/match/' + roomId);
-      router.push(`/app/play/quick-match/match/${roomId}`);
     };
 
     // Check existing notifications for accepted invites
