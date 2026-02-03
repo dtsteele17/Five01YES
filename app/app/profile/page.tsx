@@ -108,7 +108,7 @@ function ProfileContent() {
                   <h1 className="text-3xl font-bold text-white">
                     {profile?.display_name || 'Anonymous Player'}
                   </h1>
-                  <TrustRatingBadge rating={profile?.trust_rating_letter} size="md" />
+                  <TrustRatingBadge letter={profile?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={profile?.trust_rating_count || 0} size="md" />
                 </div>
                 <p className="text-gray-400 mb-3">@{profile?.username || 'user'}</p>
                 <div className="flex items-center space-x-4 text-sm text-gray-400 mb-4">
@@ -152,20 +152,15 @@ function ProfileContent() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <TrustRatingBadge rating={profile?.trust_rating_letter} size="md" />
+              <TrustRatingBadge letter={profile?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={profile?.trust_rating_count || 0} size="md" />
               <div className="text-right">
-                {profile?.trust_rating_avg !== null && profile?.trust_rating_avg !== undefined ? (
+                {profile?.trust_rating_avg !== null && profile?.trust_rating_avg !== undefined && profile.trust_rating_count && profile.trust_rating_count > 0 ? (
                   <p className="text-white font-semibold">
                     {profile.trust_rating_avg.toFixed(1)} avg
                   </p>
                 ) : (
                   <p className="text-gray-400 text-sm">No ratings yet</p>
                 )}
-                {profile?.trust_rating_count !== null && profile?.trust_rating_count !== undefined && profile.trust_rating_count > 0 ? (
-                  <p className="text-gray-400 text-sm">
-                    {profile.trust_rating_count} {profile.trust_rating_count === 1 ? 'vote' : 'votes'}
-                  </p>
-                ) : null}
               </div>
             </div>
           </div>

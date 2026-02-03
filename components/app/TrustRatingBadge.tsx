@@ -2,24 +2,30 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TrustRatingBadgeProps {
-  rating?: string | null;
+  letter?: 'A' | 'B' | 'C' | 'D' | 'E' | null;
+  count?: number;
   size?: 'sm' | 'md';
   showTooltip?: boolean;
+  showCount?: boolean;
 }
 
 export function TrustRatingBadge({
-  rating,
+  letter = null,
+  count = 0,
   size = 'sm',
-  showTooltip = true
+  showTooltip = true,
+  showCount = false
 }: TrustRatingBadgeProps) {
-  const letter = rating || 'C';
+  const isUnrated = count === 0 || letter === null;
+  const displayLetter = isUnrated ? 'Unrated' : letter;
 
-  const colors = {
-    A: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    B: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    C: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-    D: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    E: 'bg-red-500/20 text-red-400 border-red-500/30',
+  const colors: Record<string, string> = {
+    A: 'bg-green-600/20 text-green-400 border-green-500/30',
+    B: 'bg-lime-600/20 text-lime-400 border-lime-500/30',
+    C: 'bg-yellow-600/20 text-yellow-400 border-yellow-500/30',
+    D: 'bg-orange-600/20 text-orange-400 border-orange-500/30',
+    E: 'bg-red-600/20 text-red-400 border-red-500/30',
+    Unrated: 'bg-slate-600/20 text-slate-300 border-slate-500/30',
   };
 
   const sizeClasses = {
@@ -27,16 +33,21 @@ export function TrustRatingBadge({
     md: 'text-sm px-2 py-1 h-6',
   };
 
+  const tooltipText = isUnrated
+    ? 'Not enough Trust Ratings yet.'
+    : `Trust Rating: ${letter} (${count} ${count === 1 ? 'vote' : 'votes'}). A best → E worst.`;
+
   const badge = (
     <Badge
       className={`
-        ${colors[letter as keyof typeof colors] || colors.C}
+        ${colors[displayLetter]}
         ${sizeClasses[size]}
         font-semibold
         rounded-full
+        border
       `}
     >
-      {letter}
+      {showCount && !isUnrated ? `${letter} • ${count}` : displayLetter}
     </Badge>
   );
 
@@ -51,7 +62,7 @@ export function TrustRatingBadge({
           {badge}
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-slate-800 border-white/10">
-          <p className="text-xs">Trust Rating (A best → E worst)</p>
+          <p className="text-xs">{tooltipText}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

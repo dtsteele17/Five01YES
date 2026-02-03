@@ -43,6 +43,7 @@ interface Friend {
   username: string;
   avatar_url: string;
   trust_rating_letter?: string;
+  trust_rating_count?: number;
   is_online: boolean;
 }
 
@@ -671,7 +672,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                               )}
                             </div>
                             <span>{friend.username}</span>
-                            <TrustRatingBadge rating={friend.trust_rating_letter} showTooltip={false} />
+                            <TrustRatingBadge letter={friend.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={friend.trust_rating_count || 0} showTooltip={false} />
                             {friend.is_online ? (
                               <span className="text-xs text-emerald-400">(online)</span>
                             ) : (

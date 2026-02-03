@@ -1210,7 +1210,7 @@ export default function QuickMatchRoomPage() {
                 </Avatar>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-white">{opponentName}</p>
-                  <TrustRatingBadge rating={opponentTrustRating?.letter} showTooltip={false} />
+                  <TrustRatingBadge letter={opponentTrustRating?.letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={opponentTrustRating?.count || 0} showTooltip={false} />
                 </div>
               </div>
               <div className="flex items-center justify-center py-6">

@@ -784,7 +784,8 @@ export default function QuickMatchLobbyPage() {
                             {lobby.player1?.username ?? 'Player'}
                           </h3>
                           <TrustRatingBadge
-                            rating={lobby.player1?.trust_rating_letter}
+                            letter={lobby.player1?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null}
+                            count={lobby.player1?.trust_rating_count || 0}
                             showTooltip={false}
                           />
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
