@@ -9,6 +9,7 @@ import { TrainingProvider } from '@/lib/context/TrainingContext';
 import { NotificationsProvider } from '@/lib/context/NotificationsContext';
 import TournamentMatchMonitor from '@/components/app/TournamentMatchMonitor';
 import { createClient } from '@/lib/supabase/client';
+import { getPersistedMatch, clearPersistedMatch, isMatchMarkedAsEnded } from '@/lib/utils/match-storage';
 
 export default function AppLayout({
   children,
@@ -32,59 +33,58 @@ export default function AppLayout({
     try {
       const supabase = createClient();
 
-      // Check localStorage for any stored match IDs
-      const activeMatchId = localStorage.getItem('activeMatchId');
-      const activeLobbyId = localStorage.getItem('activeLobbyId');
-      const resumeMatchId = localStorage.getItem('resumeMatchId');
+      // Get persisted match using centralized utility
+      const persistedMatch = getPersistedMatch();
 
-      const matchIds = [activeMatchId, resumeMatchId].filter(Boolean) as string[];
-
-      if (matchIds.length === 0) return;
-
-      console.log('[MATCH_SAFETY_CHECK] Checking stored matches:', matchIds);
-
-      for (const matchId of matchIds) {
-        const { data: match, error } = await supabase
-          .from('match_rooms')
-          .select('id, status')
-          .eq('id', matchId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('[MATCH_SAFETY_CHECK] Error fetching match:', error);
-          continue;
-        }
-
-        if (!match || match.status !== 'in_progress') {
-          console.log('[MATCH_SAFETY_CHECK] Match not active, clearing:', {
-            matchId,
-            status: match?.status,
-            exists: !!match,
-          });
-
-          // Clear all storage for this match
-          if (localStorage.getItem('activeMatchId') === matchId) {
-            localStorage.removeItem('activeMatchId');
-          }
-          if (localStorage.getItem('resumeMatchId') === matchId) {
-            localStorage.removeItem('resumeMatchId');
-          }
-          if (sessionStorage.getItem(`match_context_${matchId}`)) {
-            sessionStorage.removeItem(`match_context_${matchId}`);
-          }
-          if (sessionStorage.getItem(`lobby_id_${matchId}`)) {
-            sessionStorage.removeItem(`lobby_id_${matchId}`);
-          }
-        } else {
-          console.log('[MATCH_SAFETY_CHECK] Match is active:', matchId);
-        }
+      if (!persistedMatch) {
+        console.log('[MATCH_SAFETY_CHECK] No persisted match found');
+        return;
       }
 
-      // Clear lobby ID if no active match
-      if (!localStorage.getItem('activeMatchId') && activeLobbyId) {
-        console.log('[MATCH_SAFETY_CHECK] Clearing orphaned lobby ID');
-        localStorage.removeItem('activeLobbyId');
+      console.log('[MATCH_SAFETY_CHECK] Found persisted match:', persistedMatch);
+
+      // Check if match was already marked as ended
+      if (isMatchMarkedAsEnded(persistedMatch.matchId)) {
+        console.log('[MATCH_SAFETY_CHECK] Match was marked as ended, clearing storage');
+        clearPersistedMatch();
+        return;
       }
+
+      // Validate match still exists and is in_progress
+      const tableName = persistedMatch.matchType === 'ranked' ? 'ranked_match_rooms' : 'match_rooms';
+
+      const { data: match, error } = await supabase
+        .from(tableName)
+        .select('id, status, player1_id, player2_id')
+        .eq('id', persistedMatch.matchId)
+        .maybeSingle();
+
+      // If query failed, log but don't clear (might be temporary network issue)
+      if (error) {
+        console.error('[MATCH_SAFETY_CHECK] Error fetching match:', error);
+        // Don't clear storage on network errors - user might be offline
+        return;
+      }
+
+      // If match doesn't exist OR is not in_progress, clear storage
+      if (!match || match.status !== 'in_progress') {
+        console.log('[MATCH_SAFETY_CHECK] Match not active, clearing storage:', {
+          matchId: persistedMatch.matchId,
+          status: match?.status,
+          exists: !!match,
+        });
+
+        // IMPORTANT: Clear storage but DO NOT navigate
+        // Let the user stay on their current page
+        clearPersistedMatch();
+        return;
+      }
+
+      // Match is valid and in_progress
+      console.log('[MATCH_SAFETY_CHECK] Match is active and valid:', persistedMatch.matchId);
+
+      // DO NOT auto-navigate here - let the user decide when to resume
+      // The match pages will handle resume logic when user navigates to them
     } catch (error) {
       console.error('[MATCH_SAFETY_CHECK] Unexpected error:', error);
     }

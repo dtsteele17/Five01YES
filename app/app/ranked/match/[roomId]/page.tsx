@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
 import { TrustRatingModal } from '@/components/TrustRatingModal';
 import { TrustLetter } from '@/components/TrustBadge';
+import { setPersistedMatch, cleanupEndedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -175,11 +176,7 @@ export default function RankedMatchPage() {
 
   function clearMatchStorage() {
     console.log('[CLEANUP] Clearing ranked match storage');
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('activeRankedMatchId');
-      localStorage.removeItem('rankedMatchRoomId');
-      sessionStorage.removeItem(`ranked_match_${roomId}`);
-    }
+    clearPersistedMatch();
   }
 
   async function loadMatch() {
@@ -253,6 +250,9 @@ export default function RankedMatchPage() {
 
     setRoom(roomData as MatchRoom);
 
+    // Persist match state now that we've confirmed it's active
+    setPersistedMatch(roomId, 'ranked');
+
     // Load profiles
     const { data: profilesData } = await supabase
       .from('profiles')
@@ -299,8 +299,8 @@ export default function RankedMatchPage() {
           console.log('[RankedMatch] Match ended, status:', updatedRoom.status);
           hasHandledMatchEndRef.current = true;
 
-          // Clear storage
-          clearMatchStorage();
+          // Mark match as ended and clear all storage
+          cleanupEndedMatch(roomId);
 
           console.log('[RankedMatch] Cleanup complete, will show results modal');
         }
@@ -577,11 +577,17 @@ export default function RankedMatchPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push('/app/play')}
+                onClick={() => {
+                  // Safe escape hatch - cleanup and leave
+                  clearPersistedMatch();
+                  toast.info('Left match');
+                  router.push('/app/ranked');
+                }}
                 className="border-white/10 text-white hover:bg-white/5"
+                title="Leave match without forfeiting"
               >
                 <Home className="w-4 h-4 mr-2" />
-                Exit
+                Leave
               </Button>
             </div>
           </div>

@@ -33,6 +33,7 @@ import EditVisitModal from '@/components/app/EditVisitModal';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { TrustRatingModal } from '@/components/TrustRatingModal';
 import { TrustBadge, TrustLetter } from '@/components/TrustBadge';
+import { setPersistedMatch, cleanupEndedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -279,13 +280,7 @@ export default function QuickMatchRoomPage() {
 
   function clearMatchStorage() {
     console.log('[CLEANUP] Clearing match storage');
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('activeMatchId');
-      localStorage.removeItem('activeLobbyId');
-      localStorage.removeItem('resumeMatchId');
-      sessionStorage.removeItem(`match_context_${matchId}`);
-      sessionStorage.removeItem(`lobby_id_${matchId}`);
-    }
+    clearPersistedMatch();
   }
 
   async function initializeMatch() {
@@ -354,6 +349,11 @@ export default function QuickMatchRoomPage() {
     console.log('[MATCH_ROOM_LOAD] Match loaded successfully, status:', roomData.status);
     setRoom(roomData);
 
+    // Persist match state now that we've confirmed it's active
+    const matchType = roomData.match_type === 'tournament' ? 'tournament' :
+                      roomData.match_type === 'private' ? 'private' : 'quick';
+    setPersistedMatch(matchId, matchType, roomData.lobby_id);
+
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
 
     if (playerIds.length > 0) {
@@ -405,6 +405,9 @@ export default function QuickMatchRoomPage() {
               console.log('[REALTIME] Running cleanup for match end');
               cleanupMatchRef.current();
             }
+
+            // Mark match as ended and clear all storage
+            cleanupEndedMatch(matchId);
 
             // Trust rating modal will be shown by the matchState effect
             // Game over modals will follow after trust rating
@@ -1024,15 +1027,35 @@ export default function QuickMatchRoomPage() {
               )}
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowEndMatchDialog(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Forfeit
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Safe escape hatch - cleanup and leave
+                  if (cleanupMatchRef.current) {
+                    cleanupMatchRef.current();
+                  }
+                  clearPersistedMatch();
+                  toast.info('Left match');
+                  router.push('/app/play');
+                }}
+                className="border-white/10 text-gray-400 hover:bg-white/5"
+                title="Leave match without forfeiting"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Leave
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEndMatchDialog(true)}
+                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Forfeit
+              </Button>
+            </div>
           </div>
         </div>
       </div>
