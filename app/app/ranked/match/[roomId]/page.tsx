@@ -124,6 +124,7 @@ export default function RankedMatchPage() {
   const [rankedResults, setRankedResults] = useState<RankedResult | null>(null);
   const [finalizingMatch, setFinalizingMatch] = useState(false);
   const hasHandledMatchEndRef = useRef(false);
+  const hasRedirectedRef = useRef(false);
 
   // Trust Rating Modal state
   const [showTrustModal, setShowTrustModal] = useState(false);
@@ -193,58 +194,56 @@ export default function RankedMatchPage() {
     }
     setCurrentUserId(user.id);
 
-    // Retry logic: try loading room up to 8 times with 250ms delay
-    // GLOBAL RULE: Only load matches that are in_progress
-    let roomData: any = null;
-    let lastError: any = null;
-    const maxRetries = 8;
-    const retryDelay = 250;
-
+    // Load match room - check if it exists and its status
     console.log(`[RankedMatch] Loading match room: ${roomId}`);
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      if (attempt > 0) {
-        console.log(`[RankedMatch] Retry ${attempt}/${maxRetries - 1} after ${retryDelay}ms`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
+    const { data: roomData, error: roomError } = await supabase
+      .from('ranked_match_rooms')
+      .select('*')
+      .eq('id', roomId)
+      .maybeSingle();
 
-      const { data, error } = await supabase
-        .from('ranked_match_rooms')
-        .select('*')
-        .eq('id', roomId)
-        .eq('status', 'in_progress')
-        .maybeSingle();
-
-      if (error) {
-        console.error(`[RankedMatch] Error loading room (attempt ${attempt + 1}):`, error);
-        lastError = error;
-        continue;
-      }
-
-      if (data) {
-        roomData = data;
-        console.log('[RankedMatch] Room loaded successfully:', {
-          id: data.id,
-          status: data.status,
-          match_type: data.match_type,
-          game_mode: data.game_mode
-        });
-        break;
-      }
-
-      console.log(`[RankedMatch] Room not found or not in_progress (attempt ${attempt + 1})`);
+    // On query error: log it but DON'T redirect (could be temporary network issue)
+    if (roomError) {
+      console.error('[RankedMatch] Failed to load room:', roomError);
+      toast.error(`Failed to load match room: ${roomError.message}`);
+      setLoading(false);
+      return;
     }
 
+    // Only redirect if match doesn't exist
     if (!roomData) {
-      console.error('[RankedMatch] Failed to load room after all retries:', lastError);
-      toast.error('Match is not active or has ended');
+      if (hasRedirectedRef.current) return;
+      hasRedirectedRef.current = true;
+      console.error('[RankedMatch] Match not found');
+      toast.error('Match not found');
       clearMatchStorage();
       router.push('/app/ranked');
       return;
     }
 
+    // Check if match is already finished or forfeited
+    if (roomData.status === 'finished' || roomData.status === 'forfeited') {
+      if (hasRedirectedRef.current) return;
+      hasRedirectedRef.current = true;
+      console.log('[RankedMatch] Match already ended, status:', roomData.status);
+      toast.info('Match has already ended');
+      clearMatchStorage();
+      router.push('/app/ranked');
+      return;
+    }
+
+    console.log('[RankedMatch] Room loaded successfully:', {
+      id: roomData.id,
+      status: roomData.status,
+      match_type: roomData.match_type,
+      game_mode: roomData.game_mode
+    });
+
     // Verify this is a ranked match
     if (roomData.match_type !== 'ranked') {
+      if (hasRedirectedRef.current) return;
+      hasRedirectedRef.current = true;
       console.error('[RankedMatch] Wrong match type:', roomData.match_type);
       toast.error('This is not a ranked match');
       clearMatchStorage();
@@ -477,6 +476,8 @@ export default function RankedMatchPage() {
       }
 
       if (data?.already_ended) {
+        if (hasRedirectedRef.current) return;
+        hasRedirectedRef.current = true;
         console.log('[RankedMatch] Match already ended');
         toast.info('Match has already ended');
         clearMatchStorage();

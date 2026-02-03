@@ -114,7 +114,7 @@ export default function QuickMatchRoomPage() {
   const [rematchLoading, setRematchLoading] = useState(false);
   const [rematchDisabled, setRematchDisabled] = useState(false);
   const [rematchData, setRematchData] = useState<any>(null);
-  const hasRedirectedRef = { current: false };
+  const hasRedirectedRef = useRef(false);
   const [rematchCount, setRematchCount] = useState(0);
   const [starting, setStarting] = useState(false);
 
@@ -314,27 +314,38 @@ export default function QuickMatchRoomPage() {
   }
 
   async function loadMatchData() {
-    // GLOBAL RULE: Only load matches that are in_progress
+    // Load match room - check if it exists and its status
     const { data: roomData, error: roomError } = await supabase
       .from('match_rooms')
       .select('*')
       .eq('id', matchId)
-      .eq('status', 'in_progress')
       .maybeSingle();
 
+    // On query error: log it but DON'T redirect (could be temporary network issue)
     if (roomError) {
       console.error('[MATCH_ROOM_LOAD] Failed to load room:', roomError);
       toast.error(`Failed to load match room: ${roomError.message}`);
-      // Clear storage and redirect
+      setLoading(false);
+      return;
+    }
+
+    // Only redirect if match doesn't exist OR is already ended
+    if (!roomData) {
+      if (hasRedirectedRef.current) return;
+      hasRedirectedRef.current = true;
+      console.error('[MATCH_ROOM_LOAD] Match not found');
+      toast.error('Match not found');
       clearMatchStorage();
       router.push('/app/play');
       return;
     }
 
-    if (!roomData) {
-      console.error('[MATCH_ROOM_LOAD] Match not found or not active');
-      toast.error('Match is not active or has ended');
-      // Clear storage and redirect
+    // Check if match is already finished or forfeited
+    if (roomData.status === 'finished' || roomData.status === 'forfeited') {
+      if (hasRedirectedRef.current) return;
+      hasRedirectedRef.current = true;
+      console.log('[MATCH_ROOM_LOAD] Match already ended, status:', roomData.status);
+      toast.info('Match has already ended');
       clearMatchStorage();
       router.push('/app/play');
       return;
@@ -772,6 +783,8 @@ export default function QuickMatchRoomPage() {
       }
 
       if (data?.already_ended) {
+        if (hasRedirectedRef.current) return;
+        hasRedirectedRef.current = true;
         console.log('[FORFEIT] Match already ended');
         toast.info('Match has already ended');
         // Cleanup and navigate
