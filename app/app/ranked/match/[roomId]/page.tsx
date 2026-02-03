@@ -25,12 +25,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Target, Trophy, TrendingUp, Shield, RotateCcw, Home, X, ArrowUp, ArrowDown, Minus, Flag } from 'lucide-react';
+import { Target, Trophy, TrendingUp, Shield, RotateCcw, Home, X, ArrowUp, ArrowDown, Minus, Flag, Check } from 'lucide-react';
 import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
 import { clearMatchState } from '@/lib/utils/match-resume';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
+import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
+import { getTrustRatingDisplay, getTrustRatingButtonGradient, getTrustRatingDescription, getUnratedLabel } from '@/lib/utils/trust-rating';
+import { Separator } from '@/components/ui/separator';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -61,6 +64,8 @@ interface MatchRoom {
 interface Profile {
   user_id: string;
   username: string;
+  trust_rating_letter?: string;
+  trust_rating_count?: number;
 }
 
 interface MatchEvent {
@@ -124,6 +129,15 @@ export default function RankedMatchPage() {
   const [rankedResults, setRankedResults] = useState<RankedResult | null>(null);
   const [finalizingMatch, setFinalizingMatch] = useState(false);
 
+  // Trust rating states
+  const opponentId = room && currentUserId
+    ? (currentUserId === room.player1_id ? room.player2_id : room.player1_id)
+    : null;
+  const [opponentTrustRating, setOpponentTrustRating] = useState<{ letter: string | null; count: number } | null>(null);
+  const [selectedRating, setSelectedRating] = useState<string | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [hasSubmittedRating, setHasSubmittedRating] = useState(false);
+
   // Match-start sound
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showSoundBanner, setShowSoundBanner] = useState(false);
@@ -183,6 +197,26 @@ export default function RankedMatchPage() {
       }
     }
   }, [roomId, room?.status, room?.player1_id, room?.player2_id]);
+
+  useEffect(() => {
+    if (showResultsModal && opponentId && !opponentTrustRating) {
+      console.log('[TRUST_RATING] Loading opponent trust rating');
+      supabase
+        .from('profiles')
+        .select('trust_rating_letter, trust_rating_count')
+        .eq('id', opponentId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            console.log('[TRUST_RATING] Loaded opponent trust rating:', data);
+            setOpponentTrustRating({
+              letter: data.trust_rating_letter,
+              count: data.trust_rating_count || 0
+            });
+          }
+        });
+    }
+  }, [showResultsModal, opponentId]);
 
   const handleEnableSound = () => {
     if (audioRef.current) {
@@ -480,6 +514,69 @@ export default function RankedMatchPage() {
     console.log('[RankedMatch] Forfeit requested');
     setShowForfeitDialog(false);
     toast.info('Forfeit functionality will be implemented');
+  };
+
+  const handleTrustRating = async (rating: string) => {
+    if (!opponentId || ratingLoading || hasSubmittedRating) return;
+
+    setRatingLoading(true);
+
+    try {
+      console.log('[TRUST_RATING] Submitting rating:', rating, 'for opponent:', opponentId);
+
+      const { data, error } = await supabase.rpc('rpc_set_trust_rating', {
+        p_room_id: roomId,
+        p_opponent_user_id: opponentId,
+        p_rating: rating
+      });
+
+      console.log('[TRUST_RATING] RPC response:', data);
+
+      if (error) {
+        console.error('[TRUST_RATING] RPC error:', error);
+        toast.error("Couldn't save trust rating. Try again.");
+        setRatingLoading(false);
+        return;
+      }
+
+      if (!data || data.ok === false) {
+        const errorMsg = data?.error || "Couldn't save trust rating";
+        console.error('[TRUST_RATING] RPC returned error:', errorMsg);
+        toast.error("Couldn't save trust rating. Try again.");
+        setRatingLoading(false);
+        return;
+      }
+
+      console.log('[TRUST_RATING] Rating saved successfully');
+      toast.success('Rating saved');
+      setSelectedRating(rating);
+      setHasSubmittedRating(true);
+
+      const { data: opponentProfile } = await supabase
+        .from('profiles')
+        .select('trust_rating_letter, trust_rating_count, trust_rating_avg')
+        .eq('id', opponentId)
+        .maybeSingle();
+
+      if (opponentProfile) {
+        console.log('[TRUST_RATING] Updated opponent trust rating:', opponentProfile);
+        setOpponentTrustRating({
+          letter: opponentProfile.trust_rating_letter,
+          count: opponentProfile.trust_rating_count || 0
+        });
+      }
+    } catch (error: any) {
+      console.error('[TRUST_RATING] Failed to save rating:', error);
+      toast.error("Couldn't save trust rating. Try again.");
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  const handleSkipRating = () => {
+    console.log('[TRUST_RATING] User skipped rating');
+    setHasSubmittedRating(true);
+    setSelectedRating(null);
   };
 
   const getPlayerName = (userId: string) => {
@@ -958,16 +1055,85 @@ export default function RankedMatchPage() {
                 })}
               </div>
 
+              <Separator className="my-4 bg-white/10" />
+
+              <Card className="p-6 bg-slate-800/50 border-white/10">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Opponent Trust Rating</span>
+                    <div className="flex items-center space-x-2">
+                      <TrustRatingBadge
+                        letter={opponentTrustRating?.letter as any}
+                        count={opponentTrustRating?.count || 0}
+                        showTooltip={false}
+                      />
+                      <span className="text-xs text-gray-500">
+                        {opponentTrustRating?.letter ? `(${opponentTrustRating.count || 0})` : getUnratedLabel()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-400 mb-2">Rate this player (optional):</p>
+                    {!hasSubmittedRating ? (
+                      <>
+                        <div className="grid grid-cols-5 gap-2">
+                          {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => {
+                            return (
+                              <button
+                                key={rating}
+                                onClick={() => handleTrustRating(rating)}
+                                disabled={ratingLoading || hasSubmittedRating}
+                                className={`
+                                  relative p-2 rounded-lg transition-all
+                                  bg-white/5 hover:bg-white/10
+                                  ${ratingLoading || hasSubmittedRating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                `}
+                                title={getTrustRatingDescription(rating)}
+                              >
+                                <span className="text-sm font-bold text-gray-400">
+                                  {rating}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={handleSkipRating}
+                          disabled={ratingLoading}
+                          className="mt-2 w-full text-xs text-gray-500 hover:text-gray-400 transition-colors disabled:opacity-50"
+                        >
+                          Skip
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex items-center space-x-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span className="text-sm text-emerald-400">
+                          {selectedRating ? `Rated ${selectedRating}: ${getTrustRatingDescription(selectedRating as any)}` : 'Skipped rating'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
               <div className="flex space-x-3">
                 <Button
-                  onClick={() => router.push('/app/ranked')}
+                  onClick={async () => {
+                    await clearMatchState(roomId);
+                    router.push('/app/ranked');
+                  }}
                   className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white"
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Play Again
                 </Button>
                 <Button
-                  onClick={() => router.push('/app')}
+                  onClick={async () => {
+                    await clearMatchState(roomId);
+                    router.push('/app');
+                  }}
                   variant="outline"
                   className="flex-1 border-white/10 text-white hover:bg-white/5"
                 >

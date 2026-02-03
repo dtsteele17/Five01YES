@@ -949,7 +949,7 @@ export default function QuickMatchRoomPage() {
   }
 
   const handleTrustRating = async (rating: string) => {
-    if (!opponentId || ratingLoading) return;
+    if (!opponentId || ratingLoading || hasSubmittedRating) return;
 
     setRatingLoading(true);
 
@@ -957,9 +957,9 @@ export default function QuickMatchRoomPage() {
       console.log('[TRUST_RATING] Submitting rating:', rating, 'for opponent:', opponentId);
 
       const { data, error } = await supabase.rpc('rpc_set_trust_rating', {
-        p_ratee_user_id: opponentId,
-        p_rating: rating,
-        p_last_match_room_id: matchId
+        p_room_id: matchId,
+        p_opponent_user_id: opponentId,
+        p_rating: rating
       });
 
       console.log('[TRUST_RATING] RPC response:', data);
@@ -980,7 +980,7 @@ export default function QuickMatchRoomPage() {
       }
 
       console.log('[TRUST_RATING] Rating saved successfully');
-      toast.success('Trust rating saved');
+      toast.success('Rating saved');
       setSelectedRating(rating);
       setMyRatingOfOpponent(rating);
       setHasSubmittedRating(true);
@@ -1005,6 +1005,12 @@ export default function QuickMatchRoomPage() {
     } finally {
       setRatingLoading(false);
     }
+  };
+
+  const handleSkipRating = () => {
+    console.log('[TRUST_RATING] User skipped rating');
+    setHasSubmittedRating(true);
+    setSelectedRating(null);
   };
 
   const handleRematch = async () => {
@@ -1727,6 +1733,9 @@ export default function QuickMatchRoomPage() {
             <Button
               onClick={async () => {
                 setShowOpponentForfeitSignalModal(false);
+                if (cleanupMatchRef.current) {
+                  cleanupMatchRef.current();
+                }
                 await clearMatchState(matchId);
                 router.push('/app/play');
               }}
@@ -1849,36 +1858,44 @@ export default function QuickMatchRoomPage() {
 
                   <div>
                     <p className="text-xs text-gray-400 mb-2">Rate this player (optional):</p>
-                    <div className="grid grid-cols-5 gap-2">
-                      {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => {
-                        const isSelected = selectedRating === rating;
-
-                        return (
-                          <button
-                            key={rating}
-                            onClick={() => handleTrustRating(rating)}
-                            disabled={ratingLoading}
-                            className={`
-                              relative p-2 rounded-lg transition-all
-                              ${isSelected
-                                ? `bg-gradient-to-br ${getTrustRatingButtonGradient(rating)} ring-2 ring-white/50 ring-offset-2 ring-offset-slate-900`
-                                : 'bg-white/5 hover:bg-white/10'
-                              }
-                              ${ratingLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                            `}
-                            title={getTrustRatingDescription(rating)}
-                          >
-                            <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                              {rating}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {selectedRating && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        {getTrustRatingDescription(selectedRating as any)}
-                      </p>
+                    {!hasSubmittedRating ? (
+                      <>
+                        <div className="grid grid-cols-5 gap-2">
+                          {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => {
+                            return (
+                              <button
+                                key={rating}
+                                onClick={() => handleTrustRating(rating)}
+                                disabled={ratingLoading || hasSubmittedRating}
+                                className={`
+                                  relative p-2 rounded-lg transition-all
+                                  bg-white/5 hover:bg-white/10
+                                  ${ratingLoading || hasSubmittedRating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                `}
+                                title={getTrustRatingDescription(rating)}
+                              >
+                                <span className="text-sm font-bold text-gray-400">
+                                  {rating}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={handleSkipRating}
+                          disabled={ratingLoading}
+                          className="mt-2 w-full text-xs text-gray-500 hover:text-gray-400 transition-colors disabled:opacity-50"
+                        >
+                          Skip
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex items-center space-x-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span className="text-sm text-emerald-400">
+                          {selectedRating ? `Rated ${selectedRating}: ${getTrustRatingDescription(selectedRating as any)}` : 'Skipped rating'}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
