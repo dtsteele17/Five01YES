@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
+import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -222,6 +223,15 @@ export default function QuickMatchRoomPage() {
 
   async function initializeMatch() {
     try {
+      // Check if we've already attempted to load this match
+      if (hasAttemptedMatch(matchId)) {
+        console.log('[MATCH_LOAD] Already attempted to load this match, preventing retry');
+        return;
+      }
+
+      // Mark this match as attempted
+      markMatchAttempted(matchId);
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -233,35 +243,54 @@ export default function QuickMatchRoomPage() {
 
       setCurrentUserId(user.id);
 
-      await loadMatchData();
+      const matchLoaded = await loadMatchData();
+
+      // Check if room was loaded successfully
+      if (!matchLoaded) {
+        console.error('[MATCH_LOAD] Match room not found, cleaning up and navigating away');
+
+        // Clear all match-related storage
+        clearMatchStorage(matchId);
+
+        // Show user-friendly message
+        toast.error('Match no longer available');
+
+        // Navigate to play page
+        router.push('/app/play');
+        return;
+      }
+
       const cleanup = setupRealtimeSubscriptions();
 
       return cleanup;
     } catch (error: any) {
       console.error('Initialization error:', error);
       toast.error(`Error: ${error.message}`);
+
+      // Clean up storage on error as well
+      clearMatchStorage(matchId);
+      router.push('/app/play');
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadMatchData() {
+  async function loadMatchData(): Promise<boolean> {
     const { data: roomData, error: roomError } = await supabase
       .from('match_rooms')
       .select('*')
       .eq('id', matchId)
-      .single();
+      .maybeSingle();
 
     if (roomError) {
       console.error('[MATCH_ROOM_LOAD] Failed to load room:', roomError);
       toast.error(`Failed to load match room: ${roomError.message}`);
-      return;
+      return false;
     }
 
     if (!roomData) {
-      console.error('[MATCH_ROOM_LOAD] No room data returned');
-      toast.error('Match room not found');
-      return;
+      console.error('[MATCH_ROOM_LOAD] No room data returned (match not found)');
+      return false;
     }
 
     setRoom(roomData);
@@ -293,6 +322,7 @@ export default function QuickMatchRoomPage() {
       .order('seq', { ascending: true });
 
     setEvents(eventsData || []);
+    return true;
   }
 
   function setupRealtimeSubscriptions() {
@@ -641,9 +671,9 @@ export default function QuickMatchRoomPage() {
         .from('match_rooms')
         .select('*')
         .eq('id', matchId)
-        .single();
+        .maybeSingle();
 
-      if (roomError) {
+      if (roomError || !roomData) {
         console.error('[EDIT VISIT] Failed to refresh room:', roomError);
         throw new Error('Failed to refresh match state');
       }

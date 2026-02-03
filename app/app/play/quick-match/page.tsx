@@ -282,7 +282,7 @@ export default function QuickMatchLobbyPage() {
         .from('quick_match_lobbies')
         .insert(lobbyData)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('SUPABASE_INSERT_ERROR', {
@@ -302,7 +302,7 @@ export default function QuickMatchLobbyPage() {
         .from('profiles')
         .select('username, avatar_url')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       const lobbyWithHost = {
         ...data,
@@ -334,7 +334,7 @@ export default function QuickMatchLobbyPage() {
         .from('quick_match_lobbies')
         .select('*')
         .eq('id', lobbyId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
         console.error('[JOIN] Fetch error:', {
@@ -373,7 +373,7 @@ export default function QuickMatchLobbyPage() {
         .is('player2_id', null)
         .eq('status', 'open')
         .select()
-        .single();
+        .maybeSingle();
 
       if (updateError) {
         console.error('[JOIN] Update error:', {
@@ -426,7 +426,7 @@ export default function QuickMatchLobbyPage() {
         .from('match_rooms')
         .insert(roomPayload)
         .select()
-        .single();
+        .maybeSingle();
 
       if (roomError) {
         console.error('[JOIN] Room creation error:', {

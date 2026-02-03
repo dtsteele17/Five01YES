@@ -395,7 +395,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
         .from('private_match_invites')
         .insert(invitePayload)
         .select()
-        .single();
+        .maybeSingle();
 
       if (inviteError) {
         console.error('[INVITE] Supabase insert error:', {

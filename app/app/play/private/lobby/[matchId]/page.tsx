@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Copy, Users, Clock, Target, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { clearMatchStorage } from '@/lib/utils/match-storage';
 
 interface Match {
   id: string;
@@ -59,7 +60,15 @@ export default function OnlineMatchLobby() {
         .from('matches')
         .select('*')
         .eq('id', matchId)
-        .single();
+        .maybeSingle();
+
+      if (!matchData) {
+        console.error('[MATCH_LOAD] Private match not found:', matchId);
+        clearMatchStorage(matchId);
+        toast.error('Match no longer available');
+        router.push('/app/play');
+        return;
+      }
 
       if (matchData) {
         setMatch(matchData);
@@ -77,6 +86,8 @@ export default function OnlineMatchLobby() {
     } catch (error) {
       console.error('Error loading match:', error);
       toast.error('Failed to load match');
+      clearMatchStorage(matchId);
+      router.push('/app/play');
     } finally {
       setLoading(false);
     }
