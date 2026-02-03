@@ -110,6 +110,7 @@ export default function QuickMatchRoomPage() {
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
+  const [forfeitLoading, setForfeitLoading] = useState(false);
   const [rematchLoading, setRematchLoading] = useState(false);
   const [rematchDisabled, setRematchDisabled] = useState(false);
   const [rematchData, setRematchData] = useState<any>(null);
@@ -718,6 +719,8 @@ export default function QuickMatchRoomPage() {
   async function forfeitMatch() {
     if (!room || !matchState) return;
 
+    setForfeitLoading(true);
+
     try {
       setDidIForfeit(true);
       setShowEndMatchDialog(false);
@@ -740,11 +743,12 @@ export default function QuickMatchRoomPage() {
         console.error('[FORFEIT] RPC returned error:', errorMsg);
         toast.error(`Failed to forfeit: ${errorMsg}`);
         setDidIForfeit(false);
+        setForfeitLoading(false);
         return;
       }
 
       console.log('[FORFEIT] Match forfeited successfully');
-      toast.info('Match forfeited');
+      toast.success('Match forfeited');
 
       // Cleanup and navigate
       if (cleanupMatchRef.current) {
@@ -755,6 +759,7 @@ export default function QuickMatchRoomPage() {
       console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
       setDidIForfeit(false);
+      setForfeitLoading(false);
     }
   }
 
@@ -958,7 +963,8 @@ export default function QuickMatchRoomPage() {
               variant="outline"
               size="sm"
               onClick={() => setShowEndMatchDialog(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              disabled={forfeitLoading}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Forfeit
@@ -1499,23 +1505,27 @@ export default function QuickMatchRoomPage() {
         </div>
       </div>
 
-      <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
+      <AlertDialog open={showEndMatchDialog} onOpenChange={(open) => !forfeitLoading && setShowEndMatchDialog(open)}>
         <AlertDialogContent className="bg-slate-900 border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">Forfeit Match?</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-400">
-              Are you sure you want to forfeit this match? Your opponent will win.
+              Are you sure you want to forfeit? This will end the match.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+            <AlertDialogCancel
+              disabled={forfeitLoading}
+              className="bg-white/5 border-white/10 text-white hover:bg-white/10 disabled:opacity-50"
+            >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={forfeitMatch}
-              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={forfeitLoading}
+              className="bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
             >
-              Forfeit
+              {forfeitLoading ? 'Forfeiting...' : 'Forfeit'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
