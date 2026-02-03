@@ -31,7 +31,7 @@ import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
 import { TrustRatingModal } from '@/components/TrustRatingModal';
 import { TrustLetter } from '@/components/TrustBadge';
-import { setPersistedMatch, cleanupEndedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
+import { setPersistedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -299,8 +299,8 @@ export default function RankedMatchPage() {
           console.log('[RankedMatch] Match ended, status:', updatedRoom.status);
           hasHandledMatchEndRef.current = true;
 
-          // Mark match as ended and clear all storage
-          cleanupEndedMatch(roomId);
+          // Clear persisted match storage
+          clearPersistedMatch();
 
           console.log('[RankedMatch] Cleanup complete, will show results modal');
         }
@@ -564,32 +564,17 @@ export default function RankedMatchPage() {
                 <span>Double Out</span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowForfeitDialog(true)}
-                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-              >
-                <Flag className="w-4 h-4 mr-2" />
-                Forfeit
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Safe escape hatch - cleanup and leave
-                  clearPersistedMatch();
-                  toast.info('Left match');
-                  router.push('/app/ranked');
-                }}
-                className="border-white/10 text-white hover:bg-white/5"
-                title="Leave match without forfeiting"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Leave
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowForfeitDialog(true)}
+              disabled={!isMyTurn}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isMyTurn ? 'Forfeit match' : 'You can only forfeit on your turn'}
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              Forfeit
+            </Button>
           </div>
         </div>
       </div>
@@ -919,13 +904,18 @@ export default function RankedMatchPage() {
               <div className="text-center">
                 <Trophy className="w-16 h-16 text-amber-500 mx-auto mb-3" />
                 <p className="text-2xl font-bold">
-                  {rankedResults.winner_id === currentUserId ? 'Victory!' : 'Defeat'}
+                  {rankedResults.winner_id
+                    ? rankedResults.winner_id === currentUserId ? 'Victory!' : 'Defeat'
+                    : 'Match Complete'}
                 </p>
                 <p className="text-gray-400 mt-1">
-                  {getPlayerName(rankedResults.winner_id)} wins{' '}
-                  {rankedResults.winner_id === rankedResults.player1.id
-                    ? `${rankedResults.player1.legs_won}-${rankedResults.player2.legs_won}`
-                    : `${rankedResults.player2.legs_won}-${rankedResults.player1.legs_won}`}
+                  {rankedResults.winner_id
+                    ? `${getPlayerName(rankedResults.winner_id)} wins ${
+                        rankedResults.winner_id === rankedResults.player1.id
+                          ? `${rankedResults.player1.legs_won}-${rankedResults.player2.legs_won}`
+                          : `${rankedResults.player2.legs_won}-${rankedResults.player1.legs_won}`
+                      }`
+                    : 'Match ended'}
                 </p>
               </div>
 

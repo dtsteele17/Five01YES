@@ -33,7 +33,7 @@ import EditVisitModal from '@/components/app/EditVisitModal';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { TrustRatingModal } from '@/components/TrustRatingModal';
 import { TrustBadge, TrustLetter } from '@/components/TrustBadge';
-import { setPersistedMatch, cleanupEndedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
+import { setPersistedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -248,14 +248,18 @@ export default function QuickMatchRoomPage() {
   }, [opponentId]);
 
   useEffect(() => {
-    if (!matchState) return;
+    if (!matchState || !room) return;
+
+    // ONLY show trust modal when match status is 'finished' or 'forfeited'
+    const matchEnded = room.status === 'finished' || room.status === 'forfeited';
+    if (!matchEnded) return;
 
     const endReason = matchState.endedReason;
-    if (!endReason) return;
+    if (endReason === 'active') return;
 
     // Show trust rating modal first (only once per match)
     if (trustPromptedForMatchId !== matchId && opponentId) {
-      console.log('[TRUST_RATING] Match ended, showing trust modal first');
+      console.log('[TRUST_RATING] Match ended with status:', room.status, 'showing trust modal first');
       setTrustPromptedForMatchId(matchId);
       // Store in sessionStorage to prevent re-prompt on refresh
       if (typeof window !== 'undefined') {
@@ -276,7 +280,7 @@ export default function QuickMatchRoomPage() {
     if (endReason) {
       stopCamera(`match ended: ${endReason}`);
     }
-  }, [matchState?.endedReason, didIForfeit, trustPromptedForMatchId, matchId, opponentId, showTrustModal]);
+  }, [matchState?.endedReason, room?.status, didIForfeit, trustPromptedForMatchId, matchId, opponentId, showTrustModal]);
 
   function clearMatchStorage() {
     console.log('[CLEANUP] Clearing match storage');
@@ -406,8 +410,8 @@ export default function QuickMatchRoomPage() {
               cleanupMatchRef.current();
             }
 
-            // Mark match as ended and clear all storage
-            cleanupEndedMatch(matchId);
+            // Clear persisted match storage
+            clearPersistedMatch();
 
             // Trust rating modal will be shown by the matchState effect
             // Game over modals will follow after trust rating
@@ -1027,35 +1031,17 @@ export default function QuickMatchRoomPage() {
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Safe escape hatch - cleanup and leave
-                  if (cleanupMatchRef.current) {
-                    cleanupMatchRef.current();
-                  }
-                  clearPersistedMatch();
-                  toast.info('Left match');
-                  router.push('/app/play');
-                }}
-                className="border-white/10 text-gray-400 hover:bg-white/5"
-                title="Leave match without forfeiting"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Leave
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowEndMatchDialog(true)}
-                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Forfeit
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEndMatchDialog(true)}
+              disabled={!isMyTurn}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isMyTurn ? 'Forfeit match' : 'You can only forfeit on your turn'}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Forfeit
+            </Button>
           </div>
         </div>
       </div>
@@ -1635,12 +1621,16 @@ export default function QuickMatchRoomPage() {
               <DialogTitle className="text-3xl font-bold text-white text-center">
                 {matchState?.endedReason === 'forfeit'
                   ? 'Opponent Forfeited'
-                  : `${matchState?.winnerName} Wins!`}
+                  : matchState?.winnerName
+                    ? `${matchState.winnerName} Wins!`
+                    : 'Match Complete'}
               </DialogTitle>
               <p className="text-base text-gray-400 text-center">
                 {matchState?.endedReason === 'forfeit'
                   ? 'Match ended early'
-                  : `Final score: ${myLegs}-${opponentLegs}`}
+                  : myLegs !== undefined && opponentLegs !== undefined
+                    ? `Final score: ${myLegs}-${opponentLegs}`
+                    : 'Match ended'}
               </p>
             </div>
           </DialogHeader>

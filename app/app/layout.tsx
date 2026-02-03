@@ -9,7 +9,7 @@ import { TrainingProvider } from '@/lib/context/TrainingContext';
 import { NotificationsProvider } from '@/lib/context/NotificationsContext';
 import TournamentMatchMonitor from '@/components/app/TournamentMatchMonitor';
 import { createClient } from '@/lib/supabase/client';
-import { getPersistedMatch, clearPersistedMatch, isMatchMarkedAsEnded } from '@/lib/utils/match-storage';
+import { getPersistedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 export default function AppLayout({
   children,
@@ -37,32 +37,23 @@ export default function AppLayout({
       const persistedMatch = getPersistedMatch();
 
       if (!persistedMatch) {
-        console.log('[MATCH_SAFETY_CHECK] No persisted match found');
         return;
       }
 
       console.log('[MATCH_SAFETY_CHECK] Found persisted match:', persistedMatch);
 
-      // Check if match was already marked as ended
-      if (isMatchMarkedAsEnded(persistedMatch.matchId)) {
-        console.log('[MATCH_SAFETY_CHECK] Match was marked as ended, clearing storage');
-        clearPersistedMatch();
-        return;
-      }
-
-      // Validate match still exists and is in_progress
+      // Validate match exists and is in_progress
       const tableName = persistedMatch.matchType === 'ranked' ? 'ranked_match_rooms' : 'match_rooms';
 
       const { data: match, error } = await supabase
         .from(tableName)
-        .select('id, status, player1_id, player2_id')
+        .select('id, status, player1_id, player2_id, winner_id, ended_at')
         .eq('id', persistedMatch.matchId)
         .maybeSingle();
 
       // If query failed, log but don't clear (might be temporary network issue)
       if (error) {
         console.error('[MATCH_SAFETY_CHECK] Error fetching match:', error);
-        // Don't clear storage on network errors - user might be offline
         return;
       }
 
@@ -74,17 +65,12 @@ export default function AppLayout({
           exists: !!match,
         });
 
-        // IMPORTANT: Clear storage but DO NOT navigate
-        // Let the user stay on their current page
         clearPersistedMatch();
         return;
       }
 
-      // Match is valid and in_progress
-      console.log('[MATCH_SAFETY_CHECK] Match is active and valid:', persistedMatch.matchId);
-
-      // DO NOT auto-navigate here - let the user decide when to resume
-      // The match pages will handle resume logic when user navigates to them
+      // Match is valid and in_progress - do NOT auto-navigate
+      console.log('[MATCH_SAFETY_CHECK] Match is active:', persistedMatch.matchId);
     } catch (error) {
       console.error('[MATCH_SAFETY_CHECK] Unexpected error:', error);
     }
