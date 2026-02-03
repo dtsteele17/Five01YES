@@ -33,6 +33,7 @@ import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomT
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
+import { PlayerScoreCard } from '@/components/match/PlayerScoreCard';
 import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
 import { clearMatchState } from '@/lib/utils/match-resume';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
@@ -1176,8 +1177,13 @@ export default function QuickMatchRoomPage() {
 
   const doubleOut = matchState.matchFormat.includes('best-of');
 
+  const myVisitHistory = matchState.visitHistory.filter(v => v.by === 'you');
+  const lastMyVisit = myVisitHistory[myVisitHistory.length - 1];
+  const opponentVisitHistory = matchState.visitHistory.filter(v => v.by !== 'you');
+  const lastOpponentVisit = opponentVisitHistory[opponentVisitHistory.length - 1];
+
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
+    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden p-3">
       {showSoundBanner && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
           <span className="text-sm font-medium">Tap to enable match sound</span>
@@ -1190,240 +1196,123 @@ export default function QuickMatchRoomPage() {
           </Button>
         </div>
       )}
-      <div className="border-b border-white/10 bg-slate-900/50 backdrop-blur-sm">
-        <div className="max-w-[1800px] mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Target className="w-6 h-6 text-emerald-400" />
-                <span className="text-xl font-bold text-white">FIVE<span className="text-emerald-400">01</span></span>
-              </div>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                {room?.match_type === 'tournament' ? 'TOURNAMENT GAME' : 'QUICK MATCH'}
-              </Badge>
-              {isConnected ? (
-                <Wifi className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-red-400" />
-              )}
-            </div>
 
-            <div className="flex items-center space-x-4 text-sm text-gray-400">
-              <span>{matchState.gameMode}</span>
-              <span>•</span>
-              <span>{matchState.matchFormat.replace('best-of-', 'Best of ')}</span>
-              {doubleOut && (
-                <>
-                  <span>•</span>
-                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-xs">
-                    Double Out
-                  </Badge>
-                </>
-              )}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowEndMatchDialog(true)}
-              disabled={forfeitLoading}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Forfeit
-            </Button>
-          </div>
-
-          {/* Leg Score Pill - Centered */}
-          <div className="flex justify-center mt-3 pb-2">
-            <Card className="bg-slate-800/80 border-white/20 px-6 py-3 rounded-xl inline-block">
-              <div className="flex items-center space-x-4">
-                <div className="text-center">
-                  <p className="text-xs text-gray-400 mb-1">Leg {matchState.currentLeg}</p>
-                  <div className="flex items-center space-x-3">
-                    <span className="text-3xl font-bold text-white">{myLegs}</span>
-                    <span className="text-2xl font-bold text-gray-500">–</span>
-                    <span className="text-3xl font-bold text-white">{opponentLegs}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
+      {/* Top Bar - Minimal */}
+      <div className="absolute top-3 right-3 z-10 flex items-center space-x-3">
+        {isConnected ? (
+          <Wifi className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <WifiOff className="w-4 h-4 text-red-400" />
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowEndMatchDialog(true)}
+          disabled={forfeitLoading}
+          className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 bg-slate-900/80 backdrop-blur-sm"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Forfeit
+        </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="max-w-[1800px] mx-auto px-4 py-4 h-full flex flex-col">
-          {/* Centered Score Section */}
-          <div className="flex justify-center gap-8 mb-4 flex-shrink-0">
-            <Card className={`p-4 transition-all relative ${isMyTurn ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center space-x-2 mb-2">
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
-                    {myName.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-semibold text-white">{myName}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-center py-4">
-                <span className="text-6xl font-bold text-white">{myRemaining}</span>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-lg font-bold text-emerald-400">Avg {myAvg.toFixed(2)}</span>
-                <div className="flex flex-col items-end">
-                  <p className="text-xs text-gray-400 mb-1">Legs</p>
-                  <div className="flex items-center space-x-1.5">
-                    {Array.from({ length: matchState.legsToWin }).map((_, idx) => (
-                      <div
-                        key={idx}
-                        className={`w-3 h-3 rounded-full ${
-                          idx < myLegs
-                            ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
-                            : 'border-2 border-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card className={`p-4 transition-all relative ${!isMyTurn ? 'bg-blue-500/20 border-blue-500/50' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center space-x-2 mb-2">
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-sm">
-                    {opponentName.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-white">{opponentName}</p>
-                  <TrustRatingBadge letter={opponentTrustRating?.letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={opponentTrustRating?.count || 0} showTooltip={false} />
-                </div>
-              </div>
-              <div className="flex items-center justify-center py-4">
-                <span className="text-6xl font-bold text-white">{opponentRemaining}</span>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-lg font-bold text-blue-400">Avg {opponentAvg.toFixed(2)}</span>
-                <div className="flex flex-col items-end">
-                  <p className="text-xs text-gray-400 mb-1">Legs</p>
-                  <div className="flex items-center space-x-1.5">
-                    {Array.from({ length: matchState.legsToWin }).map((_, idx) => (
-                      <div
-                        key={idx}
-                        className={`w-3 h-3 rounded-full ${
-                          idx < opponentLegs
-                            ? 'bg-gradient-to-br from-blue-400 to-cyan-500'
-                            : 'border-2 border-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
+      {/* Match Info Banner - Top Center */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+        <Card className="bg-slate-900/80 border-white/20 px-4 py-2 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center space-x-3 text-xs text-gray-300">
+            <span className="font-semibold text-white">{matchState.gameMode}</span>
+            <span>•</span>
+            <span>{matchState.matchFormat.replace('best-of-', 'Best of ')}</span>
+            <span>•</span>
+            <span className="font-semibold text-emerald-400">Leg {matchState.currentLeg}</span>
+            <span>•</span>
+            <span className="text-white">{myLegs} – {opponentLegs}</span>
           </div>
+        </Card>
+      </div>
 
-          {/* 3-Column Layout: Camera | Scoring | Visit History */}
-          <div className="grid gap-4 flex-1 min-h-0" style={{ gridTemplateColumns: '1fr 1.2fr 1fr' }}>
-            {/* Left Column: Live Camera */}
-            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                <h3 className="text-sm font-semibold text-white">Live Camera</h3>
-                <Badge
-                  variant="outline"
-                  className={`text-xs ${isMyTurn ? 'border-emerald-500/50 text-emerald-400' : 'border-blue-500/50 text-blue-400'}`}
-                >
-                  {isMyTurn ? 'Your Turn' : 'Opponent Turn'}
-                </Badge>
-              </div>
-              <div className="flex-1 relative rounded-lg overflow-hidden bg-slate-950/50" style={{ minHeight: 0 }}>
-                <div className="absolute inset-0">
-                  <video
-                    ref={liveVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover rounded-lg"
-                    style={{ display: (isMyTurn && localStream) || (!isMyTurn && remoteStream) ? 'block' : 'none' }}
-                  />
-                  {((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
-                    <>
-                      <div className="absolute bottom-3 left-3 px-3 py-1.5 bg-black/70 rounded-lg text-sm text-white font-medium">
-                        {isMyTurn ? 'You' : opponentName}
-                      </div>
-                      {callStatus === 'connected' && !isMyTurn && remoteStream && (
-                        <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                      )}
-                    </>
-                  )}
-                  {!((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-                      {isMyTurn
-                        ? 'Your camera is off'
-                        : (callStatus === 'connected' || callStatus === 'connecting')
-                          ? 'Opponent camera connecting...'
-                          : 'Opponent camera is off'
-                      }
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
+      {/* 3-Column Grid Layout - DartCounter Style */}
+      <div className="grid gap-3 h-full pt-16" style={{ gridTemplateColumns: '320px 1fr 520px' }}>
+        {/* Left Column: Player Score Cards (Stacked) */}
+        <div className="flex flex-col gap-3 min-h-0">
+          <PlayerScoreCard
+            name={myName}
+            remaining={myRemaining}
+            average={myAvg}
+            lastScore={lastMyVisit?.score}
+            dartsThrown={myVisitHistory.length * 3}
+            legsWon={myLegs}
+            legsToWin={matchState.legsToWin}
+            isActive={isMyTurn}
+            isMe={true}
+          />
+          <PlayerScoreCard
+            name={opponentName}
+            remaining={opponentRemaining}
+            average={opponentAvg}
+            lastScore={lastOpponentVisit?.score}
+            dartsThrown={opponentVisitHistory.length * 3}
+            legsWon={opponentLegs}
+            legsToWin={matchState.legsToWin}
+            isActive={!isMyTurn}
+            isMe={false}
+            trustRating={opponentTrustRating}
+          />
+        </div>
 
-            {/* Center Column: Scoring */}
+        {/* Middle Column: Scoring Section */}
+        <div className="flex flex-col gap-2 min-h-0 overflow-hidden">
+          {/* Always-Visible Score Input - Top */}
+          <Card className="bg-slate-900/50 border-white/10 p-4 flex-shrink-0">
+            <label className="text-sm text-gray-300 mb-2 block font-medium">Enter a score and press Enter</label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min="0"
+                max="180"
+                value={scoreInput}
+                onChange={(e) => {
+                  setScoreInput(e.target.value);
+                  setInputModeError('');
+                }}
+                placeholder="0–180"
+                className="flex-1 h-12 bg-white/5 border-white/10 text-white text-lg"
+                disabled={!isMyTurn || submitting}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && scoreInput) {
+                    const score = parseInt(scoreInput);
+                    if (score >= 0 && score <= 180) {
+                      handleInputScoreSubmit(score);
+                      setScoreInput('');
+                    }
+                  }
+                }}
+              />
+              <Button
+                onClick={() => {
+                  if (scoreInput) {
+                    const score = parseInt(scoreInput);
+                    if (score >= 0 && score <= 180) {
+                      handleInputScoreSubmit(score);
+                      setScoreInput('');
+                    }
+                  }
+                }}
+                disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || !isMyTurn || submitting}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white h-12 px-6 text-sm font-semibold"
+              >
+                Submit
+              </Button>
+            </div>
+            {inputModeError && (
+              <p className="text-red-400 text-xs mt-2">{inputModeError}</p>
+            )}
+          </Card>
 
-            <Card className="bg-slate-900/50 border-white/10 p-2 flex flex-col overflow-hidden">
-              <div className="mb-2 flex-shrink-0">
-                <h3 className="text-base font-semibold text-white mb-2">Scoring</h3>
-
-                <div className="mb-2">
-                  <label className="text-xs text-gray-400 mb-1 block">Type score</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="180"
-                      value={scoreInput}
-                      onChange={(e) => {
-                        setScoreInput(e.target.value);
-                        setInputModeError('');
-                      }}
-                      placeholder="0-180"
-                      className="flex-1 h-9 bg-white/5 border-white/10 text-white text-sm"
-                      disabled={!isMyTurn || submitting}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                            setScoreInput('');
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        if (scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                            setScoreInput('');
-                          }
-                        }
-                      }}
-                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || !isMyTurn || submitting}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-9 px-4 text-xs"
-                    >
-                      Enter
-                    </Button>
-                  </div>
-                  {inputModeError && (
-                    <p className="text-red-400 text-xs mt-1">{inputModeError}</p>
-                  )}
-                </div>
-              </div>
+          {/* Scoring Buttons Area */}
+          <Card className="bg-slate-900/50 border-white/10 p-3 flex-1 flex flex-col overflow-hidden min-h-0">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="space-y-2">
 
               {isOnCheckout && isMyTurn && (
                 checkoutOptions && checkoutOptions.length > 0 && checkoutOptions[0]?.description ? (
@@ -1619,75 +1508,120 @@ export default function QuickMatchRoomPage() {
                     </div>
                 </div>
               </div>
-            </Card>
+            </div>
+            </div>
+          </Card>
+        </div>
 
-            {/* Right Column: Visit History */}
-            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden">
-              <h3 className="text-sm font-semibold text-white mb-2 flex-shrink-0">Visit History</h3>
-              <div className="flex-1 overflow-y-auto pr-2" style={{ minHeight: 0 }}>
-                <div className="space-y-2 pr-2">
-                  {matchState.visitHistory.slice().reverse().map((visit, idx) => {
-                    const isMyVisit = visit.by === 'you';
-                    const canEdit = isMyVisit && !visit.isCheckout;
-                    return (
-                      <div
-                        key={visit.id}
-                        className={`flex items-center justify-between text-sm p-2 rounded ${
-                          isMyVisit
-                            ? 'bg-teal-500/5 border-l-2 border-l-teal-400/60'
-                            : 'bg-slate-700/20 border-l-2 border-l-slate-500/60'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] px-1 py-0 ${
-                              isMyVisit
-                                ? 'border-teal-400/40 text-teal-300'
-                                : 'border-slate-500/50 text-slate-300'
-                            }`}
-                          >
-                            {visit.label}
-                          </Badge>
-                          <span className="text-gray-500 text-xs">
-                            #{visit.turnNumberInLeg}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {visit.isBust && (
-                            <Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">
-                              BUST
-                            </Badge>
-                          )}
-                          {visit.isCheckout && (
-                            <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-xs">
-                              CHECKOUT
-                            </Badge>
-                          )}
-                          <span className="text-white font-semibold">{visit.score}</span>
-                          <span className="text-gray-500">→</span>
-                          <span className="text-gray-400">{visit.remainingAfter}</span>
-                          {canEdit && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditVisit(visit)}
-                              className="h-6 w-6 p-0 hover:bg-teal-500/10 text-teal-400 hover:text-teal-300"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {matchState.visitHistory.length === 0 && (
-                    <p className="text-gray-500 text-center py-8 text-sm">No visits yet</p>
-                  )}
-                </div>
+        {/* Right Column: Large Camera Panel + Visit History */}
+        <div className="flex flex-col gap-3 min-h-0">
+          {/* Large Camera Panel */}
+          <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden flex-1 min-h-0">
+            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+              <h3 className="text-base font-semibold text-white">Live Camera</h3>
+              <div className="flex items-center space-x-2">
+                <Button
+                  onClick={toggleCamera}
+                  disabled={callStatus === 'connecting'}
+                  variant="outline"
+                  size="sm"
+                  className="border-white/10 text-white hover:bg-white/5 text-xs"
+                >
+                  {callStatus === 'connecting' ? 'Connecting...' : isCameraOn ? 'Off' : 'On'}
+                </Button>
+                {isCameraOn && (
+                  <>
+                    <Button
+                      onClick={toggleMic}
+                      variant="ghost"
+                      size="sm"
+                      className={`p-2 h-8 w-8 ${isMicMuted ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-gray-300'}`}
+                      title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
+                    >
+                      {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      onClick={toggleVideo}
+                      variant="ghost"
+                      size="sm"
+                      className={`p-2 h-8 w-8 ${isVideoDisabled ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-gray-300'}`}
+                      title={isVideoDisabled ? 'Enable Camera' : 'Disable Camera'}
+                    >
+                      {isVideoDisabled ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                    </Button>
+                  </>
+                )}
               </div>
-            </Card>
-          </div>
+            </div>
+            <div className="flex-1 relative rounded-lg overflow-hidden bg-slate-950/50 min-h-0">
+              <div className="absolute inset-0">
+                <video
+                  ref={liveVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover rounded-lg"
+                  style={{ display: (isMyTurn && localStream) || (!isMyTurn && remoteStream) ? 'block' : 'none' }}
+                />
+                {((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
+                  <>
+                    <div className="absolute bottom-4 left-4 px-4 py-2 bg-black/70 rounded-lg text-base text-white font-medium">
+                      {isMyTurn ? 'You' : opponentName}
+                    </div>
+                    {callStatus === 'connected' && !isMyTurn && remoteStream && (
+                      <div className="absolute top-3 right-3 w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+                    )}
+                  </>
+                )}
+                {!((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-base">
+                    {isMyTurn
+                      ? 'Your camera is off'
+                      : (callStatus === 'connected' || callStatus === 'connecting')
+                        ? 'Opponent camera connecting...'
+                        : 'Opponent camera is off'
+                    }
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Compact Visit History */}
+          <Card className="bg-slate-900/50 border-white/10 p-3 flex-shrink-0" style={{ maxHeight: '180px' }}>
+            <h3 className="text-sm font-semibold text-white mb-2">Recent Visits</h3>
+            <div className="overflow-y-auto pr-2" style={{ maxHeight: '140px' }}>
+              <div className="space-y-1.5">
+                {matchState.visitHistory.slice(-5).reverse().map((visit) => {
+                  const isMyVisit = visit.by === 'you';
+                  return (
+                    <div
+                      key={visit.id}
+                      className={`flex items-center justify-between text-xs p-1.5 rounded ${
+                        isMyVisit
+                          ? 'bg-teal-500/5 border-l-2 border-l-teal-400/60'
+                          : 'bg-slate-700/20 border-l-2 border-l-slate-500/60'
+                      }`}
+                    >
+                      <span className={`font-medium ${isMyVisit ? 'text-teal-300' : 'text-slate-300'}`}>
+                        {visit.label}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        {visit.isCheckout && (
+                          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px] px-1 py-0">
+                            OUT
+                          </Badge>
+                        )}
+                        <span className="text-white font-semibold">{visit.score}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {matchState.visitHistory.length === 0 && (
+                  <p className="text-gray-500 text-center py-4 text-xs">No visits yet</p>
+                )}
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
 
