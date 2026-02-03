@@ -11,7 +11,8 @@ interface Notification {
   title: string;
   message: string;
   link: string | null;
-  read: boolean;
+  read: boolean; // Computed from read_at
+  read_at: string | null;
   created_at: string;
   reference_id: string | null;
   data?: {
@@ -75,7 +76,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      setNotifications(data || []);
+      // Map data to compute 'read' from 'read_at'
+      const mappedData = (data || []).map(n => ({
+        ...n,
+        read: n.read_at !== null
+      }));
+
+      setNotifications(mappedData);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -108,15 +115,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markAsRead = async (notificationId: string) => {
     try {
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ read_at: now })
         .eq('id', notificationId);
 
       if (error) throw error;
 
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true, read_at: now } : n))
       );
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -128,15 +136,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const now = new Date().toISOString();
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ read_at: now })
         .eq('user_id', user.id)
-        .eq('read', false);
+        .is('read_at', null);
 
       if (error) throw error;
 
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, read_at: n.read_at || now })));
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }

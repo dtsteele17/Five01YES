@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { requireUser } from '@/lib/supabase/auth';
 import { toast } from 'sonner';
+import { validateMatchRoom, hasAttemptedResume, markResumeAttempted } from '@/lib/utils/match-resume';
 
 interface QuickMatchLobby {
   id: string;
@@ -74,11 +75,30 @@ export default function QuickMatchLobbyPage() {
   }, []);
 
   useEffect(() => {
-    if (myLobby?.match_id && myLobby.status === 'in_progress') {
-      console.log('[INITIAL_LOAD] Match already started, redirecting to:', myLobby.match_id);
-      router.push(`/app/play/quick-match/match/${myLobby.match_id}`);
+    async function handleResume() {
+      // Only attempt resume once per session
+      if (hasAttemptedResume()) {
+        return;
+      }
+
+      if (myLobby?.match_id && myLobby.status === 'in_progress' && userId) {
+        console.log('[QUICK_MATCH_RESUME] Checking match room:', myLobby.match_id);
+        markResumeAttempted();
+
+        // Validate the room before redirecting
+        const validation = await validateMatchRoom(myLobby.match_id, userId);
+
+        if (validation.shouldRedirect && validation.path) {
+          console.log('[QUICK_MATCH_RESUME] Redirecting to validated room:', validation.path);
+          router.push(validation.path);
+        } else {
+          console.log('[QUICK_MATCH_RESUME] Room validation failed, staying on lobby page');
+        }
+      }
     }
-  }, [myLobby, router]);
+
+    handleResume();
+  }, [myLobby, userId, router]);
 
   async function initializeAndSubscribe() {
     try {

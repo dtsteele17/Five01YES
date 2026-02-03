@@ -135,13 +135,14 @@ export default function PlayPage() {
 
       setUserId(user.id);
 
+      // Query match_rooms instead of matches table
       const { data: matchesData, error } = await supabase
-        .from('matches')
+        .from('match_rooms')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .not('completed_at', 'is', null)
-        .order('completed_at', { ascending: false })
+        .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+        .eq('status', 'finished')
+        .not('finished_at', 'is', null)
+        .order('finished_at', { ascending: false })
         .limit(3);
 
       if (error) {
