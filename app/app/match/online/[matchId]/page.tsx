@@ -60,7 +60,7 @@ export default function OnlineMatchPage() {
     loadMatchData();
     const cleanup = subscribeToChanges();
     return cleanup;
-  }, [matchId]);
+  }, [matchId, currentUserId]);
 
   async function loadMatchData() {
     const supabase = createClient();
@@ -118,17 +118,46 @@ export default function OnlineMatchPage() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'online_match_state',
-          filter: `match_id=eq.${matchId}`,
+          table: 'match_rooms',
+          filter: `id=eq.${matchId}`,
         },
-        (payload) => {
-          console.log('Match state updated:', payload);
-
-          if (matchData) {
-            setMatchData({
-              ...matchData,
-              state: payload.new.state_json,
-            });
+        async (payload) => {
+          console.log('[REALTIME] Match room updated:', payload.new);
+          const updatedRoom = payload.new as any;
+          
+          // Reload match data to get updated state
+          const { data, error } = await supabase.rpc('get_online_match_with_state', {
+            p_match_id: matchId,
+          });
+          
+          if (data && !error) {
+            setMatchData(data);
+            
+            // Check if match is complete
+            if (updatedRoom.status === 'finished' || updatedRoom.status === 'completed') {
+              setShowMatchComplete(true);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'match_events',
+          filter: `room_id=eq.${matchId}`,
+        },
+        async (payload) => {
+          console.log('[REALTIME] Match event added:', payload.new);
+          
+          // Reload match data to get updated scores
+          const { data, error } = await supabase.rpc('get_online_match_with_state', {
+            p_match_id: matchId,
+          });
+          
+          if (data && !error) {
+            setMatchData(data);
           }
         }
       )
@@ -137,26 +166,24 @@ export default function OnlineMatchPage() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'online_matches',
-          filter: `id=eq.${matchId}`,
+          table: 'match_events',
+          filter: `room_id=eq.${matchId}`,
         },
-        (payload) => {
-          console.log('Match updated:', payload);
-
-          if (matchData) {
-            setMatchData({
-              ...matchData,
-              match: { ...matchData.match, ...payload.new },
-            });
-
-            if (payload.new.status === 'completed') {
-              setShowMatchComplete(true);
-            }
+        async (payload) => {
+          console.log('[REALTIME] Match event updated:', payload.new);
+          
+          // Reload match data to get updated scores
+          const { data, error } = await supabase.rpc('get_online_match_with_state', {
+            p_match_id: matchId,
+          });
+          
+          if (data && !error) {
+            setMatchData(data);
           }
         }
       )
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+        console.log('[REALTIME] Subscription status:', status);
       });
 
     return () => {
@@ -210,13 +237,10 @@ export default function OnlineMatchPage() {
         isCheckout,
       });
 
-      const { data, error } = await supabase.rpc('submit_online_visit_v2', {
-        p_match_id: matchId,
+      // Use submit_quick_match_throw since we're using match_rooms (not online_matches)
+      const { data, error } = await supabase.rpc('submit_quick_match_throw', {
+        p_room_id: matchId,
         p_score: isBust ? 0 : score,
-        p_darts_thrown: 3,
-        p_remaining_score: actualRemaining,
-        p_is_bust: isBust,
-        p_is_checkout: isCheckout,
       });
 
       if (error) {
@@ -226,22 +250,25 @@ export default function OnlineMatchPage() {
 
       console.log('Visit submitted:', data);
 
-      if (data.success) {
-        if (isBust) {
-          toast.error('Bust!');
-        } else if (isCheckout) {
-          toast.success('Checkout!');
-        }
-
-        if (data.matchComplete) {
-          console.log('Match complete!', data.winner);
-          setShowMatchComplete(true);
-        }
-
-        setInputScore('');
-      } else {
-        toast.error('Failed to submit visit');
+      if (data.is_bust) {
+        toast.error('Bust!');
+      } else if (data.is_checkout) {
+        toast.success('Checkout!');
       }
+
+      if (data.leg_won) {
+        toast.success('Leg won!');
+      }
+
+      if (data.match_won) {
+        console.log('Match complete!');
+        setShowMatchComplete(true);
+      }
+
+      setInputScore('');
+      
+      // Reload match data to get updated state
+      await loadMatchData();
     } catch (error: any) {
       console.error('Error submitting visit:', error);
       toast.error(`Failed to submit: ${error.message}`);
@@ -257,10 +284,9 @@ export default function OnlineMatchPage() {
 
     try {
       const { error } = await supabase
-        .from('online_matches')
+        .from('match_rooms')
         .update({
-          status: 'cancelled',
-          finished_at: new Date().toISOString(),
+          status: 'forfeited',
         })
         .eq('id', matchId);
 

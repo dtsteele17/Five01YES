@@ -75,10 +75,45 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       )
       .subscribe();
 
+    // Watch for match updates - auto-redirect when match starts
+    const matchChannel = supabase
+      .channel(`tournament-matches-${tournamentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tournament_matches',
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        async (payload) => {
+          const match = payload.new as any;
+          if (currentUserId && (match.player1_id === currentUserId || match.player2_id === currentUserId)) {
+            if (match.status === 'in_game' && match.match_room_id) {
+              console.log('[TOURNAMENT PAGE] Match started, redirecting to:', match.match_room_id);
+              toast.success('Match starting!');
+              router.push(`/app/match/online/${match.match_room_id}`);
+            }
+          }
+        }
+      )
+      .subscribe();
+
     const pollInterval = setInterval(async () => {
       try {
-        await supabase.rpc('process_due_tournaments');
-        await supabase.rpc('process_ready_deadlines');
+        console.log('[TOURNAMENT PAGE] Polling cron RPCs', { tournamentId });
+        const { data: dueData, error: dueError } = await supabase.rpc('process_due_tournaments');
+        if (dueError) {
+          console.error('[TOURNAMENT PAGE] process_due_tournaments error:', dueError);
+        } else {
+          console.log('[TOURNAMENT PAGE] process_due_tournaments result:', dueData);
+        }
+        const { data: readyData, error: readyError } = await supabase.rpc('process_ready_deadlines');
+        if (readyError) {
+          console.error('[TOURNAMENT PAGE] process_ready_deadlines error:', readyError);
+        } else {
+          console.log('[TOURNAMENT PAGE] process_ready_deadlines result:', readyData);
+        }
       } catch (error) {
         console.error('Error polling tournament processing:', error);
       }
@@ -86,9 +121,10 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(matchChannel);
       clearInterval(pollInterval);
     };
-  }, [tournamentId]);
+  }, [tournamentId, currentUserId, router]);
 
   const loadData = async () => {
     try {
@@ -153,6 +189,25 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           .maybeSingle();
 
         setIsRegistered(!!existing);
+
+        // Check if user has an active match that's already started (in_game)
+        if (existing) {
+          const { data: activeMatch, error: matchError } = await supabase
+            .from('tournament_matches')
+            .select('id, status, match_room_id')
+            .eq('tournament_id', tournamentId)
+            .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+            .eq('status', 'in_game')
+            .not('match_room_id', 'is', null)
+            .limit(1)
+            .maybeSingle();
+
+          if (activeMatch && activeMatch.match_room_id) {
+            console.log('[TOURNAMENT] Active match found, redirecting to:', activeMatch.match_room_id);
+            router.push(`/app/match/online/${activeMatch.match_room_id}`);
+            return;
+          }
+        }
       }
     } catch (error: any) {
       console.error('Error loading tournament:', error);
