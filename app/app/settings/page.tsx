@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Bell, Shield, Palette, Key, Lock, Volume2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { isInviteSoundEnabled, setInviteSoundEnabled } from '@/lib/sfx';
+import { isInviteSoundEnabled, setInviteSoundEnabled, isGameOnSoundEnabled, setGameOnSoundEnabled } from '@/lib/sfx';
 
 export default function SettingsPage() {
   const [passwordForm, setPasswordForm] = useState({
@@ -24,15 +24,23 @@ export default function SettingsPage() {
     confirmPassword?: string;
   }>({});
   const [inviteSoundEnabled, setInviteSoundEnabledState] = useState(true);
+  const [gameOnSoundEnabled, setGameOnSoundEnabledState] = useState(true);
 
   useEffect(() => {
     setInviteSoundEnabledState(isInviteSoundEnabled());
+    setGameOnSoundEnabledState(isGameOnSoundEnabled());
   }, []);
 
   const handleInviteSoundToggle = (enabled: boolean) => {
     setInviteSoundEnabledState(enabled);
     setInviteSoundEnabled(enabled);
     toast.success(enabled ? 'Invite sound enabled' : 'Invite sound disabled');
+  };
+
+  const handleGameOnSoundToggle = (enabled: boolean) => {
+    setGameOnSoundEnabledState(enabled);
+    setGameOnSoundEnabled(enabled);
+    toast.success(enabled ? 'Match start sound enabled' : 'Match start sound disabled');
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -180,6 +188,17 @@ export default function SettingsPage() {
               </div>
             </div>
             <Switch checked={inviteSoundEnabled} onCheckedChange={handleInviteSoundToggle} />
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+            <div className="flex items-center space-x-3">
+              <Volume2 className="w-5 h-5 text-emerald-400" />
+              <div>
+                <p className="text-white font-medium">Match Start Sound (Game On)</p>
+                <p className="text-gray-400 text-sm">Play sound when training vs Dartbot starts</p>
+              </div>
+            </div>
+            <Switch checked={gameOnSoundEnabled} onCheckedChange={handleGameOnSoundToggle} />
           </div>
 
           {[

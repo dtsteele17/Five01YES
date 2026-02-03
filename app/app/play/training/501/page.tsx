@@ -36,6 +36,7 @@ import { toast } from 'sonner';
 import { useMatchPersistence } from '@/lib/hooks/useMatchPersistence';
 import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { MatchSaveDebugStrip } from '@/components/app/MatchSaveDebugStrip';
+import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 
 interface Visit {
   player: 'player1' | 'player2';
@@ -172,6 +173,14 @@ export default function Training501Page() {
   useEffect(() => {
     matchOverRef.current = !!matchWinner || showMatchCompleteModal;
   }, [matchWinner, showMatchCompleteModal]);
+
+  // Play Game On sound when training session starts
+  useEffect(() => {
+    if (config && !hasPlayedGameOnForSession(matchStartTime.toString())) {
+      playGameOnSfx();
+      markGameOnPlayedForSession(matchStartTime.toString());
+    }
+  }, [config, matchStartTime]);
 
   const clearBotTimer = useCallback(() => {
     if (botTimerRef.current !== null) {
