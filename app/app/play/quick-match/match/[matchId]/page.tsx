@@ -131,6 +131,10 @@ export default function QuickMatchRoomPage() {
   const [selectedRating, setSelectedRating] = useState<string | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
 
+  // Match-start sound
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showSoundBanner, setShowSoundBanner] = useState(false);
+
   // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
   // Hook fetches opponent from match_rooms and manages all signaling
   const webrtc = useMatchWebRTC({
@@ -195,6 +199,61 @@ export default function QuickMatchRoomPage() {
       }
     };
   }, [matchId]);
+
+  // Match-start sound effect
+  useEffect(() => {
+    const storageKey = `played_match_start_${matchId}`;
+
+    // Initialize audio once
+    if (!audioRef.current) {
+      audioRef.current = new Audio('https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/gameon-darts.mp3');
+      audioRef.current.volume = 0.6;
+    }
+
+    // Check if match is truly active: status === 'active' AND both players present
+    const isMatchActive =
+      room?.status === 'active' &&
+      room?.player1_id &&
+      room?.player2_id;
+
+    // Check if we've already played the sound for this room
+    const hasPlayed = sessionStorage.getItem(storageKey) === 'true';
+
+    if (isMatchActive && !hasPlayed) {
+      console.log('[MATCH_START_SOUND] Playing game-on sound for room:', matchId);
+
+      // Mark as played immediately to prevent any re-triggers
+      sessionStorage.setItem(storageKey, 'true');
+
+      // Attempt to play
+      const playPromise = audioRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('[MATCH_START_SOUND] Sound played successfully');
+            setShowSoundBanner(false);
+          })
+          .catch((error) => {
+            console.log('[MATCH_START_SOUND] Autoplay blocked, showing banner:', error);
+            setShowSoundBanner(true);
+          });
+      }
+    }
+  }, [matchId, room?.status, room?.player1_id, room?.player2_id]);
+
+  const handleEnableSound = () => {
+    if (audioRef.current) {
+      audioRef.current.play()
+        .then(() => {
+          console.log('[MATCH_START_SOUND] Sound enabled by user');
+          setShowSoundBanner(false);
+        })
+        .catch((error) => {
+          console.error('[MATCH_START_SOUND] Failed to play after user interaction:', error);
+        });
+    }
+  };
 
   // Debug logging for ID tracking and current_turn changes
   useEffect(() => {
@@ -1095,6 +1154,18 @@ export default function QuickMatchRoomPage() {
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
+      {showSoundBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
+          <span className="text-sm font-medium">Tap to enable match sound</span>
+          <Button
+            size="sm"
+            onClick={handleEnableSound}
+            className="bg-white text-emerald-600 hover:bg-emerald-50 ml-4"
+          >
+            Enable Sound
+          </Button>
+        </div>
+      )}
       <div className="border-b border-white/10 bg-slate-900/50 backdrop-blur-sm">
         <div className="max-w-[1800px] mx-auto px-4 py-3">
           <div className="flex items-center justify-between">

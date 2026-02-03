@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -123,6 +123,10 @@ export default function RankedMatchPage() {
   const [rankedResults, setRankedResults] = useState<RankedResult | null>(null);
   const [finalizingMatch, setFinalizingMatch] = useState(false);
 
+  // Match-start sound
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showSoundBanner, setShowSoundBanner] = useState(false);
+
   const isMyTurn = matchState ? matchState.youArePlayer === matchState.currentTurnPlayer : false;
   const myRemaining = matchState && matchState.youArePlayer
     ? matchState.players[matchState.youArePlayer - 1].remaining
@@ -133,6 +137,61 @@ export default function RankedMatchPage() {
     const cleanup = subscribeToUpdates();
     return cleanup;
   }, [roomId]);
+
+  // Match-start sound effect
+  useEffect(() => {
+    const storageKey = `played_match_start_${roomId}`;
+
+    // Initialize audio once
+    if (!audioRef.current) {
+      audioRef.current = new Audio('https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/gameon-darts.mp3');
+      audioRef.current.volume = 0.6;
+    }
+
+    // Check if match is truly active: status === 'active' AND both players present
+    const isMatchActive =
+      room?.status === 'active' &&
+      room?.player1_id &&
+      room?.player2_id;
+
+    // Check if we've already played the sound for this room
+    const hasPlayed = sessionStorage.getItem(storageKey) === 'true';
+
+    if (isMatchActive && !hasPlayed) {
+      console.log('[MATCH_START_SOUND] Playing game-on sound for room:', roomId);
+
+      // Mark as played immediately to prevent any re-triggers
+      sessionStorage.setItem(storageKey, 'true');
+
+      // Attempt to play
+      const playPromise = audioRef.current.play();
+
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('[MATCH_START_SOUND] Sound played successfully');
+            setShowSoundBanner(false);
+          })
+          .catch((error) => {
+            console.log('[MATCH_START_SOUND] Autoplay blocked, showing banner:', error);
+            setShowSoundBanner(true);
+          });
+      }
+    }
+  }, [roomId, room?.status, room?.player1_id, room?.player2_id]);
+
+  const handleEnableSound = () => {
+    if (audioRef.current) {
+      audioRef.current.play()
+        .then(() => {
+          console.log('[MATCH_START_SOUND] Sound enabled by user');
+          setShowSoundBanner(false);
+        })
+        .catch((error) => {
+          console.error('[MATCH_START_SOUND] Failed to play after user interaction:', error);
+        });
+    }
+  };
 
   useEffect(() => {
     if (room?.status === 'finished' && room.winner_id && room.match_type === 'ranked' && !finalizingMatch && !rankedResults) {
@@ -447,6 +506,18 @@ export default function RankedMatchPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {showSoundBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
+          <span className="text-sm font-medium">Tap to enable match sound</span>
+          <Button
+            size="sm"
+            onClick={handleEnableSound}
+            className="bg-white text-emerald-600 hover:bg-emerald-50 ml-4"
+          >
+            Enable Sound
+          </Button>
+        </div>
+      )}
       {/* Top Bar */}
       <div className="border-b border-amber-500/20 bg-slate-900/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
