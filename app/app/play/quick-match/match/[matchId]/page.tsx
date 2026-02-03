@@ -31,10 +31,8 @@ import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
-import { useLobbyHeartbeat } from '@/lib/hooks/useLobbyHeartbeat';
 import { TrustRatingModal } from '@/components/TrustRatingModal';
 import { TrustBadge, TrustLetter } from '@/components/TrustBadge';
-import { setPersistedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -56,7 +54,6 @@ interface MatchRoom {
   player2_remaining: number;
   current_turn: string;
   winner_id: string | null;
-  lobby_id?: string;
   summary: {
     player1_legs?: number;
     player2_legs?: number;
@@ -117,7 +114,7 @@ export default function QuickMatchRoomPage() {
   const [rematchLoading, setRematchLoading] = useState(false);
   const [rematchDisabled, setRematchDisabled] = useState(false);
   const [rematchData, setRematchData] = useState<any>(null);
-  const hasRedirectedRef = useRef(false);
+  const hasRedirectedRef = { current: false };
   const [rematchCount, setRematchCount] = useState(0);
   const [starting, setStarting] = useState(false);
 
@@ -126,13 +123,7 @@ export default function QuickMatchRoomPage() {
 
   // Trust Rating Modal state
   const [showTrustModal, setShowTrustModal] = useState(false);
-  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(() => {
-    // Check if we already prompted for this match (prevents re-prompt on refresh)
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(`trust_prompted_${matchId}`);
-    }
-    return null;
-  });
+  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(null);
   const [pendingEndReason, setPendingEndReason] = useState<'win' | 'forfeit' | null>(null);
   const [opponentTrustLetter, setOpponentTrustLetter] = useState<TrustLetter>('N');
 
@@ -142,12 +133,6 @@ export default function QuickMatchRoomPage() {
     roomId: matchId,
     myUserId: currentUserId,
     isMyTurn: room?.current_turn === currentUserId
-  });
-
-  // Lobby heartbeat to prevent zombie matches
-  useLobbyHeartbeat({
-    lobbyId: room?.lobby_id || null,
-    enabled: room?.status === 'in_progress',
   });
 
   // Destructure for backward compatibility
@@ -170,7 +155,6 @@ export default function QuickMatchRoomPage() {
 
   // Cleanup function defined early
   const cleanupMatchRef = useRef<() => void>();
-  const hasHandledMatchEndRef = useRef(false);
 
   cleanupMatchRef.current = () => {
     console.log('[CLEANUP] Starting match cleanup');
@@ -178,8 +162,11 @@ export default function QuickMatchRoomPage() {
     // Stop camera and close peer connections
     stopCamera('match cleanup');
 
-    // Clear any cached match context and storage
-    clearMatchStorage();
+    // Clear any cached match context
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`match_context_${matchId}`);
+      sessionStorage.removeItem(`lobby_id_${matchId}`);
+    }
 
     console.log('[CLEANUP] Match cleanup complete');
   };
@@ -256,23 +243,15 @@ export default function QuickMatchRoomPage() {
   }, [opponentId]);
 
   useEffect(() => {
-    if (!matchState || !room) return;
-
-    // ONLY show trust modal when match status is 'finished' or 'forfeited'
-    const matchEnded = room.status === 'finished' || room.status === 'forfeited';
-    if (!matchEnded) return;
+    if (!matchState) return;
 
     const endReason = matchState.endedReason;
-    if (endReason === 'active') return;
+    if (!endReason) return;
 
     // Show trust rating modal first (only once per match)
     if (trustPromptedForMatchId !== matchId && opponentId) {
-      console.log('[TRUST_RATING] Match ended with status:', room.status, 'showing trust modal first');
+      console.log('[TRUST_RATING] Match ended, showing trust modal first');
       setTrustPromptedForMatchId(matchId);
-      // Store in sessionStorage to prevent re-prompt on refresh
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(`trust_prompted_${matchId}`, matchId);
-      }
       setPendingEndReason(endReason === 'forfeit' ? 'forfeit' : 'win');
       setShowTrustModal(true);
     } else if (!showTrustModal) {
@@ -288,12 +267,7 @@ export default function QuickMatchRoomPage() {
     if (endReason) {
       stopCamera(`match ended: ${endReason}`);
     }
-  }, [matchState?.endedReason, room?.status, didIForfeit, trustPromptedForMatchId, matchId, opponentId, showTrustModal]);
-
-  function clearMatchStorage() {
-    console.log('[CLEANUP] Clearing match storage');
-    clearPersistedMatch();
-  }
+  }, [matchState?.endedReason, didIForfeit, trustPromptedForMatchId, matchId, opponentId, showTrustModal]);
 
   async function initializeMatch() {
     try {
@@ -321,50 +295,29 @@ export default function QuickMatchRoomPage() {
   }
 
   async function loadMatchData() {
-    // Load match room - check if it exists and its status
     const { data: roomData, error: roomError } = await supabase
       .from('match_rooms')
       .select('*')
       .eq('id', matchId)
-      .maybeSingle();
+      .single();
 
-    // On query error: log it but DON'T redirect (could be temporary network issue)
     if (roomError) {
       console.error('[MATCH_ROOM_LOAD] Failed to load room:', roomError);
       toast.error(`Failed to load match room: ${roomError.message}`);
-      setLoading(false);
       return;
     }
 
-    // Only redirect if match doesn't exist OR is already ended
     if (!roomData) {
-      if (hasRedirectedRef.current) return;
-      hasRedirectedRef.current = true;
-      console.error('[MATCH_ROOM_LOAD] Match not found');
-      toast.error('Match not found');
-      clearMatchStorage();
-      router.push('/app/play');
+      console.error('[MATCH_ROOM_LOAD] No room data returned');
+      toast.error('Match room not found');
       return;
     }
 
-    // Check if match is already finished or forfeited
-    if (roomData.status === 'finished' || roomData.status === 'forfeited') {
-      if (hasRedirectedRef.current) return;
-      hasRedirectedRef.current = true;
-      console.log('[MATCH_ROOM_LOAD] Match already ended, status:', roomData.status);
-      toast.info('Match has already ended');
-      clearMatchStorage();
-      router.push('/app/play');
-      return;
-    }
-
-    console.log('[MATCH_ROOM_LOAD] Match loaded successfully, status:', roomData.status);
     setRoom(roomData);
 
-    // Persist match state now that we've confirmed it's active
-    const matchType = roomData.match_type === 'tournament' ? 'tournament' :
-                      roomData.match_type === 'private' ? 'private' : 'quick';
-    setPersistedMatch(matchId, matchType, roomData.lobby_id);
+    if (roomData.status === 'finished') {
+      setShowMatchCompleteModal(true);
+    }
 
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
 
@@ -408,22 +361,26 @@ export default function QuickMatchRoomPage() {
           setRoom(updatedRoom);
 
           // Auto-exit if match ended (forfeited or finished)
-          if ((updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') && !hasHandledMatchEndRef.current) {
+          if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') {
             console.log('[REALTIME] Match ended, status:', updatedRoom.status);
-            hasHandledMatchEndRef.current = true;
 
-            // Run cleanup immediately
-            if (cleanupMatchRef.current) {
-              console.log('[REALTIME] Running cleanup for match end');
-              cleanupMatchRef.current();
+            // Show appropriate modal first
+            if (updatedRoom.status === 'forfeited') {
+              // Check if we forfeited or opponent did
+              if (!didIForfeit) {
+                setShowOpponentForfeitModal(true);
+              }
+            } else if (updatedRoom.status === 'finished') {
+              setShowMatchCompleteModal(true);
             }
 
-            // Clear persisted match storage
-            clearPersistedMatch();
-
-            // Trust rating modal will be shown by the matchState effect
-            // Game over modals will follow after trust rating
-            console.log('[REALTIME] Cleanup complete, UI will show trust rating and game over modals');
+            // Cleanup after short delay to allow modal to show
+            setTimeout(() => {
+              if (!hasRedirectedRef.current && cleanupMatchRef.current) {
+                console.log('[REALTIME] Auto-cleanup triggered');
+                cleanupMatchRef.current();
+              }
+            }, 100);
           }
         }
       )
@@ -787,7 +744,7 @@ export default function QuickMatchRoomPage() {
       console.log('[FORFEIT] Calling rpc_forfeit_match for room:', matchId);
 
       const { data, error } = await supabase.rpc('rpc_forfeit_match', {
-        p_match_room_id: matchId,
+        p_room_id: matchId,
       });
 
       console.log('[FORFEIT] RPC response:', data);
@@ -797,31 +754,22 @@ export default function QuickMatchRoomPage() {
         throw error;
       }
 
-      if (data?.already_ended) {
-        if (hasRedirectedRef.current) return;
-        hasRedirectedRef.current = true;
-        console.log('[FORFEIT] Match already ended');
-        toast.info('Match has already ended');
-        // Cleanup and navigate
-        if (cleanupMatchRef.current) {
-          cleanupMatchRef.current();
-        }
-        router.push('/app/play');
-        return;
-      }
-
-      if (data?.status !== 'forfeited') {
-        console.error('[FORFEIT] Unexpected status:', data?.status);
-        toast.error('Failed to forfeit match');
+      if (!data || data.ok === false) {
+        const errorMsg = data?.error || 'Unknown error';
+        console.error('[FORFEIT] RPC returned error:', errorMsg);
+        toast.error(`Failed to forfeit: ${errorMsg}`);
         setDidIForfeit(false);
         return;
       }
 
-      console.log('[FORFEIT] Match forfeited successfully, waiting for realtime update');
+      console.log('[FORFEIT] Match forfeited successfully');
       toast.info('Match forfeited');
 
-      // Let realtime update trigger cleanup
-      // The realtime handler will call cleanupMatchRef and show modals
+      // Cleanup and navigate
+      if (cleanupMatchRef.current) {
+        cleanupMatchRef.current();
+      }
+      router.push('/app/play');
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
@@ -1043,9 +991,7 @@ export default function QuickMatchRoomPage() {
               variant="outline"
               size="sm"
               onClick={() => setShowEndMatchDialog(true)}
-              disabled={!isMyTurn}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={isMyTurn ? 'Forfeit match' : 'You can only forfeit on your turn'}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Forfeit
@@ -1629,16 +1575,12 @@ export default function QuickMatchRoomPage() {
               <DialogTitle className="text-3xl font-bold text-white text-center">
                 {matchState?.endedReason === 'forfeit'
                   ? 'Opponent Forfeited'
-                  : matchState?.winnerName
-                    ? `${matchState.winnerName} Wins!`
-                    : 'Match Complete'}
+                  : `${matchState?.winnerName} Wins!`}
               </DialogTitle>
               <p className="text-base text-gray-400 text-center">
                 {matchState?.endedReason === 'forfeit'
                   ? 'Match ended early'
-                  : myLegs !== undefined && opponentLegs !== undefined
-                    ? `Final score: ${myLegs}-${opponentLegs}`
-                    : 'Match ended'}
+                  : `Final score: ${myLegs}-${opponentLegs}`}
               </p>
             </div>
           </DialogHeader>

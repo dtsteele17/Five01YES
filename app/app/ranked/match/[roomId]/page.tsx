@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -29,9 +29,6 @@ import { Target, Trophy, TrendingUp, Shield, RotateCcw, Home, X, ArrowUp, ArrowD
 import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
-import { TrustRatingModal } from '@/components/TrustRatingModal';
-import { TrustLetter } from '@/components/TrustBadge';
-import { setPersistedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -124,18 +121,6 @@ export default function RankedMatchPage() {
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [rankedResults, setRankedResults] = useState<RankedResult | null>(null);
   const [finalizingMatch, setFinalizingMatch] = useState(false);
-  const hasHandledMatchEndRef = useRef(false);
-  const hasRedirectedRef = useRef(false);
-
-  // Trust Rating Modal state
-  const [showTrustModal, setShowTrustModal] = useState(false);
-  const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(() => {
-    // Check if we already prompted for this match (prevents re-prompt on refresh)
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(`trust_prompted_${roomId}`);
-    }
-    return null;
-  });
 
   const isMyTurn = matchState ? matchState.youArePlayer === matchState.currentTurnPlayer : false;
   const myRemaining = matchState && matchState.youArePlayer
@@ -149,35 +134,10 @@ export default function RankedMatchPage() {
   }, [roomId]);
 
   useEffect(() => {
-    // Show trust modal first when match ends (finished or forfeited)
-    if ((room?.status === 'finished' || room?.status === 'forfeited') && room.match_type === 'ranked') {
-      const opponentId = currentUserId && room
-        ? (currentUserId === room.player1_id ? room.player2_id : room.player1_id)
-        : null;
-
-      // Show trust modal first (only once per match)
-      if (trustPromptedForMatchId !== roomId && opponentId) {
-        console.log('[TRUST_RATING] Ranked match ended, showing trust modal first');
-        setTrustPromptedForMatchId(roomId);
-        // Store in sessionStorage to prevent re-prompt on refresh
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(`trust_prompted_${roomId}`, roomId);
-        }
-        setShowTrustModal(true);
-        return; // Don't finalize yet, wait for trust modal to complete
-      }
-
-      // Trust modal already shown or skipped, proceed with finalization
-      if (!showTrustModal && room.winner_id && !finalizingMatch && !rankedResults) {
-        finalizeMatch();
-      }
+    if (room?.status === 'finished' && room.winner_id && room.match_type === 'ranked' && !finalizingMatch && !rankedResults) {
+      finalizeMatch();
     }
-  }, [room?.status, room?.winner_id, room?.match_type, trustPromptedForMatchId, currentUserId, showTrustModal, finalizingMatch, rankedResults]);
-
-  function clearMatchStorage() {
-    console.log('[CLEANUP] Clearing ranked match storage');
-    clearPersistedMatch();
-  }
+  }, [room?.status, room?.winner_id, room?.match_type]);
 
   async function loadMatch() {
     setLoading(true);
@@ -191,67 +151,62 @@ export default function RankedMatchPage() {
     }
     setCurrentUserId(user.id);
 
-    // Load match room - check if it exists and its status
+    // Retry logic: try loading room up to 8 times with 250ms delay
+    let roomData: any = null;
+    let lastError: any = null;
+    const maxRetries = 8;
+    const retryDelay = 250;
+
     console.log(`[RankedMatch] Loading match room: ${roomId}`);
 
-    const { data: roomData, error: roomError } = await supabase
-      .from('ranked_match_rooms')
-      .select('*')
-      .eq('id', roomId)
-      .maybeSingle();
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      if (attempt > 0) {
+        console.log(`[RankedMatch] Retry ${attempt}/${maxRetries - 1} after ${retryDelay}ms`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
 
-    // On query error: log it but DON'T redirect (could be temporary network issue)
-    if (roomError) {
-      console.error('[RankedMatch] Failed to load room:', roomError);
-      toast.error(`Failed to load match room: ${roomError.message}`);
-      setLoading(false);
-      return;
+      const { data, error } = await supabase
+        .from('ranked_match_rooms')
+        .select('*')
+        .eq('id', roomId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(`[RankedMatch] Error loading room (attempt ${attempt + 1}):`, error);
+        lastError = error;
+        continue;
+      }
+
+      if (data) {
+        roomData = data;
+        console.log('[RankedMatch] Room loaded successfully:', {
+          id: data.id,
+          status: data.status,
+          match_type: data.match_type,
+          game_mode: data.game_mode
+        });
+        break;
+      }
+
+      console.log(`[RankedMatch] Room not found yet (attempt ${attempt + 1})`);
     }
 
-    // Only redirect if match doesn't exist
     if (!roomData) {
-      if (hasRedirectedRef.current) return;
-      hasRedirectedRef.current = true;
-      console.error('[RankedMatch] Match not found');
-      toast.error('Match not found');
-      clearMatchStorage();
+      console.error('[RankedMatch] Failed to load room after all retries:', lastError);
+      toast.error('Match room not found');
       router.push('/app/ranked');
       return;
     }
-
-    // Check if match is already finished or forfeited
-    if (roomData.status === 'finished' || roomData.status === 'forfeited') {
-      if (hasRedirectedRef.current) return;
-      hasRedirectedRef.current = true;
-      console.log('[RankedMatch] Match already ended, status:', roomData.status);
-      toast.info('Match has already ended');
-      clearMatchStorage();
-      router.push('/app/ranked');
-      return;
-    }
-
-    console.log('[RankedMatch] Room loaded successfully:', {
-      id: roomData.id,
-      status: roomData.status,
-      match_type: roomData.match_type,
-      game_mode: roomData.game_mode
-    });
 
     // Verify this is a ranked match
     if (roomData.match_type !== 'ranked') {
-      if (hasRedirectedRef.current) return;
-      hasRedirectedRef.current = true;
       console.error('[RankedMatch] Wrong match type:', roomData.match_type);
       toast.error('This is not a ranked match');
-      clearMatchStorage();
       router.push('/app/ranked');
       return;
     }
 
     setRoom(roomData as MatchRoom);
-
-    // Persist match state now that we've confirmed it's active
-    setPersistedMatch(roomId, 'ranked');
 
     // Load profiles
     const { data: profilesData } = await supabase
@@ -291,19 +246,7 @@ export default function RankedMatchPage() {
         filter: `id=eq.${roomId}`,
       }, (payload) => {
         console.log('[RankedMatch] Room update received:', payload.new);
-        const updatedRoom = payload.new as MatchRoom;
-        setRoom(updatedRoom);
-
-        // Handle match end (forfeited or finished)
-        if ((updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') && !hasHandledMatchEndRef.current) {
-          console.log('[RankedMatch] Match ended, status:', updatedRoom.status);
-          hasHandledMatchEndRef.current = true;
-
-          // Clear persisted match storage
-          clearPersistedMatch();
-
-          console.log('[RankedMatch] Cleanup complete, will show results modal');
-        }
+        setRoom(payload.new as MatchRoom);
       })
       .on('postgres_changes', {
         event: 'INSERT',
@@ -461,55 +404,8 @@ export default function RankedMatchPage() {
   const handleForfeit = async () => {
     console.log('[RankedMatch] Forfeit requested');
     setShowForfeitDialog(false);
-
-    try {
-      const { data, error } = await supabase.rpc('rpc_forfeit_match', {
-        p_match_room_id: roomId,
-      });
-
-      console.log('[RankedMatch] Forfeit RPC response:', data);
-
-      if (error) {
-        console.error('[RankedMatch] Forfeit error:', error);
-        toast.error(`Failed to forfeit: ${error.message}`);
-        return;
-      }
-
-      if (data?.already_ended) {
-        if (hasRedirectedRef.current) return;
-        hasRedirectedRef.current = true;
-        console.log('[RankedMatch] Match already ended');
-        toast.info('Match has already ended');
-        clearMatchStorage();
-        router.push('/app/ranked');
-        return;
-      }
-
-      if (data?.status !== 'forfeited') {
-        console.error('[RankedMatch] Unexpected status:', data?.status);
-        toast.error('Failed to forfeit match');
-        return;
-      }
-
-      console.log('[RankedMatch] Match forfeited successfully, waiting for realtime update');
-      toast.info('Match forfeited');
-
-      // Let realtime update trigger cleanup and show results modal
-    } catch (error: any) {
-      console.error('[RankedMatch] Forfeit failed:', error);
-      toast.error(`Failed to forfeit: ${error.message}`);
-    }
+    toast.info('Forfeit functionality will be implemented');
   };
-
-  function handleTrustRatingDone() {
-    console.log('[TRUST_RATING] Modal done, proceeding with match finalization');
-    setShowTrustModal(false);
-
-    // Now finalize the match and show results modal
-    if (room?.winner_id && !finalizingMatch && !rankedResults) {
-      finalizeMatch();
-    }
-  }
 
   const getPlayerName = (userId: string) => {
     const profile = profiles.find((p) => p.user_id === userId);
@@ -564,17 +460,26 @@ export default function RankedMatchPage() {
                 <span>Double Out</span>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowForfeitDialog(true)}
-              disabled={!isMyTurn}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={isMyTurn ? 'Forfeit match' : 'You can only forfeit on your turn'}
-            >
-              <Flag className="w-4 h-4 mr-2" />
-              Forfeit
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowForfeitDialog(true)}
+                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              >
+                <Flag className="w-4 h-4 mr-2" />
+                Forfeit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/app/play')}
+                className="border-white/10 text-white hover:bg-white/5"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Exit
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -879,16 +784,6 @@ export default function RankedMatchPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Trust Rating Modal - shows before results modal */}
-      {room && currentUserId && (
-        <TrustRatingModal
-          open={showTrustModal}
-          matchId={roomId}
-          opponentId={currentUserId === room.player1_id ? room.player2_id : room.player1_id}
-          onDone={handleTrustRatingDone}
-        />
-      )}
-
       {/* Results Modal */}
       <Dialog open={showResultsModal} onOpenChange={setShowResultsModal}>
         <DialogContent className="bg-slate-900 border-amber-500/30 text-white max-w-2xl">
@@ -904,18 +799,13 @@ export default function RankedMatchPage() {
               <div className="text-center">
                 <Trophy className="w-16 h-16 text-amber-500 mx-auto mb-3" />
                 <p className="text-2xl font-bold">
-                  {rankedResults.winner_id
-                    ? rankedResults.winner_id === currentUserId ? 'Victory!' : 'Defeat'
-                    : 'Match Complete'}
+                  {rankedResults.winner_id === currentUserId ? 'Victory!' : 'Defeat'}
                 </p>
                 <p className="text-gray-400 mt-1">
-                  {rankedResults.winner_id
-                    ? `${getPlayerName(rankedResults.winner_id)} wins ${
-                        rankedResults.winner_id === rankedResults.player1.id
-                          ? `${rankedResults.player1.legs_won}-${rankedResults.player2.legs_won}`
-                          : `${rankedResults.player2.legs_won}-${rankedResults.player1.legs_won}`
-                      }`
-                    : 'Match ended'}
+                  {getPlayerName(rankedResults.winner_id)} wins{' '}
+                  {rankedResults.winner_id === rankedResults.player1.id
+                    ? `${rankedResults.player1.legs_won}-${rankedResults.player2.legs_won}`
+                    : `${rankedResults.player2.legs_won}-${rankedResults.player1.legs_won}`}
                 </p>
               </div>
 

@@ -37,7 +37,6 @@ import { useNotifications } from '@/lib/context/NotificationsContext';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { clearPersistedMatch } from '@/lib/utils/match-storage';
 
 const navLinks = [
   { href: '/app', label: 'Dashboard', icon: Home },
@@ -97,7 +96,7 @@ export function TopBar() {
                 const isActive = pathname === link.href;
 
                 return (
-                  <Link key={link.href} href={link.href} onClick={() => clearPersistedMatch()}>
+                  <Link key={link.href} href={link.href}>
                     <Button
                       variant="ghost"
                       className={`relative px-4 py-2 ${

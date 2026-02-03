@@ -20,7 +20,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
-import { clearPersistedMatch } from '@/lib/utils/match-storage';
 
 const navLinks = [
   { href: '/app', label: 'Dashboard', icon: Home },
@@ -87,14 +86,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             const isActive = pathname === link.href;
 
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => {
-                  clearPersistedMatch();
-                  onClose();
-                }}
-              >
+              <Link key={link.href} href={link.href} onClick={onClose}>
                 <Button
                   variant="ghost"
                   className={`w-full justify-start ${
