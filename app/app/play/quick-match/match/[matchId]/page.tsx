@@ -36,6 +36,7 @@ import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
 import { clearMatchState } from '@/lib/utils/match-resume';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
+import { getTrustRatingDisplay, getTrustRatingButtonGradient, getTrustRatingDescription, getUnratedLabel } from '@/lib/utils/trust-rating';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -127,10 +128,11 @@ export default function QuickMatchRoomPage() {
   const [showEditVisitModal, setShowEditVisitModal] = useState(false);
   const [editingVisit, setEditingVisit] = useState<{ id: string; score: number; visitNumber: number } | null>(null);
 
-  const [opponentTrustRating, setOpponentTrustRating] = useState<{ letter: string; count: number } | null>(null);
+  const [opponentTrustRating, setOpponentTrustRating] = useState<{ letter: string | null; count: number } | null>(null);
   const [myRatingOfOpponent, setMyRatingOfOpponent] = useState<string | null>(null);
   const [selectedRating, setSelectedRating] = useState<string | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
+  const [hasSubmittedRating, setHasSubmittedRating] = useState(false);
 
   // Match-start sound
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -965,24 +967,24 @@ export default function QuickMatchRoomPage() {
 
       if (error) {
         console.error('[TRUST_RATING] RPC error:', error);
-        toast.error(`Failed to save rating: ${error.message}`);
+        toast.error("Couldn't save trust rating. Try again.");
         setRatingLoading(false);
         return;
       }
 
       if (!data || data.ok === false) {
-        const errorMsg = data?.error || 'Failed to save rating';
+        const errorMsg = data?.error || "Couldn't save trust rating";
         console.error('[TRUST_RATING] RPC returned error:', errorMsg);
-        toast.error(errorMsg);
+        toast.error("Couldn't save trust rating. Try again.");
         setRatingLoading(false);
         return;
       }
 
-      // Only update UI after successful RPC call
       console.log('[TRUST_RATING] Rating saved successfully');
-      toast.success('Saved');
+      toast.success('Trust rating saved');
       setSelectedRating(rating);
       setMyRatingOfOpponent(rating);
+      setHasSubmittedRating(true);
 
       // Refresh opponent's trust rating to show updated badge
       const { data: opponentProfile } = await supabase
@@ -994,14 +996,13 @@ export default function QuickMatchRoomPage() {
       if (opponentProfile) {
         console.log('[TRUST_RATING] Updated opponent trust rating:', opponentProfile);
         setOpponentTrustRating({
-          letter: opponentProfile.trust_rating_letter || 'C',
+          letter: opponentProfile.trust_rating_letter,
           count: opponentProfile.trust_rating_count || 0
         });
       }
     } catch (error: any) {
       console.error('[TRUST_RATING] Failed to save rating:', error);
-      toast.error(`Failed to save rating: ${error.message}`);
-      // Don't update selectedRating on error
+      toast.error("Couldn't save trust rating. Try again.");
     } finally {
       setRatingLoading(false);
     }
@@ -1909,33 +1910,21 @@ export default function QuickMatchRoomPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">Trust Rating</span>
                     <div className="flex items-center space-x-2">
-                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                        {opponentTrustRating?.letter || 'C'}
-                      </Badge>
+                      <TrustRatingBadge
+                        letter={opponentTrustRating?.letter as any}
+                        count={opponentTrustRating?.count || 0}
+                        showTooltip={false}
+                      />
                       <span className="text-xs text-gray-500">
-                        ({opponentTrustRating?.count || 0})
+                        {opponentTrustRating?.letter ? `(${opponentTrustRating.count || 0})` : getUnratedLabel()}
                       </span>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-xs text-gray-400 mb-2">Rate this player:</p>
+                    <p className="text-xs text-gray-400 mb-2">Rate this player (optional):</p>
                     <div className="grid grid-cols-5 gap-2">
                       {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => {
-                        const descriptions = {
-                          A: 'Very trustworthy',
-                          B: 'Trustworthy',
-                          C: 'Neutral',
-                          D: 'Questionable',
-                          E: 'Not trustworthy'
-                        };
-                        const colors = {
-                          A: 'from-emerald-500 to-green-500',
-                          B: 'from-blue-500 to-cyan-500',
-                          C: 'from-slate-500 to-gray-500',
-                          D: 'from-orange-500 to-amber-500',
-                          E: 'from-red-500 to-rose-500'
-                        };
                         const isSelected = selectedRating === rating;
 
                         return (
@@ -1946,12 +1935,12 @@ export default function QuickMatchRoomPage() {
                             className={`
                               relative p-2 rounded-lg transition-all
                               ${isSelected
-                                ? `bg-gradient-to-br ${colors[rating]} ring-2 ring-white/50 ring-offset-2 ring-offset-slate-900`
+                                ? `bg-gradient-to-br ${getTrustRatingButtonGradient(rating)} ring-2 ring-white/50 ring-offset-2 ring-offset-slate-900`
                                 : 'bg-white/5 hover:bg-white/10'
                               }
                               ${ratingLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                             `}
-                            title={descriptions[rating]}
+                            title={getTrustRatingDescription(rating)}
                           >
                             <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
                               {rating}
@@ -1960,15 +1949,11 @@ export default function QuickMatchRoomPage() {
                         );
                       })}
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {selectedRating && (['A', 'B', 'C', 'D', 'E'] as const).find(r => r === selectedRating) && {
-                        A: 'Very trustworthy',
-                        B: 'Trustworthy',
-                        C: 'Neutral',
-                        D: 'Questionable',
-                        E: 'Not trustworthy'
-                      }[selectedRating]}
-                    </p>
+                    {selectedRating && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        {getTrustRatingDescription(selectedRating as any)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </Card>

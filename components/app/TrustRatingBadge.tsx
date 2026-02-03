@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getTrustRatingBadgeClass, getTrustRatingDisplay, getUnratedLabel } from '@/lib/utils/trust-rating';
 
 interface TrustRatingBadgeProps {
   letter?: 'A' | 'B' | 'C' | 'D' | 'E' | null;
@@ -17,16 +18,7 @@ export function TrustRatingBadge({
   showCount = false
 }: TrustRatingBadgeProps) {
   const isUnrated = count === 0 || letter === null;
-  const displayLetter = isUnrated ? 'Unrated' : letter;
-
-  const colors: Record<string, string> = {
-    A: 'bg-green-600/20 text-green-400 border-green-500/30',
-    B: 'bg-lime-600/20 text-lime-400 border-lime-500/30',
-    C: 'bg-yellow-600/20 text-yellow-400 border-yellow-500/30',
-    D: 'bg-orange-600/20 text-orange-400 border-orange-500/30',
-    E: 'bg-red-600/20 text-red-400 border-red-500/30',
-    Unrated: 'bg-slate-600/20 text-slate-300 border-slate-500/30',
-  };
+  const displayText = isUnrated ? getTrustRatingDisplay(null) : letter;
 
   const sizeClasses = {
     sm: 'text-xs px-1.5 py-0.5 h-5',
@@ -34,20 +26,20 @@ export function TrustRatingBadge({
   };
 
   const tooltipText = isUnrated
-    ? 'Not enough Trust Ratings yet.'
+    ? getUnratedLabel()
     : `Trust Rating: ${letter} (${count} ${count === 1 ? 'vote' : 'votes'}). A best → E worst.`;
 
   const badge = (
     <Badge
       className={`
-        ${colors[displayLetter]}
+        ${getTrustRatingBadgeClass(letter)}
         ${sizeClasses[size]}
         font-semibold
         rounded-full
         border
       `}
     >
-      {showCount && !isUnrated ? `${letter} • ${count}` : displayLetter}
+      {showCount && !isUnrated ? `${letter} • ${count}` : displayText}
     </Badge>
   );
 
