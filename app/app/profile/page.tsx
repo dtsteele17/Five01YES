@@ -22,6 +22,7 @@ import { EditProfileModal } from '@/components/app/EditProfileModal';
 import { RankCard } from '@/components/app/RankCard';
 import { RankedStatsCard } from '@/components/app/RankedStatsCard';
 import { ProfileRankBadge } from '@/components/app/ProfileRankBadge';
+import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { createClient } from '@/lib/supabase/client';
 
 interface RankedPlayerState {
@@ -107,6 +108,7 @@ function ProfileContent() {
                   <h1 className="text-3xl font-bold text-white">
                     {profile?.display_name || 'Anonymous Player'}
                   </h1>
+                  <TrustRatingBadge rating={profile?.trust_rating_letter} size="md" />
                 </div>
                 <p className="text-gray-400 mb-3">@{profile?.username || 'user'}</p>
                 <div className="flex items-center space-x-4 text-sm text-gray-400 mb-4">

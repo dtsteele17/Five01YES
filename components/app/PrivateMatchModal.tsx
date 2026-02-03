@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 
 interface PrivateMatchModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ interface Friend {
   id: string;
   username: string;
   avatar_url: string;
+  trust_rating_letter?: string;
   is_online: boolean;
 }
 
@@ -669,6 +671,7 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                               )}
                             </div>
                             <span>{friend.username}</span>
+                            <TrustRatingBadge rating={friend.trust_rating_letter} showTooltip={false} />
                             {friend.is_online ? (
                               <span className="text-xs text-emerald-400">(online)</span>
                             ) : (

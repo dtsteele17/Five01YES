@@ -23,11 +23,13 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 
 interface Friend {
   id: string;
   username: string;
   avatar_url: string;
+  trust_rating_letter?: string;
   is_online: boolean;
   last_seen: string;
   activity_type: string;
@@ -40,6 +42,7 @@ interface SearchUser {
   id: string;
   username: string;
   avatar_url: string;
+  trust_rating_letter?: string;
   is_friend: boolean;
   request_pending: boolean;
 }
@@ -49,6 +52,7 @@ interface FriendRequest {
   from_user_id: string;
   username: string;
   avatar_url: string;
+  trust_rating_letter?: string;
   created_at: string;
 }
 
@@ -457,7 +461,10 @@ export default function FriendsPage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-white font-semibold truncate">{friend.username}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-white font-semibold truncate">{friend.username}</p>
+                                <TrustRatingBadge rating={friend.trust_rating_letter} />
+                              </div>
                               <div className="flex items-center gap-2 mt-1">
                                 {renderActivityBadge(friend)}
                                 {!friend.is_online && friend.last_seen && (
@@ -525,7 +532,10 @@ export default function FriendsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-white font-semibold">{user.username}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-white font-semibold">{user.username}</p>
+                                <TrustRatingBadge rating={user.trust_rating_letter} />
+                              </div>
                             </div>
                           </div>
                           {user.is_friend ? (
@@ -575,7 +585,10 @@ export default function FriendsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-white font-semibold">{request.username}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-white font-semibold">{request.username}</p>
+                                <TrustRatingBadge rating={request.trust_rating_letter} />
+                              </div>
                               <p className="text-xs text-slate-400">
                                 {formatDistanceToNow(new Date(request.created_at), {
                                   addSuffix: true,

@@ -14,6 +14,7 @@ export interface UserProfile {
   playing_since: number | null;
   preferred_hand: 'Left' | 'Right' | null;
   ranked_points: number;
+  trust_rating_letter?: string | null;
   created_at: string;
   updated_at: string | null;
 }

@@ -31,6 +31,7 @@ import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
+import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
 
@@ -63,6 +64,7 @@ interface MatchRoom {
 interface Profile {
   user_id: string;
   username: string;
+  trust_rating_letter?: string;
 }
 
 interface MatchEvent {
@@ -352,7 +354,7 @@ export default function QuickMatchRoomPage() {
     if (playerIds.length > 0) {
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, username')
+        .select('user_id, username, trust_rating_letter')
         .in('user_id', playerIds);
 
       if (profilesError) {
@@ -360,6 +362,15 @@ export default function QuickMatchRoomPage() {
         toast.error(`Failed to load player profiles: ${profilesError.message}`);
       } else if (profilesData) {
         setProfiles(profilesData);
+
+        // Set opponent trust rating for display
+        const opponent = profilesData.find(p => p.user_id !== currentUserId);
+        if (opponent) {
+          setOpponentTrustRating({
+            letter: opponent.trust_rating_letter || 'C',
+            count: 0
+          });
+        }
       }
     }
 
@@ -1197,8 +1208,9 @@ export default function QuickMatchRoomPage() {
                     {opponentName.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-white">{opponentName}</p>
+                  <TrustRatingBadge rating={opponentTrustRating?.letter} showTooltip={false} />
                 </div>
               </div>
               <div className="flex items-center justify-center py-6">
