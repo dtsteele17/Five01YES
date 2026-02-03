@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,6 +123,11 @@ export default function QuickMatchRoomPage() {
   const [showEditVisitModal, setShowEditVisitModal] = useState(false);
   const [editingVisit, setEditingVisit] = useState<{ id: string; score: number; visitNumber: number } | null>(null);
 
+  const [opponentTrustRating, setOpponentTrustRating] = useState<{ letter: string; count: number } | null>(null);
+  const [myRatingOfOpponent, setMyRatingOfOpponent] = useState<string | null>(null);
+  const [selectedRating, setSelectedRating] = useState<string | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(false);
+
   // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
   // Hook fetches opponent from match_rooms and manages all signaling
   const webrtc = useMatchWebRTC({
@@ -222,6 +228,46 @@ export default function QuickMatchRoomPage() {
       stopCamera(`match ended: ${matchState.endedReason}`);
     }
   }, [matchState?.endedReason, didIForfeit]);
+
+  // Load trust rating data when match ends
+  useEffect(() => {
+    async function loadTrustRating() {
+      if (!opponentId || !currentUserId || !matchState?.endedReason) return;
+
+      try {
+        // Fetch opponent's profile to get their trust rating
+        const { data: opponentProfile } = await supabase
+          .from('profiles')
+          .select('trust_rating_letter, trust_rating_count')
+          .eq('id', opponentId)
+          .maybeSingle();
+
+        if (opponentProfile) {
+          setOpponentTrustRating({
+            letter: opponentProfile.trust_rating_letter || 'C',
+            count: opponentProfile.trust_rating_count || 0
+          });
+        }
+
+        // Fetch user's previous rating of this opponent
+        const { data: existingRating } = await supabase
+          .from('trust_ratings')
+          .select('rating')
+          .eq('rater_user_id', currentUserId)
+          .eq('ratee_user_id', opponentId)
+          .maybeSingle();
+
+        if (existingRating) {
+          setMyRatingOfOpponent(existingRating.rating);
+          setSelectedRating(existingRating.rating);
+        }
+      } catch (error) {
+        console.error('[TRUST_RATING] Failed to load trust rating:', error);
+      }
+    }
+
+    loadTrustRating();
+  }, [opponentId, currentUserId, matchState?.endedReason]);
 
   async function initializeMatch() {
     try {
@@ -816,6 +862,61 @@ export default function QuickMatchRoomPage() {
       setForfeitLoading(false);
     }
   }
+
+  const handleTrustRating = async (rating: string) => {
+    if (!opponentId || ratingLoading) return;
+
+    setRatingLoading(true);
+    setSelectedRating(rating);
+
+    try {
+      console.log('[TRUST_RATING] Submitting rating:', rating);
+
+      const { data, error } = await supabase.rpc('rpc_set_trust_rating', {
+        p_room_id: matchId,
+        p_opponent_user_id: opponentId,
+        p_rating: rating
+      });
+
+      console.log('[TRUST_RATING] RPC response:', data);
+
+      if (error) {
+        console.error('[TRUST_RATING] RPC error:', error);
+        throw error;
+      }
+
+      if (!data || data.ok === false) {
+        const errorMsg = data?.error || 'Failed to save rating';
+        console.error('[TRUST_RATING] RPC returned error:', errorMsg);
+        toast.error(errorMsg);
+        setRatingLoading(false);
+        return;
+      }
+
+      console.log('[TRUST_RATING] Rating saved successfully');
+      toast.success('Saved');
+      setMyRatingOfOpponent(rating);
+
+      // Refresh opponent's trust rating
+      const { data: opponentProfile } = await supabase
+        .from('profiles')
+        .select('trust_rating_letter, trust_rating_count')
+        .eq('id', opponentId)
+        .maybeSingle();
+
+      if (opponentProfile) {
+        setOpponentTrustRating({
+          letter: opponentProfile.trust_rating_letter || 'C',
+          count: opponentProfile.trust_rating_count || 0
+        });
+      }
+    } catch (error: any) {
+      console.error('[TRUST_RATING] Failed to save rating:', error);
+      toast.error(`Failed to save rating: ${error.message}`);
+    } finally {
+      setRatingLoading(false);
+    }
+  };
 
   const handleRematch = async () => {
     if (!room || rematchLoading || rematchDisabled) return;
@@ -1695,6 +1796,75 @@ export default function QuickMatchRoomPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">Legs Won</span>
                     <span className="text-lg font-bold text-blue-400">{opponentLegs}</span>
+                  </div>
+                </div>
+
+                <Separator className="my-4 bg-white/10" />
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Trust Rating</span>
+                    <div className="flex items-center space-x-2">
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                        {opponentTrustRating?.letter || 'C'}
+                      </Badge>
+                      <span className="text-xs text-gray-500">
+                        ({opponentTrustRating?.count || 0})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-400 mb-2">Rate this player:</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => {
+                        const descriptions = {
+                          A: 'Very trustworthy',
+                          B: 'Trustworthy',
+                          C: 'Neutral',
+                          D: 'Questionable',
+                          E: 'Not trustworthy'
+                        };
+                        const colors = {
+                          A: 'from-emerald-500 to-green-500',
+                          B: 'from-blue-500 to-cyan-500',
+                          C: 'from-slate-500 to-gray-500',
+                          D: 'from-orange-500 to-amber-500',
+                          E: 'from-red-500 to-rose-500'
+                        };
+                        const isSelected = selectedRating === rating;
+
+                        return (
+                          <button
+                            key={rating}
+                            onClick={() => handleTrustRating(rating)}
+                            disabled={ratingLoading}
+                            className={`
+                              relative p-2 rounded-lg transition-all
+                              ${isSelected
+                                ? `bg-gradient-to-br ${colors[rating]} ring-2 ring-white/50 ring-offset-2 ring-offset-slate-900`
+                                : 'bg-white/5 hover:bg-white/10'
+                              }
+                              ${ratingLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                            `}
+                            title={descriptions[rating]}
+                          >
+                            <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                              {rating}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {selectedRating && (['A', 'B', 'C', 'D', 'E'] as const).find(r => r === selectedRating) && {
+                        A: 'Very trustworthy',
+                        B: 'Trustworthy',
+                        C: 'Neutral',
+                        D: 'Questionable',
+                        E: 'Not trustworthy'
+                      }[selectedRating]}
+                    </p>
                   </div>
                 </div>
               </Card>
