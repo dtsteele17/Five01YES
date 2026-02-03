@@ -96,6 +96,9 @@ export default function PlayPage() {
   useEffect(() => {
     fetchRecentMatches();
 
+    // Cleanup stale lobbies on page load
+    cleanupStaleLobbie();
+
     // Check for stored queue_id and resume polling if in searching state
     const storedQueueId = localStorage.getItem('ranked_queue_id');
     if (storedQueueId) {
@@ -155,6 +158,27 @@ export default function PlayPage() {
       setRecentMatches([]);
     } finally {
       setLoadingMatches(false);
+    }
+  }
+
+  async function cleanupStaleLobbie() {
+    const supabase = createClient();
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_cleanup_stale_lobbies', {
+        p_grace_seconds: 45,
+      });
+
+      if (error) {
+        console.error('[CLEANUP] Error cleaning up stale lobbies:', error);
+        return;
+      }
+
+      if (data?.cleaned_lobbies > 0 || data?.forfeited_matches > 0) {
+        console.log('[CLEANUP] Cleaned up stale lobbies:', data);
+      }
+    } catch (err) {
+      console.error('[CLEANUP] Exception cleaning up stale lobbies:', err);
     }
   }
 

@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
+import { useLobbyHeartbeat } from '@/lib/hooks/useLobbyHeartbeat';
 import { TrustRatingModal } from '@/components/TrustRatingModal';
 import { TrustBadge, TrustLetter } from '@/components/TrustBadge';
 import { setPersistedMatch, clearPersistedMatch } from '@/lib/utils/match-storage';
@@ -55,6 +56,7 @@ interface MatchRoom {
   player2_remaining: number;
   current_turn: string;
   winner_id: string | null;
+  lobby_id?: string;
   summary: {
     player1_legs?: number;
     player2_legs?: number;
@@ -140,6 +142,12 @@ export default function QuickMatchRoomPage() {
     roomId: matchId,
     myUserId: currentUserId,
     isMyTurn: room?.current_turn === currentUserId
+  });
+
+  // Lobby heartbeat to prevent zombie matches
+  useLobbyHeartbeat({
+    lobbyId: room?.lobby_id || null,
+    enabled: room?.status === 'in_progress',
   });
 
   // Destructure for backward compatibility
