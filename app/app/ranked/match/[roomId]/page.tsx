@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -121,6 +121,7 @@ export default function RankedMatchPage() {
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [rankedResults, setRankedResults] = useState<RankedResult | null>(null);
   const [finalizingMatch, setFinalizingMatch] = useState(false);
+  const hasHandledMatchEndRef = useRef(false);
 
   const isMyTurn = matchState ? matchState.youArePlayer === matchState.currentTurnPlayer : false;
   const myRemaining = matchState && matchState.youArePlayer
@@ -139,6 +140,15 @@ export default function RankedMatchPage() {
     }
   }, [room?.status, room?.winner_id, room?.match_type]);
 
+  function clearMatchStorage() {
+    console.log('[CLEANUP] Clearing ranked match storage');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('activeRankedMatchId');
+      localStorage.removeItem('rankedMatchRoomId');
+      sessionStorage.removeItem(`ranked_match_${roomId}`);
+    }
+  }
+
   async function loadMatch() {
     setLoading(true);
 
@@ -152,6 +162,7 @@ export default function RankedMatchPage() {
     setCurrentUserId(user.id);
 
     // Retry logic: try loading room up to 8 times with 250ms delay
+    // GLOBAL RULE: Only load matches that are in_progress
     let roomData: any = null;
     let lastError: any = null;
     const maxRetries = 8;
@@ -169,6 +180,7 @@ export default function RankedMatchPage() {
         .from('ranked_match_rooms')
         .select('*')
         .eq('id', roomId)
+        .eq('status', 'in_progress')
         .maybeSingle();
 
       if (error) {
@@ -188,12 +200,13 @@ export default function RankedMatchPage() {
         break;
       }
 
-      console.log(`[RankedMatch] Room not found yet (attempt ${attempt + 1})`);
+      console.log(`[RankedMatch] Room not found or not in_progress (attempt ${attempt + 1})`);
     }
 
     if (!roomData) {
       console.error('[RankedMatch] Failed to load room after all retries:', lastError);
-      toast.error('Match room not found');
+      toast.error('Match is not active or has ended');
+      clearMatchStorage();
       router.push('/app/ranked');
       return;
     }
@@ -202,6 +215,7 @@ export default function RankedMatchPage() {
     if (roomData.match_type !== 'ranked') {
       console.error('[RankedMatch] Wrong match type:', roomData.match_type);
       toast.error('This is not a ranked match');
+      clearMatchStorage();
       router.push('/app/ranked');
       return;
     }
@@ -246,7 +260,19 @@ export default function RankedMatchPage() {
         filter: `id=eq.${roomId}`,
       }, (payload) => {
         console.log('[RankedMatch] Room update received:', payload.new);
-        setRoom(payload.new as MatchRoom);
+        const updatedRoom = payload.new as MatchRoom;
+        setRoom(updatedRoom);
+
+        // Handle match end (forfeited or finished)
+        if ((updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') && !hasHandledMatchEndRef.current) {
+          console.log('[RankedMatch] Match ended, status:', updatedRoom.status);
+          hasHandledMatchEndRef.current = true;
+
+          // Clear storage
+          clearMatchStorage();
+
+          console.log('[RankedMatch] Cleanup complete, will show results modal');
+        }
       })
       .on('postgres_changes', {
         event: 'INSERT',
@@ -404,7 +430,42 @@ export default function RankedMatchPage() {
   const handleForfeit = async () => {
     console.log('[RankedMatch] Forfeit requested');
     setShowForfeitDialog(false);
-    toast.info('Forfeit functionality will be implemented');
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_forfeit_match', {
+        p_match_room_id: roomId,
+      });
+
+      console.log('[RankedMatch] Forfeit RPC response:', data);
+
+      if (error) {
+        console.error('[RankedMatch] Forfeit error:', error);
+        toast.error(`Failed to forfeit: ${error.message}`);
+        return;
+      }
+
+      if (data?.already_ended) {
+        console.log('[RankedMatch] Match already ended');
+        toast.info('Match has already ended');
+        clearMatchStorage();
+        router.push('/app/ranked');
+        return;
+      }
+
+      if (data?.status !== 'forfeited') {
+        console.error('[RankedMatch] Unexpected status:', data?.status);
+        toast.error('Failed to forfeit match');
+        return;
+      }
+
+      console.log('[RankedMatch] Match forfeited successfully, waiting for realtime update');
+      toast.info('Match forfeited');
+
+      // Let realtime update trigger cleanup and show results modal
+    } catch (error: any) {
+      console.error('[RankedMatch] Forfeit failed:', error);
+      toast.error(`Failed to forfeit: ${error.message}`);
+    }
   };
 
   const getPlayerName = (userId: string) => {

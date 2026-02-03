@@ -155,6 +155,7 @@ export default function QuickMatchRoomPage() {
 
   // Cleanup function defined early
   const cleanupMatchRef = useRef<() => void>();
+  const hasHandledMatchEndRef = useRef(false);
 
   cleanupMatchRef.current = () => {
     console.log('[CLEANUP] Starting match cleanup');
@@ -162,11 +163,8 @@ export default function QuickMatchRoomPage() {
     // Stop camera and close peer connections
     stopCamera('match cleanup');
 
-    // Clear any cached match context
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(`match_context_${matchId}`);
-      sessionStorage.removeItem(`lobby_id_${matchId}`);
-    }
+    // Clear any cached match context and storage
+    clearMatchStorage();
 
     console.log('[CLEANUP] Match cleanup complete');
   };
@@ -269,6 +267,17 @@ export default function QuickMatchRoomPage() {
     }
   }, [matchState?.endedReason, didIForfeit, trustPromptedForMatchId, matchId, opponentId, showTrustModal]);
 
+  function clearMatchStorage() {
+    console.log('[CLEANUP] Clearing match storage');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('activeMatchId');
+      localStorage.removeItem('activeLobbyId');
+      localStorage.removeItem('resumeMatchId');
+      sessionStorage.removeItem(`match_context_${matchId}`);
+      sessionStorage.removeItem(`lobby_id_${matchId}`);
+    }
+  }
+
   async function initializeMatch() {
     try {
       const {
@@ -295,29 +304,34 @@ export default function QuickMatchRoomPage() {
   }
 
   async function loadMatchData() {
+    // GLOBAL RULE: Only load matches that are in_progress
     const { data: roomData, error: roomError } = await supabase
       .from('match_rooms')
       .select('*')
       .eq('id', matchId)
-      .single();
+      .eq('status', 'in_progress')
+      .maybeSingle();
 
     if (roomError) {
       console.error('[MATCH_ROOM_LOAD] Failed to load room:', roomError);
       toast.error(`Failed to load match room: ${roomError.message}`);
+      // Clear storage and redirect
+      clearMatchStorage();
+      router.push('/app/play');
       return;
     }
 
     if (!roomData) {
-      console.error('[MATCH_ROOM_LOAD] No room data returned');
-      toast.error('Match room not found');
+      console.error('[MATCH_ROOM_LOAD] Match not found or not active');
+      toast.error('Match is not active or has ended');
+      // Clear storage and redirect
+      clearMatchStorage();
+      router.push('/app/play');
       return;
     }
 
+    console.log('[MATCH_ROOM_LOAD] Match loaded successfully, status:', roomData.status);
     setRoom(roomData);
-
-    if (roomData.status === 'finished') {
-      setShowMatchCompleteModal(true);
-    }
 
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
 
@@ -361,26 +375,19 @@ export default function QuickMatchRoomPage() {
           setRoom(updatedRoom);
 
           // Auto-exit if match ended (forfeited or finished)
-          if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') {
+          if ((updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') && !hasHandledMatchEndRef.current) {
             console.log('[REALTIME] Match ended, status:', updatedRoom.status);
+            hasHandledMatchEndRef.current = true;
 
-            // Show appropriate modal first
-            if (updatedRoom.status === 'forfeited') {
-              // Check if we forfeited or opponent did
-              if (!didIForfeit) {
-                setShowOpponentForfeitModal(true);
-              }
-            } else if (updatedRoom.status === 'finished') {
-              setShowMatchCompleteModal(true);
+            // Run cleanup immediately
+            if (cleanupMatchRef.current) {
+              console.log('[REALTIME] Running cleanup for match end');
+              cleanupMatchRef.current();
             }
 
-            // Cleanup after short delay to allow modal to show
-            setTimeout(() => {
-              if (!hasRedirectedRef.current && cleanupMatchRef.current) {
-                console.log('[REALTIME] Auto-cleanup triggered');
-                cleanupMatchRef.current();
-              }
-            }, 100);
+            // Trust rating modal will be shown by the matchState effect
+            // Game over modals will follow after trust rating
+            console.log('[REALTIME] Cleanup complete, UI will show trust rating and game over modals');
           }
         }
       )
@@ -744,7 +751,7 @@ export default function QuickMatchRoomPage() {
       console.log('[FORFEIT] Calling rpc_forfeit_match for room:', matchId);
 
       const { data, error } = await supabase.rpc('rpc_forfeit_match', {
-        p_room_id: matchId,
+        p_match_room_id: matchId,
       });
 
       console.log('[FORFEIT] RPC response:', data);
@@ -754,22 +761,29 @@ export default function QuickMatchRoomPage() {
         throw error;
       }
 
-      if (!data || data.ok === false) {
-        const errorMsg = data?.error || 'Unknown error';
-        console.error('[FORFEIT] RPC returned error:', errorMsg);
-        toast.error(`Failed to forfeit: ${errorMsg}`);
+      if (data?.already_ended) {
+        console.log('[FORFEIT] Match already ended');
+        toast.info('Match has already ended');
+        // Cleanup and navigate
+        if (cleanupMatchRef.current) {
+          cleanupMatchRef.current();
+        }
+        router.push('/app/play');
+        return;
+      }
+
+      if (data?.status !== 'forfeited') {
+        console.error('[FORFEIT] Unexpected status:', data?.status);
+        toast.error('Failed to forfeit match');
         setDidIForfeit(false);
         return;
       }
 
-      console.log('[FORFEIT] Match forfeited successfully');
+      console.log('[FORFEIT] Match forfeited successfully, waiting for realtime update');
       toast.info('Match forfeited');
 
-      // Cleanup and navigate
-      if (cleanupMatchRef.current) {
-        cleanupMatchRef.current();
-      }
-      router.push('/app/play');
+      // Let realtime update trigger cleanup
+      // The realtime handler will call cleanupMatchRef and show modals
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
