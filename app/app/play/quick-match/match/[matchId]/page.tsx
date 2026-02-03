@@ -1233,39 +1233,31 @@ export default function QuickMatchRoomPage() {
               Forfeit
             </Button>
           </div>
+
+          {/* Leg Score Pill - Centered */}
+          <div className="flex justify-center mt-3 pb-2">
+            <Card className="bg-slate-800/80 border-white/20 px-6 py-3 rounded-xl inline-block">
+              <div className="flex items-center space-x-4">
+                <div className="text-center">
+                  <p className="text-xs text-gray-400 mb-1">Leg {matchState.currentLeg}</p>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-3xl font-bold text-white">{myLegs}</span>
+                    <span className="text-2xl font-bold text-gray-500">–</span>
+                    <span className="text-3xl font-bold text-white">{opponentLegs}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <div className="max-w-[1800px] mx-auto px-4 py-2 h-full flex flex-col">
-          <div className="grid grid-cols-3 gap-3 mb-2 flex-shrink-0">
-            <Card className="bg-slate-900/50 border-white/10 p-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white">Current Leg</h3>
-                  <Badge variant="outline" className="text-xs">Leg {matchState.currentLeg}</Badge>
-                </div>
-                <div className="flex items-center justify-center space-x-4 py-2">
-                  <div className="text-center">
-                    <p className="text-4xl font-bold text-white">{myLegs}</p>
-                    <p className="text-xs text-gray-400 mt-1">You</p>
-                  </div>
-                  <div className="text-4xl font-bold text-gray-600">-</div>
-                  <div className="text-center">
-                    <p className="text-4xl font-bold text-white">{opponentLegs}</p>
-                    <p className="text-xs text-gray-400 mt-1">{opponentName}</p>
-                  </div>
-                </div>
-                <div className="text-center py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                  <p className="text-emerald-400 text-sm font-semibold">
-                    {isMyTurn ? 'Your' : `${opponentName}'s`} Turn
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className={`p-3 transition-all relative ${isMyTurn ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center space-x-2 mb-3">
+        <div className="max-w-[1800px] mx-auto px-4 py-4 h-full flex flex-col">
+          {/* Centered Score Section */}
+          <div className="flex justify-center gap-8 mb-4 flex-shrink-0">
+            <Card className={`p-4 transition-all relative ${isMyTurn ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-900/50 border-white/10'}`}>
+              <div className="flex items-center space-x-2 mb-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
                     {myName.substring(0, 2).toUpperCase()}
@@ -1275,18 +1267,18 @@ export default function QuickMatchRoomPage() {
                   <p className="text-sm font-semibold text-white">{myName}</p>
                 </div>
               </div>
-              <div className="flex items-center justify-center py-6">
+              <div className="flex items-center justify-center py-4">
                 <span className="text-6xl font-bold text-white">{myRemaining}</span>
               </div>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xl font-bold text-emerald-400">Avg {myAvg.toFixed(2)}</span>
+                <span className="text-lg font-bold text-emerald-400">Avg {myAvg.toFixed(2)}</span>
                 <div className="flex flex-col items-end">
-                  <p className="text-xs text-gray-400 mb-1">Remaining</p>
-                  <div className="flex items-center space-x-2">
+                  <p className="text-xs text-gray-400 mb-1">Legs</p>
+                  <div className="flex items-center space-x-1.5">
                     {Array.from({ length: matchState.legsToWin }).map((_, idx) => (
                       <div
                         key={idx}
-                        className={`w-4 h-4 rounded-full ${
+                        className={`w-3 h-3 rounded-full ${
                           idx < myLegs
                             ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
                             : 'border-2 border-gray-600'
@@ -1298,8 +1290,8 @@ export default function QuickMatchRoomPage() {
               </div>
             </Card>
 
-            <Card className={`p-3 transition-all relative ${!isMyTurn ? 'bg-blue-500/20 border-blue-500/50' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center space-x-2 mb-3">
+            <Card className={`p-4 transition-all relative ${!isMyTurn ? 'bg-blue-500/20 border-blue-500/50' : 'bg-slate-900/50 border-white/10'}`}>
+              <div className="flex items-center space-x-2 mb-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-sm">
                     {opponentName.substring(0, 2).toUpperCase()}
@@ -1310,18 +1302,18 @@ export default function QuickMatchRoomPage() {
                   <TrustRatingBadge letter={opponentTrustRating?.letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={opponentTrustRating?.count || 0} showTooltip={false} />
                 </div>
               </div>
-              <div className="flex items-center justify-center py-6">
+              <div className="flex items-center justify-center py-4">
                 <span className="text-6xl font-bold text-white">{opponentRemaining}</span>
               </div>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xl font-bold text-blue-400">Avg {opponentAvg.toFixed(2)}</span>
+                <span className="text-lg font-bold text-blue-400">Avg {opponentAvg.toFixed(2)}</span>
                 <div className="flex flex-col items-end">
-                  <p className="text-xs text-gray-400 mb-1">Remaining</p>
-                  <div className="flex items-center space-x-2">
+                  <p className="text-xs text-gray-400 mb-1">Legs</p>
+                  <div className="flex items-center space-x-1.5">
                     {Array.from({ length: matchState.legsToWin }).map((_, idx) => (
                       <div
                         key={idx}
-                        className={`w-4 h-4 rounded-full ${
+                        className={`w-3 h-3 rounded-full ${
                           idx < opponentLegs
                             ? 'bg-gradient-to-br from-blue-400 to-cyan-500'
                             : 'border-2 border-gray-600'
@@ -1334,117 +1326,53 @@ export default function QuickMatchRoomPage() {
             </Card>
           </div>
 
-          <div className="grid gap-3 flex-1 min-h-0" style={{ gridTemplateColumns: '0.75fr 1.25fr' }}>
-            <div className="flex flex-col gap-3 overflow-hidden">
-              <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden" style={{ height: '400px' }}>
-                <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                  <h3 className="text-sm font-semibold text-white">Live Camera</h3>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${isMyTurn ? 'border-emerald-500/50 text-emerald-400' : 'border-blue-500/50 text-blue-400'}`}
-                  >
-                    {isMyTurn ? 'Your Turn' : 'Opponent Turn'}
-                  </Badge>
-                </div>
-                <div className="flex-1 relative rounded-lg overflow-hidden bg-slate-950/50" style={{ minHeight: 0 }}>
-                  <div className="absolute inset-0">
-                    <video
-                      ref={liveVideoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover rounded-lg"
-                      style={{ display: (isMyTurn && localStream) || (!isMyTurn && remoteStream) ? 'block' : 'none' }}
-                    />
-                    {((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
-                      <>
-                        <div className="absolute bottom-3 left-3 px-3 py-1.5 bg-black/70 rounded-lg text-sm text-white font-medium">
-                          {isMyTurn ? 'You' : opponentName}
-                        </div>
-                        {callStatus === 'connected' && !isMyTurn && remoteStream && (
-                          <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                        )}
-                      </>
-                    )}
-                    {!((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-                        {isMyTurn
-                          ? 'Your camera is off'
-                          : (callStatus === 'connected' || callStatus === 'connecting')
-                            ? 'Opponent camera connecting...'
-                            : 'Opponent camera is off'
-                        }
+          {/* 3-Column Layout: Camera | Scoring | Visit History */}
+          <div className="grid gap-4 flex-1 min-h-0" style={{ gridTemplateColumns: '1fr 1.2fr 1fr' }}>
+            {/* Left Column: Live Camera */}
+            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                <h3 className="text-sm font-semibold text-white">Live Camera</h3>
+                <Badge
+                  variant="outline"
+                  className={`text-xs ${isMyTurn ? 'border-emerald-500/50 text-emerald-400' : 'border-blue-500/50 text-blue-400'}`}
+                >
+                  {isMyTurn ? 'Your Turn' : 'Opponent Turn'}
+                </Badge>
+              </div>
+              <div className="flex-1 relative rounded-lg overflow-hidden bg-slate-950/50" style={{ minHeight: 0 }}>
+                <div className="absolute inset-0">
+                  <video
+                    ref={liveVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover rounded-lg"
+                    style={{ display: (isMyTurn && localStream) || (!isMyTurn && remoteStream) ? 'block' : 'none' }}
+                  />
+                  {((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
+                    <>
+                      <div className="absolute bottom-3 left-3 px-3 py-1.5 bg-black/70 rounded-lg text-sm text-white font-medium">
+                        {isMyTurn ? 'You' : opponentName}
                       </div>
-                    )}
-                  </div>
+                      {callStatus === 'connected' && !isMyTurn && remoteStream && (
+                        <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                      )}
+                    </>
+                  )}
+                  {!((isMyTurn && localStream) || (!isMyTurn && remoteStream)) && (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                      {isMyTurn
+                        ? 'Your camera is off'
+                        : (callStatus === 'connected' || callStatus === 'connecting')
+                          ? 'Opponent camera connecting...'
+                          : 'Opponent camera is off'
+                      }
+                    </div>
+                  )}
                 </div>
-              </Card>
+              </div>
+            </Card>
 
-              <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden flex-1" style={{ minHeight: 0 }}>
-                <h3 className="text-sm font-semibold text-white mb-2 flex-shrink-0">Visit History</h3>
-                <div className="flex-1 overflow-y-auto pr-2" style={{ minHeight: 0 }}>
-                  <div className="space-y-2 pr-2">
-                    {matchState.visitHistory.slice().reverse().map((visit, idx) => {
-                      const isMyVisit = visit.by === 'you';
-                      const canEdit = isMyVisit && !visit.isCheckout;
-                      return (
-                        <div
-                          key={visit.id}
-                          className={`flex items-center justify-between text-sm p-2 rounded ${
-                            isMyVisit
-                              ? 'bg-teal-500/5 border-l-2 border-l-teal-400/60'
-                              : 'bg-slate-700/20 border-l-2 border-l-slate-500/60'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-1 py-0 ${
-                                isMyVisit
-                                  ? 'border-teal-400/40 text-teal-300'
-                                  : 'border-slate-500/50 text-slate-300'
-                              }`}
-                            >
-                              {visit.label}
-                            </Badge>
-                            <span className="text-gray-500 text-xs">
-                              #{visit.turnNumberInLeg}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {visit.isBust && (
-                              <Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">
-                                BUST
-                              </Badge>
-                            )}
-                            {visit.isCheckout && (
-                              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-xs">
-                                CHECKOUT
-                              </Badge>
-                            )}
-                            <span className="text-white font-semibold">{visit.score}</span>
-                            <span className="text-gray-500">→</span>
-                            <span className="text-gray-400">{visit.remainingAfter}</span>
-                            {canEdit && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditVisit(visit)}
-                                className="h-6 w-6 p-0 hover:bg-teal-500/10 text-teal-400 hover:text-teal-300"
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {matchState.visitHistory.length === 0 && (
-                      <p className="text-gray-500 text-center py-8 text-sm">No visits yet</p>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            </div>
+            {/* Center Column: Scoring */}
 
             <Card className="bg-slate-900/50 border-white/10 p-2 flex flex-col overflow-hidden">
               <div className="mb-2 flex-shrink-0">
@@ -1689,6 +1617,73 @@ export default function QuickMatchRoomPage() {
                         </>
                       )}
                     </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Right Column: Visit History */}
+            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden">
+              <h3 className="text-sm font-semibold text-white mb-2 flex-shrink-0">Visit History</h3>
+              <div className="flex-1 overflow-y-auto pr-2" style={{ minHeight: 0 }}>
+                <div className="space-y-2 pr-2">
+                  {matchState.visitHistory.slice().reverse().map((visit, idx) => {
+                    const isMyVisit = visit.by === 'you';
+                    const canEdit = isMyVisit && !visit.isCheckout;
+                    return (
+                      <div
+                        key={visit.id}
+                        className={`flex items-center justify-between text-sm p-2 rounded ${
+                          isMyVisit
+                            ? 'bg-teal-500/5 border-l-2 border-l-teal-400/60'
+                            : 'bg-slate-700/20 border-l-2 border-l-slate-500/60'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1 py-0 ${
+                              isMyVisit
+                                ? 'border-teal-400/40 text-teal-300'
+                                : 'border-slate-500/50 text-slate-300'
+                            }`}
+                          >
+                            {visit.label}
+                          </Badge>
+                          <span className="text-gray-500 text-xs">
+                            #{visit.turnNumberInLeg}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {visit.isBust && (
+                            <Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">
+                              BUST
+                            </Badge>
+                          )}
+                          {visit.isCheckout && (
+                            <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-xs">
+                              CHECKOUT
+                            </Badge>
+                          )}
+                          <span className="text-white font-semibold">{visit.score}</span>
+                          <span className="text-gray-500">→</span>
+                          <span className="text-gray-400">{visit.remainingAfter}</span>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditVisit(visit)}
+                              className="h-6 w-6 p-0 hover:bg-teal-500/10 text-teal-400 hover:text-teal-300"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {matchState.visitHistory.length === 0 && (
+                    <p className="text-gray-500 text-center py-8 text-sm">No visits yet</p>
+                  )}
                 </div>
               </div>
             </Card>
