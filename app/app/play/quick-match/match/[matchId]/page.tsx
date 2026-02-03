@@ -125,7 +125,7 @@ export default function QuickMatchRoomPage() {
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [trustPromptedForMatchId, setTrustPromptedForMatchId] = useState<string | null>(null);
   const [pendingEndReason, setPendingEndReason] = useState<'win' | 'forfeit' | null>(null);
-  const [opponentTrustLetter, setOpponentTrustLetter] = useState<TrustLetter>('C');
+  const [opponentTrustLetter, setOpponentTrustLetter] = useState<TrustLetter>('N');
 
   // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
   // Hook fetches opponent from match_rooms and manages all signaling
@@ -219,23 +219,23 @@ export default function QuickMatchRoomPage() {
       if (!opponentId) return;
 
       try {
-        const { data, error } = await supabase
-          .from('user_trust_summary')
-          .select('trust_letter')
-          .eq('user_id', opponentId)
-          .maybeSingle();
+        const { data, error } = await supabase.rpc('rpc_get_trust_summary', {
+          p_user_id: opponentId,
+        });
 
         if (error) {
           console.error('[TRUST_RATING] Error fetching opponent trust:', error);
-        } else if (data) {
+          setOpponentTrustLetter('N');
+        } else if (data && data.trust_letter) {
           console.log('[TRUST_RATING] Opponent trust rating:', data.trust_letter);
           setOpponentTrustLetter(data.trust_letter as TrustLetter);
         } else {
-          console.log('[TRUST_RATING] No trust rating found for opponent, using default C');
-          setOpponentTrustLetter('C');
+          console.log('[TRUST_RATING] No trust rating found for opponent, using default N');
+          setOpponentTrustLetter('N');
         }
       } catch (err) {
         console.error('[TRUST_RATING] Unexpected error:', err);
+        setOpponentTrustLetter('N');
       }
     }
 

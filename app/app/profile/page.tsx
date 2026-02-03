@@ -76,27 +76,43 @@ function ProfileContent() {
       if (!profile?.id) return;
 
       try {
-        const { data, error } = await supabase
-          .from('user_trust_summary')
-          .select('*')
-          .eq('user_id', profile.id)
-          .maybeSingle();
+        const { data, error } = await supabase.rpc('rpc_get_trust_summary', {
+          p_user_id: profile.id,
+        });
 
         if (error) {
           console.error('Error fetching trust rating:', error);
-        } else if (data) {
-          setTrustSummary(data as UserTrustSummary);
-        } else {
-          console.log('No trust rating found, defaulting to C');
           setTrustSummary({
             user_id: profile.id,
             ratings_count: 0,
             avg_score: 0,
-            trust_letter: 'C',
+            trust_letter: 'N',
+          });
+        } else if (data) {
+          console.log('Trust rating loaded:', data);
+          setTrustSummary({
+            user_id: profile.id,
+            ratings_count: data.ratings_count || 0,
+            avg_score: data.avg_score || 0,
+            trust_letter: (data.trust_letter || 'N') as TrustLetter,
+          });
+        } else {
+          console.log('No trust rating found, defaulting to N');
+          setTrustSummary({
+            user_id: profile.id,
+            ratings_count: 0,
+            avg_score: 0,
+            trust_letter: 'N',
           });
         }
       } catch (err) {
         console.error('Unexpected error fetching trust rating:', err);
+        setTrustSummary({
+          user_id: profile.id,
+          ratings_count: 0,
+          avg_score: 0,
+          trust_letter: 'N',
+        });
       }
     }
 
@@ -192,7 +208,7 @@ function ProfileContent() {
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-gray-400">Trust Rating</span>
                 <div className="flex items-center gap-2">
-                  <TrustBadge letter={trustSummary?.trust_letter || 'C'} size="md" />
+                  <TrustBadge letter={trustSummary?.trust_letter || 'N'} size="md" />
                   <span className="text-white font-medium text-sm">
                     ({trustSummary?.ratings_count || 0} {trustSummary?.ratings_count === 1 ? 'rating' : 'ratings'})
                   </span>
