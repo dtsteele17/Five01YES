@@ -951,22 +951,23 @@ export default function QuickMatchRoomPage() {
     if (!opponentId || ratingLoading) return;
 
     setRatingLoading(true);
-    setSelectedRating(rating);
 
     try {
-      console.log('[TRUST_RATING] Submitting rating:', rating);
+      console.log('[TRUST_RATING] Submitting rating:', rating, 'for opponent:', opponentId);
 
       const { data, error } = await supabase.rpc('rpc_set_trust_rating', {
-        p_room_id: matchId,
-        p_opponent_user_id: opponentId,
-        p_rating: rating
+        p_ratee_user_id: opponentId,
+        p_rating: rating,
+        p_last_match_room_id: matchId
       });
 
       console.log('[TRUST_RATING] RPC response:', data);
 
       if (error) {
         console.error('[TRUST_RATING] RPC error:', error);
-        throw error;
+        toast.error(`Failed to save rating: ${error.message}`);
+        setRatingLoading(false);
+        return;
       }
 
       if (!data || data.ok === false) {
@@ -977,18 +978,21 @@ export default function QuickMatchRoomPage() {
         return;
       }
 
+      // Only update UI after successful RPC call
       console.log('[TRUST_RATING] Rating saved successfully');
       toast.success('Saved');
+      setSelectedRating(rating);
       setMyRatingOfOpponent(rating);
 
-      // Refresh opponent's trust rating
+      // Refresh opponent's trust rating to show updated badge
       const { data: opponentProfile } = await supabase
         .from('profiles')
-        .select('trust_rating_letter, trust_rating_count')
+        .select('trust_rating_letter, trust_rating_count, trust_rating_avg')
         .eq('id', opponentId)
         .maybeSingle();
 
       if (opponentProfile) {
+        console.log('[TRUST_RATING] Updated opponent trust rating:', opponentProfile);
         setOpponentTrustRating({
           letter: opponentProfile.trust_rating_letter || 'C',
           count: opponentProfile.trust_rating_count || 0
@@ -997,6 +1001,7 @@ export default function QuickMatchRoomPage() {
     } catch (error: any) {
       console.error('[TRUST_RATING] Failed to save rating:', error);
       toast.error(`Failed to save rating: ${error.message}`);
+      // Don't update selectedRating on error
     } finally {
       setRatingLoading(false);
     }
