@@ -540,6 +540,20 @@ export default function QuickMatchLobbyPage() {
   const isFilterActive = filterMode !== 'all' || filterFormat !== 'all';
   const hiddenByFilter = totalOpenLobbies - filteredLobbies.length;
 
+  const formatMatchFormat = (format: string): string => {
+    const match = format.match(/best-of-(\d+)/i);
+    if (match) {
+      return `Best of ${match[1]}`;
+    }
+    return format;
+  };
+
+  const getGameModeClass = (mode: string): string => {
+    if (mode === '301') return 'bg-blue-600/20 text-blue-400 border-blue-500/30';
+    if (mode === '501') return 'bg-green-600/20 text-green-400 border-green-500/30';
+    return 'bg-slate-600/20 text-slate-400 border-slate-500/30';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -780,9 +794,9 @@ export default function QuickMatchLobbyPage() {
                     key={lobby.id}
                     className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-3">
                           <h3 className="text-white font-semibold">
                             {lobby.player1?.username ?? 'Player'}
                           </h3>
@@ -791,19 +805,37 @@ export default function QuickMatchLobbyPage() {
                             count={lobby.player1?.trust_rating_count || 0}
                             showTooltip={false}
                           />
-                          <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            className={`${getGameModeClass(lobby.game_type)} text-base font-bold px-3 py-1 rounded-full border`}
+                          >
                             {lobby.game_type}
                           </Badge>
-                        </div>
-                        <div className="text-sm text-gray-400 space-y-1">
-                          <p>{lobby.match_format}</p>
+                          <Badge className="bg-purple-600/20 text-purple-400 border-purple-500/30 text-base font-bold px-3 py-1 rounded-full border">
+                            {formatMatchFormat(lobby.match_format)}
+                          </Badge>
+                          <Badge
+                            className={`${lobby.double_out
+                              ? 'bg-green-600/20 text-green-400 border-green-500/30'
+                              : 'bg-slate-600/20 text-slate-400 border-slate-500/30'
+                            } text-xs px-2 py-0.5 rounded-full border`}
+                          >
+                            Double Out: {lobby.double_out ? 'ON' : 'OFF'}
+                          </Badge>
+                          {!lobby.double_in && (
+                            <Badge className="bg-green-600/20 text-green-400 border-green-500/30 text-xs px-2 py-0.5 rounded-full border">
+                              Straight In
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => joinLobby(lobby.id)}
                         disabled={joining === lobby.id}
-                        className="bg-emerald-500 hover:bg-emerald-600"
+                        className="bg-emerald-500 hover:bg-emerald-600 shrink-0"
                       >
                         {joining === lobby.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
