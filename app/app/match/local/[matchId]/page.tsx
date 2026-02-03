@@ -951,14 +951,47 @@ export default function LocalMatchPage() {
             </Card>
 
             <Card className="bg-slate-900/50 border-white/10 p-2 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h3 className="text-base font-semibold text-white">Scoring</h3>
-                <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
-                  <TabsList className="bg-slate-800/50 h-8">
-                    <TabsTrigger value="quick" className="data-[state=active]:bg-emerald-500 text-xs">Quick</TabsTrigger>
-                    <TabsTrigger value="input" className="data-[state=active]:bg-emerald-500 text-xs">Input</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+              <div className="mb-2 flex-shrink-0">
+                <h3 className="text-base font-semibold text-white mb-2">Scoring</h3>
+
+                <div className="mb-2">
+                  <label className="text-xs text-gray-400 mb-1 block">Type score</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="180"
+                      value={scoreInput}
+                      onChange={(e) => setScoreInput(e.target.value)}
+                      placeholder="0-180"
+                      className="flex-1 h-9 bg-white/5 border-white/10 text-white text-sm"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && scoreInput) {
+                          const score = parseInt(scoreInput);
+                          if (score >= 0 && score <= 180) {
+                            handleInputScoreSubmit(score);
+                            setScoreInput('');
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={() => {
+                        if (scoreInput) {
+                          const score = parseInt(scoreInput);
+                          if (score >= 0 && score <= 180) {
+                            handleInputScoreSubmit(score);
+                            setScoreInput('');
+                          }
+                        }
+                      }}
+                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-9 px-4 text-xs"
+                    >
+                      Enter
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {isOnCheckout && (

@@ -108,7 +108,6 @@ export default function QuickMatchRoomPage() {
 
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [dartboardGroup, setDartboardGroup] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
-  const [scoringMode, setScoringMode] = useState<'quick' | 'input'>('quick');
   const [scoreInput, setScoreInput] = useState('');
   const [inputModeError, setInputModeError] = useState<string>('');
 
@@ -1442,14 +1441,54 @@ export default function QuickMatchRoomPage() {
             </div>
 
             <Card className="bg-slate-900/50 border-white/10 p-2 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h3 className="text-base font-semibold text-white">Scoring</h3>
-                <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
-                  <TabsList className="bg-slate-800/50 h-8">
-                    <TabsTrigger value="quick" className="data-[state=active]:bg-emerald-500 text-xs">Quick</TabsTrigger>
-                    <TabsTrigger value="input" className="data-[state=active]:bg-emerald-500 text-xs">Input</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+              <div className="mb-2 flex-shrink-0">
+                <h3 className="text-base font-semibold text-white mb-2">Scoring</h3>
+
+                <div className="mb-2">
+                  <label className="text-xs text-gray-400 mb-1 block">Type score</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="180"
+                      value={scoreInput}
+                      onChange={(e) => {
+                        setScoreInput(e.target.value);
+                        setInputModeError('');
+                      }}
+                      placeholder="0-180"
+                      className="flex-1 h-9 bg-white/5 border-white/10 text-white text-sm"
+                      disabled={!isMyTurn || submitting}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && scoreInput) {
+                          const score = parseInt(scoreInput);
+                          if (score >= 0 && score <= 180) {
+                            handleInputScoreSubmit(score);
+                            setScoreInput('');
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={() => {
+                        if (scoreInput) {
+                          const score = parseInt(scoreInput);
+                          if (score >= 0 && score <= 180) {
+                            handleInputScoreSubmit(score);
+                            setScoreInput('');
+                          }
+                        }
+                      }}
+                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || !isMyTurn || submitting}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-9 px-4 text-xs"
+                    >
+                      Enter
+                    </Button>
+                  </div>
+                  {inputModeError && (
+                    <p className="text-red-400 text-xs mt-1">{inputModeError}</p>
+                  )}
+                </div>
               </div>
 
               {isOnCheckout && isMyTurn && (
@@ -1475,9 +1514,8 @@ export default function QuickMatchRoomPage() {
                 )
               )}
 
-              {scoringMode === 'quick' ? (
-                <div className="flex-1 flex flex-col min-h-0">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 mb-1 flex-shrink-0">
+              <div className="flex-1 flex flex-col min-h-0">
+                <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 mb-1 flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
                       <span className="text-emerald-400 font-bold text-sm">Total: {visitTotal}</span>
@@ -1492,9 +1530,9 @@ export default function QuickMatchRoomPage() {
                         <div key={idx} className="w-14 h-5 border-2 border-dashed border-gray-600 rounded"></div>
                       ))}
                     </div>
-                  </Card>
+                </Card>
 
-                  <div className="flex flex-col">
+                <div className="flex flex-col">
                     <div className="flex space-x-1.5 mb-1 flex-shrink-0">
                       <Button
                         size="sm"
@@ -1645,120 +1683,8 @@ export default function QuickMatchRoomPage() {
                         </>
                       )}
                     </div>
-                  </div>
                 </div>
-              ) : (
-                <div className="flex-1 flex flex-col space-y-0.5 min-h-0">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold">Total: {scoreInput && !isNaN(parseInt(scoreInput)) ? parseInt(scoreInput) : 0}</span>
-                    </div>
-                    <div className="text-center text-white text-sm">
-                      {scoreInput && !isNaN(parseInt(scoreInput)) ? `Visit total: ${scoreInput}` : 'Enter visit total (0-180)'}
-                    </div>
-                  </Card>
-
-                  {inputModeError && (
-                    <Card className="bg-red-500/20 border-red-500/30 p-2 flex-shrink-0">
-                      <p className="text-red-400 text-xs text-center">{inputModeError}</p>
-                    </Card>
-                  )}
-
-                  <div className="flex space-x-2 flex-shrink-0">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="180"
-                      value={scoreInput}
-                      onChange={(e) => {
-                        setScoreInput(e.target.value);
-                        setInputModeError('');
-                      }}
-                      placeholder="Enter score (0-180)"
-                      className="flex-1 bg-white/5 border-white/10 text-white text-lg"
-                      disabled={!isMyTurn || submitting}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        if (scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                          }
-                        }
-                      }}
-                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || !isMyTurn || submitting}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
-                    >
-                      Submit
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 flex-shrink-0">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                      <Button
-                        key={num}
-                        onClick={() => setScoreInput(prev => prev + num.toString())}
-                        disabled={!isMyTurn || submitting}
-                        className="h-12 text-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white"
-                      >
-                        {num}
-                      </Button>
-                    ))}
-                    <Button
-                      onClick={() => setScoreInput('')}
-                      disabled={!isMyTurn || submitting}
-                      className="h-12 text-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mt-2 flex-shrink-0">
-                    <Button
-                      onClick={toggleCamera}
-                      disabled={callStatus === 'connecting'}
-                      variant="outline"
-                      size="sm"
-                      className="border-white/10 text-white hover:bg-white/5"
-                    >
-                      {callStatus === 'connecting' ? 'Connecting...' : isCameraOn ? 'Camera Off' : 'Camera On'}
-                    </Button>
-
-                    {isCameraOn && (
-                      <>
-                        <Button
-                          onClick={toggleMic}
-                          variant="ghost"
-                          size="sm"
-                          className={`p-2 h-8 w-8 ${isMicMuted ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-gray-300'}`}
-                          title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
-                        >
-                          {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        </Button>
-                        <Button
-                          onClick={toggleVideo}
-                          variant="ghost"
-                          size="sm"
-                          className={`p-2 h-8 w-8 ${isVideoDisabled ? 'text-red-400 hover:text-red-300' : 'text-white hover:text-gray-300'}`}
-                          title={isVideoDisabled ? 'Enable Camera' : 'Disable Camera'}
-                        >
-                          {isVideoDisabled ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+              </div>
             </Card>
           </div>
         </div>
