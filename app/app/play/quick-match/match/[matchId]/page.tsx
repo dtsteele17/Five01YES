@@ -145,8 +145,43 @@ export default function QuickMatchRoomPage() {
 
   // Note: Video display and WebRTC setup now handled by useMatchWebRTC hook
 
+  // Cleanup function defined early
+  const cleanupMatchRef = useRef<() => void>();
+
+  cleanupMatchRef.current = () => {
+    console.log('[CLEANUP] Starting match cleanup');
+
+    // Stop camera and close peer connections
+    stopCamera('match cleanup');
+
+    // Clear any cached match context
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`match_context_${matchId}`);
+      sessionStorage.removeItem(`lobby_id_${matchId}`);
+    }
+
+    console.log('[CLEANUP] Match cleanup complete');
+  };
+
   useEffect(() => {
-    initializeMatch();
+    let cleanupFn: (() => void) | undefined;
+
+    initializeMatch().then((cleanup) => {
+      if (cleanup && typeof cleanup === 'function') {
+        cleanupFn = cleanup;
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[LIFECYCLE] Component unmounting, cleaning up');
+      if (cleanupMatchRef.current) {
+        cleanupMatchRef.current();
+      }
+      if (cleanupFn && typeof cleanupFn === 'function') {
+        cleanupFn();
+      }
+    };
   }, [matchId]);
 
   // Debug logging for ID tracking and current_turn changes
@@ -275,6 +310,29 @@ export default function QuickMatchRoomPage() {
           console.log('[REALTIME] Room updated:', payload.new);
           const updatedRoom = payload.new as MatchRoom;
           setRoom(updatedRoom);
+
+          // Auto-exit if match ended (forfeited or finished)
+          if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') {
+            console.log('[REALTIME] Match ended, status:', updatedRoom.status);
+
+            // Show appropriate modal first
+            if (updatedRoom.status === 'forfeited') {
+              // Check if we forfeited or opponent did
+              if (!didIForfeit) {
+                setShowOpponentForfeitModal(true);
+              }
+            } else if (updatedRoom.status === 'finished') {
+              setShowMatchCompleteModal(true);
+            }
+
+            // Cleanup after short delay to allow modal to show
+            setTimeout(() => {
+              if (!hasRedirectedRef.current && cleanupMatchRef.current) {
+                console.log('[REALTIME] Auto-cleanup triggered');
+                cleanupMatchRef.current();
+              }
+            }, 100);
+          }
         }
       )
       .on(
@@ -630,26 +688,41 @@ export default function QuickMatchRoomPage() {
   async function forfeitMatch() {
     if (!room || !matchState) return;
 
-    // Only allow forfeit on user's turn
-    const isMyTurn = matchState.youArePlayer === matchState.currentTurnPlayer;
-    if (!isMyTurn) {
-      toast.error('You can only forfeit on your turn.');
-      return;
-    }
-
     try {
       setDidIForfeit(true);
+      setShowEndMatchDialog(false);
 
-      const { data, error } = await supabase.rpc('forfeit_quick_match', {
+      console.log('[FORFEIT] Calling rpc_forfeit_match for room:', matchId);
+
+      const { data, error } = await supabase.rpc('rpc_forfeit_match', {
         p_room_id: matchId,
       });
 
-      if (error) throw error;
+      console.log('[FORFEIT] RPC response:', data);
 
+      if (error) {
+        console.error('[FORFEIT] RPC error:', error);
+        throw error;
+      }
+
+      if (!data || data.ok === false) {
+        const errorMsg = data?.error || 'Unknown error';
+        console.error('[FORFEIT] RPC returned error:', errorMsg);
+        toast.error(`Failed to forfeit: ${errorMsg}`);
+        setDidIForfeit(false);
+        return;
+      }
+
+      console.log('[FORFEIT] Match forfeited successfully');
       toast.info('Match forfeited');
+
+      // Cleanup and navigate
+      if (cleanupMatchRef.current) {
+        cleanupMatchRef.current();
+      }
       router.push('/app/play');
     } catch (error: any) {
-      console.error('Failed to forfeit:', error);
+      console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
       setDidIForfeit(false);
     }
@@ -1517,7 +1590,12 @@ export default function QuickMatchRoomPage() {
             <Button
               size="lg"
               variant="outline"
-              onClick={() => router.push('/app/play')}
+              onClick={() => {
+                if (cleanupMatchRef.current) {
+                  cleanupMatchRef.current();
+                }
+                router.push('/app/play');
+              }}
               className="border-white/20 text-white hover:bg-white/10 px-8"
             >
               <Home className="w-5 h-5 mr-2" />
