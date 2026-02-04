@@ -5,11 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,20 +23,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Chrome as Home, X, Check, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, PhoneOff, Edit } from 'lucide-react';
-import { getCheckoutOptions } from '@/lib/match-logic';
+import { Trophy, RotateCcw, Chrome as Home, X, Check, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
-import { MatchHUDTop } from '@/components/match/MatchHUDTop';
-import { MatchCameraPanel } from '@/components/match/MatchCameraPanel';
-import { MatchTurnPanel } from '@/components/match/MatchTurnPanel';
-import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
+import { clearMatchStorage } from '@/lib/utils/match-storage';
 import { clearMatchState } from '@/lib/utils/match-resume';
-import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 import { getTrustRatingDisplay, getTrustRatingButtonGradient, getTrustRatingDescription, getUnratedLabel } from '@/lib/utils/trust-rating';
+import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
+import { QuickMatchScoringPanel } from '@/components/match/QuickMatchScoringPanel';
+import { QuickMatchVisitHistoryPanel } from '@/components/match/QuickMatchVisitHistoryPanel';
+import { Separator } from '@/components/ui/separator';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -98,68 +94,54 @@ export default function QuickMatchRoomPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [matchState, setMatchState] = useState<MappedMatchState | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Scoring state
+  const [scoreInput, setScoreInput] = useState('');
+  const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const matchState = mapRoomToMatchState(room, events, profiles, currentUserId);
-
-  // Compute opponent ID from room
-  const opponentId = room && currentUserId
-    ? (currentUserId === room.player1_id ? room.player2_id : room.player1_id)
-    : null;
-
-  const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
-  const [dartboardGroup, setDartboardGroup] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
-  const [scoreInput, setScoreInput] = useState('');
-  const [inputModeError, setInputModeError] = useState<string>('');
-
+  // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
   const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
-  const [rematchLoading, setRematchLoading] = useState(false);
-  const [rematchDisabled, setRematchDisabled] = useState(false);
-  const [rematchData, setRematchData] = useState<any>(null);
-  const hasRedirectedRef = { current: false };
+
+  // Visit editing
+  const [showEditVisitModal, setShowEditVisitModal] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<{ visitNumber: number; score: number } | null>(null);
+
+  // Trust rating
+  const [opponentTrustRating, setOpponentTrustRating] = useState<any>(null);
+  const [hasSubmittedRating, setHasSubmittedRating] = useState(false);
+  const [selectedRating, setSelectedRating] = useState<string | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(false);
+
+  // Rematch
   const [rematchCount, setRematchCount] = useState(0);
   const [starting, setStarting] = useState(false);
 
-  const [showEditVisitModal, setShowEditVisitModal] = useState(false);
-  const [editingVisit, setEditingVisit] = useState<{ id: string; score: number; visitNumber: number } | null>(null);
+  const hasRedirectedRef = useRef(false);
+  const cleanupMatchRef = useRef<() => void>();
 
-  const [opponentTrustRating, setOpponentTrustRating] = useState<{ letter: string | null; count: number } | null>(null);
-  const [myRatingOfOpponent, setMyRatingOfOpponent] = useState<string | null>(null);
-  const [selectedRating, setSelectedRating] = useState<string | null>(null);
-  const [ratingLoading, setRatingLoading] = useState(false);
-  const [hasSubmittedRating, setHasSubmittedRating] = useState(false);
-
-  // Match-start sound
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [showSoundBanner, setShowSoundBanner] = useState(false);
-
-  // Stale state cleanup - run once when room not found
-  const hasCleanedStaleState = useRef(false);
-
-  // Unified WebRTC hook - works for ALL match formats (BO1, BO3, BO5, BO7)
-  // Hook fetches opponent from match_rooms and manages all signaling
+  // WebRTC
+  const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
-    isMyTurn: room?.current_turn === currentUserId
+    isMyTurn: isMyTurnForWebRTC,
   });
-
-  // Destructure for backward compatibility
   const {
     localStream,
     remoteStream,
+    callStatus,
     isCameraOn,
     isMicMuted,
     isVideoDisabled,
-    callStatus,
-    cameraError,
     toggleCamera,
     toggleMic,
     toggleVideo,
@@ -167,23 +149,13 @@ export default function QuickMatchRoomPage() {
     liveVideoRef
   } = webrtc;
 
-  // Note: Video display and WebRTC setup now handled by useMatchWebRTC hook
-
-  // Cleanup function defined early
-  const cleanupMatchRef = useRef<() => void>();
-
   cleanupMatchRef.current = () => {
     console.log('[CLEANUP] Starting match cleanup');
-
-    // Stop camera and close peer connections
     stopCamera('match cleanup');
-
-    // Clear any cached match context
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(`match_context_${matchId}`);
       sessionStorage.removeItem(`lobby_id_${matchId}`);
     }
-
     console.log('[CLEANUP] Match cleanup complete');
   };
 
@@ -196,7 +168,6 @@ export default function QuickMatchRoomPage() {
       }
     });
 
-    // Cleanup on unmount
     return () => {
       console.log('[LIFECYCLE] Component unmounting, cleaning up');
       if (cleanupMatchRef.current) {
@@ -208,161 +179,9 @@ export default function QuickMatchRoomPage() {
     };
   }, [matchId]);
 
-  // Match-start sound effect
-  useEffect(() => {
-    const storageKey = `played_match_start_${matchId}`;
-
-    // Initialize audio once
-    if (!audioRef.current) {
-      audioRef.current = new Audio('https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/gameon-darts.mp3');
-      audioRef.current.volume = 0.6;
-    }
-
-    // Check if match is truly active: status === 'active' AND both players present
-    const isMatchActive =
-      room?.status === 'active' &&
-      room?.player1_id &&
-      room?.player2_id;
-
-    // Check if we've already played the sound for this room
-    const hasPlayed = sessionStorage.getItem(storageKey) === 'true';
-
-    if (isMatchActive && !hasPlayed) {
-      console.log('[MATCH_START_SOUND] Playing game-on sound for room:', matchId);
-
-      // Mark as played immediately to prevent any re-triggers
-      sessionStorage.setItem(storageKey, 'true');
-
-      // Attempt to play
-      const playPromise = audioRef.current.play();
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('[MATCH_START_SOUND] Sound played successfully');
-            setShowSoundBanner(false);
-          })
-          .catch((error) => {
-            console.log('[MATCH_START_SOUND] Autoplay blocked, showing banner:', error);
-            setShowSoundBanner(true);
-          });
-      }
-    }
-  }, [matchId, room?.status, room?.player1_id, room?.player2_id]);
-
-  const handleEnableSound = () => {
-    if (audioRef.current) {
-      audioRef.current.play()
-        .then(() => {
-          console.log('[MATCH_START_SOUND] Sound enabled by user');
-          setShowSoundBanner(false);
-        })
-        .catch((error) => {
-          console.error('[MATCH_START_SOUND] Failed to play after user interaction:', error);
-        });
-    }
-  };
-
-  // Clear stale state when room not found
-  useEffect(() => {
-    if (!loading && !room && !hasCleanedStaleState.current) {
-      console.log('[STALE_STATE] Room not found, clearing stale match state once');
-      hasCleanedStaleState.current = true;
-      clearStaleMatchState();
-    }
-  }, [loading, room]);
-
-  // Debug logging for ID tracking and current_turn changes
-  useEffect(() => {
-    if (room && currentUserId) {
-      console.log('[TURN DEBUG] ===== TURN STATE CHANGED =====');
-      console.log('[TURN DEBUG] Current state:', {
-        myId: currentUserId,
-        opponentId,
-        current_turn: room.current_turn,
-        isMyTurn: room.current_turn === currentUserId,
-        player1: room.player1_id,
-        player2: room.player2_id
-      });
-      console.log('[TURN DEBUG] This effect is for LOGGING ONLY, NO cleanup occurs here');
-      console.log('[TURN DEBUG] ================================');
-    }
-  }, [currentUserId, opponentId, room?.current_turn]);
-
-  // Camera controls now handled by useMatchWebRTC hook
-
-  // WebRTC diagnostics now handled by useMatchWebRTC hook
-
-  useEffect(() => {
-    if (!matchState) return;
-
-    if (matchState.endedReason === 'forfeit' && !didIForfeit) {
-      setShowOpponentForfeitModal(true);
-    } else if (matchState.endedReason === 'win') {
-      setShowMatchCompleteModal(true);
-    }
-
-    // Clean up WebRTC when match ends
-    if (matchState.endedReason) {
-      stopCamera(`match ended: ${matchState.endedReason}`);
-    }
-  }, [matchState?.endedReason, didIForfeit]);
-
-  // Load trust rating data when match ends
-  useEffect(() => {
-    async function loadTrustRating() {
-      if (!opponentId || !currentUserId || !matchState?.endedReason) return;
-
-      try {
-        // Fetch opponent's profile to get their trust rating
-        const { data: opponentProfile } = await supabase
-          .from('profiles')
-          .select('trust_rating_letter, trust_rating_count')
-          .eq('id', opponentId)
-          .maybeSingle();
-
-        if (opponentProfile) {
-          setOpponentTrustRating({
-            letter: opponentProfile.trust_rating_letter || 'C',
-            count: opponentProfile.trust_rating_count || 0
-          });
-        }
-
-        // Fetch user's previous rating of this opponent
-        const { data: existingRating } = await supabase
-          .from('trust_ratings')
-          .select('rating')
-          .eq('rater_user_id', currentUserId)
-          .eq('ratee_user_id', opponentId)
-          .maybeSingle();
-
-        if (existingRating) {
-          setMyRatingOfOpponent(existingRating.rating);
-          setSelectedRating(existingRating.rating);
-        }
-      } catch (error) {
-        console.error('[TRUST_RATING] Failed to load trust rating:', error);
-      }
-    }
-
-    loadTrustRating();
-  }, [opponentId, currentUserId, matchState?.endedReason]);
-
   async function initializeMatch() {
     try {
-      // Check if we've already attempted to load this match
-      if (hasAttemptedMatch(matchId)) {
-        console.log('[MATCH_LOAD] Already attempted to load this match, preventing retry');
-        return;
-      }
-
-      // Mark this match as attempted
-      markMatchAttempted(matchId);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push('/login');
         return;
@@ -372,15 +191,9 @@ export default function QuickMatchRoomPage() {
 
       const matchLoaded = await loadMatchData();
 
-      // Check if room was loaded successfully
       if (!matchLoaded) {
         console.error('[MATCH_LOAD] Match room not found, cleaning up and navigating away');
-
-        // Clear all match-related storage
-        // Show user-friendly message
         toast.error('Match no longer available');
-
-        // Navigate to play page
         await clearMatchState(matchId);
         router.push('/app/play/quick-match');
         return;
@@ -392,8 +205,6 @@ export default function QuickMatchRoomPage() {
     } catch (error: any) {
       console.error('Initialization error:', error);
       toast.error(`Error: ${error.message}`);
-
-      // Clean up storage on error as well
       await clearMatchState(matchId);
       router.push('/app/play/quick-match');
     } finally {
@@ -408,47 +219,12 @@ export default function QuickMatchRoomPage() {
       .eq('id', matchId)
       .maybeSingle();
 
-    if (roomError) {
-      console.error('[MATCH_ROOM_LOAD] Failed to load room:', roomError);
-      toast.error(`Failed to load match room: ${roomError.message}`);
+    if (roomError || !roomData) {
+      console.error('[LOAD] Room not found:', roomError);
       return false;
     }
 
-    if (!roomData) {
-      console.error('[MATCH_ROOM_LOAD] No room data returned (match not found)');
-      return false;
-    }
-
-    setRoom(roomData);
-
-    if (roomData.status === 'finished') {
-      setShowMatchCompleteModal(true);
-    }
-
-    const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
-
-    if (playerIds.length > 0) {
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, username, trust_rating_letter')
-        .in('user_id', playerIds);
-
-      if (profilesError) {
-        console.error('[MATCH_ROOM_LOAD] Failed to load profiles:', profilesError);
-        toast.error(`Failed to load player profiles: ${profilesError.message}`);
-      } else if (profilesData) {
-        setProfiles(profilesData);
-
-        // Set opponent trust rating for display
-        const opponent = profilesData.find(p => p.user_id !== currentUserId);
-        if (opponent) {
-          setOpponentTrustRating({
-            letter: opponent.trust_rating_letter || 'C',
-            count: 0
-          });
-        }
-      }
-    }
+    setRoom(roomData as MatchRoom);
 
     const { data: eventsData } = await supabase
       .from('match_events')
@@ -456,9 +232,25 @@ export default function QuickMatchRoomPage() {
       .eq('room_id', matchId)
       .order('seq', { ascending: true });
 
-    setEvents(eventsData || []);
+    setEvents((eventsData as MatchEvent[]) || []);
+
+    const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('user_id, username, trust_rating_letter')
+      .in('user_id', playerIds);
+
+    setProfiles((profilesData as Profile[]) || []);
+
     return true;
   }
+
+  useEffect(() => {
+    if (room && profiles.length > 0) {
+      const mapped = mapRoomToMatchState(room, events, profiles, currentUserId || '');
+      setMatchState(mapped);
+    }
+  }, [room, events, profiles, currentUserId]);
 
   function setupRealtimeSubscriptions() {
     const roomChannel = supabase
@@ -476,13 +268,10 @@ export default function QuickMatchRoomPage() {
           const updatedRoom = payload.new as MatchRoom;
           setRoom(updatedRoom);
 
-          // Auto-exit if match ended (forfeited or finished)
           if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') {
             console.log('[REALTIME] Match ended, status:', updatedRoom.status);
 
-            // Show appropriate modal first
             if (updatedRoom.status === 'forfeited') {
-              // Check if we forfeited or opponent did
               if (!didIForfeit) {
                 setShowOpponentForfeitModal(true);
               }
@@ -490,7 +279,6 @@ export default function QuickMatchRoomPage() {
               setShowMatchCompleteModal(true);
             }
 
-            // Cleanup after short delay to allow modal to show
             setTimeout(() => {
               if (!hasRedirectedRef.current && cleanupMatchRef.current) {
                 console.log('[REALTIME] Auto-cleanup triggered');
@@ -547,12 +335,10 @@ export default function QuickMatchRoomPage() {
           console.log('[SIGNALS] Signal received:', payload.new);
           const signal = payload.new as any;
 
-          // Handle forfeit signals
           if (signal.type === 'forfeit' && signal.to_user_id === currentUserId) {
             console.log('[SIGNALS] Opponent forfeited, showing modal');
             setShowOpponentForfeitSignalModal(true);
 
-            // Cleanup after short delay to allow modal to show
             setTimeout(() => {
               if (cleanupMatchRef.current) {
                 console.log('[SIGNALS] Auto-cleanup triggered after forfeit');
@@ -564,138 +350,24 @@ export default function QuickMatchRoomPage() {
       )
       .subscribe();
 
-    const rematchChannel = supabase
-      .channel(`rematch_${matchId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'match_rematches',
-          filter: `old_room_id=eq.${matchId}`,
-        },
-        (payload) => {
-          const data = payload.new as any;
-
-          console.log('[REMATCH DEBUG] Realtime update received:', {
-            old_room_id: data?.old_room_id,
-            player1_ready: data?.player1_ready,
-            player2_ready: data?.player2_ready,
-            new_room_id: data?.new_room_id,
-            start_at: data?.start_at,
-            event: payload.eventType
-          });
-
-          if (data) {
-            const readyCount = (data.player1_ready ? 1 : 0) + (data.player2_ready ? 1 : 0);
-
-            console.log('[REMATCH DEBUG] Computed ready count:', readyCount);
-
-            // Update rematch data state - this will update UI
-            setRematchData(data);
-
-            // Only redirect when server has created the new room
-            if (data.new_room_id && !hasRedirectedRef.current) {
-              console.log('[REMATCH DEBUG] New room detected:', data.new_room_id);
-              hasRedirectedRef.current = true;
-
-              // Calculate delay from start_at
-              let delay = 0;
-              if (data.start_at) {
-                const startTime = new Date(data.start_at).getTime();
-                const now = Date.now();
-                delay = Math.max(0, startTime - now);
-                console.log('[REMATCH DEBUG] Calculated delay:', delay, 'ms');
-              } else {
-                console.log('[REMATCH DEBUG] No start_at found, redirecting immediately');
-              }
-
-              // Show message and redirect after delay
-              if (delay > 0) {
-                console.log('[REMATCH DEBUG] Showing countdown toast');
-                toast.success(`Both players ready! Starting in ${Math.ceil(delay / 1000)}s...`);
-              } else {
-                console.log('[REMATCH DEBUG] Showing immediate toast');
-                toast.success('Both players ready! Starting rematch...');
-              }
-
-              setTimeout(() => {
-                console.log('[REMATCH DEBUG] Redirecting to new room:', data.new_room_id);
-                router.push(`/app/play/quick-match/match/${data.new_room_id}`);
-              }, delay);
-            } else if (data.new_room_id) {
-              console.log('[REMATCH DEBUG] New room exists but already redirected');
-            } else {
-              console.log('[REMATCH DEBUG] No new room yet, waiting for server to create it');
-            }
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(roomChannel);
-      supabase.removeChannel(signalsChannel);
-      supabase.removeChannel(rematchChannel);
+      roomChannel.unsubscribe();
+      signalsChannel.unsubscribe();
     };
   }
 
-  useEffect(() => {
-    if (!matchId) return;
-
-    const channel = supabase
-      .channel(`rematch:${matchId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "match_rematches",
-          filter: `old_room_id=eq.${matchId}`,
-        },
-        (payload) => {
-          const row = payload.new as any;
-
-          const count =
-            (row.player1_ready ? 1 : 0) + (row.player2_ready ? 1 : 0);
-
-          setRematchCount(count);
-
-          if (row.new_room_id) {
-            setStarting(true);
-            setTimeout(() => {
-              router.push(`/app/play/quick-match/match/${row.new_room_id}`);
-            }, 700);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [matchId]);
-
-  // WebRTC signaling subscription now handled by useMatchWebRTC hook
-
-  const handleDartClick = (type: 'singles' | 'doubles' | 'triples' | 'bulls', number: number) => {
+  const handleDartClick = (dartType: 'single' | 'double' | 'triple' | 'bull', number: number) => {
     if (currentVisit.length >= 3) return;
 
     let value = 0;
-    let dartType: 'single' | 'double' | 'triple' | 'bull';
-
-    if (type === 'singles') {
+    if (dartType === 'bull') {
       value = number;
-      dartType = 'single';
-    } else if (type === 'doubles') {
+    } else if (dartType === 'single') {
+      value = number;
+    } else if (dartType === 'double') {
       value = number * 2;
-      dartType = 'double';
-    } else if (type === 'triples') {
+    } else if (dartType === 'triple') {
       value = number * 3;
-      dartType = 'triple';
-    } else {
-      value = number;
-      dartType = 'bull';
     }
 
     const dart: Dart = { type: dartType, number, value };
@@ -704,6 +376,10 @@ export default function QuickMatchRoomPage() {
 
   const handleClearVisit = () => {
     setCurrentVisit([]);
+  };
+
+  const handleUndoDart = () => {
+    setCurrentVisit((prev) => prev.slice(0, -1));
   };
 
   const handleSubmitVisit = async () => {
@@ -726,22 +402,19 @@ export default function QuickMatchRoomPage() {
     await submitScore(visitTotal);
   };
 
-  const handleInputScoreSubmit = async (score: number) => {
-    if (!room || !currentUserId || submitting) return;
+  const handleInputScoreSubmit = async () => {
+    const score = parseInt(scoreInput);
+    if (isNaN(score) || score < 0 || score > 180) {
+      toast.error('Invalid score (0-180)');
+      return;
+    }
     await submitScore(score);
-  };
-
-  const handleBust = async () => {
-    if (!room || !currentUserId || submitting) return;
-    console.log('[BUST] ===== BUST CLICKED =====');
-    console.log('[BUST] Room ID:', matchId);
-    console.log('[BUST] User ID:', currentUserId);
-    console.log('[BUST] ========================');
-    await submitScore(0);
   };
 
   async function submitScore(score: number) {
     if (!room || !matchState || !currentUserId) return;
+
+    const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
 
     if (!isMyTurn) {
       toast.error('Not your turn');
@@ -797,90 +470,13 @@ export default function QuickMatchRoomPage() {
 
       setScoreInput('');
       setCurrentVisit([]);
-      setInputModeError('');
     } catch (error: any) {
       console.error('[SUBMIT] Error:', error);
-      toast.error(`Failed to submit: ${error.message}`);
+      toast.error(error.message || 'Failed to submit score');
     } finally {
       setSubmitting(false);
     }
   }
-
-  const handleEditVisit = (visit: any) => {
-    setEditingVisit({
-      id: visit.id,
-      score: visit.score,
-      visitNumber: visit.turnNumberInLeg,
-    });
-    setShowEditVisitModal(true);
-  };
-
-  const handleSaveEditedVisit = async (newScore: number) => {
-    if (!editingVisit) return;
-
-    try {
-      console.log('[EDIT VISIT] Calling RPC with event_id:', editingVisit.id, 'new_score:', newScore);
-
-      const { data, error } = await supabase.rpc('rpc_edit_quick_match_visit', {
-        p_event_id: editingVisit.id,
-        p_new_score: newScore,
-      });
-
-      if (error) {
-        console.error('[EDIT VISIT] RPC Error:', error);
-        throw new Error(error.message || 'Failed to edit visit');
-      }
-
-      console.log('[EDIT VISIT] RPC Response:', data);
-
-      // Refresh room state to get updated remaining scores
-      const { data: roomData, error: roomError } = await supabase
-        .from('match_rooms')
-        .select('*')
-        .eq('id', matchId)
-        .maybeSingle();
-
-      if (roomError || !roomData) {
-        console.error('[EDIT VISIT] Failed to refresh room:', roomError);
-        throw new Error('Failed to refresh match state');
-      }
-
-      // Refresh events to get updated data
-      const { data: eventsData } = await supabase
-        .from('match_events')
-        .select('*')
-        .eq('room_id', matchId)
-        .order('seq', { ascending: true });
-
-      if (roomData) {
-        setRoom(roomData);
-
-        // Check if match is now finished
-        if (roomData.status === 'finished' && !showMatchCompleteModal) {
-          console.log('[EDIT VISIT] Match completed after edit!');
-          setShowMatchCompleteModal(true);
-        }
-      }
-
-      if (eventsData) {
-        setEvents(eventsData);
-
-        // Check if the edited visit resulted in a checkout (leg won)
-        const editedEvent = eventsData.find((e: any) => e.id === editingVisit.id);
-        if (editedEvent && editedEvent.remaining_after === 0) {
-          toast.success('Checkout! Leg won!');
-        }
-      }
-
-      toast.success('Visit updated successfully');
-
-      setShowEditVisitModal(false);
-      setEditingVisit(null);
-    } catch (error: any) {
-      console.error('[EDIT VISIT] Error:', error);
-      throw error;
-    }
-  };
 
   async function forfeitMatch() {
     if (!room || !matchState) return;
@@ -915,7 +511,8 @@ export default function QuickMatchRoomPage() {
 
       console.log('[FORFEIT] Match forfeited successfully');
 
-      // Send forfeit signal to opponent
+      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+
       if (opponentId) {
         console.log('[FORFEIT] Sending forfeit signal to opponent:', opponentId);
         const { error: signalError } = await supabase
@@ -937,7 +534,6 @@ export default function QuickMatchRoomPage() {
 
       toast.success('Match forfeited');
 
-      // Cleanup and navigate
       if (cleanupMatchRef.current) {
         cleanupMatchRef.current();
       }
@@ -951,135 +547,64 @@ export default function QuickMatchRoomPage() {
     }
   }
 
+  const handleEditVisit = (visitNumber: number, currentScore: number) => {
+    setEditingVisit({ visitNumber, score: currentScore });
+    setShowEditVisitModal(true);
+  };
+
+  const handleSaveEditedVisit = async (newScore: number) => {
+    if (!editingVisit) return;
+
+    try {
+      const { error } = await supabase.rpc('rpc_edit_quick_match_visit', {
+        p_room_id: matchId,
+        p_visit_number: editingVisit.visitNumber,
+        p_new_score: newScore,
+      });
+
+      if (error) throw error;
+
+      toast.success('Visit updated');
+      setShowEditVisitModal(false);
+      setEditingVisit(null);
+
+      await loadMatchData();
+    } catch (error: any) {
+      console.error('[EDIT] Failed to edit visit:', error);
+      toast.error(`Failed to update visit: ${error.message}`);
+    }
+  };
+
   const handleTrustRating = async (rating: string) => {
-    if (!opponentId || ratingLoading || hasSubmittedRating) return;
+    if (!matchState || hasSubmittedRating || ratingLoading) return;
+
+    const opponentId = matchState.youArePlayer === 1 ? room?.player2_id : room?.player1_id;
+    if (!opponentId) return;
 
     setRatingLoading(true);
 
     try {
-      console.log('[TRUST_RATING] Submitting rating:', rating, 'for opponent:', opponentId);
-
-      const { data, error } = await supabase.rpc('rpc_set_trust_rating', {
-        p_room_id: matchId,
-        p_opponent_user_id: opponentId,
-        p_rating: rating
+      const { error } = await supabase.rpc('rpc_submit_trust_rating', {
+        p_rated_user_id: opponentId,
+        p_rating: rating,
       });
 
-      console.log('[TRUST_RATING] RPC response:', data);
+      if (error) throw error;
 
-      if (error) {
-        console.error('[TRUST_RATING] RPC error:', error);
-        toast.error("Couldn't save trust rating. Try again.");
-        setRatingLoading(false);
-        return;
-      }
-
-      if (!data || data.ok === false) {
-        const errorMsg = data?.error || "Couldn't save trust rating";
-        console.error('[TRUST_RATING] RPC returned error:', errorMsg);
-        toast.error("Couldn't save trust rating. Try again.");
-        setRatingLoading(false);
-        return;
-      }
-
-      console.log('[TRUST_RATING] Rating saved successfully');
-      toast.success('Rating saved');
       setSelectedRating(rating);
-      setMyRatingOfOpponent(rating);
       setHasSubmittedRating(true);
-
-      // Refresh opponent's trust rating to show updated badge
-      const { data: opponentProfile } = await supabase
-        .from('profiles')
-        .select('trust_rating_letter, trust_rating_count, trust_rating_avg')
-        .eq('id', opponentId)
-        .maybeSingle();
-
-      if (opponentProfile) {
-        console.log('[TRUST_RATING] Updated opponent trust rating:', opponentProfile);
-        setOpponentTrustRating({
-          letter: opponentProfile.trust_rating_letter,
-          count: opponentProfile.trust_rating_count || 0
-        });
-      }
+      toast.success(`Rated ${rating}: ${getTrustRatingDescription(rating as any)}`);
     } catch (error: any) {
-      console.error('[TRUST_RATING] Failed to save rating:', error);
-      toast.error("Couldn't save trust rating. Try again.");
+      console.error('[TRUST_RATING] Failed:', error);
+      toast.error(`Failed to submit rating: ${error.message}`);
     } finally {
       setRatingLoading(false);
     }
   };
 
   const handleSkipRating = () => {
-    console.log('[TRUST_RATING] User skipped rating');
     setHasSubmittedRating(true);
-    setSelectedRating(null);
-  };
-
-  const handleRematch = async () => {
-    if (!room || rematchLoading || rematchDisabled) return;
-
-    console.log('[REMATCH DEBUG] User clicked rematch button');
-    setRematchLoading(true);
-    setRematchDisabled(true);
-
-    try {
-      const { data, error } = await supabase.rpc('request_rematch', {
-        p_old_room_id: room.id
-      });
-
-      if (error) {
-        console.log('[REMATCH DEBUG] RPC error:', error);
-        toast.error(`Failed to request rematch: ${error.message}`);
-        setRematchLoading(false);
-        setRematchDisabled(false);
-        return;
-      }
-
-      console.log('[REMATCH DEBUG] RPC response:', data);
-
-      // Don't update local state - let realtime handle all state updates
-      // Just show feedback that the request was sent
-      if (data) {
-        const readyCount = data.ready_count || 0;
-
-        if (readyCount === 1) {
-          toast.info('Rematch requested! Waiting for opponent...');
-        }
-
-        setRematchLoading(false);
-        // Keep button disabled - rematch is in progress
-      }
-    } catch (error: any) {
-      console.log('[REMATCH DEBUG] Exception:', error);
-      toast.error(`Failed to request rematch: ${error.message}`);
-      setRematchLoading(false);
-      setRematchDisabled(false);
-    }
-  };
-
-  const onRematchClick = async () => {
-    const { data, error } = await supabase.rpc("request_rematch", {
-      p_old_room_id: matchId,
-    });
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    const row = data?.[0];
-
-    if (row?.ready_count != null) {
-      setRematchCount(row.ready_count);
-    }
-
-    if (row?.new_room_id) {
-      setStarting(true);
-      setTimeout(() => {
-        router.push(`/app/play/quick-match/match/${row.new_room_id}`);
-      }, 700);
-    }
+    toast.info('Rating skipped');
   };
 
   const handleReturnToApp = async () => {
@@ -1091,25 +616,9 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // ICE server fetching now handled by useMatchWebRTC hook
-
-  // All WebRTC functions now handled by useMatchWebRTC hook
-  // toggleCamera, toggleMic, toggleVideo, stopCamera are destructured from the hook above
-
-  const getDartLabel = (dart: Dart) => {
-    if (dart.number === 0 && dart.value === 0) {
-      return 'MISS';
-    }
-    if (dart.type === 'bull') {
-      return dart.number === 25 ? 'SB' : 'DB';
-    }
-    const prefix = dart.type === 'single' ? 'S' : dart.type === 'double' ? 'D' : 'T';
-    return `${prefix}${dart.number}`;
-  };
-
   if (loading) {
     return (
-      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
         <div className="text-white">Loading match...</div>
       </div>
     );
@@ -1117,7 +626,7 @@ export default function QuickMatchRoomPage() {
 
   if (!room) {
     return (
-      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
         <Card className="bg-slate-900/50 border-white/10 p-8 text-center">
           <p className="text-white text-lg mb-4">Match room not found</p>
           <Button
@@ -1133,7 +642,7 @@ export default function QuickMatchRoomPage() {
 
   if (!room.player2_id) {
     return (
-      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
         <Card className="bg-slate-900/50 border-white/10 p-8 text-center">
           <div className="text-white text-lg mb-2">Waiting for opponent...</div>
           <p className="text-gray-400 text-sm">Room ID: {matchId.slice(0, 8)}...</p>
@@ -1144,7 +653,7 @@ export default function QuickMatchRoomPage() {
 
   if (!matchState) {
     return (
-      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
         <div className="text-white">Loading match data...</div>
       </div>
     );
@@ -1162,10 +671,21 @@ export default function QuickMatchRoomPage() {
   const myAvg = myPlayer.threeDartAvg;
   const opponentAvg = opponentPlayer.threeDartAvg;
 
-  const myVisits = matchState.visitHistory.filter(v => v.playerId === myPlayer.id);
-  const opponentVisits = matchState.visitHistory.filter(v => v.playerId === opponentPlayer.id);
-  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
-  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
+  const myVisits = matchState.visitHistory.filter(v => v.playerId === myPlayer.id).map((v, idx) => ({
+    visitNumber: idx + 1,
+    score: v.score,
+    remaining: v.remainingAfter,
+    isBust: v.isBust,
+    isCheckout: v.isCheckout,
+  }));
+  const opponentVisits = matchState.visitHistory.filter(v => v.playerId === opponentPlayer.id).map((v, idx) => ({
+    visitNumber: idx + 1,
+    score: v.score,
+    remaining: v.remainingAfter,
+    isBust: v.isBust,
+    isCheckout: v.isCheckout,
+  }));
+
   const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1].score : 0;
   const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1].score : 0;
   const myDartsThrown = myVisits.length * 3;
@@ -1177,34 +697,13 @@ export default function QuickMatchRoomPage() {
     ? (matchState.winnerId === currentUserId ? 'you' : 'opponent')
     : null;
 
-  const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
-  const checkoutOptions = getCheckoutOptions(myRemaining, true);
-  const isOnCheckout = myRemaining > 1 && myRemaining <= 170;
-
-  const doubleOut = matchState.matchFormat.includes('best-of');
+  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
+  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
-      {showSoundBanner && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
-          <span className="text-sm font-medium">Tap to enable match sound</span>
-          <Button
-            size="sm"
-            onClick={handleEnableSound}
-            className="bg-white text-emerald-600 hover:bg-emerald-50 ml-4"
-          >
-            Enable Sound
-          </Button>
-        </div>
-      )}
-
-      {/* Forfeit Button - Top Right */}
-      <div className="absolute top-3 right-3 z-10 flex items-center space-x-3">
-        {isConnected ? (
-          <Wifi className="w-4 h-4 text-emerald-400" />
-        ) : (
-          <WifiOff className="w-4 h-4 text-red-400" />
-        )}
+      {/* Forfeit Button - Top Left */}
+      <div className="absolute top-4 left-4 z-10 flex items-center space-x-3">
         <Button
           variant="outline"
           size="sm"
@@ -1215,79 +714,144 @@ export default function QuickMatchRoomPage() {
           <LogOut className="w-4 h-4 mr-2" />
           Forfeit
         </Button>
+        {isConnected ? (
+          <Wifi className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <WifiOff className="w-4 h-4 text-red-400" />
+        )}
       </div>
 
-      {/* Top Row: Best of X + Player Score Cards */}
-      <MatchHUDTop
-        bestOf={matchState.matchFormat.replace('best-of-', 'Best of ')}
-        myPlayer={{
-          name: myName,
-          remaining: myRemaining,
-          average: myAvg,
-          lastScore: myLastScore,
-          dartsThrown: myDartsThrown,
-          legsWon: myLegs,
-          isActive: isMyTurn,
-          isMe: true,
-          trustRating: null,
-        }}
-        opponentPlayer={{
-          name: opponentName,
-          remaining: opponentRemaining,
-          average: opponentAvg,
-          lastScore: opponentLastScore,
-          dartsThrown: opponentDartsThrown,
-          legsWon: opponentLegs,
-          isActive: !isMyTurn,
-          isMe: false,
-          trustRating: opponentTrustRating,
-        }}
-        legsToWin={matchState.legsToWin}
-      />
+      {/* Main 2-Column Layout */}
+      <div className="flex-1 grid grid-cols-[1.5fr_1fr] gap-4 p-4 min-h-0">
+        {/* LEFT COLUMN: Camera Panel */}
+        <div className="flex flex-col min-h-0">
+          <Card className="flex-1 bg-slate-800/50 border-white/10 flex flex-col overflow-hidden min-h-0">
+            <div className="flex items-center justify-between p-3 border-b border-white/5">
+              <h3 className="text-sm font-semibold text-white">Camera</h3>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-400">
+                  {callStatus === 'connected' ? 'Connected' : callStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={toggleCamera}
+                  className={`h-8 w-8 p-0 ${isCameraOn ? 'text-emerald-400' : 'text-gray-500'}`}
+                >
+                  {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={toggleMic}
+                  className={`h-8 w-8 p-0 ${!isMicMuted ? 'text-emerald-400' : 'text-gray-500'}`}
+                >
+                  {!isMicMuted ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={toggleVideo}
+                  className={`h-8 w-8 p-0 ${!isVideoDisabled ? 'text-emerald-400' : 'text-gray-500'}`}
+                >
+                  {!isVideoDisabled ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 relative bg-slate-900/50 overflow-hidden min-h-0">
+              <video
+                ref={liveVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {!isCameraOn && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-gray-500 text-sm">Camera Off</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
 
-      {/* Main Row: Camera Panel (left) + Turn Panel (right) */}
-      <div className="flex-1 grid grid-cols-2 gap-3 px-4 pb-4 min-h-0" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
-        <MatchCameraPanel
-          liveVideoRef={liveVideoRef}
-          localStream={localStream}
-          remoteStream={remoteStream}
-          isMyTurn={isMyTurn}
-          myName={myName}
-          opponentName={opponentName}
-          callStatus={callStatus}
-          isCameraOn={isCameraOn}
-          isMicMuted={isMicMuted}
-          isVideoDisabled={isVideoDisabled}
-          toggleCamera={toggleCamera}
-          toggleMic={toggleMic}
-          toggleVideo={toggleVideo}
-        />
+        {/* RIGHT COLUMN: Match UI */}
+        <div className="flex flex-col space-y-3 min-h-0">
+          {/* Best of X */}
+          <div className="text-center">
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-sm px-4 py-1">
+              {matchState.matchFormat.replace('best-of-', 'Best of ')}
+            </Badge>
+          </div>
 
-        <MatchTurnPanel
-          isMyTurn={isMyTurn}
-          scoreInput={scoreInput}
-          setScoreInput={setScoreInput}
-          inputModeError={inputModeError}
-          setInputModeError={setInputModeError}
-          handleInputScoreSubmit={handleInputScoreSubmit}
-          submitting={submitting}
-          isOnCheckout={isOnCheckout}
-          myRemaining={myRemaining}
-          checkoutOptions={checkoutOptions}
-          currentVisit={currentVisit}
-          getDartLabel={getDartLabel}
-          visitTotal={visitTotal}
-          dartboardGroup={dartboardGroup}
-          setDartboardGroup={setDartboardGroup}
-          handleDartClick={handleDartClick}
-          handleClearVisit={handleClearVisit}
-          handleSubmitVisit={handleSubmitVisit}
-          handleBust={handleBust}
-          visitHistory={matchState.visitHistory}
-          handleEditVisit={handleEditVisit}
-        />
+          {/* Player Score Cards with Stats */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <QuickMatchPlayerCard
+                name={myName}
+                remaining={myRemaining}
+                legs={myLegs}
+                isActive={isMyTurn}
+                color="text-emerald-400"
+                position="left"
+                stats={{
+                  average: myAvg,
+                  lastScore: myLastScore,
+                  dartsThrown: myDartsThrown,
+                }}
+              />
+            </div>
+            <div className="flex-1">
+              <QuickMatchPlayerCard
+                name={opponentName}
+                remaining={opponentRemaining}
+                legs={opponentLegs}
+                isActive={!isMyTurn}
+                color="text-blue-400"
+                position="right"
+                stats={{
+                  average: opponentAvg,
+                  lastScore: opponentLastScore,
+                  dartsThrown: opponentDartsThrown,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Scoring or Visit History Panel */}
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden flex flex-col min-h-0">
+            {isMyTurn ? (
+              <QuickMatchScoringPanel
+                scoreInput={scoreInput}
+                onScoreInputChange={setScoreInput}
+                onSubmit={handleInputScoreSubmit}
+                currentDarts={currentVisit}
+                onDartClick={handleDartClick}
+                onUndoDart={handleUndoDart}
+                onClearVisit={handleClearVisit}
+                submitting={submitting}
+              />
+            ) : (
+              <>
+                <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
+                <div className="flex-1 overflow-hidden min-h-0">
+                  <QuickMatchVisitHistoryPanel
+                    myVisits={myVisits}
+                    opponentVisits={opponentVisits}
+                    myName={myName}
+                    opponentName={opponentName}
+                    myColor="text-emerald-400"
+                    opponentColor="text-blue-400"
+                    onEditVisit={handleEditVisit}
+                  />
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
       </div>
 
+      {/* Forfeit Confirmation Dialog */}
       <AlertDialog open={showEndMatchDialog} onOpenChange={(open) => !forfeitLoading && setShowEndMatchDialog(open)}>
         <AlertDialogContent className="bg-slate-900 border-white/10">
           <AlertDialogHeader>
@@ -1314,6 +878,7 @@ export default function QuickMatchRoomPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Opponent Forfeit Signal Modal */}
       <Dialog open={showOpponentForfeitSignalModal} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl">
           <DialogHeader>
@@ -1408,17 +973,11 @@ export default function QuickMatchRoomPage() {
             >
               Back to Quick Match
             </Button>
-            <Button
-              onClick={() => toast.info('Rematch feature coming soon!')}
-              variant="outline"
-              className="flex-1 border-white/20 text-white hover:bg-white/10"
-            >
-              Rematch
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Match Complete Modal */}
       <Dialog open={showMatchCompleteModal || showOpponentForfeitModal} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-3xl">
           <DialogHeader>
@@ -1591,19 +1150,6 @@ export default function QuickMatchRoomPage() {
               <Home className="w-5 h-5 mr-2" />
               Back to Quick Match
             </Button>
-            <Button
-              size="lg"
-              onClick={onRematchClick}
-              disabled={starting}
-              className={`bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8 ${
-                rematchCount === 1 ? 'ring-2 ring-emerald-400 animate-pulse ring-offset-2 ring-offset-slate-900' : ''
-              } ${
-                rematchCount === 2 ? 'opacity-60 cursor-not-allowed' : ''
-              }`}
-            >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              {starting ? 'Starting…' : `Rematch ${rematchCount}/2`}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1617,7 +1163,6 @@ export default function QuickMatchRoomPage() {
           onSave={handleSaveEditedVisit}
         />
       )}
-
     </div>
   );
 }
