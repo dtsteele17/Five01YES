@@ -23,15 +23,45 @@ interface AimTarget {
   description: string;
 }
 
-const LEVEL_SIGMA_MAP: Record<number, number> = {
-  95: 0.018,
-  85: 0.024,
-  75: 0.032,
-  65: 0.042,
-  55: 0.054,
-  45: 0.070,
-  35: 0.090,
-  25: 0.120,
+export interface BotPerformanceTracker {
+  recentVisits: number[];
+  targetLevel: number;
+}
+
+const CALIBRATION_WINDOW = 12;
+const CALIBRATION_STRENGTH = 0.015;
+
+const LEVEL_BASE_SIGMA: Record<number, number> = {
+  95: 0.016,
+  85: 0.020,
+  75: 0.026,
+  65: 0.034,
+  55: 0.044,
+  45: 0.058,
+  35: 0.078,
+  25: 0.110,
+};
+
+const DOUBLE_MISS_PROBABILITY: Record<number, number> = {
+  95: 0.15,
+  85: 0.22,
+  75: 0.30,
+  65: 0.40,
+  55: 0.50,
+  45: 0.60,
+  35: 0.72,
+  25: 0.85,
+};
+
+const OFFBOARD_BASE_PROBABILITY: Record<number, number> = {
+  95: 0.000,
+  85: 0.002,
+  75: 0.005,
+  65: 0.010,
+  55: 0.018,
+  45: 0.030,
+  35: 0.048,
+  25: 0.075,
 };
 
 function gaussianRandom(): number {
@@ -41,7 +71,62 @@ function gaussianRandom(): number {
 }
 
 function getBaseSigma(level: number): number {
-  return LEVEL_SIGMA_MAP[level] || 0.05;
+  return LEVEL_BASE_SIGMA[level] || 0.05;
+}
+
+function getDoubleMissProbability(level: number): number {
+  return DOUBLE_MISS_PROBABILITY[level] || 0.5;
+}
+
+function getOffboardProbability(level: number): number {
+  return OFFBOARD_BASE_PROBABILITY[level] || 0.02;
+}
+
+function calculateCalibratedSigma(
+  baseSigma: number,
+  tracker: BotPerformanceTracker | null,
+  level: number
+): number {
+  if (!tracker || tracker.recentVisits.length < 3) {
+    return baseSigma;
+  }
+
+  const recentAverage = tracker.recentVisits.reduce((a, b) => a + b, 0) / tracker.recentVisits.length;
+  const target = level;
+  const difference = recentAverage - target;
+  const percentDiff = difference / target;
+
+  let adjustment = 1.0;
+
+  if (Math.abs(percentDiff) > 0.05) {
+    adjustment = 1.0 + (percentDiff * CALIBRATION_STRENGTH);
+    adjustment = Math.max(0.85, Math.min(1.15, adjustment));
+  }
+
+  return baseSigma * adjustment;
+}
+
+export function updatePerformanceTracker(
+  tracker: BotPerformanceTracker | null,
+  visitScore: number,
+  level: number
+): BotPerformanceTracker {
+  if (!tracker) {
+    return {
+      recentVisits: [visitScore],
+      targetLevel: level,
+    };
+  }
+
+  const updated = [...tracker.recentVisits, visitScore];
+  if (updated.length > CALIBRATION_WINDOW) {
+    updated.shift();
+  }
+
+  return {
+    recentVisits: updated,
+    targetLevel: level,
+  };
 }
 
 function getNumberAngle(number: number): number {
@@ -58,6 +143,16 @@ function getAimPoint(target: string): AimTarget {
       x: radius * Math.cos(angle),
       y: radius * Math.sin(angle),
       description: 'T20',
+    };
+  }
+
+  if (target === 'T19') {
+    const angle = getNumberAngle(19);
+    const radius = 0.60;
+    return {
+      x: radius * Math.cos(angle),
+      y: radius * Math.sin(angle),
+      description: 'T19',
     };
   }
 
@@ -147,16 +242,26 @@ function determineSegment(x: number, y: number): { label: string; score: number;
 export function simulateDart(
   aimTarget: string,
   level: number,
-  formMultiplier: number
+  formMultiplier: number,
+  tracker: BotPerformanceTracker | null,
+  isDoubleAttempt: boolean = false
 ): DartResult {
   const baseSigma = getBaseSigma(level);
-  let sigma = baseSigma * formMultiplier;
+  const calibratedSigma = calculateCalibratedSigma(baseSigma, tracker, level);
+  let sigma = calibratedSigma * formMultiplier;
 
   const rand = Math.random();
   if (rand < 0.10) {
-    sigma *= 0.8;
+    sigma *= 0.80;
   } else if (rand > 0.90) {
-    sigma *= 1.25;
+    sigma *= 1.30;
+  }
+
+  if (isDoubleAttempt) {
+    const doubleMissProb = getDoubleMissProbability(level);
+    if (Math.random() < doubleMissProb) {
+      sigma *= 1.8;
+    }
   }
 
   const aimPoint = getAimPoint(aimTarget);
@@ -169,7 +274,8 @@ export function simulateDart(
 
   const { angle, radius } = cartesianToPolar(actualX, actualY);
 
-  const offboard = radius > 1.02 || (level <= 35 && Math.random() < 0.02);
+  const offboardProb = getOffboardProbability(level);
+  const offboard = radius > 1.02 || Math.random() < offboardProb;
 
   if (offboard) {
     const edgeAngle = Math.atan2(actualY, actualX);
@@ -195,23 +301,39 @@ export function simulateDart(
   };
 }
 
-function getCheckoutTarget(remaining: number): string | null {
+function getCheckoutTarget(remaining: number, doubleOut: boolean): string | null {
+  if (!doubleOut) return null;
+
   if (remaining === 50) return 'BULL';
   if (remaining === 40) return 'D20';
   if (remaining === 38) return 'D19';
   if (remaining === 36) return 'D18';
+  if (remaining === 34) return 'D17';
   if (remaining === 32) return 'D16';
+  if (remaining === 30) return 'D15';
+  if (remaining === 28) return 'D14';
+  if (remaining === 26) return 'D13';
   if (remaining === 24) return 'D12';
+  if (remaining === 22) return 'D11';
   if (remaining === 20) return 'D10';
+  if (remaining === 18) return 'D9';
   if (remaining === 16) return 'D8';
+  if (remaining === 14) return 'D7';
+  if (remaining === 12) return 'D6';
+  if (remaining === 10) return 'D5';
+  if (remaining === 8) return 'D4';
+  if (remaining === 6) return 'D3';
+  if (remaining === 4) return 'D2';
+  if (remaining === 2) return 'D1';
 
   if (remaining >= 2 && remaining <= 40 && remaining % 2 === 0) {
     return `D${remaining / 2}`;
   }
 
-  if (remaining >= 3 && remaining <= 40) {
-    return `S1`;
-  }
+  if (remaining === 3) return 'S1';
+  if (remaining === 5) return 'S1';
+  if (remaining === 7) return 'S3';
+  if (remaining === 9) return 'S1';
 
   if (remaining >= 41 && remaining <= 60) {
     const setup = remaining - 32;
@@ -225,6 +347,19 @@ function getCheckoutTarget(remaining: number): string | null {
     if (afterTriple % 2 === 0 && afterTriple >= 2 && afterTriple <= 40) {
       return 'T20';
     }
+    return 'T19';
+  }
+
+  if (remaining >= 111 && remaining <= 170) {
+    const afterT20 = remaining - 60;
+    if (afterT20 % 2 === 0 && afterT20 >= 2 && afterT20 <= 60) {
+      return 'T20';
+    }
+    const afterT19 = remaining - 57;
+    if (afterT19 % 2 === 0 && afterT19 >= 2 && afterT19 <= 60) {
+      return 'T19';
+    }
+    return 'T20';
   }
 
   return null;
@@ -235,9 +370,11 @@ function chooseAimTarget(remaining: number, doubleOut: boolean): string {
     return 'T20';
   }
 
-  const checkoutTarget = getCheckoutTarget(remaining);
-  if (checkoutTarget) {
-    return checkoutTarget;
+  if (remaining <= 170 && doubleOut) {
+    const checkoutTarget = getCheckoutTarget(remaining, doubleOut);
+    if (checkoutTarget) {
+      return checkoutTarget;
+    }
   }
 
   const goodLeaves = [40, 32, 36, 24, 20, 16];
@@ -247,16 +384,23 @@ function chooseAimTarget(remaining: number, doubleOut: boolean): string {
       return 'T20';
     } else if (needed >= 51 && needed <= 56) {
       return 'T19';
-    } else if (needed >= 20 && needed <= 40) {
-      return `S${needed}`;
+    } else if (needed >= 45 && needed <= 50) {
+      return 'T17';
+    } else if (needed >= 39 && needed <= 44) {
+      return 'T15';
     }
   }
 
   if (remaining >= 100) return 'T20';
-  if (remaining >= 60) return 'T19';
-  if (remaining >= 40) return 'S20';
+  if (remaining >= 80) return 'T19';
+  if (remaining >= 60) return 'T17';
+  if (remaining >= 40) return 'T15';
 
   return 'S20';
+}
+
+function isDoubleTarget(target: string): boolean {
+  return target.startsWith('D') || target === 'BULL';
 }
 
 export function simulateVisit({
@@ -264,11 +408,13 @@ export function simulateVisit({
   remaining,
   doubleOut,
   formMultiplier,
+  tracker = null,
 }: {
   level: number;
   remaining: number;
   doubleOut: boolean;
   formMultiplier: number;
+  tracker?: BotPerformanceTracker | null;
 }): VisitResult {
   const darts: DartResult[] = [];
   let currentRemaining = remaining;
@@ -277,7 +423,8 @@ export function simulateVisit({
 
   for (let i = 0; i < 3; i++) {
     const aimTarget = chooseAimTarget(currentRemaining, doubleOut);
-    const dart = simulateDart(aimTarget, level, formMultiplier);
+    const isDoubleAttempt = doubleOut && isDoubleTarget(aimTarget);
+    const dart = simulateDart(aimTarget, level, formMultiplier, tracker, isDoubleAttempt);
     darts.push(dart);
 
     const newRemaining = currentRemaining - dart.score;

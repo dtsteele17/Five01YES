@@ -38,7 +38,7 @@ import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { MatchSaveDebugStrip } from '@/components/app/MatchSaveDebugStrip';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
-import { simulateVisit, DartResult } from '@/lib/botThrowEngine';
+import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled } from '@/lib/dartbotSettings';
 
 interface Visit {
@@ -140,6 +140,7 @@ export default function Training501Page() {
   const [botLastVisitTotal, setBotLastVisitTotal] = useState<number | null>(null);
   const [showVisualization, setShowVisualization] = useState(true);
   const [botFormMultiplier] = useState(() => 0.85 + Math.random() * 0.3);
+  const [botPerformanceTracker, setBotPerformanceTracker] = useState<BotPerformanceTracker | null>(null);
   const dartboardAnimationTimerRef = useRef<number | null>(null);
 
   const { saveStatus, savedMatchId, saveError } = useMatchPersistence({
@@ -296,7 +297,10 @@ export default function Training501Page() {
         remaining: currentScore,
         doubleOut: config.doubleOut,
         formMultiplier: botFormMultiplier,
+        tracker: botPerformanceTracker,
       });
+
+      setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
 
       setBotLastVisitTotal(visualVisit.visitTotal);
       await animateBotThrows(visualVisit.darts);
@@ -711,6 +715,7 @@ export default function Training501Page() {
     setInputModeError('');
 
     setBotMatchState(prev => resetBotLegState(prev));
+    setBotPerformanceTracker(null);
 
     setTimeout(() => {
       setIsLegTransitioning(false);
@@ -763,6 +768,7 @@ export default function Training501Page() {
     setPlayer1CheckoutsMade(0);
     setPlayer2TotalDartsAtDouble(0);
     setPlayer2CheckoutsMade(0);
+    setBotPerformanceTracker(null);
   };
 
   const handleReturnToPlay = () => {
