@@ -1286,15 +1286,13 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
         </DialogContent>
       </Dialog>
 
-      {editingVisit && (
-        <EditVisitModal
-          open={showEditVisitModal}
-          onOpenChange={setShowEditVisitModal}
-          visitNumber={editingVisit.visitNumber}
-          originalScore={editingVisit.score}
-          onSave={handleSaveEditedVisit}
-        />
-      )}
+      <EditVisitModal
+        open={showEditVisitModal && editingVisit !== null}
+        onOpenChange={setShowEditVisitModal}
+        visitNumber={editingVisit?.visitNumber || 0}
+        originalScore={editingVisit?.score || 0}
+        onSave={handleSaveEditedVisit}
+      />
 
       <MatchChatDrawer
         roomId={matchId}
