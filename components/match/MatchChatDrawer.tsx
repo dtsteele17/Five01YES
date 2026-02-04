@@ -104,19 +104,6 @@ export function MatchChatDrawer({
     }
 
     setMessages((data as ChatMessage[]) || []);
-
-    // Check for unread messages
-    if (data && data.length > 0) {
-      const hasUnread = data.some((msg: ChatMessage) => {
-        if (msg.from_user_id === myUserId) return false;
-        // Check if current user hasn't seen this message
-        // We'll need to determine which player we are
-        return false; // Will be set by realtime updates
-      });
-      if (hasUnread && !isOpen) {
-        onUnreadChange(true);
-      }
-    }
   }
 
   async function markAsSeen() {
