@@ -112,9 +112,6 @@ export default function QuickMatchRoomPage() {
   const [scoreInput, setScoreInput] = useState('');
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [dartsAtDouble, setDartsAtDouble] = useState(0);
-  const [showDartsAtDoubleDialog, setShowDartsAtDoubleDialog] = useState(false);
-  const [pendingSubmitData, setPendingSubmitData] = useState<{score: number, isBust: boolean, darts: Dart[]} | null>(null);
 
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
@@ -496,9 +493,7 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_BUST] ========================');
 
     // Bust = score is 0, isBust = true, but still send all darts thrown
-    // Show darts-at-double popup before submitting bust
-    setPendingSubmitData({ score: 0, isBust: true, darts: currentVisit });
-    setShowDartsAtDoubleDialog(true);
+    await submitScore(0, true, currentVisit);
   };
 
   const handleSubmitVisit = async () => {
@@ -519,17 +514,7 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
     console.log('[HANDLE_SUBMIT] ========================');
 
-    // Show darts-at-double popup before submitting
-    setPendingSubmitData({ score: visitTotal, isBust: false, darts: currentVisit });
-    setShowDartsAtDoubleDialog(true);
-  };
-
-  const handleDartsAtDoubleSubmit = async (count: number) => {
-    if (!pendingSubmitData) return;
-    setDartsAtDouble(count);
-    setShowDartsAtDoubleDialog(false);
-    await submitScore(pendingSubmitData.score, pendingSubmitData.isBust, pendingSubmitData.darts, count);
-    setPendingSubmitData(null);
+    await submitScore(visitTotal, false, currentVisit);
   };
 
   const handleInputScoreSubmit = async () => {
@@ -541,7 +526,7 @@ export default function QuickMatchRoomPage() {
     await submitScore(score, false);
   };
 
-  async function submitScore(score: number, isBust: boolean = false, darts: Dart[] = [], dartsAtDoubleCount: number = 0) {
+  async function submitScore(score: number, isBust: boolean = false, darts: Dart[] = []) {
     if (!room || !matchState || !currentUserId) return;
 
     const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
@@ -562,7 +547,6 @@ export default function QuickMatchRoomPage() {
     const dartsArray = darts.map(dart => {
       let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
       if (dart.type === 'bull') {
-        // Check if it's a double bull (50) or single bull (25)
         mult = dart.value === 50 ? 'DB' : 'SB';
       } else if (dart.type === 'double') {
         mult = 'D';
@@ -570,64 +554,36 @@ export default function QuickMatchRoomPage() {
         mult = 'T';
       }
       return {
-        mult,
-        n: dart.number
+        n: dart.number,
+        mult
       };
     });
-
-    const dartsThrown = darts.length || (isBust ? 3 : 3); // Default to 3 if not specified
 
     setSubmitting(true);
 
     try {
       console.log('[SUBMIT] ===== SUBMIT VISIT =====');
       console.log('[SUBMIT] Room ID:', matchId);
-      console.log('[SUBMIT] User ID:', currentUserId);
       console.log('[SUBMIT] Score:', visitTotal);
       console.log('[SUBMIT] Is Bust:', isBust);
-      console.log('[SUBMIT] Darts:', darts);
       console.log('[SUBMIT] Darts Array:', dartsArray);
-      console.log('[SUBMIT] Darts Thrown:', dartsThrown);
-      console.log('[SUBMIT] Darts At Double:', dartsAtDoubleCount);
-      console.log('[SUBMIT] Match Type:', room.match_type);
-      console.log('[SUBMIT] Room Status:', room.status);
-      console.log('[SUBMIT] Current Turn:', room.current_turn);
-      console.log('[SUBMIT] Is My Turn:', isMyTurn);
       console.log('[SUBMIT] ========================');
-
-      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v3", {
-        p_room_id: matchId,
-        p_score: visitTotal,
-        p_darts: dartsArray,
-        p_is_bust: !!isBust,
-        p_darts_thrown: dartsThrown,
-        p_darts_at_double: dartsAtDoubleCount
-      });
 
       const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
         p_room_id: matchId,
         p_score: visitTotal,
         p_darts: dartsArray,
-        p_is_bust: !!isBust,
-        p_darts_thrown: dartsThrown,
-        p_darts_at_double: dartsAtDoubleCount
+        p_is_bust: !!isBust
       });
 
       if (error) {
-        console.error("[SUBMIT] Supabase error", {
-          message: error?.message,
-          details: error?.details,
-          hint: error?.hint,
-          code: error?.code
-        });
-        throw error;
+        console.error("[SUBMIT] RPC Error:", error.message);
+        toast.error(error.message || 'Failed to submit visit');
+        return;
       }
 
-      console.log('[SUBMIT] ===== SUCCESS =====');
-      console.log('[SUBMIT] Response:', data);
-      console.log('[SUBMIT] ========================');
+      console.log('[SUBMIT] Success:', data);
 
-      // Backend returns: { ok, remaining_after, score_applied, is_bust, is_checkout, leg_won, match_won }
       if (!data?.ok) {
         toast.error('Failed to submit visit');
         return;
@@ -636,13 +592,17 @@ export default function QuickMatchRoomPage() {
       // Clear visit on successful submission
       setScoreInput('');
       setCurrentVisit([]);
-      setDartsAtDouble(0);
+
+      // Show leg won notification
+      if (data.leg_won) {
+        toast.success('Leg won!');
+      }
 
       // The room state will be updated via realtime subscription
-      // No need to manually handle bust/checkout here as the backend manages all logic
+      // Visit history will auto-refresh for new leg due to useEffect watching room.current_leg
     } catch (error: any) {
       console.error('[SUBMIT] Error:', error);
-      toast.error('Failed to submit visit');
+      toast.error(error?.message || 'Failed to submit visit');
     } finally {
       setSubmitting(false);
     }
@@ -1414,29 +1374,6 @@ export default function QuickMatchRoomPage() {
           onSave={handleSaveEditedVisit}
         />
       )}
-
-      {/* Darts At Double Dialog */}
-      <Dialog open={showDartsAtDoubleDialog} onOpenChange={(open) => !open && setShowDartsAtDoubleDialog(false)}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle>Darts at Double</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-gray-400">How many darts did you throw at a double this visit?</p>
-            <div className="grid grid-cols-4 gap-2">
-              {[0, 1, 2, 3].map((count) => (
-                <Button
-                  key={count}
-                  onClick={() => handleDartsAtDoubleSubmit(count)}
-                  className="bg-slate-800 hover:bg-slate-700 text-white"
-                >
-                  {count}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <MatchChatDrawer
         roomId={matchId}
