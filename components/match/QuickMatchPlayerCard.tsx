@@ -8,6 +8,7 @@ interface QuickMatchPlayerCardProps {
   name: string;
   remaining: number;
   legs: number;
+  legsToWin: number;
   isActive: boolean;
   color: string;
   position: 'left' | 'right';
@@ -22,6 +23,7 @@ export function QuickMatchPlayerCard({
   name,
   remaining,
   legs,
+  legsToWin,
   isActive,
   color,
   position,
@@ -74,13 +76,13 @@ export function QuickMatchPlayerCard({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-400">Legs</p>
-              <p className={`text-xl font-bold ${statColor}`}>{legs}</p>
+              <p className={`text-2xl font-bold ${statColor}`}>{legs}</p>
             </div>
-            <div className="flex space-x-1">
-              {[...Array(5)].map((_, idx) => (
+            <div className="flex space-x-1.5">
+              {[...Array(legsToWin)].map((_, idx) => (
                 <div
                   key={idx}
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-3 h-3 rounded-full ${
                     idx < legs ? `${position === 'left' ? 'bg-emerald-500' : 'bg-blue-500'}` : 'bg-slate-700'
                   }`}
                 />

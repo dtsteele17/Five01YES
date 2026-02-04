@@ -35,7 +35,9 @@ import { getTrustRatingDisplay, getTrustRatingButtonGradient, getTrustRatingDesc
 import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 import { QuickMatchScoringPanel } from '@/components/match/QuickMatchScoringPanel';
 import { QuickMatchVisitHistoryPanel } from '@/components/match/QuickMatchVisitHistoryPanel';
+import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
+import { MessageCircle } from 'lucide-react';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -124,6 +126,10 @@ export default function QuickMatchRoomPage() {
   // Rematch
   const [rematchCount, setRematchCount] = useState(0);
   const [starting, setStarting] = useState(false);
+
+  // Chat
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   const hasRedirectedRef = useRef(false);
   const cleanupMatchRef = useRef<() => void>();
@@ -702,27 +708,52 @@ export default function QuickMatchRoomPage() {
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
-      {/* Forfeit Button - Top Left */}
-      <div className="absolute top-4 left-4 z-10 flex items-center space-x-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowEndMatchDialog(true)}
-          disabled={forfeitLoading}
-          className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 bg-slate-900/80 backdrop-blur-sm"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Forfeit
-        </Button>
-        {isConnected ? (
-          <Wifi className="w-4 h-4 text-emerald-400" />
-        ) : (
-          <WifiOff className="w-4 h-4 text-red-400" />
-        )}
+      {/* Top Bar with Forfeit and Chat */}
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4">
+        {/* Forfeit Button - Top Left */}
+        <div className="flex items-center space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEndMatchDialog(true)}
+            disabled={forfeitLoading}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 bg-slate-900/80 backdrop-blur-sm"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Forfeit
+          </Button>
+          {isConnected ? (
+            <Wifi className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <WifiOff className="w-4 h-4 text-red-400" />
+          )}
+        </div>
+
+        {/* Best of X - Center */}
+        <div className="absolute left-1/2 transform -translate-x-1/2">
+          <h2 className="text-2xl font-bold text-white tracking-wide">
+            {matchState.matchFormat.replace('best-of-', 'BEST OF ').toUpperCase()}
+          </h2>
+        </div>
+
+        {/* Chat Icon - Top Right */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowChatDrawer(true)}
+            className="border-white/10 text-white hover:bg-white/5 bg-slate-900/80 backdrop-blur-sm"
+          >
+            <MessageCircle className="w-4 h-4" />
+          </Button>
+          {hasUnreadMessages && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900" />
+          )}
+        </div>
       </div>
 
       {/* Main 2-Column Layout */}
-      <div className="flex-1 grid grid-cols-[1.5fr_1fr] gap-4 p-4 min-h-0">
+      <div className="flex-1 grid grid-cols-[1.4fr_1fr] gap-4 p-4 pt-20 min-h-0">
         {/* LEFT COLUMN: Camera Panel */}
         <div className="flex flex-col min-h-0">
           <Card className="flex-1 bg-slate-800/50 border-white/10 flex flex-col overflow-hidden min-h-0">
@@ -777,13 +808,6 @@ export default function QuickMatchRoomPage() {
 
         {/* RIGHT COLUMN: Match UI */}
         <div className="flex flex-col space-y-3 min-h-0">
-          {/* Best of X */}
-          <div className="text-center">
-            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-sm px-4 py-1">
-              {matchState.matchFormat.replace('best-of-', 'Best of ')}
-            </Badge>
-          </div>
-
           {/* Player Score Cards with Stats */}
           <div className="flex gap-2">
             <div className="flex-1">
@@ -791,6 +815,7 @@ export default function QuickMatchRoomPage() {
                 name={myName}
                 remaining={myRemaining}
                 legs={myLegs}
+                legsToWin={matchState.legsToWin}
                 isActive={isMyTurn}
                 color="text-emerald-400"
                 position="left"
@@ -806,6 +831,7 @@ export default function QuickMatchRoomPage() {
                 name={opponentName}
                 remaining={opponentRemaining}
                 legs={opponentLegs}
+                legsToWin={matchState.legsToWin}
                 isActive={!isMyTurn}
                 color="text-blue-400"
                 position="right"
@@ -824,7 +850,8 @@ export default function QuickMatchRoomPage() {
               <QuickMatchScoringPanel
                 scoreInput={scoreInput}
                 onScoreInputChange={setScoreInput}
-                onSubmit={handleInputScoreSubmit}
+                onTypeScoreSubmit={handleInputScoreSubmit}
+                onSubmitVisit={handleSubmitVisit}
                 currentDarts={currentVisit}
                 onDartClick={handleDartClick}
                 onUndoDart={handleUndoDart}
@@ -1163,6 +1190,15 @@ export default function QuickMatchRoomPage() {
           onSave={handleSaveEditedVisit}
         />
       )}
+
+      <MatchChatDrawer
+        roomId={matchId}
+        myUserId={currentUserId || ''}
+        opponentName={opponentName}
+        isOpen={showChatDrawer}
+        onOpenChange={setShowChatDrawer}
+        onUnreadChange={setHasUnreadMessages}
+      />
     </div>
   );
 }
