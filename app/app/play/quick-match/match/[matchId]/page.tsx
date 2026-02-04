@@ -1045,15 +1045,19 @@ export default function QuickMatchRoomPage() {
               <>
                 <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
                 <div className="flex-1 overflow-hidden min-h-0">
-                  <QuickMatchVisitHistoryPanel
-                    myVisits={myVisits}
-                    opponentVisits={opponentVisits}
-                    myName={myName}
-                    opponentName={opponentName}
-                    myColor="text-emerald-400"
-                    opponentColor="text-blue-400"
-                    onEditVisit={handleEditVisit}
-                  />
+                  {currentUserId && (
+                    <QuickMatchVisitHistoryPanel
+                      roomId={matchId}
+                      currentLeg={room.current_leg || 1}
+                      myUserId={currentUserId}
+                      opponentUserId={matchState.youArePlayer === 1 ? room.player2_id! : room.player1_id!}
+                      myName={myName}
+                      opponentName={opponentName}
+                      myColor="text-emerald-400"
+                      opponentColor="text-blue-400"
+                      onEditVisit={handleEditVisit}
+                    />
+                  )}
                 </div>
               </>
             )}

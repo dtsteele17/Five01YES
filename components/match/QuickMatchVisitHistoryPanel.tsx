@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { createClient } from '@/lib/supabase/client';
 
 interface Visit {
   visitNumber: number;
@@ -21,8 +22,10 @@ interface Visit {
 }
 
 interface QuickMatchVisitHistoryPanelProps {
-  myVisits: Visit[];
-  opponentVisits: Visit[];
+  roomId: string;
+  currentLeg: number;
+  myUserId: string;
+  opponentUserId: string;
   myName: string;
   opponentName: string;
   myColor: string;
@@ -31,8 +34,10 @@ interface QuickMatchVisitHistoryPanelProps {
 }
 
 export function QuickMatchVisitHistoryPanel({
-  myVisits,
-  opponentVisits,
+  roomId,
+  currentLeg,
+  myUserId,
+  opponentUserId,
   myName,
   opponentName,
   myColor,
@@ -40,7 +45,133 @@ export function QuickMatchVisitHistoryPanel({
   onEditVisit,
 }: QuickMatchVisitHistoryPanelProps) {
   const [showAllModal, setShowAllModal] = useState(false);
+  const [myVisits, setMyVisits] = useState<Visit[]>([]);
+  const [opponentVisits, setOpponentVisits] = useState<Visit[]>([]);
   const maxVisibleVisits = 8;
+
+  const supabase = createClient();
+
+  // Fetch visits from database
+  useEffect(() => {
+    if (!roomId || !currentLeg || !myUserId || !opponentUserId) return;
+
+    async function fetchVisits() {
+      const { data, error } = await supabase
+        .from('quick_match_visits')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('leg', currentLeg)
+        .order('turn_no', { ascending: true });
+
+      if (error) {
+        console.error('[VISIT_HISTORY] Error fetching visits:', error);
+        return;
+      }
+
+      if (!data) return;
+
+      // Separate visits by player
+      const myVisitsData = data
+        .filter(v => v.player_id === myUserId)
+        .map(v => ({
+          visitNumber: v.turn_no,
+          score: v.score,
+          remaining: v.remaining_after,
+          isBust: v.is_bust || false,
+          isCheckout: v.is_checkout || false,
+        }));
+
+      const opponentVisitsData = data
+        .filter(v => v.player_id === opponentUserId)
+        .map(v => ({
+          visitNumber: v.turn_no,
+          score: v.score,
+          remaining: v.remaining_after,
+          isBust: v.is_bust || false,
+          isCheckout: v.is_checkout || false,
+        }));
+
+      setMyVisits(myVisitsData);
+      setOpponentVisits(opponentVisitsData);
+    }
+
+    fetchVisits();
+  }, [roomId, currentLeg, myUserId, opponentUserId, supabase]);
+
+  // Subscribe to realtime inserts and updates
+  useEffect(() => {
+    if (!roomId || !currentLeg || !myUserId || !opponentUserId) return;
+
+    const channel = supabase
+      .channel(`quick_match_visits:${roomId}:${currentLeg}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'quick_match_visits',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const newVisit = payload.new as any;
+
+          // Only add if it's for the current leg
+          if (newVisit.leg !== currentLeg) return;
+
+          const visit: Visit = {
+            visitNumber: newVisit.turn_no,
+            score: newVisit.score,
+            remaining: newVisit.remaining_after,
+            isBust: newVisit.is_bust || false,
+            isCheckout: newVisit.is_checkout || false,
+          };
+
+          if (newVisit.player_id === myUserId) {
+            setMyVisits(prev => [...prev, visit]);
+          } else if (newVisit.player_id === opponentUserId) {
+            setOpponentVisits(prev => [...prev, visit]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'quick_match_visits',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const updatedVisit = payload.new as any;
+
+          // Only update if it's for the current leg
+          if (updatedVisit.leg !== currentLeg) return;
+
+          const visit: Visit = {
+            visitNumber: updatedVisit.turn_no,
+            score: updatedVisit.score,
+            remaining: updatedVisit.remaining_after,
+            isBust: updatedVisit.is_bust || false,
+            isCheckout: updatedVisit.is_checkout || false,
+          };
+
+          if (updatedVisit.player_id === myUserId) {
+            setMyVisits(prev =>
+              prev.map(v => v.visitNumber === visit.visitNumber ? visit : v)
+            );
+          } else if (updatedVisit.player_id === opponentUserId) {
+            setOpponentVisits(prev =>
+              prev.map(v => v.visitNumber === visit.visitNumber ? visit : v)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId, currentLeg, myUserId, opponentUserId, supabase]);
 
   const renderVisitRow = (visit: Visit, playerName: string, color: string, editable: boolean) => (
     <div
