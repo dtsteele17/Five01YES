@@ -76,18 +76,21 @@ interface Profile {
   trust_rating_letter?: string;
 }
 
-interface MatchEvent {
+interface QuickMatchVisit {
   id: string;
+  room_id: string;
   player_id: string;
-  seq: number;
-  event_type: string;
-  payload: {
-    score: number;
-    remaining: number;
-    is_bust: boolean;
-    is_checkout: boolean;
-    leg: number;
-  };
+  leg: number;
+  turn_no: number;
+  score: number;
+  remaining_before: number;
+  remaining_after: number;
+  darts: any[];
+  darts_thrown: number;
+  darts_at_double: number;
+  is_bust: boolean;
+  bust_reason: string | null;
+  is_checkout: boolean;
   created_at: string;
 }
 
@@ -99,7 +102,7 @@ export default function QuickMatchRoomPage() {
 
   const [room, setRoom] = useState<MatchRoom | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [visits, setVisits] = useState<QuickMatchVisit[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [matchState, setMatchState] = useState<MappedMatchState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,6 +112,9 @@ export default function QuickMatchRoomPage() {
   const [scoreInput, setScoreInput] = useState('');
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [dartsAtDouble, setDartsAtDouble] = useState(0);
+  const [showDartsAtDoubleDialog, setShowDartsAtDoubleDialog] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<{score: number, isBust: boolean, darts: Dart[]} | null>(null);
 
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
@@ -237,13 +243,14 @@ export default function QuickMatchRoomPage() {
 
     setRoom(roomData as MatchRoom);
 
-    const { data: eventsData } = await supabase
-      .from('match_events')
+    const { data: visitsData } = await supabase
+      .from('quick_match_visits')
       .select('*')
       .eq('room_id', matchId)
-      .order('seq', { ascending: true });
+      .eq('leg', roomData.current_leg)
+      .order('created_at', { ascending: true });
 
-    setEvents((eventsData as MatchEvent[]) || []);
+    setVisits((visitsData as QuickMatchVisit[]) || []);
 
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
     const { data: profilesData } = await supabase
@@ -258,10 +265,41 @@ export default function QuickMatchRoomPage() {
 
   useEffect(() => {
     if (room && profiles.length > 0) {
-      const mapped = mapRoomToMatchState(room, events, profiles, currentUserId || '');
+      // Convert visits to match_events format for mapRoomToMatchState
+      const eventsFromVisits = visits.map(v => ({
+        id: v.id,
+        player_id: v.player_id,
+        seq: v.turn_no,
+        event_type: 'visit',
+        payload: {
+          score: v.score,
+          remaining: v.remaining_after,
+          is_bust: v.is_bust,
+          is_checkout: v.is_checkout,
+          leg: v.leg
+        },
+        created_at: v.created_at
+      }));
+      const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
       setMatchState(mapped);
     }
-  }, [room, events, profiles, currentUserId]);
+  }, [room, visits, profiles, currentUserId]);
+
+  // Refetch visits when leg changes
+  useEffect(() => {
+    if (room && room.current_leg) {
+      console.log('[LEG_CHANGE] Leg changed to', room.current_leg, 'refetching visits');
+      supabase
+        .from('quick_match_visits')
+        .select('*')
+        .eq('room_id', matchId)
+        .eq('leg', room.current_leg)
+        .order('created_at', { ascending: true })
+        .then(({ data }) => {
+          setVisits((data as QuickMatchVisit[]) || []);
+        });
+    }
+  }, [room?.current_leg]);
 
   function setupRealtimeSubscriptions() {
     const roomChannel = supabase
@@ -304,13 +342,16 @@ export default function QuickMatchRoomPage() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'match_events',
+          table: 'quick_match_visits',
           filter: `room_id=eq.${matchId}`,
         },
         (payload) => {
-          console.log('[REALTIME] Event inserted:', payload.new);
-          const newEvent = payload.new as MatchEvent;
-          setEvents((prev) => [...prev, newEvent]);
+          console.log('[REALTIME] Visit inserted:', payload.new);
+          const newVisit = payload.new as QuickMatchVisit;
+          // Only add if it's for the current leg
+          if (room && newVisit.leg === room.current_leg) {
+            setVisits((prev) => [...prev, newVisit]);
+          }
         }
       )
       .on(
@@ -318,13 +359,13 @@ export default function QuickMatchRoomPage() {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'match_events',
+          table: 'quick_match_visits',
           filter: `room_id=eq.${matchId}`,
         },
         (payload) => {
-          console.log('[REALTIME] Event updated:', payload.new);
-          const updatedEvent = payload.new as MatchEvent;
-          setEvents((prev) => prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)));
+          console.log('[REALTIME] Visit updated:', payload.new);
+          const updatedVisit = payload.new as QuickMatchVisit;
+          setVisits((prev) => prev.map((v) => (v.id === updatedVisit.id ? updatedVisit : v)));
         }
       )
       .subscribe((status) => {
@@ -455,7 +496,9 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_BUST] ========================');
 
     // Bust = score is 0, isBust = true, but still send all darts thrown
-    await submitScore(0, true, currentVisit);
+    // Show darts-at-double popup before submitting bust
+    setPendingSubmitData({ score: 0, isBust: true, darts: currentVisit });
+    setShowDartsAtDoubleDialog(true);
   };
 
   const handleSubmitVisit = async () => {
@@ -476,7 +519,17 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
     console.log('[HANDLE_SUBMIT] ========================');
 
-    await submitScore(visitTotal, false, currentVisit);
+    // Show darts-at-double popup before submitting
+    setPendingSubmitData({ score: visitTotal, isBust: false, darts: currentVisit });
+    setShowDartsAtDoubleDialog(true);
+  };
+
+  const handleDartsAtDoubleSubmit = async (count: number) => {
+    if (!pendingSubmitData) return;
+    setDartsAtDouble(count);
+    setShowDartsAtDoubleDialog(false);
+    await submitScore(pendingSubmitData.score, pendingSubmitData.isBust, pendingSubmitData.darts, count);
+    setPendingSubmitData(null);
   };
 
   const handleInputScoreSubmit = async () => {
@@ -488,7 +541,7 @@ export default function QuickMatchRoomPage() {
     await submitScore(score, false);
   };
 
-  async function submitScore(score: number, isBust: boolean = false, darts: Dart[] = []) {
+  async function submitScore(score: number, isBust: boolean = false, darts: Dart[] = [], dartsAtDoubleCount: number = 0) {
     if (!room || !matchState || !currentUserId) return;
 
     const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
@@ -505,11 +558,12 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    // Convert darts to server format with multiplier and is_double for validation
+    // Convert darts to server format
     const dartsArray = darts.map(dart => {
-      let mult: 'S' | 'D' | 'T' | 'B' = 'S';
+      let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
       if (dart.type === 'bull') {
-        mult = 'B';
+        // Check if it's a double bull (50) or single bull (25)
+        mult = dart.value === 50 ? 'DB' : 'SB';
       } else if (dart.type === 'double') {
         mult = 'D';
       } else if (dart.type === 'triple') {
@@ -517,12 +571,11 @@ export default function QuickMatchRoomPage() {
       }
       return {
         mult,
-        n: dart.number,
-        multiplier: dart.multiplier,
-        is_double: dart.is_double,
-        score: dart.score,
+        n: dart.number
       };
     });
+
+    const dartsThrown = darts.length || (isBust ? 3 : 3); // Default to 3 if not specified
 
     setSubmitting(true);
 
@@ -534,24 +587,30 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Is Bust:', isBust);
       console.log('[SUBMIT] Darts:', darts);
       console.log('[SUBMIT] Darts Array:', dartsArray);
+      console.log('[SUBMIT] Darts Thrown:', dartsThrown);
+      console.log('[SUBMIT] Darts At Double:', dartsAtDoubleCount);
       console.log('[SUBMIT] Match Type:', room.match_type);
       console.log('[SUBMIT] Room Status:', room.status);
       console.log('[SUBMIT] Current Turn:', room.current_turn);
       console.log('[SUBMIT] Is My Turn:', isMyTurn);
       console.log('[SUBMIT] ========================');
 
-      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v2", {
+      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v3", {
         p_room_id: matchId,
         p_score: visitTotal,
-        p_darts: dartsArray ?? [],
-        p_is_bust: !!isBust
+        p_darts: dartsArray,
+        p_is_bust: !!isBust,
+        p_darts_thrown: dartsThrown,
+        p_darts_at_double: dartsAtDoubleCount
       });
 
-      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v2", {
+      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
         p_room_id: matchId,
         p_score: visitTotal,
-        p_darts: dartsArray ?? [],
-        p_is_bust: !!isBust
+        p_darts: dartsArray,
+        p_is_bust: !!isBust,
+        p_darts_thrown: dartsThrown,
+        p_darts_at_double: dartsAtDoubleCount
       });
 
       if (error) {
@@ -568,7 +627,7 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Response:', data);
       console.log('[SUBMIT] ========================');
 
-      // Backend returns: { ok, remaining_after, score_applied, double_out }
+      // Backend returns: { ok, remaining_after, score_applied, is_bust, is_checkout, leg_won, match_won }
       if (!data?.ok) {
         toast.error('Failed to submit visit');
         return;
@@ -577,6 +636,7 @@ export default function QuickMatchRoomPage() {
       // Clear visit on successful submission
       setScoreInput('');
       setCurrentVisit([]);
+      setDartsAtDouble(0);
 
       // The room state will be updated via realtime subscription
       // No need to manually handle bust/checkout here as the backend manages all logic
@@ -1354,6 +1414,29 @@ export default function QuickMatchRoomPage() {
           onSave={handleSaveEditedVisit}
         />
       )}
+
+      {/* Darts At Double Dialog */}
+      <Dialog open={showDartsAtDoubleDialog} onOpenChange={(open) => !open && setShowDartsAtDoubleDialog(false)}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Darts at Double</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-gray-400">How many darts did you throw at a double this visit?</p>
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((count) => (
+                <Button
+                  key={count}
+                  onClick={() => handleDartsAtDoubleSubmit(count)}
+                  className="bg-slate-800 hover:bg-slate-700 text-white"
+                >
+                  {count}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <MatchChatDrawer
         roomId={matchId}
