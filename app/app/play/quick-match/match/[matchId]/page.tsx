@@ -36,8 +36,6 @@ import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 import { QuickMatchScoringPanel } from '@/components/match/QuickMatchScoringPanel';
 import { QuickMatchVisitHistoryPanel } from '@/components/match/QuickMatchVisitHistoryPanel';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
-import { DartsAtDoubleDialog } from '@/components/match/DartsAtDoubleDialog';
-import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 
@@ -88,12 +86,10 @@ interface MatchEvent {
   created_at: string;
 }
 
-interface QuickMatchRoomContentProps {
-  matchId: string;
-}
-
-function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
+export default function QuickMatchRoomPage() {
   const router = useRouter();
+  const params = useParams();
+  const matchId = params.matchId as string;
   const supabase = createClient();
 
   const [room, setRoom] = useState<MatchRoom | null>(null);
@@ -134,11 +130,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
   // Chat
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-
-  // Darts at Double
-  const [showDartsAtDoubleDialog, setShowDartsAtDoubleDialog] = useState(false);
-  const [dartsAtDoubleMax, setDartsAtDoubleMax] = useState(3);
-  const [visitStartRemaining, setVisitStartRemaining] = useState<number | null>(null);
 
   const hasRedirectedRef = useRef(false);
   const cleanupMatchRef = useRef<() => void>();
@@ -414,67 +405,7 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
     console.log('[HANDLE_SUBMIT] ========================');
 
-    // Check if darts at double should be prompted
-    const shouldPromptDartsAtDouble = checkIfFinishWasAvailable();
-
     await submitScore(visitTotal);
-
-    // After submit, if finish was available, prompt for darts at double
-    if (shouldPromptDartsAtDouble) {
-      const maxDarts = Math.min(currentVisit.length, 3);
-      setDartsAtDoubleMax(maxDarts);
-      setShowDartsAtDoubleDialog(true);
-    }
-  };
-
-  const handleMiss = () => {
-    if (currentVisit.length >= 3) return;
-    const dart: Dart = { type: 'single', number: 0, value: 0 };
-    setCurrentVisit([...currentVisit, dart]);
-  };
-
-  const handleBust = async () => {
-    if (!room || !currentUserId || submitting) return;
-
-    // Check if darts at double should be prompted before bust
-    const shouldPromptDartsAtDouble = checkIfFinishWasAvailable();
-
-    // Bust submits a score of 0
-    await submitScore(0);
-
-    // After bust, if finish was available, prompt for darts at double
-    if (shouldPromptDartsAtDouble) {
-      const maxDarts = Math.min(currentVisit.length > 0 ? currentVisit.length : 3, 3);
-      setDartsAtDoubleMax(maxDarts);
-      setShowDartsAtDoubleDialog(true);
-    }
-  };
-
-  const checkIfFinishWasAvailable = (): boolean => {
-    if (!matchState || !visitStartRemaining) return false;
-
-    // If started with <= 170, a finish was theoretically available
-    if (visitStartRemaining <= 170 && visitStartRemaining > 1) {
-      return true;
-    }
-
-    // Check if at any point during the visit a finish became available
-    let tempRemaining = visitStartRemaining;
-    for (const dart of currentVisit) {
-      tempRemaining -= dart.value;
-      if (tempRemaining <= 170 && tempRemaining > 1 && tempRemaining >= 0) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  const handleDartsAtDoubleSelect = async (darts: number) => {
-    // Store darts at double info - could save to DB if needed
-    console.log('[DARTS_AT_DOUBLE] Selected:', darts);
-    // In a full implementation, you would send this to the backend
-    // For now, just close the modal
   };
 
   const handleInputScoreSubmit = async () => {
@@ -584,16 +515,36 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
         return;
       }
 
-      console.log('[FORFEIT] Match forfeited successfully, winner:', data.winner_id);
+      console.log('[FORFEIT] Match forfeited successfully');
+
+      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+
+      if (opponentId) {
+        console.log('[FORFEIT] Sending forfeit signal to opponent:', opponentId);
+        const { error: signalError } = await supabase
+          .from('match_signals')
+          .insert({
+            room_id: matchId,
+            from_user_id: currentUserId,
+            to_user_id: opponentId,
+            type: 'forfeit',
+            payload: { message: 'Opponent forfeited the match' }
+          });
+
+        if (signalError) {
+          console.error('[FORFEIT] Failed to send forfeit signal:', signalError);
+        } else {
+          console.log('[FORFEIT] Forfeit signal sent successfully');
+        }
+      }
 
       toast.success('Match forfeited');
 
-      // Clean up and navigate to /app/play
       if (cleanupMatchRef.current) {
         cleanupMatchRef.current();
       }
       await clearMatchState(matchId);
-      router.push('/app/play');
+      router.push('/app/play/quick-match');
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
@@ -611,7 +562,7 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     if (!editingVisit) return;
 
     try {
-      const { data, error } = await supabase.rpc('rpc_edit_quick_match_visit', {
+      const { error } = await supabase.rpc('rpc_edit_quick_match_visit', {
         p_room_id: matchId,
         p_visit_number: editingVisit.visitNumber,
         p_new_score: newScore,
@@ -619,28 +570,14 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
 
       if (error) throw error;
 
-      // Check if RPC returned an error in the response
-      if (data && !data.ok) {
-        toast.error(data.error || 'Failed to update visit');
-        return;
-      }
-
       toast.success('Visit updated');
       setShowEditVisitModal(false);
       setEditingVisit(null);
 
-      // Refresh will happen via realtime subscription
       await loadMatchData();
     } catch (error: any) {
       console.error('[EDIT] Failed to edit visit:', error);
-      const errorMessage = error.message || 'Failed to update visit';
-
-      // Handle specific error cases
-      if (errorMessage.includes('remaining') && errorMessage.includes('below')) {
-        toast.error('This score would result in a bust (remaining < 0)');
-      } else {
-        toast.error(errorMessage);
-      }
+      toast.error(`Failed to update visit: ${error.message}`);
     }
   };
 
@@ -685,7 +622,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     }
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -694,7 +630,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     );
   }
 
-  // Room not found state
   if (!room) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -711,7 +646,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     );
   }
 
-  // Waiting for opponent state
   if (!room.player2_id) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -723,7 +657,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     );
   }
 
-  // Match state loading
   if (!matchState) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -735,34 +668,32 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
   const myPlayer = matchState.youArePlayer === 1 ? matchState.players[0] : matchState.players[1];
   const opponentPlayer = matchState.youArePlayer === 1 ? matchState.players[1] : matchState.players[0];
 
-  const myName = myPlayer?.name || 'You';
-  const opponentName = opponentPlayer?.name || 'Opponent';
-  const myRemaining = typeof myPlayer?.remaining === 'number' ? myPlayer.remaining : 0;
-  const opponentRemaining = typeof opponentPlayer?.remaining === 'number' ? opponentPlayer.remaining : 0;
-  const myLegs = typeof myPlayer?.legsWon === 'number' ? myPlayer.legsWon : 0;
-  const opponentLegs = typeof opponentPlayer?.legsWon === 'number' ? opponentPlayer.legsWon : 0;
-  const myAvg = typeof myPlayer?.threeDartAvg === 'number' ? myPlayer.threeDartAvg : 0;
-  const opponentAvg = typeof opponentPlayer?.threeDartAvg === 'number' ? opponentPlayer.threeDartAvg : 0;
+  const myName = myPlayer.name;
+  const opponentName = opponentPlayer.name;
+  const myRemaining = myPlayer.remaining;
+  const opponentRemaining = opponentPlayer.remaining;
+  const myLegs = myPlayer.legsWon;
+  const opponentLegs = opponentPlayer.legsWon;
+  const myAvg = myPlayer.threeDartAvg;
+  const opponentAvg = opponentPlayer.threeDartAvg;
 
-  // Safe visit history with null guards
-  const safeVisitHistory = matchState?.visitHistory ?? [];
-  const myVisits = safeVisitHistory.filter(v => v?.playerId === myPlayer?.id).map((v, idx) => ({
+  const myVisits = matchState.visitHistory.filter(v => v.playerId === myPlayer.id).map((v, idx) => ({
     visitNumber: idx + 1,
-    score: v?.score ?? 0,
-    remaining: v?.remainingAfter ?? 0,
-    isBust: v?.isBust ?? false,
-    isCheckout: v?.isCheckout ?? false,
+    score: v.score,
+    remaining: v.remainingAfter,
+    isBust: v.isBust,
+    isCheckout: v.isCheckout,
   }));
-  const opponentVisits = safeVisitHistory.filter(v => v?.playerId === opponentPlayer?.id).map((v, idx) => ({
+  const opponentVisits = matchState.visitHistory.filter(v => v.playerId === opponentPlayer.id).map((v, idx) => ({
     visitNumber: idx + 1,
-    score: v?.score ?? 0,
-    remaining: v?.remainingAfter ?? 0,
-    isBust: v?.isBust ?? false,
-    isCheckout: v?.isCheckout ?? false,
+    score: v.score,
+    remaining: v.remainingAfter,
+    isBust: v.isBust,
+    isCheckout: v.isCheckout,
   }));
 
-  const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1]?.score ?? 0 : 0;
-  const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1]?.score ?? 0 : 0;
+  const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1].score : 0;
+  const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1].score : 0;
   const myDartsThrown = myVisits.length * 3;
   const opponentDartsThrown = opponentVisits.length * 3;
 
@@ -772,31 +703,12 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     ? (matchState.winnerId === currentUserId ? 'you' : 'opponent')
     : null;
 
-  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v?.score ?? 0)) : 0;
-  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v?.score ?? 0)) : 0;
-
-  // Dev logging
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[QUICK_MATCH] Room data:', {
-      bestOf: (room as any).best_of,
-      legsToWin: room?.legs_to_win,
-      matchState: !!matchState,
-      visitHistoryLength: safeVisitHistory.length,
-      myVisitsLength: myVisits.length,
-      opponentVisitsLength: opponentVisits.length,
-    });
-  }
+  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
+  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
 
   // Calculate preview remaining when darts are selected
   const currentVisitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
   const myPreviewRemaining = isMyTurn && currentVisit.length > 0 ? myRemaining - currentVisitTotal : null;
-
-  // Track start of visit remaining for darts at double logic
-  useEffect(() => {
-    if (isMyTurn && matchState) {
-      setVisitStartRemaining(myRemaining);
-    }
-  }, [isMyTurn, myRemaining, matchState]);
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
@@ -952,8 +864,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
                 onDartClick={handleDartClick}
                 onUndoDart={handleUndoDart}
                 onClearVisit={handleClearVisit}
-                onMiss={handleMiss}
-                onBust={handleBust}
                 submitting={submitting}
                 currentRemaining={myRemaining}
               />
@@ -1280,13 +1190,15 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
         </DialogContent>
       </Dialog>
 
-      <EditVisitModal
-        open={showEditVisitModal && editingVisit !== null}
-        onOpenChange={setShowEditVisitModal}
-        visitNumber={editingVisit?.visitNumber || 0}
-        originalScore={editingVisit?.score || 0}
-        onSave={handleSaveEditedVisit}
-      />
+      {editingVisit && (
+        <EditVisitModal
+          open={showEditVisitModal}
+          onOpenChange={setShowEditVisitModal}
+          visitNumber={editingVisit.visitNumber}
+          originalScore={editingVisit.score}
+          onSave={handleSaveEditedVisit}
+        />
+      )}
 
       <MatchChatDrawer
         roomId={matchId}
@@ -1296,33 +1208,6 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
         onOpenChange={setShowChatDrawer}
         onUnreadChange={setHasUnreadMessages}
       />
-
-      <DartsAtDoubleDialog
-        isOpen={showDartsAtDoubleDialog}
-        onClose={() => setShowDartsAtDoubleDialog(false)}
-        onSelect={handleDartsAtDoubleSelect}
-        maxDarts={dartsAtDoubleMax}
-      />
     </div>
-  );
-}
-
-export default function QuickMatchRoomPage() {
-  const params = useParams();
-  const matchId = params.matchId as string;
-
-  // Safety check: only render if we have a valid matchId
-  if (!matchId) {
-    return (
-      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
-        <div className="text-white">Invalid match ID</div>
-      </div>
-    );
-  }
-
-  return (
-    <MatchErrorBoundary>
-      <QuickMatchRoomPageContent matchId={matchId} />
-    </MatchErrorBoundary>
   );
 }

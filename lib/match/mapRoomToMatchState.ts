@@ -213,28 +213,6 @@ export function mapRoomToMatchState(
     winnerName = winnerProfile?.username || 'Unknown';
   }
 
-  // Calculate safe legsToWin with fallback logic
-  let safeLegsToWin = 2; // Default fallback
-
-  // Priority 1: Use legs_to_win directly if valid
-  if (typeof room.legs_to_win === 'number' && !isNaN(room.legs_to_win) && room.legs_to_win > 0) {
-    safeLegsToWin = room.legs_to_win;
-  }
-  // Priority 2: Check for best_of field (if it exists in the room data)
-  else if ('best_of' in room && typeof (room as any).best_of === 'number' && !isNaN((room as any).best_of)) {
-    const bestOf = (room as any).best_of;
-    safeLegsToWin = Math.ceil(bestOf / 2);
-  }
-
-  // Clamp to reasonable values (1-50)
-  safeLegsToWin = Math.max(1, Math.min(50, Math.floor(safeLegsToWin)));
-
-  // Dev logging
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[MAP_ROOM_TO_STATE] Room legs_to_win:', room.legs_to_win);
-    console.log('[MAP_ROOM_TO_STATE] Calculated safeLegsToWin:', safeLegsToWin);
-  }
-
   return {
     id: room.id,
     status: room.status as 'active' | 'finished' | 'abandoned' | 'forfeited',
@@ -247,9 +225,9 @@ export function mapRoomToMatchState(
     endedReason,
     forfeiterId,
     forfeiterName,
-    currentLeg: room.current_leg || 1,
-    legsToWin: safeLegsToWin,
-    gameMode: room.game_mode || 501,
-    matchFormat: room.match_format || 'best_of_3',
+    currentLeg: room.current_leg,
+    legsToWin: room.legs_to_win,
+    gameMode: room.game_mode,
+    matchFormat: room.match_format,
   };
 }
