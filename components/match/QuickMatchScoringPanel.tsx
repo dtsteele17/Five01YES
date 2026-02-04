@@ -19,6 +19,8 @@ interface QuickMatchScoringPanelProps {
   onScoreInputChange: (value: string) => void;
   onTypeScoreSubmit: () => void;
   onSubmitVisit: () => void;
+  onMiss: () => void;
+  onBust: () => void;
   currentDarts: any[];
   onDartClick: (type: 'single' | 'double' | 'triple' | 'bull', number: number) => void;
   onUndoDart: () => void;
@@ -32,6 +34,8 @@ export function QuickMatchScoringPanel({
   onScoreInputChange,
   onTypeScoreSubmit,
   onSubmitVisit,
+  onMiss,
+  onBust,
   currentDarts,
   onDartClick,
   onUndoDart,
@@ -218,14 +222,31 @@ export function QuickMatchScoringPanel({
         />
       </div>
 
-      {/* Submit Visit Button */}
-      <Button
-        onClick={onSubmitVisit}
-        disabled={submitting || currentDarts.length === 0}
-        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 text-base"
-      >
-        {submitting ? 'Submitting...' : 'Submit Visit'}
-      </Button>
+      {/* Action Buttons: Miss, Bust, Submit Visit */}
+      <div className="grid grid-cols-3 gap-3">
+        <Button
+          onClick={onMiss}
+          disabled={submitting || currentDarts.length >= 3}
+          variant="outline"
+          className="border-white/10 text-white hover:bg-white/5 font-bold h-10 text-base"
+        >
+          Miss
+        </Button>
+        <Button
+          onClick={onBust}
+          disabled={submitting}
+          className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 text-base"
+        >
+          Bust
+        </Button>
+        <Button
+          onClick={onSubmitVisit}
+          disabled={submitting || currentDarts.length === 0}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 text-base"
+        >
+          {submitting ? 'Submitting...' : 'Submit Visit'}
+        </Button>
+      </div>
     </div>
   );
 }

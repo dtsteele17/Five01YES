@@ -388,6 +388,39 @@ export default function QuickMatchRoomPage() {
     setCurrentVisit((prev) => prev.slice(0, -1));
   };
 
+  const handleMiss = () => {
+    if (currentVisit.length >= 3) {
+      toast.error('Visit already has 3 darts');
+      return;
+    }
+
+    const missDart: Dart = {
+      type: 'single',
+      number: 0,
+      value: 0,
+    };
+
+    setCurrentVisit([...currentVisit, missDart]);
+  };
+
+  const handleBust = async () => {
+    if (!room || !currentUserId || submitting) return;
+
+    const isMyTurn = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
+
+    if (!isMyTurn) {
+      toast.error('Not your turn');
+      return;
+    }
+
+    console.log('[HANDLE_BUST] ===== BUST CLICKED =====');
+    console.log('[HANDLE_BUST] Room ID:', matchId);
+    console.log('[HANDLE_BUST] User ID:', currentUserId);
+    console.log('[HANDLE_BUST] ========================');
+
+    await submitScore(0, true);
+  };
+
   const handleSubmitVisit = async () => {
     if (!room || !currentUserId || submitting) return;
 
@@ -405,7 +438,7 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
     console.log('[HANDLE_SUBMIT] ========================');
 
-    await submitScore(visitTotal);
+    await submitScore(visitTotal, false);
   };
 
   const handleInputScoreSubmit = async () => {
@@ -414,10 +447,10 @@ export default function QuickMatchRoomPage() {
       toast.error('Invalid score (0-180)');
       return;
     }
-    await submitScore(score);
+    await submitScore(score, false);
   };
 
-  async function submitScore(score: number) {
+  async function submitScore(score: number, isBust: boolean = false) {
     if (!room || !matchState || !currentUserId) return;
 
     const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
@@ -432,6 +465,18 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
+    // Check if score would cause automatic bust (going below 0 or leaving exactly 1 in double-out)
+    if (matchState.youArePlayer) {
+      const myRemaining = matchState.players[matchState.youArePlayer - 1].remaining;
+      const newRemaining = myRemaining - score;
+
+      if (!isBust && (newRemaining < 0 || newRemaining === 1)) {
+        isBust = true;
+        score = 0;
+        toast.error('Bust! Score would leave you below 0 or on 1');
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -439,6 +484,7 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Room ID:', matchId);
       console.log('[SUBMIT] User ID:', currentUserId);
       console.log('[SUBMIT] Score:', score);
+      console.log('[SUBMIT] Is Bust:', isBust);
       console.log('[SUBMIT] Match Type:', room.match_type);
       console.log('[SUBMIT] Room Status:', room.status);
       console.log('[SUBMIT] Current Turn:', room.current_turn);
@@ -459,7 +505,7 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Response:', data);
       console.log('[SUBMIT] ========================');
 
-      if (data.is_bust) {
+      if (data.is_bust || isBust) {
         toast.error('Bust!');
       } else if (data.is_checkout) {
         toast.success('Checkout!');
@@ -860,7 +906,9 @@ export default function QuickMatchRoomPage() {
                 onScoreInputChange={setScoreInput}
                 onTypeScoreSubmit={handleInputScoreSubmit}
                 onSubmitVisit={handleSubmitVisit}
-                currentDarts={currentVisit}
+                onMiss={handleMiss}
+                onBust={handleBust}
+                currentDarts={currentVisit || []}
                 onDartClick={handleDartClick}
                 onUndoDart={handleUndoDart}
                 onClearVisit={handleClearVisit}

@@ -84,7 +84,7 @@ export default function LeaguesPage() {
       const leaguesData: League[] = leagueMembers
         .map((lm: any) => {
           const league = lm.leagues;
-          if (!league) return null;
+          if (!league) return null as any;
           
           return {
             id: league.id,
