@@ -496,13 +496,15 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    if (score < 0 || score > 180) {
+    // Ensure score is valid integer
+    const visitTotal = Math.floor(score);
+    if (visitTotal < 0 || visitTotal > 180) {
       toast.error('Invalid score (0-180)');
       return;
     }
 
     // Convert darts to server format with multiplier and is_double for validation
-    const serverDarts = darts.map(dart => {
+    const dartsArray = darts.map(dart => {
       let mult: 'S' | 'D' | 'T' | 'B' = 'S';
       if (dart.type === 'bull') {
         mult = 'B';
@@ -526,27 +528,26 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] ===== SUBMIT VISIT =====');
       console.log('[SUBMIT] Room ID:', matchId);
       console.log('[SUBMIT] User ID:', currentUserId);
-      console.log('[SUBMIT] Score:', score);
+      console.log('[SUBMIT] Score:', visitTotal);
       console.log('[SUBMIT] Is Bust:', isBust);
       console.log('[SUBMIT] Darts:', darts);
-      console.log('[SUBMIT] Server Darts:', serverDarts);
+      console.log('[SUBMIT] Darts Array:', dartsArray);
       console.log('[SUBMIT] Match Type:', room.match_type);
       console.log('[SUBMIT] Room Status:', room.status);
       console.log('[SUBMIT] Current Turn:', room.current_turn);
       console.log('[SUBMIT] Is My Turn:', isMyTurn);
       console.log('[SUBMIT] ========================');
 
-      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v2', {
+      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v2", {
         p_room_id: matchId,
-        p_score: score,
-        p_darts: serverDarts,
-        p_is_bust: isBust,
+        p_score: visitTotal,
+        p_darts: dartsArray ?? [],
+        p_is_bust: !!isBust
       });
 
       if (error) {
-        console.error('[SUBMIT] Supabase Error:', error);
-        toast.error('Failed to submit visit');
-        return;
+        console.error("[SUBMIT] Supabase error:", error);
+        throw error;
       }
 
       console.log('[SUBMIT] ===== SUCCESS =====');
@@ -554,7 +555,7 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] ========================');
 
       // Backend returns: { ok, remaining_after, score_applied, double_out }
-      if (!data.ok) {
+      if (!data?.ok) {
         toast.error('Failed to submit visit');
         return;
       }
