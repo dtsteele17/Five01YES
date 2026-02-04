@@ -439,7 +439,7 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
     console.log('[HANDLE_SUBMIT] ========================');
 
-    await submitScore(visitTotal, false);
+    await submitScore(visitTotal, false, currentVisit);
   };
 
   const handleInputScoreSubmit = async () => {
@@ -451,7 +451,7 @@ export default function QuickMatchRoomPage() {
     await submitScore(score, false);
   };
 
-  async function submitScore(score: number, isBust: boolean = false) {
+  async function submitScore(score: number, isBust: boolean = false, darts: Dart[] = []) {
     if (!room || !matchState || !currentUserId) return;
 
     const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
@@ -466,11 +466,27 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    // Check if score would cause automatic bust (going below 0 or leaving exactly 1 in double-out)
+    // Convert darts to server format: { mult: 'S'|'D'|'T'|'B', n: number }
+    const serverDarts = darts.map(dart => {
+      let mult: 'S' | 'D' | 'T' | 'B' = 'S';
+      if (dart.type === 'bull') {
+        mult = 'B';
+      } else if (dart.type === 'double') {
+        mult = 'D';
+      } else if (dart.type === 'triple') {
+        mult = 'T';
+      }
+      return { mult, n: dart.number };
+    });
+
+    const dartsThrown = darts.length || 3; // Default to 3 if no darts specified
+
+    // Client-side pre-validation (server will also validate)
     if (matchState.youArePlayer) {
       const myRemaining = matchState.players[matchState.youArePlayer - 1].remaining;
       const newRemaining = myRemaining - score;
 
+      // Check standard bust conditions (server will also check double-out)
       if (!isBust && (newRemaining < 0 || newRemaining === 1)) {
         isBust = true;
         score = 0;
@@ -486,6 +502,9 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] User ID:', currentUserId);
       console.log('[SUBMIT] Score:', score);
       console.log('[SUBMIT] Is Bust:', isBust);
+      console.log('[SUBMIT] Darts:', darts);
+      console.log('[SUBMIT] Server Darts:', serverDarts);
+      console.log('[SUBMIT] Darts Thrown:', dartsThrown);
       console.log('[SUBMIT] Match Type:', room.match_type);
       console.log('[SUBMIT] Room Status:', room.status);
       console.log('[SUBMIT] Current Turn:', room.current_turn);
@@ -495,6 +514,8 @@ export default function QuickMatchRoomPage() {
       const { data, error } = await supabase.rpc('submit_quick_match_throw', {
         p_room_id: matchId,
         p_score: score,
+        p_darts: serverDarts,
+        p_darts_thrown: dartsThrown,
       });
 
       if (error) {
@@ -507,7 +528,16 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] ========================');
 
       if (data.is_bust || isBust) {
-        toast.error('Bust!');
+        // Show specific bust message based on reason
+        if (data.bust_reason === 'double_out_required') {
+          toast.error('Double out required — bust');
+        } else if (data.bust_reason === 'below_zero') {
+          toast.error('Bust! Score went below 0');
+        } else if (data.bust_reason === 'left_on_one') {
+          toast.error('Bust! Cannot finish on 1');
+        } else {
+          toast.error('Bust!');
+        }
       } else if (data.is_checkout) {
         toast.success('Checkout!');
       }
