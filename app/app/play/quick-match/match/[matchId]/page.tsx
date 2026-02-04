@@ -573,7 +573,16 @@ export default function QuickMatchRoomPage() {
       if (!data || data.ok === false) {
         const errorMsg = data?.error || 'Unknown error';
         console.error('[FORFEIT] RPC returned error:', errorMsg);
-        toast.error("Couldn't forfeit—try again");
+
+        // Handle specific error types
+        if (errorMsg === 'not_your_turn') {
+          toast.error("You can only forfeit on your turn");
+        } else if (errorMsg === 'match_already_ended') {
+          toast.error("Match already ended");
+        } else {
+          toast.error("Couldn't forfeit—try again");
+        }
+
         setDidIForfeit(false);
         setForfeitLoading(false);
         return;
@@ -1096,7 +1105,7 @@ export default function QuickMatchRoomPage() {
               className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
             >
               <Home className="w-4 h-4 mr-2" />
-              Return to Dashboard
+              Return to Play
             </Button>
           </div>
         </DialogContent>
@@ -1273,7 +1282,7 @@ export default function QuickMatchRoomPage() {
               className="border-white/20 text-white hover:bg-white/10 px-8"
             >
               <Home className="w-5 h-5 mr-2" />
-              Return to Dashboard
+              Return to Play
             </Button>
           </div>
         </DialogContent>
