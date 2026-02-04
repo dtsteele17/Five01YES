@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 
 export interface DartHit {
   x: number;
@@ -20,16 +19,16 @@ export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlay
     return ((coord + 1.2) / 2.4) * size;
   };
 
+  const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
+
   return (
     <div className={`relative w-full ${className}`} style={{ aspectRatio: '1/1' }}>
       <div className="relative w-full h-full">
-        <Image
-          src="https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=800&auto=format&fit=crop"
+        <img
+          src={boardUrl}
           alt="Dartboard"
-          fill
-          className="object-cover rounded-full"
-          style={{ transform: 'rotate(0deg)' }}
-          priority
+          className="w-full h-full rounded-full"
+          style={{ objectFit: 'contain' }}
         />
 
         <div className="absolute inset-0">
