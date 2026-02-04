@@ -36,6 +36,7 @@ import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 import { QuickMatchScoringPanel } from '@/components/match/QuickMatchScoringPanel';
 import { QuickMatchVisitHistoryPanel } from '@/components/match/QuickMatchVisitHistoryPanel';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
+import { DartsAtDoubleDialog } from '@/components/match/DartsAtDoubleDialog';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 
@@ -130,6 +131,11 @@ export default function QuickMatchRoomPage() {
   // Chat
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+
+  // Darts at Double
+  const [showDartsAtDoubleDialog, setShowDartsAtDoubleDialog] = useState(false);
+  const [dartsAtDoubleMax, setDartsAtDoubleMax] = useState(3);
+  const [visitStartRemaining, setVisitStartRemaining] = useState<number | null>(null);
 
   const hasRedirectedRef = useRef(false);
   const cleanupMatchRef = useRef<() => void>();
@@ -405,7 +411,67 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_SUBMIT] Darts:', currentVisit);
     console.log('[HANDLE_SUBMIT] ========================');
 
+    // Check if darts at double should be prompted
+    const shouldPromptDartsAtDouble = checkIfFinishWasAvailable();
+
     await submitScore(visitTotal);
+
+    // After submit, if finish was available, prompt for darts at double
+    if (shouldPromptDartsAtDouble) {
+      const maxDarts = Math.min(currentVisit.length, 3);
+      setDartsAtDoubleMax(maxDarts);
+      setShowDartsAtDoubleDialog(true);
+    }
+  };
+
+  const handleMiss = () => {
+    if (currentVisit.length >= 3) return;
+    const dart: Dart = { type: 'single', number: 0, value: 0 };
+    setCurrentVisit([...currentVisit, dart]);
+  };
+
+  const handleBust = async () => {
+    if (!room || !currentUserId || submitting) return;
+
+    // Check if darts at double should be prompted before bust
+    const shouldPromptDartsAtDouble = checkIfFinishWasAvailable();
+
+    // Bust submits a score of 0
+    await submitScore(0);
+
+    // After bust, if finish was available, prompt for darts at double
+    if (shouldPromptDartsAtDouble) {
+      const maxDarts = Math.min(currentVisit.length > 0 ? currentVisit.length : 3, 3);
+      setDartsAtDoubleMax(maxDarts);
+      setShowDartsAtDoubleDialog(true);
+    }
+  };
+
+  const checkIfFinishWasAvailable = (): boolean => {
+    if (!matchState || !visitStartRemaining) return false;
+
+    // If started with <= 170, a finish was theoretically available
+    if (visitStartRemaining <= 170 && visitStartRemaining > 1) {
+      return true;
+    }
+
+    // Check if at any point during the visit a finish became available
+    let tempRemaining = visitStartRemaining;
+    for (const dart of currentVisit) {
+      tempRemaining -= dart.value;
+      if (tempRemaining <= 170 && tempRemaining > 1 && tempRemaining >= 0) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const handleDartsAtDoubleSelect = async (darts: number) => {
+    // Store darts at double info - could save to DB if needed
+    console.log('[DARTS_AT_DOUBLE] Selected:', darts);
+    // In a full implementation, you would send this to the backend
+    // For now, just close the modal
   };
 
   const handleInputScoreSubmit = async () => {
@@ -710,6 +776,13 @@ export default function QuickMatchRoomPage() {
   const currentVisitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
   const myPreviewRemaining = isMyTurn && currentVisit.length > 0 ? myRemaining - currentVisitTotal : null;
 
+  // Track start of visit remaining for darts at double logic
+  useEffect(() => {
+    if (isMyTurn && matchState) {
+      setVisitStartRemaining(myRemaining);
+    }
+  }, [isMyTurn, myRemaining, matchState]);
+
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
       {/* Top Bar with Forfeit and Chat */}
@@ -864,6 +937,8 @@ export default function QuickMatchRoomPage() {
                 onDartClick={handleDartClick}
                 onUndoDart={handleUndoDart}
                 onClearVisit={handleClearVisit}
+                onMiss={handleMiss}
+                onBust={handleBust}
                 submitting={submitting}
                 currentRemaining={myRemaining}
               />
@@ -1207,6 +1282,13 @@ export default function QuickMatchRoomPage() {
         isOpen={showChatDrawer}
         onOpenChange={setShowChatDrawer}
         onUnreadChange={setHasUnreadMessages}
+      />
+
+      <DartsAtDoubleDialog
+        isOpen={showDartsAtDoubleDialog}
+        onClose={() => setShowDartsAtDoubleDialog(false)}
+        onSelect={handleDartsAtDoubleSelect}
+        maxDarts={dartsAtDoubleMax}
       />
     </div>
   );
