@@ -1240,29 +1240,34 @@ export default function Training501Page() {
                       <p className="text-2xl font-bold text-white">{botLastVisitTotal}</p>
                     </div>
                   )}
-                  {debugMode && lastThreeDarts.length > 0 && (
+                  {lastThreeDarts.length > 0 && (
                     <div className="mt-2 text-center space-y-1">
-                      <p className="text-xs text-gray-400 font-semibold">Last 3 Darts</p>
-                      <div className="flex gap-2 justify-center">
+                      <p className="text-xs text-gray-400 font-semibold">Last Visit</p>
+                      <div className="flex flex-col gap-1 items-center">
                         {lastThreeDarts.map((dart, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className={`text-xs ${
-                              dart.isDouble
-                                ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                                : dart.isTreble
-                                ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                                : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                            }`}
-                          >
-                            {dart.label}
-                          </Badge>
+                          <div key={index} className="text-xs text-gray-300">
+                            {dart.aimTarget && (
+                              <span className="text-gray-500">
+                                {dart.aimTarget}
+                                <span className="mx-1">→</span>
+                              </span>
+                            )}
+                            <span
+                              className={`font-semibold ${
+                                dart.isDouble
+                                  ? 'text-green-400'
+                                  : dart.isTreble
+                                  ? 'text-yellow-400'
+                                  : dart.offboard
+                                  ? 'text-red-400'
+                                  : 'text-white'
+                              }`}
+                            >
+                              {dart.label} ({dart.score})
+                            </span>
+                          </div>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Check console for coordinates
-                      </p>
                     </div>
                   )}
                 </div>

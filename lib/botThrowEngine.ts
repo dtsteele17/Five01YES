@@ -31,6 +31,7 @@ export interface DartResult {
   isDouble: boolean;
   isTreble: boolean;
   offboard: boolean;
+  aimTarget?: string; // What the bot was aiming at
 }
 
 export interface VisitResult {
@@ -55,15 +56,17 @@ export interface BotPerformanceTracker {
 const CALIBRATION_WINDOW = 12;
 const CALIBRATION_STRENGTH = 0.015;
 
+// Sigma values for realistic scatter (tuned for each level)
+// Higher levels = tighter grouping, lower levels = wider spread
 const LEVEL_BASE_SIGMA: Record<number, number> = {
-  95: 0.016,
-  85: 0.020,
-  75: 0.026,
-  65: 0.034,
-  55: 0.044,
-  45: 0.058,
-  35: 0.078,
-  25: 0.110,
+  95: 0.050,  // Elite precision
+  85: 0.065,  // Professional level
+  75: 0.080,  // Strong player
+  65: 0.095,  // Above average
+  55: 0.110,  // Average player
+  45: 0.130,  // Below average
+  35: 0.150,  // Beginner
+  25: 0.180,  // Novice
 };
 
 const DOUBLE_MISS_PROBABILITY: Record<number, number> = {
@@ -153,76 +156,71 @@ export function updatePerformanceTracker(
   };
 }
 
+/**
+ * Get angle for a dartboard number in dartboard coordinates
+ * 0° = top (20), increasing clockwise
+ * Returns angle in radians
+ */
 function getNumberAngle(number: number): number {
   const index = DARTBOARD_NUMBERS.indexOf(number);
   if (index === -1) return 0;
-  // Convert to dartboard coordinates where 0° = top (12 o'clock), clockwise
-  // Standard: 0° = right, counter-clockwise
-  // Dartboard: 0° = top, clockwise
-  // Formula: 90° - (index * 18°) to rotate and flip direction
-  return (Math.PI / 2) - (index * 18 * (Math.PI / 180));
+  // Dartboard: 0° = top (20), clockwise in 18° steps
+  // index 0 (20) = 0°, index 1 (1) = 18°, etc.
+  return index * 18 * (Math.PI / 180);
 }
 
+/**
+ * Calculate aim point using real dartboard geometry
+ * Uses proper ring radii from geometry constants
+ *
+ * Coordinate system: (0,0) = center, -y = UP (towards 20)
+ * Dartboard angle: 0° = top, clockwise
+ * Conversion: x = r*sin(θ), y = -r*cos(θ)
+ */
 function getAimPoint(target: string): AimTarget {
-  if (target === 'T20') {
-    const angle = getNumberAngle(20);
-    const radius = 0.60;
-    return {
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
-      description: 'T20',
-    };
-  }
-
-  if (target === 'T19') {
-    const angle = getNumberAngle(19);
-    const radius = 0.60;
-    return {
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
-      description: 'T19',
-    };
-  }
-
-  if (target.startsWith('D')) {
-    const number = parseInt(target.substring(1));
-    const angle = getNumberAngle(number);
-    const radius = 0.94;
-    return {
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
-      description: target,
-    };
-  }
-
-  if (target.startsWith('T')) {
-    const number = parseInt(target.substring(1));
-    const angle = getNumberAngle(number);
-    const radius = 0.60;
-    return {
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
-      description: target,
-    };
-  }
-
-  if (target.startsWith('S')) {
-    const number = parseInt(target.substring(1));
-    const angle = getNumberAngle(number);
-    const radius = 0.75;
-    return {
-      x: radius * Math.cos(angle),
-      y: radius * Math.sin(angle),
-      description: target,
-    };
-  }
-
+  // Bull targets at center
   if (target === 'DBull' || target === 'BULL') {
     return { x: 0, y: 0, description: 'DBull' };
   }
 
   if (target === 'SBull') {
     return { x: 0, y: 0, description: 'SBull' };
+  }
+
+  // Double ring - aim at center of double ring
+  if (target.startsWith('D')) {
+    const number = parseInt(target.substring(1));
+    const angle = getNumberAngle(number); // 0° = top, clockwise
+    const radius = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;
+    return {
+      x: radius * Math.sin(angle),
+      y: -radius * Math.cos(angle), // Negative because -y is UP
+      description: target,
+    };
+  }
+
+  // Treble ring - aim at center of treble ring
+  if (target.startsWith('T')) {
+    const number = parseInt(target.substring(1));
+    const angle = getNumberAngle(number);
+    const radius = (R_TREBLE_IN + R_TREBLE_OUT) / 2;
+    return {
+      x: radius * Math.sin(angle),
+      y: -radius * Math.cos(angle),
+      description: target,
+    };
+  }
+
+  // Singles - aim at outer singles area (between treble and double)
+  if (target.startsWith('S')) {
+    const number = parseInt(target.substring(1));
+    const angle = getNumberAngle(number);
+    const radius = (R_TREBLE_OUT + R_DOUBLE_IN) / 2;
+    return {
+      x: radius * Math.sin(angle),
+      y: -radius * Math.cos(angle),
+      description: target,
+    };
   }
 
   return { x: 0, y: 0, description: 'Unknown' };
@@ -309,6 +307,16 @@ export function evaluateDartFromXY(x: number, y: number): {
   return { label: `S${number}`, score: number, isDouble: false, isTreble: false, offboard: false };
 }
 
+/**
+ * Simulate a single dart throw with realistic scatter
+ * Bot aims at a target, then Gaussian variance determines where it lands
+ * @param aimTarget - What the bot is aiming at (e.g. 'T20', 'D16')
+ * @param level - Bot skill level (25-95)
+ * @param formMultiplier - Current form (0.85-1.15, varies per leg)
+ * @param tracker - Performance tracker for calibration
+ * @param isDoubleAttempt - Whether aiming at double (affects miss probability)
+ * @returns DartResult with landing position, actual score, and aim target
+ */
 export function simulateDart(
   aimTarget: string,
   level: number,
@@ -320,22 +328,25 @@ export function simulateDart(
   const calibratedSigma = calculateCalibratedSigma(baseSigma, tracker, level);
   let sigma = calibratedSigma * formMultiplier;
 
+  // Random variance - some darts better, some worse
   const rand = Math.random();
   if (rand < 0.10) {
-    sigma *= 0.80;
+    sigma *= 0.80; // 10% chance of better throw
   } else if (rand > 0.90) {
-    sigma *= 1.30;
+    sigma *= 1.30; // 10% chance of worse throw
   }
 
+  // Double attempts are harder - increase miss probability
   if (isDoubleAttempt) {
     const doubleMissProb = getDoubleMissProbability(level);
     if (Math.random() < doubleMissProb) {
-      sigma *= 1.8;
+      sigma *= 1.8; // Significantly worse scatter on double miss
     }
   }
 
   const aimPoint = getAimPoint(aimTarget);
 
+  // Apply 2D Gaussian scatter around aim point
   const dx = gaussianRandom() * sigma;
   const dy = gaussianRandom() * sigma;
 
@@ -356,10 +367,12 @@ export function simulateDart(
       isDouble: false,
       isTreble: false,
       offboard: true,
+      aimTarget,
     };
   }
 
   // Use the single shared evaluation function to determine score from position
+  // This guarantees: where it lands = what it scores
   const evaluation = evaluateDartFromXY(actualX, actualY);
 
   return {
@@ -370,6 +383,7 @@ export function simulateDart(
     isDouble: evaluation.isDouble,
     isTreble: evaluation.isTreble,
     offboard: evaluation.offboard,
+    aimTarget, // Include what we aimed at for display
   };
 }
 
@@ -437,11 +451,23 @@ function getCheckoutTarget(remaining: number, doubleOut: boolean): string | null
   return null;
 }
 
-function chooseAimTarget(remaining: number, doubleOut: boolean): string {
-  if (remaining > 170) {
-    return 'T20';
+/**
+ * Choose aim target based on remaining score and skill level
+ * Adds realistic variety: sometimes T19, low levels aim at singles
+ */
+function chooseAimTarget(remaining: number, doubleOut: boolean, level: number): string {
+  // Special handling for 50 remaining - sometimes go for bull
+  if (remaining === 50 && doubleOut) {
+    // Higher levels more likely to go for bull
+    const bullProbability = level >= 75 ? 0.5 : level >= 55 ? 0.3 : 0.15;
+    if (Math.random() < bullProbability) {
+      return 'BULL'; // Go for DBull finish
+    }
+    // Otherwise set up D20 or D16
+    return Math.random() < 0.5 ? 'S10' : 'S18';
   }
 
+  // Checkout range - aim at specific finishes
   if (remaining <= 170 && doubleOut) {
     const checkoutTarget = getCheckoutTarget(remaining, doubleOut);
     if (checkoutTarget) {
@@ -449,6 +475,26 @@ function chooseAimTarget(remaining: number, doubleOut: boolean): string {
     }
   }
 
+  // Scoring mode (>170 or no checkout available)
+  if (remaining > 170) {
+    // Add variety to targeting
+    const rand = Math.random();
+
+    // Low levels sometimes aim at big singles instead of trebles
+    if (level <= 35 && rand < 0.25) {
+      return 'S20'; // Aim at single 20
+    }
+
+    // Occasionally switch to T19 for variety (10-20% of the time)
+    if (rand < 0.15) {
+      return 'T19';
+    }
+
+    // Most of the time, aim at T20 (main scoring target)
+    return 'T20';
+  }
+
+  // Setup shots - try to leave good doubles
   const goodLeaves = [40, 32, 36, 24, 20, 16];
   for (const leave of goodLeaves) {
     const needed = remaining - leave;
@@ -463,7 +509,11 @@ function chooseAimTarget(remaining: number, doubleOut: boolean): string {
     }
   }
 
-  if (remaining >= 100) return 'T20';
+  // General scoring based on remaining
+  if (remaining >= 100) {
+    // Add T19 variety
+    return Math.random() < 0.15 ? 'T19' : 'T20';
+  }
   if (remaining >= 80) return 'T19';
   if (remaining >= 60) return 'T17';
   if (remaining >= 40) return 'T15';
@@ -475,6 +525,10 @@ function isDoubleTarget(target: string): boolean {
   return target.startsWith('D') || target === 'BULL';
 }
 
+/**
+ * Simulate a full visit (up to 3 darts)
+ * Bot chooses targets based on remaining score and throws with realistic variance
+ */
 export function simulateVisit({
   level,
   remaining,
@@ -494,7 +548,7 @@ export function simulateVisit({
   let bust = false;
 
   for (let i = 0; i < 3; i++) {
-    const aimTarget = chooseAimTarget(currentRemaining, doubleOut);
+    const aimTarget = chooseAimTarget(currentRemaining, doubleOut, level); // Pass level
     const isDoubleAttempt = doubleOut && isDoubleTarget(aimTarget);
     const dart = simulateDart(aimTarget, level, formMultiplier, tracker, isDoubleAttempt);
     darts.push(dart);
