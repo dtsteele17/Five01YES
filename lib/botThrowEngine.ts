@@ -53,8 +53,10 @@ export interface BotPerformanceTracker {
   targetLevel: number;
 }
 
-const CALIBRATION_WINDOW = 12;
-const CALIBRATION_STRENGTH = 0.015;
+// Calibration settings for maintaining target average over time
+const CALIBRATION_WINDOW = 12; // Track last 12 visits
+const CALIBRATION_THRESHOLD = 10; // Adjust if off by more than 10 points
+const CALIBRATION_MAX_ADJUSTMENT = 0.03; // Max 3% adjustment per update (0.97-1.03 range)
 
 // Sigma values for realistic scatter (tuned for each level)
 // Higher levels = tighter grouping, lower levels = wider spread
@@ -109,11 +111,26 @@ function getOffboardProbability(level: number): number {
   return OFFBOARD_BASE_PROBABILITY[level] || 0.02;
 }
 
+/**
+ * Calculate calibrated sigma to maintain target average over time
+ *
+ * Adjusts sigma (accuracy) based on rolling average performance:
+ * - If performing above target by >10 points: increase sigma (worse accuracy)
+ * - If performing below target by >10 points: decrease sigma (better accuracy)
+ * - Adjustments are small (max 3%) to avoid scripted feeling
+ * - Scores still come from real hits via evaluateDartFromXY()
+ *
+ * @param baseSigma - Base scatter value for this level
+ * @param tracker - Performance tracker with recent visit scores
+ * @param level - Target level (25, 35, 45, 55, 65, 75, 85, 95)
+ * @returns Calibrated sigma value
+ */
 function calculateCalibratedSigma(
   baseSigma: number,
   tracker: BotPerformanceTracker | null,
   level: number
 ): number {
+  // Need at least 3 visits to calibrate
   if (!tracker || tracker.recentVisits.length < 3) {
     return baseSigma;
   }
@@ -121,14 +138,22 @@ function calculateCalibratedSigma(
   const recentAverage = tracker.recentVisits.reduce((a, b) => a + b, 0) / tracker.recentVisits.length;
   const target = level;
   const difference = recentAverage - target;
-  const percentDiff = difference / target;
 
-  let adjustment = 1.0;
-
-  if (Math.abs(percentDiff) > 0.05) {
-    adjustment = 1.0 + (percentDiff * CALIBRATION_STRENGTH);
-    adjustment = Math.max(0.85, Math.min(1.15, adjustment));
+  // Only adjust if difference is more than threshold (10 points)
+  if (Math.abs(difference) <= CALIBRATION_THRESHOLD) {
+    return baseSigma; // Performing close enough to target
   }
+
+  // Calculate small adjustment based on how far off we are
+  // If recentAverage > target: increase sigma (make worse)
+  // If recentAverage < target: decrease sigma (make better)
+  const adjustmentDirection = difference > 0 ? 1 : -1;
+  const adjustmentMagnitude = Math.min(
+    Math.abs(difference) / target * 0.5, // Scale based on % difference
+    CALIBRATION_MAX_ADJUSTMENT // Cap at 3%
+  );
+
+  const adjustment = 1.0 + (adjustmentDirection * adjustmentMagnitude);
 
   return baseSigma * adjustment;
 }

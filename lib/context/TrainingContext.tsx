@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface TrainingConfig {
   mode: '301' | '501' | 'around-the-clock';
-  botDifficulty: 'beginner' | 'casual' | 'intermediate' | 'advanced' | 'elite' | 'pro';
+  botDifficulty: 'novice' | 'beginner' | 'casual' | 'intermediate' | 'advanced' | 'elite' | 'pro' | 'worldClass';
   botAverage: number;
   doubleOut: boolean;
   bestOf: 'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7';
@@ -51,10 +51,12 @@ export function useTraining() {
 }
 
 export const BOT_DIFFICULTY_CONFIG = {
+  novice: { name: 'Novice', average: 25, checkoutChance: 0.05 },
   beginner: { name: 'Beginner', average: 35, checkoutChance: 0.08 },
   casual: { name: 'Casual', average: 45, checkoutChance: 0.12 },
   intermediate: { name: 'Intermediate', average: 55, checkoutChance: 0.18 },
   advanced: { name: 'Advanced', average: 65, checkoutChance: 0.26 },
   elite: { name: 'Elite', average: 75, checkoutChance: 0.35 },
   pro: { name: 'Pro', average: 85, checkoutChance: 0.45 },
+  worldClass: { name: 'World Class', average: 95, checkoutChance: 0.60 },
 } as const;
