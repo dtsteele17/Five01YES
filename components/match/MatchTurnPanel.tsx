@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Zap, Edit } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dispatch, SetStateAction } from 'react';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -39,8 +40,8 @@ interface MatchTurnPanelProps {
   getDartLabel: (dart: Dart) => string;
   visitTotal: number;
   dartboardGroup: string;
-  setDartboardGroup: (group: string) => void;
-  handleNumberClick: (num: number) => void;
+  setDartboardGroup: Dispatch<SetStateAction<'singles' | 'doubles' | 'triples' | 'bulls'>>;
+  handleDartClick: (type: 'singles' | 'doubles' | 'triples' | 'bulls', number: number) => void;
   handleClearVisit: () => void;
   handleSubmitVisit: () => void;
   handleBust: () => void;
@@ -64,7 +65,7 @@ export function MatchTurnPanel({
   visitTotal,
   dartboardGroup,
   setDartboardGroup,
-  handleNumberClick,
+  handleDartClick,
   handleClearVisit,
   handleSubmitVisit,
   handleBust,
@@ -166,7 +167,7 @@ export function MatchTurnPanel({
 
           {/* Scoring Buttons */}
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-            <Tabs value={dartboardGroup} onValueChange={setDartboardGroup} className="mb-2">
+            <Tabs value={dartboardGroup} onValueChange={(value) => setDartboardGroup(value as any)} className="mb-2">
               <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
                 <TabsTrigger value="singles" className="text-xs" disabled={!isMyTurn || submitting}>Singles</TabsTrigger>
                 <TabsTrigger value="doubles" className="text-xs" disabled={!isMyTurn || submitting}>Doubles</TabsTrigger>
@@ -180,7 +181,7 @@ export function MatchTurnPanel({
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
                   <Button
                     key={num}
-                    onClick={() => handleNumberClick(num)}
+                    onClick={() => handleDartClick(dartboardGroup as any, num)}
                     disabled={!isMyTurn || submitting || currentVisit.length >= 3}
                     variant="outline"
                     className="h-12 text-base font-bold border-white/10 text-white hover:bg-emerald-500/20 disabled:opacity-50"
@@ -194,7 +195,7 @@ export function MatchTurnPanel({
             {dartboardGroup === 'bulls' && (
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <Button
-                  onClick={() => handleNumberClick(25)}
+                  onClick={() => handleDartClick('bulls', 25)}
                   disabled={!isMyTurn || submitting || currentVisit.length >= 3}
                   variant="outline"
                   className="h-16 text-lg font-bold border-white/10 text-white hover:bg-emerald-500/20"
@@ -202,7 +203,7 @@ export function MatchTurnPanel({
                   Single Bull (25)
                 </Button>
                 <Button
-                  onClick={() => handleNumberClick(50)}
+                  onClick={() => handleDartClick('bulls', 50)}
                   disabled={!isMyTurn || submitting || currentVisit.length >= 3}
                   variant="outline"
                   className="h-16 text-lg font-bold border-white/10 text-white hover:bg-emerald-500/20"
