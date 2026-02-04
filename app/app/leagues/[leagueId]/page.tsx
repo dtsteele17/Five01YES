@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams, useRouter } from 'next/navigation';
-import { useLeagues, League } from '@/lib/context/LeaguesContext';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Shield, Lock, Calendar, Clock, Camera, Trophy } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { ArrowLeft, Shield, Lock, Calendar, Clock, Camera, Trophy, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import StandingsTable from '@/components/league/StandingsTable';
@@ -11,66 +11,452 @@ import FixturesList from '@/components/league/FixturesList';
 import PlayersManager from '@/components/league/PlayersManager';
 import LiveUpdates from '@/components/league/LiveUpdates';
 import StatsTable from '@/components/league/StatsTable';
+import { Fixture, Standing } from '@/lib/context/LeaguesContext';
 
 type TabType = 'standings' | 'fixtures' | 'players' | 'updates' | 'stats';
 
-function getLeagueFromLocalStorage(leagueId: string): League | undefined {
-  if (typeof window === 'undefined') return undefined;
-
-  try {
-    const stored = localStorage.getItem('five01_leagues');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const foundInStorage = parsed.leagues?.find((l: any) => l.id === leagueId);
-      if (foundInStorage) {
-        console.log('LEAGUE_FOUND_IN_LOCALSTORAGE', foundInStorage);
-        return {
-          ...foundInStorage,
-          startDate: new Date(foundInStorage.startDate),
-          fixtures: foundInStorage.fixtures.map((f: any) => ({
-            ...f,
-            dateTime: new Date(f.dateTime),
-          })),
-          liveUpdates: foundInStorage.liveUpdates.map((u: any) => ({
-            ...u,
-            timestamp: new Date(u.timestamp),
-          })),
-        };
-      }
-    }
-  } catch (error) {
-    console.error('Failed to read from localStorage:', error);
-  }
-
-  return undefined;
+interface League {
+  id: string;
+  name: string;
+  maxParticipants: number;
+  access: 'invite' | 'open';
+  startDate: Date;
+  matchDays: string[];
+  matchTime: string;
+  gamesPerDay: number;
+  legsPerGame: number;
+  cameraRequired: boolean;
+  playoffs: boolean;
+  players: any[];
+  fixtures: any[];
+  standings: any[];
+  stats: any[];
+  liveUpdates: any[];
+  invitedEmails: string[];
 }
 
 export default function LeagueOverview() {
   const params = useParams();
   const router = useRouter();
-  const { getLeague, isOwnerOrAdmin } = useLeagues();
+  const supabase = createClient();
   const [activeTab, setActiveTab] = useState<TabType>('standings');
+  const [league, setLeague] = useState<League | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isMember, setIsMember] = useState(false);
 
   const leagueId = params.leagueId as string;
-  console.log('LEAGUE_PAGE_RENDER', leagueId);
-  console.log('LEAGUE_OVERVIEW_PARAMS', leagueId);
 
-  let league = getLeague(leagueId);
+  useEffect(() => {
+    loadLeague();
+  }, [leagueId]);
 
-  if (league) {
-    console.log('LEAGUE_FOUND_IN_CONTEXT', league.id);
-  } else {
-    console.log('LEAGUE_NOT_FOUND_IN_CONTEXT', leagueId);
-    league = getLeagueFromLocalStorage(leagueId);
+  const loadLeague = async () => {
+    try {
+      setLoading(true);
+      console.log('[LEAGUE DETAIL] Starting to load league:', leagueId);
 
-    if (league) {
-      console.log('LEAGUE_LOADED_FROM_LOCALSTORAGE', league.id);
-    } else {
-      console.log('LEAGUE_NOT_FOUND_ANYWHERE', leagueId);
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('[LEAGUE DETAIL] User error:', userError);
+        router.push('/login');
+        return;
+      }
+
+      console.log('[LEAGUE DETAIL] User authenticated:', user.id);
+
+      // Try fetching league from Supabase (direct query)
+      console.log('[LEAGUE DETAIL] Fetching league from Supabase...');
+      let leagueData: any = null;
+      let leagueError: any = null;
+
+      const { data: directData, error: directError } = await supabase
+        .from('leagues')
+        .select('*')
+        .eq('id', leagueId)
+        .single();
+
+      if (directError) {
+        console.error('[LEAGUE DETAIL] Direct query failed:', directError.message);
+        leagueError = directError;
+        
+        // If RLS blocked it, try using RPC function as fallback
+        if (directError.code === 'PGRST301' || directError.message?.includes('row-level security') || directError.message?.includes('permission denied')) {
+          console.log('[LEAGUE DETAIL] RLS blocked, trying RPC function as fallback...');
+          
+          const { data: rpcData, error: rpcError } = await supabase.rpc('get_league', {
+            p_league_id: leagueId,
+          });
+
+          if (rpcError) {
+            console.error('[LEAGUE DETAIL] RPC also failed:', rpcError);
+            leagueError = rpcError;
+          } else if (rpcData && !rpcData.error) {
+            console.log('[LEAGUE DETAIL] ✅ League fetched via RPC');
+            leagueData = rpcData;
+            leagueError = null;
+          } else if (rpcData?.error) {
+            console.error('[LEAGUE DETAIL] RPC returned error:', rpcData.error);
+            leagueError = { message: rpcData.error };
+          }
+        }
+      } else {
+        leagueData = directData;
+        console.log('[LEAGUE DETAIL] ✅ League fetched successfully (direct):', leagueData.id, leagueData.name);
+      }
+
+      if (leagueError) {
+        console.error('[LEAGUE DETAIL] ❌ Final error:', leagueError.message);
+        
+        // Debug: Check what's actually in the database
+        console.log('[LEAGUE DETAIL] 🔍 Running debug check...');
+        const { data: debugInfo, error: debugError } = await supabase.rpc('debug_league_access', {
+          p_league_id: leagueId,
+        });
+        
+        if (debugInfo) {
+          console.log('[LEAGUE DETAIL] 🔍 Debug Info:', debugInfo);
+          if (!debugInfo.can_access) {
+            console.error('[LEAGUE DETAIL] ❌ Access denied:', {
+              is_owner: debugInfo.is_owner,
+              is_member: debugInfo.is_member,
+              user_id: debugInfo.user_id,
+              owner_id: debugInfo.owner_id,
+            });
+          } else if (debugInfo.league_data) {
+            // If debug says we can access, use that data
+            console.log('[LEAGUE DETAIL] ✅ Debug says we can access, using debug data');
+            leagueData = debugInfo.league_data;
+            leagueError = null;
+          }
+        } else if (debugError) {
+          console.error('[LEAGUE DETAIL] Debug function error:', debugError);
+        }
+        
+        if (leagueError) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (!leagueData) {
+        console.error('[LEAGUE DETAIL] ❌ No league data returned');
+        setLoading(false);
+        return;
+      }
+
+      // Get all members with their roles
+      const { data: members, error: membersError } = await supabase
+        .from('league_members')
+        .select('user_id, role')
+        .eq('league_id', leagueId);
+
+      if (membersError) {
+        console.error('[LEAGUE DETAIL] Error fetching members:', membersError);
+      }
+
+      // Check if current user is a member and get their role
+      const currentUserMember = members?.find(m => m.user_id === user.id);
+      const userRole = currentUserMember?.role;
+      const isOwner = leagueData.owner_id === user.id;
+      setIsAdmin(isOwner || userRole === 'owner' || userRole === 'admin');
+      setIsMember(!!currentUserMember || isOwner); // Owner is always a member
+
+      // Get member profiles for players list
+      const memberUserIds = members?.map(m => m.user_id) || [];
+      let players: any[] = [];
+      
+      if (memberUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, display_name, avatar_url')
+          .in('user_id', memberUserIds);
+
+        // Create role map
+        const roleMap = new Map<string, string>();
+        members?.forEach(m => {
+          roleMap.set(m.user_id, m.role || 'Player');
+        });
+
+        players = profiles?.map((profile) => {
+          const memberRole = roleMap.get(profile.user_id) || 'Player';
+          
+          return {
+            id: profile.id,
+            name: profile.display_name || profile.username,
+            displayName: profile.display_name || profile.username, // Add displayName for PlayersManager
+            username: profile.username,
+            avatar: profile.avatar_url,
+            status: 'Active',
+            role: memberRole === 'owner' ? 'Owner' : (memberRole === 'admin' ? 'Admin' : 'Player'),
+            cameraRequiredAcknowledged: false, // Default value - TODO: fetch from database if this field exists
+          };
+        }) || [];
+      }
+
+      // Transform match_days array (integers) to day names
+      // Handle both direct query result (array) and RPC JSONB result (might be string)
+      let matchDaysArray: number[] = [];
+      if (Array.isArray(leagueData.match_days)) {
+        matchDaysArray = leagueData.match_days;
+      } else if (typeof leagueData.match_days === 'string') {
+        try {
+          matchDaysArray = JSON.parse(leagueData.match_days);
+        } catch {
+          matchDaysArray = [];
+        }
+      }
+      
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const matchDays = matchDaysArray.map((dayNum: number) => dayNames[dayNum] || 'Sun');
+
+      // Fetch fixtures from league_matches
+      const { data: leagueMatches, error: matchesError } = await supabase
+        .from('league_matches')
+        .select(`
+          id,
+          player1_id,
+          player2_id,
+          status,
+          scheduled_date,
+          match_room_id,
+          best_of,
+          created_at
+        `)
+        .eq('league_id', leagueId)
+        .order('scheduled_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
+
+      if (matchesError) {
+        console.error('[LEAGUE DETAIL] Error fetching league matches:', matchesError);
+      }
+
+      // Get all match_room_ids from league_matches (even if status isn't completed yet)
+      const matchRoomIds = leagueMatches
+        ?.filter(m => m.match_room_id)
+        .map(m => m.match_room_id) || [];
+
+      // Fetch match_rooms to check their status and get results
+      let matchRoomsData: any[] = [];
+      if (matchRoomIds.length > 0) {
+        const { data: rooms, error: roomsError } = await supabase
+          .from('match_rooms')
+          .select('id, status, summary, league_match_id')
+          .in('id', matchRoomIds);
+
+        if (roomsError) {
+          console.error('[LEAGUE DETAIL] Error fetching match rooms:', roomsError);
+        } else {
+          matchRoomsData = rooms || [];
+          
+          // Update league_matches status if match_rooms is finished
+          const finishedRooms = matchRoomsData.filter(r => r.status === 'finished');
+          if (finishedRooms.length > 0) {
+            for (const room of finishedRooms) {
+              const leagueMatch = leagueMatches?.find(m => m.match_room_id === room.id);
+              if (leagueMatch && leagueMatch.status !== 'completed') {
+                // Update league_match status to completed
+                await supabase
+                  .from('league_matches')
+                  .update({ status: 'completed' })
+                  .eq('id', leagueMatch.id);
+                
+                // Update the local array too
+                leagueMatch.status = 'completed';
+              }
+            }
+          }
+        }
+      }
+
+      // Transform league matches to fixtures
+      const fixtures: Fixture[] = (leagueMatches || []).map((match, index) => {
+        // Find the corresponding match_room data
+        const roomData = matchRoomsData.find(r => r.league_match_id === match.id || r.id === match.match_room_id);
+        
+        let legsWonHome: number | undefined;
+        let legsWonAway: number | undefined;
+        
+        // Check if match is completed (either league_matches.status='completed' OR match_rooms.status='finished')
+        const isCompleted = match.status === 'completed' || roomData?.status === 'finished';
+        
+        if (isCompleted && roomData?.summary) {
+          const summary = roomData.summary as any;
+          legsWonHome = parseInt(summary.player1_legs || '0', 10);
+          legsWonAway = parseInt(summary.player2_legs || '0', 10);
+        }
+
+        return {
+          matchId: match.id,
+          dateTime: match.scheduled_date ? new Date(match.scheduled_date) : new Date(match.created_at),
+          homePlayerId: match.player1_id,
+          awayPlayerId: match.player2_id,
+          status: isCompleted ? 'Completed' : 
+                 match.status === 'in_progress' ? 'Scheduled' : 'Scheduled',
+          legsWonHome,
+          legsWonAway,
+          matchday: Math.floor(index / (leagueData.games_per_day || 3)) + 1,
+        };
+      });
+
+      // Calculate standings from completed fixtures
+      // IMPORTANT: league_matches.player1_id/player2_id are auth.users.id
+      // But players array has profiles.id, so we need to map by user_id
+      const standingsMap = new Map<string, Standing>();
+      
+      // Create a map from auth.users.id to profiles.id for players
+      // players array was built from profiles (line 177), so player.id = profiles.id
+      // We need to map league_matches.player1_id/player2_id (auth.users.id) to profiles.id
+      const authIdToProfileIdMap = new Map<string, string>();
+      
+      // Build the mapping using the profiles that were already fetched (line 166)
+      // Re-fetch profiles to get user_id -> id mapping
+      let profileMapping: any[] = [];
+      if (memberUserIds.length > 0) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id, user_id')
+          .in('user_id', memberUserIds);
+        
+        profileMapping = profileData || [];
+        profileMapping.forEach(profile => {
+          authIdToProfileIdMap.set(profile.user_id, profile.id);
+        });
+      }
+      
+      // Initialize standings for all players (using profiles.id as key)
+      players.forEach(player => {
+        standingsMap.set(player.id, {
+          playerId: player.id,
+          played: 0,
+          won: 0,
+          lost: 0,
+          legDifference: 0,
+          points: 0,
+          form: [],
+        });
+      });
+
+      // Process completed fixtures
+      const completedFixtures = fixtures.filter(f => f.status === 'Completed' && 
+        f.legsWonHome !== undefined && f.legsWonAway !== undefined);
+      
+      console.log('[LEAGUE DETAIL] Processing standings:', {
+        completedFixturesCount: completedFixtures.length,
+        authIdToProfileIdMapSize: authIdToProfileIdMap.size,
+        playersCount: players.length,
+      });
+      
+      completedFixtures.forEach(fixture => {
+        // Convert auth.users.id (from fixture) to profiles.id (for standings)
+        const homeProfileId = authIdToProfileIdMap.get(fixture.homePlayerId);
+        const awayProfileId = authIdToProfileIdMap.get(fixture.awayPlayerId);
+        
+        if (!homeProfileId || !awayProfileId) {
+          console.warn('[LEAGUE DETAIL] Could not find profile IDs for players:', {
+            homePlayerId: fixture.homePlayerId,
+            awayPlayerId: fixture.awayPlayerId,
+            availableMappings: Array.from(authIdToProfileIdMap.entries()),
+          });
+          return;
+        }
+        
+        const homeStanding = standingsMap.get(homeProfileId);
+        const awayStanding = standingsMap.get(awayProfileId);
+
+        if (!homeStanding || !awayStanding) return;
+        if (fixture.legsWonHome === undefined || fixture.legsWonAway === undefined) return;
+
+        homeStanding.played++;
+        awayStanding.played++;
+
+        const homeLegDiff = fixture.legsWonHome - fixture.legsWonAway;
+        const awayLegDiff = fixture.legsWonAway - fixture.legsWonHome;
+
+        homeStanding.legDifference += homeLegDiff;
+        awayStanding.legDifference += awayLegDiff;
+
+        if (fixture.legsWonHome > fixture.legsWonAway) {
+          homeStanding.won++;
+          homeStanding.points += 2;
+          homeStanding.form.unshift('W');
+          awayStanding.lost++;
+          awayStanding.form.unshift('L');
+        } else {
+          awayStanding.won++;
+          awayStanding.points += 2;
+          awayStanding.form.unshift('W');
+          homeStanding.lost++;
+          homeStanding.form.unshift('L');
+        }
+
+        // Keep only last 5 results
+        if (homeStanding.form.length > 5) homeStanding.form.pop();
+        if (awayStanding.form.length > 5) awayStanding.form.pop();
+      });
+
+      // Sort standings by points, then leg difference, then wins
+      // IMPORTANT: Always return standings for ALL players, even if they haven't played
+      // This ensures the table shows all players with 0 stats instead of "No standings yet"
+      const standings = Array.from(standingsMap.values())
+        .sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.legDifference !== a.legDifference) return b.legDifference - a.legDifference;
+          return b.won - a.won;
+        });
+      
+      console.log('[LEAGUE DETAIL] Standings calculated:', {
+        standingsCount: standings.length,
+        playersCount: players.length,
+        completedFixturesCount: completedFixtures.length,
+        standings: standings.map(s => ({
+          playerId: s.playerId,
+          played: s.played,
+          won: s.won,
+          points: s.points,
+        })),
+      });
+
+      // Transform league data to match expected interface
+      // Handle both direct query result and RPC JSONB result
+      const transformedLeague: League = {
+        id: leagueData.id,
+        name: leagueData.name,
+        maxParticipants: leagueData.max_participants,
+        access: leagueData.access_type,
+        startDate: new Date(leagueData.start_date),
+        matchDays: matchDays,
+        matchTime: leagueData.match_time || '19:00',
+        gamesPerDay: leagueData.games_per_day || 3,
+        legsPerGame: leagueData.legs_per_game || 5,
+        cameraRequired: leagueData.camera_required === true || leagueData.camera_required === 'required' || leagueData.camera_required === 'required',
+        playoffs: leagueData.playoff_type !== 'none',
+        players: players,
+        fixtures: fixtures,
+        standings: standings,
+        stats: [], // TODO: Calculate from fixtures
+        liveUpdates: [], // TODO: Fetch from notifications or updates
+        invitedEmails: [], // Add missing property to prevent undefined error
+      };
+
+      setLeague(transformedLeague);
+    } catch (error) {
+      console.error('[LEAGUE DETAIL] Error loading league:', error);
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const isAdmin = league ? isOwnerOrAdmin(leagueId) : false;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-teal-400 mx-auto mb-4" />
+          <p className="text-slate-400">Loading league...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!league) {
     return (
@@ -177,19 +563,21 @@ export default function LeagueOverview() {
                 </div>
               </div>
 
-              {isAdmin && (
-                <div className="flex flex-col gap-2">
-                  <Button className="bg-teal-600 hover:bg-teal-700">
-                    Invite Players
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push(`/app/leagues/${leagueId}/manage`)}
-                  >
-                    Manage League
-                  </Button>
-                </div>
-              )}
+              <div className="flex flex-col gap-2">
+                {isAdmin && (
+                  <>
+                    <Button className="bg-teal-600 hover:bg-teal-700">
+                      Invite Players
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/app/leagues/${leagueId}/manage`)}
+                    >
+                      Manage League
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

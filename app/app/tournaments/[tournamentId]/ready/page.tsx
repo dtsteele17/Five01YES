@@ -192,10 +192,12 @@ export default function TournamentReadyUpPage() {
           ? matchData.player2_id
           : matchData.player1_id;
 
+      // tournament_matches.player1_id/player2_id are auth.users.id
+      // So we need to query profiles by user_id (not id)
       const { data: opponentData, error: opponentError } = await supabase
         .from('profiles')
         .select('id, username, avatar_url')
-        .eq('id', opponentId)
+        .eq('user_id', opponentId)
         .single();
 
       if (opponentError) throw opponentError;
@@ -214,6 +216,40 @@ export default function TournamentReadyUpPage() {
     if (!match || !currentUserId) return;
 
     try {
+      // REVERTING TO WORKING VERSION: tournament_match_ready.user_id stores profiles.id
+      // Get current user's profile ID
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (profileError) {
+        console.error('[TOURNAMENT READY PAGE] Error fetching profile:', profileError);
+        return;
+      }
+
+      const currentProfileId = profileData?.id;
+
+      // Get opponent's profile ID
+      const opponentAuthId =
+        match.player1_id === currentUserId
+          ? match.player2_id
+          : match.player1_id;
+
+      const { data: opponentProfileData, error: opponentProfileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', opponentAuthId)
+        .single();
+
+      if (opponentProfileError) {
+        console.error('[TOURNAMENT READY PAGE] Error fetching opponent profile:', opponentProfileError);
+      }
+
+      const opponentProfileId = opponentProfileData?.id;
+
+      // Fetch ready status using profile IDs (as the working version did)
       const { data, error } = await supabase
         .from('tournament_match_ready')
         .select('user_id')
@@ -221,14 +257,21 @@ export default function TournamentReadyUpPage() {
 
       if (error) throw error;
 
-      const readyUserIds = data.map((r) => r.user_id);
-      setIsReady(readyUserIds.includes(currentUserId));
+      const readyProfileIds = data.map((r) => r.user_id);
+      
+      // Check if current user (by profile ID) is ready
+      setIsReady(currentProfileId ? readyProfileIds.includes(currentProfileId) : false);
+      
+      // Check if opponent (by profile ID) is ready
+      setOpponentReady(opponentProfileId ? readyProfileIds.includes(opponentProfileId) : false);
 
-      const opponentId =
-        match.player1_id === currentUserId
-          ? match.player2_id
-          : match.player1_id;
-      setOpponentReady(readyUserIds.includes(opponentId));
+      console.log('[TOURNAMENT READY PAGE] Ready status loaded:', {
+        currentProfileId,
+        opponentProfileId,
+        readyProfileIds,
+        isReady: currentProfileId ? readyProfileIds.includes(currentProfileId) : false,
+        opponentReady: opponentProfileId ? readyProfileIds.includes(opponentProfileId) : false,
+      });
     } catch (error: any) {
       console.error('Error loading ready status:', error);
     }
@@ -262,10 +305,21 @@ export default function TournamentReadyUpPage() {
         return;
       }
 
-      // Call RPC with authenticated session
-      const { data: roomId, error } = await supabase.rpc('rpc_tourn_ready', {
+      // Call RPC with authenticated session (use ready_up_tournament_match, not rpc_tourn_ready)
+      const { data: rpcResponse, error } = await supabase.rpc('ready_up_tournament_match', {
         p_match_id: match.id,
       });
+
+      // Extract room_id from response if it's a JSON object
+      let roomId = null;
+      if (rpcResponse) {
+        if (typeof rpcResponse === 'object' && rpcResponse !== null) {
+          roomId = (rpcResponse as any).match_room_id || null;
+        } else {
+          // If it's just a UUID string, use it directly
+          roomId = typeof rpcResponse === 'string' ? rpcResponse : null;
+        }
+      }
 
       if (error) {
         console.error('[TOURNAMENT READY PAGE] RPC Error:', {
@@ -300,7 +354,8 @@ export default function TournamentReadyUpPage() {
         return;
       }
 
-      console.log('[TOURNAMENT READY PAGE] RPC Success - Room ID:', roomId);
+      console.log('[TOURNAMENT READY PAGE] RPC Success - Response:', rpcResponse);
+      console.log('[TOURNAMENT READY PAGE] Room ID:', roomId);
       console.log('[TOURNAMENT READY PAGE] Room ID type:', typeof roomId);
       console.log('[TOURNAMENT READY PAGE] Room ID is null:', roomId === null);
 

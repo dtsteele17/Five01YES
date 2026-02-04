@@ -95,7 +95,7 @@ export default function PlayersManager({ league, isAdmin }: PlayersManagerProps)
         )}
       </div>
 
-      {league.invitedEmails.length > 0 && (
+      {league.invitedEmails && league.invitedEmails.length > 0 && (
         <div className="mb-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <Clock className="w-5 h-5 text-yellow-500 mt-0.5" />

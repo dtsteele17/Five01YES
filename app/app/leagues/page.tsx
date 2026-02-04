@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,14 +14,98 @@ import {
   Calendar,
 } from 'lucide-react';
 import { CreateLeagueModal } from '@/components/app/CreateLeagueModal';
-import { useLeagues } from '@/lib/context/LeaguesContext';
+
+interface League {
+  id: string;
+  name: string;
+  max_participants: number;
+  access_type: 'open' | 'invite';
+  start_date: string;
+  member_count?: number;
+}
 
 export default function LeaguesPage() {
   const router = useRouter();
-  const { state } = useLeagues();
+  const supabase = createClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const myLeagues = state.leagues;
+  useEffect(() => {
+    loadLeagues();
+  }, []);
+
+  const loadLeagues = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch leagues where user is a member
+      const { data: leagueMembers, error: membersError } = await supabase
+        .from('league_members')
+        .select('league_id, leagues(*)')
+        .eq('user_id', user.id);
+
+      if (membersError) {
+        console.error('[LEAGUES] Error fetching league members:', membersError);
+        setLoading(false);
+        return;
+      }
+
+      if (!leagueMembers || leagueMembers.length === 0) {
+        setLeagues([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get member counts for each league
+      const leagueIds = leagueMembers.map(lm => lm.league_id);
+      
+      const { data: memberCounts, error: countError } = await supabase
+        .from('league_members')
+        .select('league_id')
+        .in('league_id', leagueIds);
+
+      if (countError) {
+        console.error('[LEAGUES] Error fetching member counts:', countError);
+      }
+
+      // Count members per league
+      const countsMap = new Map<string, number>();
+      memberCounts?.forEach(mc => {
+        countsMap.set(mc.league_id, (countsMap.get(mc.league_id) || 0) + 1);
+      });
+
+      // Transform data - handle the nested leagues object
+      const leaguesData: League[] = leagueMembers
+        .map((lm: any) => {
+          const league = lm.leagues;
+          if (!league) return null;
+          
+          return {
+            id: league.id,
+            name: league.name,
+            max_participants: league.max_participants,
+            access_type: league.access_type,
+            start_date: league.start_date,
+            member_count: countsMap.get(lm.league_id) || 0,
+          };
+        })
+        .filter((l): l is League => l !== null) || [];
+
+      setLeagues(leaguesData);
+    } catch (error) {
+      console.error('[LEAGUES] Error loading leagues:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const myLeagues = leagues;
 
   const getLeagueColor = (index: number) => {
     const colors = [
@@ -51,7 +136,11 @@ export default function LeaguesPage() {
       <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
         <h2 className="text-xl font-bold text-white mb-6">Your Leagues</h2>
 
-        {myLeagues.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-400">Loading leagues...</p>
+          </div>
+        ) : myLeagues.length === 0 ? (
           <div className="text-center py-12">
             <Trophy className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <p className="text-gray-400 mb-4">You haven't joined any leagues yet</p>
@@ -78,14 +167,14 @@ export default function LeaguesPage() {
                     <div className="flex items-center space-x-4 text-sm text-gray-400">
                       <div className="flex items-center">
                         <Users className="w-4 h-4 mr-1" />
-                        {league.players.length}/{league.maxParticipants} players
+                        {league.member_count || 0}/{league.max_participants} players
                       </div>
                       <div className="flex items-center">
                         <Calendar className="w-4 h-4 mr-1" />
-                        Starts {league.startDate.toLocaleDateString()}
+                        Starts {new Date(league.start_date).toLocaleDateString()}
                       </div>
                       <span className="px-2 py-1 rounded text-xs bg-emerald-500/20 text-emerald-400">
-                        {league.access === 'invite' ? 'Invite Only' : 'Open'}
+                        {league.access_type === 'invite' ? 'Invite Only' : 'Open'}
                       </span>
                     </div>
                   </div>
@@ -106,11 +195,12 @@ export default function LeaguesPage() {
       <CreateLeagueModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onLeagueCreated={(id) => {
+        onLeagueCreated={async (id) => {
           console.log('PARENT_onLeagueCreated', id);
           setIsModalOpen(false);
+          // Reload leagues to show the new one
+          await loadLeagues();
           router.push(`/app/leagues/${id}`);
-          router.refresh();
         }}
       />
     </div>

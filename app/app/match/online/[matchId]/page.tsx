@@ -340,8 +340,18 @@ export default function OnlineMatchPage() {
 
       setInputScore('');
       
-      // Reload match data to get updated state
+      // ⚠️ CRITICAL: Always reload match data after submit to get updated turn and leg scores
+      // This ensures the UI updates immediately with:
+      // - Updated turn (switched to opponent)
+      // - Updated leg scores (e.g., 1-0, 2-1)
+      // - Updated remaining scores
+      // DO NOT REMOVE THESE RELOADS - they are essential for proper turn switching
       await loadMatchData();
+      
+      // Secondary reload to catch any race conditions (keep this for reliability)
+      setTimeout(async () => {
+        await loadMatchData();
+      }, 500);
     } catch (error: any) {
       console.error('Error submitting visit:', error);
       toast.error(`Failed to submit: ${error.message}`);
