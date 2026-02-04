@@ -37,7 +37,7 @@ import { useMatchPersistence } from '@/lib/hooks/useMatchPersistence';
 import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { MatchSaveDebugStrip } from '@/components/app/MatchSaveDebugStrip';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
-import { DartboardSVG, DartHit } from '@/components/app/DartboardSVG';
+import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled } from '@/lib/dartbotSettings';
 
@@ -1162,7 +1162,7 @@ export default function Training501Page() {
                   )}
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <DartboardSVG hits={dartboardHits} className="max-w-full" />
+                  <DartboardOverlay hits={dartboardHits} className="max-w-full" />
                   {botLastVisitTotal !== null && (
                     <div className="mt-2 text-center">
                       <p className="text-sm text-gray-400">Last Visit</p>
