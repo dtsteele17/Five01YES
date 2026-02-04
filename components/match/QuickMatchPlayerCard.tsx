@@ -41,11 +41,11 @@ export function QuickMatchPlayerCard({
             <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-400 font-medium">Last</p>
+            <p className="text-sm text-gray-400 font-medium">Last Visit</p>
             <p className={`text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-400 font-medium">Darts</p>
+            <p className="text-sm text-gray-400 font-medium">Darts Thrown</p>
             <p className={`text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
           </div>
         </div>
@@ -70,7 +70,7 @@ export function QuickMatchPlayerCard({
           </div>
 
           <div className="text-center py-1">
-            <div className="text-6xl font-bold text-white">{remaining}</div>
+            <div className="text-7xl font-display font-bold text-white tracking-tight" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>{remaining}</div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -99,11 +99,11 @@ export function QuickMatchPlayerCard({
             <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400 font-medium">Last</p>
+            <p className="text-sm text-gray-400 font-medium">Last Visit</p>
             <p className={`text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400 font-medium">Darts</p>
+            <p className="text-sm text-gray-400 font-medium">Darts Thrown</p>
             <p className={`text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
           </div>
         </div>

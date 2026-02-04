@@ -43,9 +43,9 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
     if (mode === 'single') {
       return `${base} bg-slate-700/50 border-slate-600/50`;
     } else if (mode === 'double') {
-      return `${base} bg-red-900/30 border-red-700/50`;
-    } else if (mode === 'triple') {
       return `${base} bg-emerald-900/30 border-emerald-700/50`;
+    } else if (mode === 'triple') {
+      return `${base} bg-red-900/30 border-red-700/50`;
     }
     return base;
   };
@@ -56,7 +56,7 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
         <Button
           onClick={() => onSegmentClick(25, 1)}
           disabled={disabled}
-          className="h-16 bg-amber-900/30 border-2 border-amber-700/50 hover:bg-amber-800/40 transition-all"
+          className="h-16 bg-purple-900/30 border-2 border-purple-700/50 hover:bg-purple-800/40 transition-all"
         >
           <div className="flex flex-col items-center">
             <span className="text-base font-bold text-white">Outer Bull</span>
@@ -66,7 +66,7 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
         <Button
           onClick={() => onSegmentClick(25, 2)}
           disabled={disabled}
-          className="h-16 bg-amber-900/30 border-2 border-amber-700/50 hover:bg-amber-800/40 transition-all"
+          className="h-16 bg-purple-900/30 border-2 border-purple-700/50 hover:bg-purple-800/40 transition-all"
         >
           <div className="flex flex-col items-center">
             <span className="text-base font-bold text-white">Bull</span>

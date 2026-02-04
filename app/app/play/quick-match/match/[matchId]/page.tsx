@@ -722,6 +722,9 @@ export default function QuickMatchRoomPage() {
             <LogOut className="w-4 h-4 mr-2" />
             Forfeit
           </Button>
+          <div className="px-3 py-1 bg-slate-900/80 backdrop-blur-sm border border-white/10 rounded-full shadow-lg shadow-blue-500/10">
+            <span className="text-xs font-semibold text-white/90 tracking-wider uppercase">Quick Match</span>
+          </div>
           {isConnected ? (
             <Wifi className="w-4 h-4 text-emerald-400" />
           ) : (

@@ -75,7 +75,7 @@ export function QuickMatchScoringPanel({
     } else if (currentMode === 'triple') {
       return `${base} ${isActive ? 'bg-red-700/60 font-bold text-white' : 'bg-red-900/20 font-medium text-gray-300'}`;
     } else {
-      return `${base} ${isActive ? 'bg-slate-600/60 font-bold text-white' : 'bg-slate-800/20 font-medium text-gray-300'}`;
+      return `${base} ${isActive ? 'bg-purple-700/60 font-bold text-white' : 'bg-purple-900/20 font-medium text-gray-300'}`;
     }
   };
 
