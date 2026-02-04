@@ -7,9 +7,6 @@ import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 interface PlayerScoreCardProps {
   name: string;
   remaining: number;
-  average: number;
-  lastScore?: number;
-  dartsThrown?: number;
   legsWon: number;
   legsToWin: number;
   isActive: boolean;
@@ -23,9 +20,6 @@ interface PlayerScoreCardProps {
 export function PlayerScoreCard({
   name,
   remaining,
-  average,
-  lastScore,
-  dartsThrown,
   legsWon,
   legsToWin,
   isActive,
@@ -66,11 +60,24 @@ export function PlayerScoreCard({
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-1.5">
+      </div>
+
+      <div className="text-center py-6">
+        <div className="text-8xl font-bold text-white leading-none mb-2">
+          {remaining}
+        </div>
+      </div>
+
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-xs text-gray-400 mb-0.5">Legs</p>
+          <p className="text-xl font-bold text-white">{legsWon}</p>
+        </div>
+        <div className="flex items-center space-x-2">
           {Array.from({ length: legsToWin }).map((_, idx) => (
             <div
               key={idx}
-              className={`w-3 h-3 rounded-full ${
+              className={`w-4 h-4 rounded-full ${
                 idx < legsWon
                   ? isMe
                     ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
@@ -80,33 +87,6 @@ export function PlayerScoreCard({
             />
           ))}
         </div>
-      </div>
-
-      <div className="text-center py-6">
-        <div className="text-8xl font-bold text-white leading-none mb-2">
-          {remaining}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs text-gray-400 mb-1">Average</p>
-          <p className={`text-2xl font-bold ${isMe ? 'text-emerald-400' : 'text-blue-400'}`}>
-            {average.toFixed(2)}
-          </p>
-        </div>
-        {lastScore !== undefined && (
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Last Score</p>
-            <p className="text-2xl font-bold text-white">{lastScore}</p>
-          </div>
-        )}
-        {dartsThrown !== undefined && dartsThrown > 0 && (
-          <div>
-            <p className="text-xs text-gray-400 mb-1">Darts Thrown</p>
-            <p className="text-2xl font-bold text-white">{dartsThrown}</p>
-          </div>
-        )}
       </div>
     </Card>
   );

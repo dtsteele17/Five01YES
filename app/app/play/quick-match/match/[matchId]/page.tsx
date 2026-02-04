@@ -1166,6 +1166,10 @@ export default function QuickMatchRoomPage() {
   const opponentVisits = matchState.visitHistory.filter(v => v.playerId === opponentPlayer.id);
   const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
   const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
+  const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1].score : 0;
+  const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1].score : 0;
+  const myDartsThrown = myVisits.length * 3;
+  const opponentDartsThrown = opponentVisits.length * 3;
 
   const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
   const matchComplete = matchState.status === 'finished' || matchState.status === 'abandoned' || matchState.status === 'forfeited';
@@ -1220,23 +1224,29 @@ export default function QuickMatchRoomPage() {
           name: myName,
           remaining: myRemaining,
           average: myAvg,
+          lastScore: myLastScore,
+          dartsThrown: myDartsThrown,
           legsWon: myLegs,
           isActive: isMyTurn,
           isMe: true,
+          trustRating: null,
         }}
         opponentPlayer={{
           name: opponentName,
           remaining: opponentRemaining,
           average: opponentAvg,
+          lastScore: opponentLastScore,
+          dartsThrown: opponentDartsThrown,
           legsWon: opponentLegs,
           isActive: !isMyTurn,
           isMe: false,
+          trustRating: opponentTrustRating,
         }}
         legsToWin={matchState.legsToWin}
       />
 
       {/* Main Row: Camera Panel (left) + Turn Panel (right) */}
-      <div className="flex-1 grid grid-cols-2 gap-4 px-4 pb-4 min-h-0" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
+      <div className="flex-1 grid grid-cols-2 gap-3 px-4 pb-4 min-h-0" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
         <MatchCameraPanel
           liveVideoRef={liveVideoRef}
           localStream={localStream}
@@ -1305,13 +1315,86 @@ export default function QuickMatchRoomPage() {
       </AlertDialog>
 
       <Dialog open={showOpponentForfeitSignalModal} onOpenChange={() => {}}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white">
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white text-center">
-              Opponent forfeited the match.
-            </DialogTitle>
+            <div className="flex flex-col items-center space-y-2 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full">
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
+              <DialogTitle className="text-3xl font-bold text-white text-center">
+                Opponent Forfeited
+              </DialogTitle>
+              <p className="text-base text-gray-400 text-center">
+                You win by forfeit
+              </p>
+            </div>
           </DialogHeader>
-          <div className="py-4 text-center">
+
+          <div className="space-y-4 py-4">
+            <h3 className="text-lg font-semibold text-white mb-3">Match Stats</h3>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="bg-slate-800/50 border-white/10 p-4">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Avatar className="w-10 h-10">
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
+                      {myName.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold text-white">{myName}</p>
+                    <p className="text-xs text-gray-400">Winner</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">3-Dart Average</span>
+                    <span className="text-lg font-bold text-emerald-400">{myAvg.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Highest Visit</span>
+                    <span className="text-lg font-bold text-amber-400">{myHighestVisit}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Legs Won</span>
+                    <span className="text-lg font-bold text-blue-400">{myLegs}</span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="bg-slate-800/50 border-white/10 p-4">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Avatar className="w-10 h-10">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white">
+                      {opponentName.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold text-white">{opponentName}</p>
+                    <p className="text-xs text-gray-400">Forfeited</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">3-Dart Average</span>
+                    <span className="text-lg font-bold text-emerald-400">{opponentAvg.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Highest Visit</span>
+                    <span className="text-lg font-bold text-amber-400">{opponentHighestVisit}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Legs Won</span>
+                    <span className="text-lg font-bold text-blue-400">{opponentLegs}</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4">
             <Button
               onClick={async () => {
                 setShowOpponentForfeitSignalModal(false);
@@ -1319,11 +1402,18 @@ export default function QuickMatchRoomPage() {
                   cleanupMatchRef.current();
                 }
                 await clearMatchState(matchId);
-                router.push('/app/play');
+                router.push('/app/play/quick-match');
               }}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
+              className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
             >
-              Return
+              Back to Quick Match
+            </Button>
+            <Button
+              onClick={() => toast.info('Rematch feature coming soon!')}
+              variant="outline"
+              className="flex-1 border-white/20 text-white hover:bg-white/10"
+            >
+              Rematch
             </Button>
           </div>
         </DialogContent>

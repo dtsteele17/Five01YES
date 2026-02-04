@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { TopBar } from '@/components/app/TopBar';
 import { ProfileProvider } from '@/lib/context/ProfileContext';
 import { LeaguesProvider } from '@/lib/context/LeaguesContext';
@@ -14,6 +15,9 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const isQuickMatchGame = pathname?.includes('/app/play/quick-match/match/');
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -23,6 +27,22 @@ export default function AppLayout({
       console.log('[APP DEBUG] Supabase Host:', supabaseHost);
     }
   }, []);
+
+  if (isQuickMatchGame) {
+    return (
+      <ProfileProvider>
+        <NotificationsProvider>
+          <LeaguesProvider>
+            <TournamentsProvider>
+              <TrainingProvider>
+                {children}
+              </TrainingProvider>
+            </TournamentsProvider>
+          </LeaguesProvider>
+        </NotificationsProvider>
+      </ProfileProvider>
+    );
+  }
 
   return (
     <ProfileProvider>

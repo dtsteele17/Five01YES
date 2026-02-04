@@ -184,7 +184,7 @@ export function MatchTurnPanel({
                     onClick={() => handleDartClick(dartboardGroup as any, num)}
                     disabled={!isMyTurn || submitting || currentVisit.length >= 3}
                     variant="outline"
-                    className="h-12 text-base font-bold border-white/10 text-white hover:bg-emerald-500/20 disabled:opacity-50"
+                    className="aspect-square text-lg font-extrabold border-white/10 text-white hover:bg-emerald-500/20 disabled:opacity-50 rounded"
                   >
                     {num}
                   </Button>
@@ -198,7 +198,7 @@ export function MatchTurnPanel({
                   onClick={() => handleDartClick('bulls', 25)}
                   disabled={!isMyTurn || submitting || currentVisit.length >= 3}
                   variant="outline"
-                  className="h-16 text-lg font-bold border-white/10 text-white hover:bg-emerald-500/20"
+                  className="h-16 text-lg font-extrabold border-white/10 text-white hover:bg-emerald-500/20 rounded"
                 >
                   Single Bull (25)
                 </Button>
@@ -206,7 +206,7 @@ export function MatchTurnPanel({
                   onClick={() => handleDartClick('bulls', 50)}
                   disabled={!isMyTurn || submitting || currentVisit.length >= 3}
                   variant="outline"
-                  className="h-16 text-lg font-bold border-white/10 text-white hover:bg-emerald-500/20"
+                  className="h-16 text-lg font-extrabold border-white/10 text-white hover:bg-emerald-500/20 rounded"
                 >
                   Double Bull (50)
                 </Button>
