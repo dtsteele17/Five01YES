@@ -584,36 +584,16 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
         return;
       }
 
-      console.log('[FORFEIT] Match forfeited successfully');
-
-      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
-
-      if (opponentId) {
-        console.log('[FORFEIT] Sending forfeit signal to opponent:', opponentId);
-        const { error: signalError } = await supabase
-          .from('match_signals')
-          .insert({
-            room_id: matchId,
-            from_user_id: currentUserId,
-            to_user_id: opponentId,
-            type: 'forfeit',
-            payload: { message: 'Opponent forfeited the match' }
-          });
-
-        if (signalError) {
-          console.error('[FORFEIT] Failed to send forfeit signal:', signalError);
-        } else {
-          console.log('[FORFEIT] Forfeit signal sent successfully');
-        }
-      }
+      console.log('[FORFEIT] Match forfeited successfully, winner:', data.winner_id);
 
       toast.success('Match forfeited');
 
+      // Clean up and navigate to /app/play
       if (cleanupMatchRef.current) {
         cleanupMatchRef.current();
       }
       await clearMatchState(matchId);
-      router.push('/app/play/quick-match');
+      router.push('/app/play');
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
@@ -631,7 +611,7 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
     if (!editingVisit) return;
 
     try {
-      const { error } = await supabase.rpc('rpc_edit_quick_match_visit', {
+      const { data, error } = await supabase.rpc('rpc_edit_quick_match_visit', {
         p_room_id: matchId,
         p_visit_number: editingVisit.visitNumber,
         p_new_score: newScore,
@@ -639,14 +619,28 @@ function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
 
       if (error) throw error;
 
+      // Check if RPC returned an error in the response
+      if (data && !data.ok) {
+        toast.error(data.error || 'Failed to update visit');
+        return;
+      }
+
       toast.success('Visit updated');
       setShowEditVisitModal(false);
       setEditingVisit(null);
 
+      // Refresh will happen via realtime subscription
       await loadMatchData();
     } catch (error: any) {
       console.error('[EDIT] Failed to edit visit:', error);
-      toast.error(`Failed to update visit: ${error.message}`);
+      const errorMessage = error.message || 'Failed to update visit';
+
+      // Handle specific error cases
+      if (errorMessage.includes('remaining') && errorMessage.includes('below')) {
+        toast.error('This score would result in a bust (remaining < 0)');
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
