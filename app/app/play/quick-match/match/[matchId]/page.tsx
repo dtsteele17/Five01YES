@@ -540,10 +540,11 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Is My Turn:', isMyTurn);
       console.log('[SUBMIT] ========================');
 
-      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v2", {
+      const { data, error } = await supabase.rpc("submit_quick_match_throw", {
         p_room_id: matchId,
         p_score: visitTotal,
         p_darts: dartsArray ?? [],
+        p_darts_thrown: darts.length || 3,
         p_is_bust: !!isBust
       });
 

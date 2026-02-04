@@ -314,6 +314,7 @@ export default function OnlineMatchPage() {
       const { data, error } = await supabase.rpc('submit_quick_match_throw', {
         p_room_id: matchId,
         p_score: isBust ? 0 : score,
+        p_is_bust: isBust,
       });
 
       if (error) {
