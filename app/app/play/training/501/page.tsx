@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,7 +92,6 @@ export default function Training501Page() {
   });
   const [allLegs, setAllLegs] = useState<LegData[]>([]);
   const [scoreInput, setScoreInput] = useState('');
-  const [scoringMode, setScoringMode] = useState<'quick' | 'input'>('quick');
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [matchWinner, setMatchWinner] = useState<'player1' | 'player2' | null>(null);
@@ -481,6 +479,18 @@ export default function Training501Page() {
   const handleInputScoreSubmit = (score: number) => {
     if (!config) return;
 
+    // Validate score is an integer
+    if (!Number.isInteger(score)) {
+      setInputModeError('Score must be a whole number');
+      return;
+    }
+
+    // Validate score is within range
+    if (score < 0 || score > 180) {
+      setInputModeError('Score must be between 0 and 180');
+      return;
+    }
+
     const currentScore = player1Score;
     const doubleOut = config.doubleOut;
     const minDarts = getMinDartsToCheckout(currentScore, doubleOut);
@@ -492,6 +502,7 @@ export default function Training501Page() {
       setShowDartsAtDoubleModal(true);
     } else {
       handleScoreSubmit(score, 3, undefined, true, 0);
+      setScoreInput('');
     }
   };
 
@@ -506,6 +517,7 @@ export default function Training501Page() {
     handleScoreSubmit(pendingVisitData.score, 3, undefined, true, dartsAtDouble);
     setShowDartsAtDoubleModal(false);
     setPendingVisitData(null);
+    setScoreInput('');
   };
 
   const handleScoreSubmit = (
@@ -1244,18 +1256,10 @@ export default function Training501Page() {
             </Card>
 
             <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden h-full">
-              <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                <h3 className="text-base font-semibold text-white">Scoring</h3>
-                <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
-                  <TabsList className="bg-slate-800/50 h-9">
-                    <TabsTrigger value="quick" className="data-[state=active]:bg-emerald-500 text-sm px-4">Quick</TabsTrigger>
-                    <TabsTrigger value="input" className="data-[state=active]:bg-emerald-500 text-sm px-4">Input</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
+              <h3 className="text-base font-semibold text-white mb-2 flex-shrink-0">Scoring</h3>
 
               {isBotThinking && (
-                <Card className="bg-blue-500/20 border-blue-500/30 p-1.5 mb-1 flex-shrink-0">
+                <Card className="bg-blue-500/20 border-blue-500/30 p-1.5 mb-2 flex-shrink-0">
                   <div className="flex items-center justify-center space-x-2">
                     <Bot className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
                     <p className="text-xs text-blue-400 font-semibold">Bot thinking...</p>
@@ -1265,7 +1269,7 @@ export default function Training501Page() {
 
               {isOnCheckout && currentPlayer === 'player1' && (
                 checkoutOptions.length > 0 ? (
-                  <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5 mb-1 flex-shrink-0">
+                  <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5 mb-2 flex-shrink-0">
                     <div className="flex items-center space-x-2 mb-0.5">
                       <Trophy className="w-3.5 h-3.5 text-amber-400" />
                       <h4 className="text-xs font-semibold text-white">CHECKOUT AVAILABLE</h4>
@@ -1276,7 +1280,7 @@ export default function Training501Page() {
                     </div>
                   </Card>
                 ) : (
-                  <Card className="bg-gradient-to-br from-gray-500/20 to-slate-500/20 border-gray-500/30 p-1.5 mb-1 flex-shrink-0">
+                  <Card className="bg-gradient-to-br from-gray-500/20 to-slate-500/20 border-gray-500/30 p-1.5 mb-2 flex-shrink-0">
                     <div className="flex items-center space-x-2">
                       <Zap className="w-3.5 h-3.5 text-gray-400" />
                       <h4 className="text-xs font-semibold text-white">CHECKOUT NOT POSSIBLE</h4>
@@ -1286,217 +1290,184 @@ export default function Training501Page() {
                 )
               )}
 
-              {scoringMode === 'quick' ? (
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-2.5 mb-2 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="text-sm font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold text-lg">Total: {visitTotal}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      {currentVisit.map((dart, idx) => (
-                        <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-sm py-1 px-2">
-                          {getDartLabel(dart)} ({dart.value})
-                        </Badge>
-                      ))}
-                      {[...Array(3 - currentVisit.length)].map((_, idx) => (
-                        <div key={idx} className="flex-1 h-8 border-2 border-dashed border-gray-600 rounded"></div>
-                      ))}
-                    </div>
-                  </Card>
+              {inputModeError && (
+                <Card className="bg-red-500/20 border-red-500/30 p-2 mb-2 flex-shrink-0">
+                  <p className="text-red-400 text-xs text-center font-semibold">{inputModeError}</p>
+                </Card>
+              )}
 
-                  <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
-                    <div className="flex space-x-2 mb-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant={dartboardGroup === 'singles' ? 'default' : 'outline'}
-                        onClick={() => setDartboardGroup('singles')}
-                        className={`${dartboardGroup === 'singles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                        disabled={currentPlayer !== 'player1'}
-                      >
-                        Singles
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={dartboardGroup === 'doubles' ? 'default' : 'outline'}
-                        onClick={() => setDartboardGroup('doubles')}
-                        className={`${dartboardGroup === 'doubles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                        disabled={currentPlayer !== 'player1'}
-                      >
-                        Doubles
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={dartboardGroup === 'triples' ? 'default' : 'outline'}
-                        onClick={() => setDartboardGroup('triples')}
-                        className={`${dartboardGroup === 'triples' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                        disabled={currentPlayer !== 'player1'}
-                      >
-                        Triples
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={dartboardGroup === 'bulls' ? 'default' : 'outline'}
-                        onClick={() => setDartboardGroup('bulls')}
-                        className={`${dartboardGroup === 'bulls' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                        disabled={currentPlayer !== 'player1'}
-                      >
-                        Bulls
-                      </Button>
-                    </div>
+              <div className="flex space-x-2 mb-2 flex-shrink-0">
+                <Input
+                  type="number"
+                  min="0"
+                  max="180"
+                  value={scoreInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || (parseInt(value) >= 0 && parseInt(value) <= 180)) {
+                      setScoreInput(value);
+                      setInputModeError('');
+                    } else {
+                      setInputModeError('Score must be between 0 and 180');
+                    }
+                  }}
+                  placeholder="Type score (0-180)"
+                  className="flex-1 bg-white/5 border-white/10 text-white text-xl h-12"
+                  disabled={currentPlayer !== 'player1'}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && scoreInput) {
+                      const score = parseInt(scoreInput);
+                      handleInputScoreSubmit(score);
+                    }
+                  }}
+                />
+                <Button
+                  onClick={() => {
+                    if (scoreInput) {
+                      const score = parseInt(scoreInput);
+                      handleInputScoreSubmit(score);
+                    }
+                  }}
+                  disabled={!scoreInput || isNaN(parseInt(scoreInput)) || currentPlayer !== 'player1'}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 h-12 text-base font-semibold"
+                >
+                  Submit
+                </Button>
+              </div>
 
-                    {dartboardGroup !== 'bulls' ? (
-                      <div className="grid grid-cols-5 gap-1.5 mb-2">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
-                          <Button
-                            key={num}
-                            onClick={() => handleDartClick(dartboardGroup, num)}
-                            disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                            className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
-                          >
-                            <span>{dartboardGroup === 'singles' ? `S${num}` : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}</span>
-                            <span className="text-[10px] text-gray-400">
-                              ({dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? num * 2 : num * 3})
-                            </span>
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3 mb-2">
-                        <Button
-                          onClick={() => handleDartClick('bulls', 25)}
-                          disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                          className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
-                        >
-                          <span>Single Bull</span>
-                          <span className="text-sm text-gray-400">(25)</span>
-                        </Button>
-                        <Button
-                          onClick={() => handleDartClick('bulls', 50)}
-                          disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                          className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
-                        >
-                          <span>Double Bull</span>
-                          <span className="text-sm text-gray-400">(50)</span>
-                        </Button>
-                      </div>
-                    )}
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <Card className="bg-emerald-500/10 border-emerald-500/30 p-2.5 mb-2 flex-shrink-0">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h4 className="text-sm font-semibold text-emerald-400">Quick Score</h4>
+                    <span className="text-emerald-400 font-bold text-lg">Total: {visitTotal}</span>
+                  </div>
+                  <div className="flex items-center space-x-2 mt-1">
+                    {currentVisit.map((dart, idx) => (
+                      <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-sm py-1 px-2">
+                        {getDartLabel(dart)} ({dart.value})
+                      </Badge>
+                    ))}
+                    {[...Array(3 - currentVisit.length)].map((_, idx) => (
+                      <div key={idx} className="flex-1 h-8 border-2 border-dashed border-gray-600 rounded"></div>
+                    ))}
+                  </div>
+                </Card>
 
+                <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
+                  <div className="flex space-x-2 mb-2 flex-shrink-0">
                     <Button
-                      onClick={() => handleDartClick('singles', 0)}
-                      variant="outline"
-                      className="w-full h-10 mb-2 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
+                      size="sm"
+                      variant={dartboardGroup === 'singles' ? 'default' : 'outline'}
+                      onClick={() => setDartboardGroup('singles')}
+                      className={`${dartboardGroup === 'singles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
                       disabled={currentPlayer !== 'player1'}
                     >
-                      Miss (0)
+                      Singles
                     </Button>
-
-                    <div className="grid grid-cols-3 gap-2 flex-shrink-0">
-                      <Button
-                        onClick={handleClearVisit}
-                        disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
-                        variant="outline"
-                        className="border-white/10 text-white hover:bg-white/5 h-11 text-sm"
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Clear
-                      </Button>
-                      <Button
-                        onClick={handleSubmitVisit}
-                        disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white h-11 text-sm font-semibold"
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        Submit
-                      </Button>
-                      <Button
-                        onClick={handleBust}
-                        variant="outline"
-                        className="border-red-500/30 text-red-400 hover:bg-red-500/10 h-11 text-sm"
-                        disabled={currentPlayer !== 'player1'}
-                      >
-                        Bust
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant={dartboardGroup === 'doubles' ? 'default' : 'outline'}
+                      onClick={() => setDartboardGroup('doubles')}
+                      className={`${dartboardGroup === 'doubles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
+                      disabled={currentPlayer !== 'player1'}
+                    >
+                      Doubles
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={dartboardGroup === 'triples' ? 'default' : 'outline'}
+                      onClick={() => setDartboardGroup('triples')}
+                      className={`${dartboardGroup === 'triples' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
+                      disabled={currentPlayer !== 'player1'}
+                    >
+                      Triples
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={dartboardGroup === 'bulls' ? 'default' : 'outline'}
+                      onClick={() => setDartboardGroup('bulls')}
+                      className={`${dartboardGroup === 'bulls' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
+                      disabled={currentPlayer !== 'player1'}
+                    >
+                      Bulls
+                    </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-2.5 mb-2 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="text-sm font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold text-lg">Total: {scoreInput && !isNaN(parseInt(scoreInput)) ? parseInt(scoreInput) : 0}</span>
-                    </div>
-                    <div className="text-center text-white text-base">
-                      {scoreInput && !isNaN(parseInt(scoreInput)) ? `Visit total: ${scoreInput}` : 'Enter visit total (0-180)'}
-                    </div>
-                  </Card>
 
-                  {inputModeError && (
-                    <Card className="bg-red-500/20 border-red-500/30 p-2 flex-shrink-0">
-                      <p className="text-red-400 text-xs text-center">{inputModeError}</p>
-                    </Card>
+                  {dartboardGroup !== 'bulls' ? (
+                    <div className="grid grid-cols-5 gap-1.5 mb-2">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
+                        <Button
+                          key={num}
+                          onClick={() => handleDartClick(dartboardGroup, num)}
+                          disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
+                          className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
+                        >
+                          <span>{dartboardGroup === 'singles' ? `S${num}` : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}</span>
+                          <span className="text-[10px] text-gray-400">
+                            ({dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? num * 2 : num * 3})
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                      <Button
+                        onClick={() => handleDartClick('bulls', 25)}
+                        disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
+                        className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
+                      >
+                        <span>Single Bull</span>
+                        <span className="text-sm text-gray-400">(25)</span>
+                      </Button>
+                      <Button
+                        onClick={() => handleDartClick('bulls', 50)}
+                        disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
+                        className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
+                      >
+                        <span>Double Bull</span>
+                        <span className="text-sm text-gray-400">(50)</span>
+                      </Button>
+                    </div>
                   )}
 
-                  <div className="flex space-x-2 mb-2 flex-shrink-0">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="180"
-                      value={scoreInput}
-                      onChange={(e) => {
-                        setScoreInput(e.target.value);
-                        setInputModeError('');
-                      }}
-                      placeholder="Enter score (0-180)"
-                      className="flex-1 bg-white/5 border-white/10 text-white text-2xl h-14"
-                      disabled={currentPlayer !== 'player1'}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        if (scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                          }
-                        }
-                      }}
-                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || currentPlayer !== 'player1'}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 h-14 text-base font-semibold"
-                    >
-                      Submit
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => handleDartClick('singles', 0)}
+                    variant="outline"
+                    className="w-full h-10 mb-2 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
+                    disabled={currentPlayer !== 'player1'}
+                  >
+                    Miss (0)
+                  </Button>
 
                   <div className="grid grid-cols-3 gap-2 flex-shrink-0">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                      <Button
-                        key={num}
-                        onClick={() => setScoreInput(prev => prev + num.toString())}
-                        className="h-16 text-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold"
-                        disabled={currentPlayer !== 'player1'}
-                      >
-                        {num}
-                      </Button>
-                    ))}
                     <Button
-                      onClick={() => setScoreInput('')}
-                      className="h-16 text-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-semibold"
+                      onClick={handleClearVisit}
+                      disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
+                      variant="outline"
+                      className="border-white/10 text-white hover:bg-white/5 h-11 text-sm"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Clear
+                    </Button>
+                    <Button
+                      onClick={handleSubmitVisit}
+                      disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-11 text-sm font-semibold"
+                    >
+                      <Check className="w-4 h-4 mr-1" />
+                      Submit
+                    </Button>
+                    <Button
+                      onClick={handleBust}
+                      variant="outline"
+                      className="border-red-500/30 text-red-400 hover:bg-red-500/10 h-11 text-sm"
                       disabled={currentPlayer !== 'player1'}
                     >
-                      Clear
+                      Bust
                     </Button>
                   </div>
                 </div>
-              )}
+              </div>
             </Card>
           </div>
         </div>
