@@ -451,10 +451,11 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_BUST] ===== BUST CLICKED =====');
     console.log('[HANDLE_BUST] Room ID:', matchId);
     console.log('[HANDLE_BUST] User ID:', currentUserId);
+    console.log('[HANDLE_BUST] Darts thrown:', currentVisit);
     console.log('[HANDLE_BUST] ========================');
 
-    const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
-    await submitScore(visitTotal, true, currentVisit);
+    // Bust = score is 0, isBust = true, but still send all darts thrown
+    await submitScore(0, true, currentVisit);
   };
 
   const handleSubmitVisit = async () => {
@@ -462,7 +463,8 @@ export default function QuickMatchRoomPage() {
 
     const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
 
-    if (visitTotal === 0 && currentVisit.length === 0) {
+    // Allow 0 score if darts were thrown (e.g., 3 misses)
+    if (currentVisit.length === 0) {
       toast.error('Please enter darts or use the Bust button');
       return;
     }
