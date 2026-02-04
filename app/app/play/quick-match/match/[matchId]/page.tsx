@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Trophy, RotateCcw, Chrome as Home, X, Check, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
 import EditVisitModal from '@/components/app/EditVisitModal';
@@ -531,7 +532,24 @@ export default function QuickMatchRoomPage() {
   }
 
   async function forfeitMatch() {
-    if (!room || !matchState) return;
+    if (!room || !matchState || !currentUserId) {
+      toast.error("Match data not available");
+      return;
+    }
+
+    // Check if match is already completed
+    if (room.status === 'completed' || room.status === 'finished' || room.status === 'forfeited') {
+      toast.error("Match already ended");
+      setShowEndMatchDialog(false);
+      return;
+    }
+
+    // Get opponent ID safely
+    const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+    if (!opponentId) {
+      toast.error("Couldn't forfeit—opponent not found");
+      return;
+    }
 
     setForfeitLoading(true);
 
@@ -555,7 +573,7 @@ export default function QuickMatchRoomPage() {
       if (!data || data.ok === false) {
         const errorMsg = data?.error || 'Unknown error';
         console.error('[FORFEIT] RPC returned error:', errorMsg);
-        toast.error(`Failed to forfeit: ${errorMsg}`);
+        toast.error("Couldn't forfeit—try again");
         setDidIForfeit(false);
         setForfeitLoading(false);
         return;
@@ -563,37 +581,37 @@ export default function QuickMatchRoomPage() {
 
       console.log('[FORFEIT] Match forfeited successfully');
 
-      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+      // Send forfeit signal to opponent
+      console.log('[FORFEIT] Sending forfeit signal to opponent:', opponentId);
+      const { error: signalError } = await supabase
+        .from('match_signals')
+        .insert({
+          room_id: matchId,
+          from_user_id: currentUserId,
+          to_user_id: opponentId,
+          type: 'forfeit',
+          payload: { message: 'Opponent forfeited the match' }
+        });
 
-      if (opponentId) {
-        console.log('[FORFEIT] Sending forfeit signal to opponent:', opponentId);
-        const { error: signalError } = await supabase
-          .from('match_signals')
-          .insert({
-            room_id: matchId,
-            from_user_id: currentUserId,
-            to_user_id: opponentId,
-            type: 'forfeit',
-            payload: { message: 'Opponent forfeited the match' }
-          });
-
-        if (signalError) {
-          console.error('[FORFEIT] Failed to send forfeit signal:', signalError);
-        } else {
-          console.log('[FORFEIT] Forfeit signal sent successfully');
-        }
+      if (signalError) {
+        console.error('[FORFEIT] Failed to send forfeit signal:', signalError);
+      } else {
+        console.log('[FORFEIT] Forfeit signal sent successfully');
       }
 
-      toast.success('Match forfeited');
+      toast.success('You forfeited the match');
 
+      // Cleanup and redirect
       if (cleanupMatchRef.current) {
         cleanupMatchRef.current();
       }
       await clearMatchState(matchId);
-      router.push('/app/play/quick-match');
+
+      // Navigate to play hub
+      router.push('/app/play');
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
-      toast.error(`Failed to forfeit: ${error.message}`);
+      toast.error("Couldn't forfeit—try again");
       setDidIForfeit(false);
       setForfeitLoading(false);
     }
@@ -762,16 +780,38 @@ export default function QuickMatchRoomPage() {
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4">
         {/* Forfeit Button - Top Left */}
         <div className="flex items-center space-x-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowEndMatchDialog(true)}
-            disabled={forfeitLoading}
-            className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 bg-slate-900/80 backdrop-blur-sm"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Forfeit
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!isMyTurn) {
+                        toast.error("You can only forfeit on your turn");
+                        return;
+                      }
+                      if (matchComplete) {
+                        return;
+                      }
+                      setShowEndMatchDialog(true);
+                    }}
+                    disabled={forfeitLoading || !isMyTurn || matchComplete}
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed bg-slate-900/80 backdrop-blur-sm"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Forfeit
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!isMyTurn && !matchComplete && (
+                <TooltipContent side="bottom" className="bg-slate-800 border-white/10 text-white">
+                  <p>You can only forfeit on your turn</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
           <div className="px-3 py-1 bg-slate-900/80 backdrop-blur-sm border border-white/10 rounded-full shadow-lg shadow-blue-500/10">
             <span className="text-xs font-semibold text-white/90 tracking-wider uppercase">Quick Match</span>
           </div>
@@ -1051,11 +1091,12 @@ export default function QuickMatchRoomPage() {
                   cleanupMatchRef.current();
                 }
                 await clearMatchState(matchId);
-                router.push('/app/play/quick-match');
+                router.push('/app/play');
               }}
               className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
             >
-              Back to Quick Match
+              <Home className="w-4 h-4 mr-2" />
+              Return to Dashboard
             </Button>
           </div>
         </DialogContent>
@@ -1227,12 +1268,12 @@ export default function QuickMatchRoomPage() {
                   cleanupMatchRef.current();
                 }
                 await clearMatchState(matchId);
-                router.push('/app/play/quick-match');
+                router.push('/app/play');
               }}
               className="border-white/20 text-white hover:bg-white/10 px-8"
             >
               <Home className="w-5 h-5 mr-2" />
-              Back to Quick Match
+              Return to Dashboard
             </Button>
           </div>
         </DialogContent>
