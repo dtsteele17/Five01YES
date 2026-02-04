@@ -44,6 +44,10 @@ interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
   number: number;
   value: number;
+  multiplier: number;
+  label: string;
+  score: number;
+  is_double: boolean;
 }
 
 interface MatchRoom {
@@ -367,17 +371,43 @@ export default function QuickMatchRoomPage() {
     if (currentVisit.length >= 3) return;
 
     let value = 0;
+    let multiplier = 1;
+    let label = '';
+    let isDouble = false;
+
     if (dartType === 'bull') {
-      value = number;
+      value = number; // 25 or 50
+      multiplier = number === 50 ? 2 : 1;
+      label = number === 50 ? 'DBULL' : 'SBULL';
+      isDouble = number === 50;
+      // For bulls, the "number" we pass to backend should be 25
+      number = 25;
     } else if (dartType === 'single') {
       value = number;
+      multiplier = 1;
+      label = `S${number}`;
+      isDouble = false;
     } else if (dartType === 'double') {
       value = number * 2;
+      multiplier = 2;
+      label = `D${number}`;
+      isDouble = true;
     } else if (dartType === 'triple') {
       value = number * 3;
+      multiplier = 3;
+      label = `T${number}`;
+      isDouble = false;
     }
 
-    const dart: Dart = { type: dartType, number, value };
+    const dart: Dart = {
+      type: dartType,
+      number,
+      value,
+      multiplier,
+      label,
+      score: value,
+      is_double: isDouble,
+    };
     setCurrentVisit([...currentVisit, dart]);
   };
 
@@ -399,6 +429,10 @@ export default function QuickMatchRoomPage() {
       type: 'single',
       number: 0,
       value: 0,
+      multiplier: 1,
+      label: 'MISS',
+      score: 0,
+      is_double: false,
     };
 
     setCurrentVisit([...currentVisit, missDart]);
@@ -467,7 +501,7 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    // Convert darts to server format: { mult: 'S'|'D'|'T'|'B', n: number }
+    // Convert darts to server format with multiplier and is_double for validation
     const serverDarts = darts.map(dart => {
       let mult: 'S' | 'D' | 'T' | 'B' = 'S';
       if (dart.type === 'bull') {
@@ -477,7 +511,13 @@ export default function QuickMatchRoomPage() {
       } else if (dart.type === 'triple') {
         mult = 'T';
       }
-      return { mult, n: dart.number };
+      return {
+        mult,
+        n: dart.number,
+        multiplier: dart.multiplier,
+        is_double: dart.is_double,
+        score: dart.score,
+      };
     });
 
     setSubmitting(true);
