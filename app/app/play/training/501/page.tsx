@@ -37,7 +37,7 @@ import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { MatchSaveDebugStrip } from '@/components/app/MatchSaveDebugStrip';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
-import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
+import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, debugDartboardAlignment } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled } from '@/lib/dartbotSettings';
 
 interface Visit {
@@ -180,6 +180,10 @@ export default function Training501Page() {
 
   useEffect(() => {
     setShowVisualization(isDartbotVisualizationEnabled());
+    // Debug: Verify dartboard coordinate alignment
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      debugDartboardAlignment();
+    }
   }, []);
 
   useEffect(() => {

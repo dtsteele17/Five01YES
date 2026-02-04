@@ -132,7 +132,11 @@ export function updatePerformanceTracker(
 function getNumberAngle(number: number): number {
   const index = DARTBOARD_NUMBERS.indexOf(number);
   if (index === -1) return 0;
-  return index * 18 * (Math.PI / 180);
+  // Convert to dartboard coordinates where 0° = top (12 o'clock), clockwise
+  // Standard: 0° = right, counter-clockwise
+  // Dartboard: 0° = top, clockwise
+  // Formula: 90° - (index * 18°) to rotate and flip direction
+  return (Math.PI / 2) - (index * 18 * (Math.PI / 180));
 }
 
 function getAimPoint(target: string): AimTarget {
@@ -222,7 +226,17 @@ function determineSegment(x: number, y: number): { label: string; score: number;
     return { label: 'SBull', score: 25, isDouble: false };
   }
 
-  let adjustedAngle = angle + (9 * Math.PI / 180);
+  // Convert from standard angle (0° = right, counter-clockwise) to dartboard angle (0° = top, clockwise)
+  // Standard atan2 gives: 0° = right, 90° = up, 180° = left, 270° = down
+  // Dartboard needs: 0° = up (20), increasing clockwise
+  let dartboardAngle = (Math.PI / 2) - angle;
+
+  // Normalize to 0 to 2π
+  while (dartboardAngle < 0) dartboardAngle += 2 * Math.PI;
+  while (dartboardAngle >= 2 * Math.PI) dartboardAngle -= 2 * Math.PI;
+
+  // Add half wedge (9°) to align boundaries - wedge centers are at 0°, 18°, 36°, etc.
+  let adjustedAngle = dartboardAngle + (9 * Math.PI / 180);
   if (adjustedAngle >= 2 * Math.PI) adjustedAngle -= 2 * Math.PI;
 
   const wedgeIndex = Math.floor(adjustedAngle / (18 * Math.PI / 180));
@@ -474,4 +488,42 @@ export function simulateVisit({
     finished,
     newRemaining: currentRemaining,
   };
+}
+
+/**
+ * Debug helper: Returns the dartboard label for given normalized coordinates
+ * Use this to verify alignment with the physical dartboard image
+ * @param x - normalized x coordinate (-1 to 1, 0 = center)
+ * @param y - normalized y coordinate (-1 to 1, 0 = center)
+ * @returns label like "T20", "D6", "S3", etc.
+ */
+export function debugCoordinateToLabel(x: number, y: number): string {
+  return determineSegment(x, y).label;
+}
+
+/**
+ * Debug helper: Log test points to verify dartboard alignment
+ * Expected results:
+ * - (0, -0.8) => 20 region (top)
+ * - (0.8, 0) => 6 region (right)
+ * - (0, 0.8) => 3 region (bottom)
+ * - (-0.8, 0) => 11 region (left)
+ */
+export function debugDartboardAlignment(): void {
+  const testPoints = [
+    { x: 0, y: -0.8, expected: '20', position: 'top' },
+    { x: 0.8, y: 0, expected: '6', position: 'right' },
+    { x: 0, y: 0.8, expected: '3', position: 'bottom' },
+    { x: -0.8, y: 0, expected: '11', position: 'left' },
+    { x: 0, y: -0.6, expected: 'T20', position: 'triple 20 (top)' },
+    { x: 0, y: -0.93, expected: 'D20', position: 'double 20 (top)' },
+  ];
+
+  console.log('=== Dartboard Alignment Debug ===');
+  testPoints.forEach(({ x, y, expected, position }) => {
+    const result = debugCoordinateToLabel(x, y);
+    const match = result.includes(expected) ? '✓' : '✗';
+    console.log(`${match} (${x.toFixed(2)}, ${y.toFixed(2)}) [${position}]: ${result} (expected: ${expected})`);
+  });
+  console.log('================================');
 }
