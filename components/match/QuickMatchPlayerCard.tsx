@@ -17,6 +17,7 @@ interface QuickMatchPlayerCardProps {
     lastScore: number;
     dartsThrown: number;
   };
+  previewRemaining?: number | null;
 }
 
 export function QuickMatchPlayerCard({
@@ -28,9 +29,13 @@ export function QuickMatchPlayerCard({
   color,
   position,
   stats,
+  previewRemaining,
 }: QuickMatchPlayerCardProps) {
   const statColor = position === 'left' ? 'text-emerald-400' : 'text-blue-400';
   const borderColor = position === 'left' ? 'border-emerald-500/30' : 'border-blue-500/30';
+
+  const showPreview = previewRemaining !== null && previewRemaining !== undefined && previewRemaining !== remaining;
+  const isBust = showPreview && previewRemaining < 0;
 
   return (
     <div className="relative flex items-stretch gap-2">
@@ -71,6 +76,11 @@ export function QuickMatchPlayerCard({
 
           <div className="text-center py-1">
             <div className="text-7xl font-display font-bold text-white tracking-tight" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>{remaining}</div>
+            {showPreview && (
+              <div className={`text-sm mt-1 ${isBust ? 'text-red-400' : 'text-gray-400'}`}>
+                Remaining: {isBust ? 'Bust' : previewRemaining}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between">

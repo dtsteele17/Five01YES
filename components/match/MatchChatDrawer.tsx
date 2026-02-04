@@ -13,7 +13,7 @@ interface ChatMessage {
   id: string;
   room_id: string;
   from_user_id: string;
-  message: string;
+  body: string;
   created_at: string;
   seen_by_player1: boolean;
   seen_by_player2: boolean;
@@ -121,15 +121,16 @@ export function MatchChatDrawer({
 
     setSending(true);
     try {
-      const { error } = await supabase
-        .from('match_chat_messages')
-        .insert({
-          room_id: roomId,
-          from_user_id: myUserId,
-          message: newMessage.trim(),
-        });
+      const { data, error } = await supabase.rpc('rpc_send_match_chat_message', {
+        p_room_id: roomId,
+        p_body: newMessage.trim(),
+      });
 
       if (error) throw error;
+
+      if (!data || data.ok === false) {
+        throw new Error(data?.error || 'Failed to send message');
+      }
 
       setNewMessage('');
     } catch (error: any) {
@@ -179,7 +180,7 @@ export function MatchChatDrawer({
                         : 'bg-slate-800 text-white'
                     }`}
                   >
-                    <p className="text-sm break-words">{msg.message}</p>
+                    <p className="text-sm break-words">{msg.body}</p>
                     <p className="text-xs opacity-70 mt-1">
                       {new Date(msg.created_at).toLocaleTimeString([], {
                         hour: '2-digit',

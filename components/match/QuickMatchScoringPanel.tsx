@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Undo2, Trash2 } from 'lucide-react';
+import { Undo2, Trash2, Target } from 'lucide-react';
 import { SegmentKeypad } from './SegmentKeypad';
+import { getCheckoutSuggestion } from '@/lib/checkout-helper';
 
 interface Dart {
   segment: number;
@@ -23,6 +24,7 @@ interface QuickMatchScoringPanelProps {
   onUndoDart: () => void;
   onClearVisit: () => void;
   submitting: boolean;
+  currentRemaining?: number;
 }
 
 export function QuickMatchScoringPanel({
@@ -35,10 +37,14 @@ export function QuickMatchScoringPanel({
   onUndoDart,
   onClearVisit,
   submitting,
+  currentRemaining,
 }: QuickMatchScoringPanelProps) {
   const [mode, setMode] = useState<'single' | 'double' | 'triple' | 'bull'>('single');
 
   const visitTotal = currentDarts.reduce((sum, dart) => sum + dart.value, 0);
+
+  // Get checkout suggestion if remaining <= 170
+  const checkout = currentRemaining && currentRemaining <= 170 ? getCheckoutSuggestion(currentRemaining) : null;
 
   const handleSegmentClick = (segment: number, multiplier: number) => {
     const value = segment * multiplier;
@@ -110,50 +116,67 @@ export function QuickMatchScoringPanel({
         </div>
       </div>
 
-      {/* Current Visit */}
-      <div className="bg-slate-800/50 border border-white/10 rounded-lg p-2">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Current Visit</span>
-          <span className="text-xl font-bold text-emerald-400">{visitTotal}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="flex-1 flex space-x-1.5">
-            {currentDarts.map((dart, idx) => (
-              <div
-                key={idx}
-                className="flex-1 bg-slate-700/50 border border-white/10 rounded px-2 py-1.5 text-center"
-              >
-                <span className="text-base font-bold text-white">{getDartLabel(dart)}</span>
-              </div>
-            ))}
-            {[...Array(3 - currentDarts.length)].map((_, idx) => (
-              <div
-                key={`empty-${idx}`}
-                className="flex-1 bg-slate-900/50 border border-white/5 rounded px-2 py-1.5 text-center"
-              >
-                <span className="text-base text-gray-600">-</span>
-              </div>
-            ))}
+      {/* Current Visit and Checkout Helper */}
+      <div className="space-y-2">
+        <div className="bg-slate-800/50 border border-white/10 rounded-lg p-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Current Visit</span>
+            <span className="text-xl font-bold text-emerald-400">{visitTotal}</span>
           </div>
-          <Button
-            onClick={onUndoDart}
-            disabled={currentDarts.length === 0}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5 h-9 px-2.5"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            onClick={onClearVisit}
-            disabled={currentDarts.length === 0}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5 h-9 px-2.5"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          <div className="flex items-center space-x-2">
+            <div className="flex-1 flex space-x-1.5">
+              {currentDarts.map((dart, idx) => (
+                <div
+                  key={idx}
+                  className="flex-1 bg-slate-700/50 border border-white/10 rounded px-2 py-1.5 text-center"
+                >
+                  <span className="text-base font-bold text-white">{getDartLabel(dart)}</span>
+                </div>
+              ))}
+              {[...Array(3 - currentDarts.length)].map((_, idx) => (
+                <div
+                  key={`empty-${idx}`}
+                  className="flex-1 bg-slate-900/50 border border-white/5 rounded px-2 py-1.5 text-center"
+                >
+                  <span className="text-base text-gray-600">-</span>
+                </div>
+              ))}
+            </div>
+            <Button
+              onClick={onUndoDart}
+              disabled={currentDarts.length === 0}
+              variant="outline"
+              size="sm"
+              className="border-white/10 text-white hover:bg-white/5 h-9 px-2.5"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              onClick={onClearVisit}
+              disabled={currentDarts.length === 0}
+              variant="outline"
+              size="sm"
+              className="border-white/10 text-white hover:bg-white/5 h-9 px-2.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </div>
+
+        {/* Checkout Helper */}
+        {checkout && (
+          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-2">
+            <div className="flex items-center space-x-2">
+              <Target className="w-4 h-4 text-blue-400" />
+              <div className="flex-1">
+                <span className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Checkout</span>
+                <p className={`text-sm font-bold mt-0.5 ${checkout.label === 'No checkout' ? 'text-gray-400' : 'text-blue-200'}`}>
+                  {checkout.label}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mode Tabs */}

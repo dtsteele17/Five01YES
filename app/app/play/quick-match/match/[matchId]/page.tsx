@@ -706,6 +706,10 @@ export default function QuickMatchRoomPage() {
   const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
   const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
 
+  // Calculate preview remaining when darts are selected
+  const currentVisitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
+  const myPreviewRemaining = isMyTurn && currentVisit.length > 0 ? myRemaining - currentVisitTotal : null;
+
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
       {/* Top Bar with Forfeit and Chat */}
@@ -827,6 +831,7 @@ export default function QuickMatchRoomPage() {
                   lastScore: myLastScore,
                   dartsThrown: myDartsThrown,
                 }}
+                previewRemaining={myPreviewRemaining}
               />
             </div>
             <div className="flex-1">
@@ -860,6 +865,7 @@ export default function QuickMatchRoomPage() {
                 onUndoDart={handleUndoDart}
                 onClearVisit={handleClearVisit}
                 submitting={submitting}
+                currentRemaining={myRemaining}
               />
             ) : (
               <>
