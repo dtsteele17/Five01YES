@@ -15,8 +15,10 @@ interface DartboardOverlayProps {
 }
 
 export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlayProps) {
+  // Trimmed PNG: board circle diameter = container size, center = container center
+  // Normalized coords (-1..1) map directly to pixels
   const normalizedToPixel = (coord: number, size: number): number => {
-    return ((coord + 1.2) / 2.4) * size;
+    return (coord * 0.5 + 0.5) * size;
   };
 
   const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
@@ -24,18 +26,25 @@ export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlay
   return (
     <div className={`relative w-full ${className}`} style={{ aspectRatio: '1/1' }}>
       <div className="relative w-full h-full">
+        {/* Trimmed dartboard PNG fills the square container */}
         <img
           src={boardUrl}
           alt="Dartboard"
-          className="w-full h-full rounded-full"
-          style={{ objectFit: 'contain' }}
+          className="w-full h-full"
+          style={{
+            objectFit: 'contain',
+            width: '100%',
+            height: '100%',
+          }}
         />
 
-        <div className="absolute inset-0">
+        {/* Hit marker overlay layer */}
+        <div className="absolute inset-0 pointer-events-none">
           {hits.map((hit, index) => {
             const containerSize = 100;
 
             if (hit.offboard) {
+              // Offboard hits: project to edge with X marker
               const angle = Math.atan2(hit.y, hit.x);
               const edgeX = 1.15 * Math.cos(angle);
               const edgeY = 1.15 * Math.sin(angle);
@@ -46,11 +55,12 @@ export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlay
               return (
                 <div
                   key={`hit-${index}`}
-                  className="absolute animate-fade-in"
+                  className="absolute animate-pulse"
                   style={{
                     left: `${pixelX}%`,
                     top: `${pixelY}%`,
                     transform: 'translate(-50%, -50%)',
+                    animation: 'fadeOut 2s ease-out forwards',
                   }}
                 >
                   <div className="relative w-6 h-6">
@@ -81,20 +91,23 @@ export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlay
               );
             }
 
+            // On-board hits: map directly to dartboard position
             const pixelX = normalizedToPixel(hit.x, containerSize);
             const pixelY = normalizedToPixel(hit.y, containerSize);
 
             return (
               <div
                 key={`hit-${index}`}
-                className="absolute animate-fade-in"
+                className="absolute"
                 style={{
                   left: `${pixelX}%`,
                   top: `${pixelY}%`,
                   transform: 'translate(-50%, -50%)',
+                  animation: 'fadeOut 2s ease-out forwards',
                 }}
               >
                 <div className="relative">
+                  {/* Golden dart hit marker */}
                   <div
                     className="rounded-full border-2 shadow-lg"
                     style={{
@@ -119,6 +132,23 @@ export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlay
           })}
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes fadeOut {
+          0% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: translate(-50%, -50%) scale(1.1);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.9);
+          }
+        }
+      `}</style>
     </div>
   );
 }
