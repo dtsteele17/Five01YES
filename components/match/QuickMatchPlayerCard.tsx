@@ -35,18 +35,18 @@ export function QuickMatchPlayerCard({
   return (
     <div className="relative flex items-stretch gap-2">
       {position === 'left' && stats && (
-        <div className="flex flex-col justify-center space-y-2 min-w-[80px]">
+        <div className="flex flex-col justify-center space-y-3 min-w-[100px]">
           <div className="text-right">
-            <p className="text-xs text-gray-400">Avg</p>
-            <p className={`text-lg font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
+            <p className="text-sm text-gray-400 font-medium">Avg</p>
+            <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-400">Last</p>
-            <p className={`text-lg font-bold ${statColor}`}>{stats.lastScore}</p>
+            <p className="text-sm text-gray-400 font-medium">Last</p>
+            <p className={`text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-400">Darts</p>
-            <p className={`text-lg font-bold ${statColor}`}>{stats.dartsThrown}</p>
+            <p className="text-sm text-gray-400 font-medium">Darts</p>
+            <p className={`text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
           </div>
         </div>
       )}
@@ -70,7 +70,7 @@ export function QuickMatchPlayerCard({
           </div>
 
           <div className="text-center py-1">
-            <div className="text-5xl font-bold text-white">{remaining}</div>
+            <div className="text-6xl font-bold text-white">{remaining}</div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -93,18 +93,18 @@ export function QuickMatchPlayerCard({
       </Card>
 
       {position === 'right' && stats && (
-        <div className="flex flex-col justify-center space-y-2 min-w-[80px]">
+        <div className="flex flex-col justify-center space-y-3 min-w-[100px]">
           <div>
-            <p className="text-xs text-gray-400">Avg</p>
-            <p className={`text-lg font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
+            <p className="text-sm text-gray-400 font-medium">Avg</p>
+            <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400">Last</p>
-            <p className={`text-lg font-bold ${statColor}`}>{stats.lastScore}</p>
+            <p className="text-sm text-gray-400 font-medium">Last</p>
+            <p className={`text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400">Darts</p>
-            <p className={`text-lg font-bold ${statColor}`}>{stats.dartsThrown}</p>
+            <p className="text-sm text-gray-400 font-medium">Darts</p>
+            <p className={`text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
           </div>
         </div>
       )}

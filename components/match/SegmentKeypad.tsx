@@ -18,21 +18,21 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
     if (mode === 'single') {
       return (
         <div className="flex flex-col items-center">
-          <span className="text-xl font-bold">{segment}</span>
+          <span className="text-base font-bold">{segment}</span>
         </div>
       );
     } else if (mode === 'double') {
       return (
         <div className="flex flex-col items-center">
-          <span className="text-lg font-bold">D{segment}</span>
-          <span className="text-xs text-gray-400">({value})</span>
+          <span className="text-sm font-bold">D{segment}</span>
+          <span className="text-[10px] text-gray-400">({value})</span>
         </div>
       );
     } else if (mode === 'triple') {
       return (
         <div className="flex flex-col items-center">
-          <span className="text-lg font-bold">T{segment}</span>
-          <span className="text-xs text-gray-400">({value})</span>
+          <span className="text-sm font-bold">T{segment}</span>
+          <span className="text-[10px] text-gray-400">({value})</span>
         </div>
       );
     }
@@ -52,25 +52,25 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
 
   if (mode === 'bull') {
     return (
-      <div className="grid grid-cols-2 gap-3 p-4">
+      <div className="grid grid-cols-2 gap-2 p-3">
         <Button
           onClick={() => onSegmentClick(25, 1)}
           disabled={disabled}
-          className="h-24 bg-amber-900/30 border-2 border-amber-700/50 hover:bg-amber-800/40 transition-all"
+          className="h-16 bg-amber-900/30 border-2 border-amber-700/50 hover:bg-amber-800/40 transition-all"
         >
           <div className="flex flex-col items-center">
-            <span className="text-xl font-bold text-white">Outer Bull</span>
-            <span className="text-sm text-gray-300">(25)</span>
+            <span className="text-base font-bold text-white">Outer Bull</span>
+            <span className="text-xs text-gray-300">(25)</span>
           </div>
         </Button>
         <Button
           onClick={() => onSegmentClick(25, 2)}
           disabled={disabled}
-          className="h-24 bg-amber-900/30 border-2 border-amber-700/50 hover:bg-amber-800/40 transition-all"
+          className="h-16 bg-amber-900/30 border-2 border-amber-700/50 hover:bg-amber-800/40 transition-all"
         >
           <div className="flex flex-col items-center">
-            <span className="text-xl font-bold text-white">Bull</span>
-            <span className="text-sm text-gray-300">(50)</span>
+            <span className="text-base font-bold text-white">Bull</span>
+            <span className="text-xs text-gray-300">(50)</span>
           </div>
         </Button>
       </div>
@@ -78,13 +78,13 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
   }
 
   return (
-    <div className="grid grid-cols-5 gap-2 p-4">
+    <div className="grid grid-cols-5 gap-1.5 p-3">
       {SEGMENTS.map((segment) => (
         <Button
           key={segment}
           onClick={() => onSegmentClick(segment, mode === 'single' ? 1 : mode === 'double' ? 2 : 3)}
           disabled={disabled}
-          className={`h-16 ${getModeButtonClass()}`}
+          className={`h-11 ${getModeButtonClass()}`}
         >
           {getButtonLabel(segment)}
         </Button>
