@@ -64,6 +64,7 @@ interface MatchRoom {
   player2_remaining: number;
   current_turn: string;
   winner_id: string | null;
+  double_out: boolean;
   summary: {
     player1_legs?: number;
     player2_legs?: number;
@@ -1065,6 +1066,7 @@ export default function QuickMatchRoomPage() {
                       opponentName={opponentName}
                       myColor="text-emerald-400"
                       opponentColor="text-blue-400"
+                      doubleOutEnabled={room.double_out || false}
                       onEditVisit={handleEditVisit}
                     />
                   )}
