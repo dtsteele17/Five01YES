@@ -37,6 +37,7 @@ import { QuickMatchScoringPanel } from '@/components/match/QuickMatchScoringPane
 import { QuickMatchVisitHistoryPanel } from '@/components/match/QuickMatchVisitHistoryPanel';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { DartsAtDoubleDialog } from '@/components/match/DartsAtDoubleDialog';
+import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 
@@ -87,7 +88,7 @@ interface MatchEvent {
   created_at: string;
 }
 
-export default function QuickMatchRoomPage() {
+function QuickMatchRoomPageContent() {
   const router = useRouter();
   const params = useParams();
   const matchId = params.matchId as string;
@@ -734,32 +735,34 @@ export default function QuickMatchRoomPage() {
   const myPlayer = matchState.youArePlayer === 1 ? matchState.players[0] : matchState.players[1];
   const opponentPlayer = matchState.youArePlayer === 1 ? matchState.players[1] : matchState.players[0];
 
-  const myName = myPlayer.name;
-  const opponentName = opponentPlayer.name;
-  const myRemaining = myPlayer.remaining;
-  const opponentRemaining = opponentPlayer.remaining;
-  const myLegs = myPlayer.legsWon;
-  const opponentLegs = opponentPlayer.legsWon;
-  const myAvg = myPlayer.threeDartAvg;
-  const opponentAvg = opponentPlayer.threeDartAvg;
+  const myName = myPlayer?.name || 'You';
+  const opponentName = opponentPlayer?.name || 'Opponent';
+  const myRemaining = typeof myPlayer?.remaining === 'number' ? myPlayer.remaining : 0;
+  const opponentRemaining = typeof opponentPlayer?.remaining === 'number' ? opponentPlayer.remaining : 0;
+  const myLegs = typeof myPlayer?.legsWon === 'number' ? myPlayer.legsWon : 0;
+  const opponentLegs = typeof opponentPlayer?.legsWon === 'number' ? opponentPlayer.legsWon : 0;
+  const myAvg = typeof myPlayer?.threeDartAvg === 'number' ? myPlayer.threeDartAvg : 0;
+  const opponentAvg = typeof opponentPlayer?.threeDartAvg === 'number' ? opponentPlayer.threeDartAvg : 0;
 
-  const myVisits = matchState.visitHistory.filter(v => v.playerId === myPlayer.id).map((v, idx) => ({
+  // Safe visit history with null guards
+  const safeVisitHistory = matchState?.visitHistory ?? [];
+  const myVisits = safeVisitHistory.filter(v => v?.playerId === myPlayer?.id).map((v, idx) => ({
     visitNumber: idx + 1,
-    score: v.score,
-    remaining: v.remainingAfter,
-    isBust: v.isBust,
-    isCheckout: v.isCheckout,
+    score: v?.score ?? 0,
+    remaining: v?.remainingAfter ?? 0,
+    isBust: v?.isBust ?? false,
+    isCheckout: v?.isCheckout ?? false,
   }));
-  const opponentVisits = matchState.visitHistory.filter(v => v.playerId === opponentPlayer.id).map((v, idx) => ({
+  const opponentVisits = safeVisitHistory.filter(v => v?.playerId === opponentPlayer?.id).map((v, idx) => ({
     visitNumber: idx + 1,
-    score: v.score,
-    remaining: v.remainingAfter,
-    isBust: v.isBust,
-    isCheckout: v.isCheckout,
+    score: v?.score ?? 0,
+    remaining: v?.remainingAfter ?? 0,
+    isBust: v?.isBust ?? false,
+    isCheckout: v?.isCheckout ?? false,
   }));
 
-  const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1].score : 0;
-  const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1].score : 0;
+  const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1]?.score ?? 0 : 0;
+  const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1]?.score ?? 0 : 0;
   const myDartsThrown = myVisits.length * 3;
   const opponentDartsThrown = opponentVisits.length * 3;
 
@@ -769,8 +772,20 @@ export default function QuickMatchRoomPage() {
     ? (matchState.winnerId === currentUserId ? 'you' : 'opponent')
     : null;
 
-  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
-  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
+  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v?.score ?? 0)) : 0;
+  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v?.score ?? 0)) : 0;
+
+  // Dev logging
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[QUICK_MATCH] Room data:', {
+      bestOf: (room as any).best_of,
+      legsToWin: room?.legs_to_win,
+      matchState: !!matchState,
+      visitHistoryLength: safeVisitHistory.length,
+      myVisitsLength: myVisits.length,
+      opponentVisitsLength: opponentVisits.length,
+    });
+  }
 
   // Calculate preview remaining when darts are selected
   const currentVisitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
@@ -1291,5 +1306,13 @@ export default function QuickMatchRoomPage() {
         maxDarts={dartsAtDoubleMax}
       />
     </div>
+  );
+}
+
+export default function QuickMatchRoomPage() {
+  return (
+    <MatchErrorBoundary>
+      <QuickMatchRoomPageContent />
+    </MatchErrorBoundary>
   );
 }
