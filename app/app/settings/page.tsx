@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Bell, Shield, Palette, Key, Lock, Volume2 } from 'lucide-react';
+import { Bell, Shield, Palette, Key, Lock, Volume2, Target } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { isInviteSoundEnabled, setInviteSoundEnabled, isGameOnSoundEnabled, setGameOnSoundEnabled } from '@/lib/sfx';
+import { isDartbotVisualizationEnabled, setDartbotVisualizationEnabled } from '@/lib/dartbotSettings';
 
 export default function SettingsPage() {
   const [passwordForm, setPasswordForm] = useState({
@@ -25,10 +26,12 @@ export default function SettingsPage() {
   }>({});
   const [inviteSoundEnabled, setInviteSoundEnabledState] = useState(true);
   const [gameOnSoundEnabled, setGameOnSoundEnabledState] = useState(true);
+  const [dartbotVisualizationEnabled, setDartbotVisualizationEnabledState] = useState(true);
 
   useEffect(() => {
     setInviteSoundEnabledState(isInviteSoundEnabled());
     setGameOnSoundEnabledState(isGameOnSoundEnabled());
+    setDartbotVisualizationEnabledState(isDartbotVisualizationEnabled());
   }, []);
 
   const handleInviteSoundToggle = (enabled: boolean) => {
@@ -41,6 +44,12 @@ export default function SettingsPage() {
     setGameOnSoundEnabledState(enabled);
     setGameOnSoundEnabled(enabled);
     toast.success(enabled ? 'Match start sound enabled' : 'Match start sound disabled');
+  };
+
+  const handleDartbotVisualizationToggle = (enabled: boolean) => {
+    setDartbotVisualizationEnabledState(enabled);
+    setDartbotVisualizationEnabled(enabled);
+    toast.success(enabled ? 'Dartbot visualization enabled' : 'Dartbot visualization disabled');
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -244,6 +253,28 @@ export default function SettingsPage() {
               <p className="text-gray-400 text-sm">Minimize animations</p>
             </div>
             <Switch />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center">
+            <Target className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Training</h2>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+            <div className="flex items-center space-x-3">
+              <Target className="w-5 h-5 text-emerald-400" />
+              <div>
+                <p className="text-white font-medium">Show Dartbot Dartboard</p>
+                <p className="text-gray-400 text-sm">Visualize where Dartbot throws when playing against it</p>
+              </div>
+            </div>
+            <Switch checked={dartbotVisualizationEnabled} onCheckedChange={handleDartbotVisualizationToggle} />
           </div>
         </div>
       </Card>
