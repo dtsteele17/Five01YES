@@ -589,6 +589,16 @@ export default function QuickMatchRoomPage() {
         return;
       }
 
+      // Update local room state with new remaining score
+      if (room && data.remaining_after !== undefined) {
+        const isPlayer1 = room.player1_id === currentUserId;
+        setRoom({
+          ...room,
+          player1_remaining: isPlayer1 ? data.remaining_after : room.player1_remaining,
+          player2_remaining: !isPlayer1 ? data.remaining_after : room.player2_remaining,
+        });
+      }
+
       // Clear visit on successful submission
       setScoreInput('');
       setCurrentVisit([]);
