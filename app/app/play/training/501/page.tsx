@@ -37,8 +37,8 @@ import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
 import { MatchSaveDebugStrip } from '@/components/app/MatchSaveDebugStrip';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
-import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, debugDartboardAlignment } from '@/lib/botThrowEngine';
-import { isDartbotVisualizationEnabled } from '@/lib/dartbotSettings';
+import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, debugDartboardAlignment, evaluateDartFromXY } from '@/lib/botThrowEngine';
+import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled, setDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 
 interface Visit {
   player: 'player1' | 'player2';
@@ -137,6 +137,8 @@ export default function Training501Page() {
   const [dartboardHits, setDartboardHits] = useState<DartHit[]>([]);
   const [botLastVisitTotal, setBotLastVisitTotal] = useState<number | null>(null);
   const [showVisualization, setShowVisualization] = useState(true);
+  const [debugMode, setDebugMode] = useState(false);
+  const [lastThreeDarts, setLastThreeDarts] = useState<DartResult[]>([]);
   const [botFormMultiplier] = useState(() => 0.85 + Math.random() * 0.3);
   const [botPerformanceTracker, setBotPerformanceTracker] = useState<BotPerformanceTracker | null>(null);
   const dartboardAnimationTimerRef = useRef<number | null>(null);
@@ -180,6 +182,7 @@ export default function Training501Page() {
 
   useEffect(() => {
     setShowVisualization(isDartbotVisualizationEnabled());
+    setDebugMode(isDartbotDebugModeEnabled());
     // Debug: Verify dartboard coordinate alignment
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       debugDartboardAlignment();
@@ -223,6 +226,23 @@ export default function Training501Page() {
     clearDartboardAnimationTimer();
     setDartboardHits([]);
 
+    // Track last 3 darts for debug display
+    setLastThreeDarts(darts);
+
+    // Log debug info if debug mode is enabled
+    if (debugMode) {
+      console.log('=== Bot Visit Debug ===');
+      darts.forEach((dart, index) => {
+        const evaluation = evaluateDartFromXY(dart.x, dart.y);
+        console.log(
+          `Dart ${index + 1}: (${dart.x.toFixed(3)}, ${dart.y.toFixed(3)}) => ${evaluation.label} [Score: ${evaluation.score}]${
+            evaluation.isDouble ? ' [DOUBLE]' : ''
+          }${evaluation.isTreble ? ' [TREBLE]' : ''}${evaluation.offboard ? ' [OFFBOARD]' : ''}`
+        );
+      });
+      console.log('======================');
+    }
+
     for (let i = 0; i < darts.length; i++) {
       await new Promise<void>((resolve) => {
         dartboardAnimationTimerRef.current = window.setTimeout(() => {
@@ -247,7 +267,7 @@ export default function Training501Page() {
         resolve();
       }, 1500);
     });
-  }, [clearDartboardAnimationTimer]);
+  }, [clearDartboardAnimationTimer, debugMode]);
 
   const executeBotTurnWithFallback = useCallback((currentScore: number, isRecovery: boolean = false) => {
     try {
@@ -1176,11 +1196,28 @@ export default function Training501Page() {
               <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden h-full">
                 <div className="flex items-center justify-between mb-2 flex-shrink-0">
                   <h3 className="text-sm font-semibold text-white">Dartbot Board</h3>
-                  {isBotThinking && (
-                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
-                      Throwing...
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant={debugMode ? "default" : "outline"}
+                      onClick={() => {
+                        const newDebugMode = !debugMode;
+                        setDebugMode(newDebugMode);
+                        setDartbotDebugModeEnabled(newDebugMode);
+                        if (newDebugMode) {
+                          toast.success('Debug mode enabled - check console');
+                        }
+                      }}
+                      className="text-xs h-6 px-2"
+                    >
+                      Debug
+                    </Button>
+                    {isBotThinking && (
+                      <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                        Throwing...
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0">
                   <DartboardOverlay hits={dartboardHits} className="max-w-full" />
@@ -1188,6 +1225,31 @@ export default function Training501Page() {
                     <div className="mt-2 text-center">
                       <p className="text-sm text-gray-400">Last Visit</p>
                       <p className="text-2xl font-bold text-white">{botLastVisitTotal}</p>
+                    </div>
+                  )}
+                  {debugMode && lastThreeDarts.length > 0 && (
+                    <div className="mt-2 text-center space-y-1">
+                      <p className="text-xs text-gray-400 font-semibold">Last 3 Darts</p>
+                      <div className="flex gap-2 justify-center">
+                        {lastThreeDarts.map((dart, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className={`text-xs ${
+                              dart.isDouble
+                                ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                : dart.isTreble
+                                ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                            }`}
+                          >
+                            {dart.label}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Check console for coordinates
+                      </p>
                     </div>
                   )}
                 </div>

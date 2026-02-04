@@ -6,6 +6,7 @@ export interface DartResult {
   label: string;
   score: number;
   isDouble: boolean;
+  isTreble: boolean;
   offboard: boolean;
 }
 
@@ -206,29 +207,59 @@ function getAimPoint(target: string): AimTarget {
 
 function cartesianToPolar(x: number, y: number): { angle: number; radius: number } {
   const radius = Math.sqrt(x * x + y * y);
-  let angle = Math.atan2(y, x);
+  // Use -y because in our coordinate system, negative y is UP (towards 20)
+  // This ensures (0, -1) points to the top of the dartboard
+  let angle = Math.atan2(-y, x);
   if (angle < 0) angle += 2 * Math.PI;
   return { angle, radius };
 }
 
-function determineSegment(x: number, y: number): { label: string; score: number; isDouble: boolean } {
+/**
+ * Single shared evaluation function: evaluateDartFromXY
+ * Maps normalized board-space coordinates (x,y) to dart scoring
+ * This is the ONLY function used to determine dart scores from positions
+ *
+ * @param x - normalized x coordinate (-1 to 1, 0 = center)
+ * @param y - normalized y coordinate (-1 to 1, 0 = center)
+ * @returns { label, score, isDouble, isTreble, offboard }
+ *
+ * Dartboard wedge order (clockwise from top):
+ * 20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5
+ *
+ * Ring detection:
+ * - DBull: r <= 0.035
+ * - SBull: 0.035 < r <= 0.085
+ * - Treble ring: 0.53 to 0.60
+ * - Double ring: 0.93 to 1.00
+ * - Offboard: r > 1.00
+ */
+export function evaluateDartFromXY(x: number, y: number): {
+  label: string;
+  score: number;
+  isDouble: boolean;
+  isTreble: boolean;
+  offboard: boolean;
+} {
   const { angle, radius } = cartesianToPolar(x, y);
 
-  if (radius > 1.02) {
-    return { label: 'MISS', score: 0, isDouble: false };
+  // Offboard: outside dartboard
+  if (radius > 1.00) {
+    return { label: 'MISS', score: 0, isDouble: false, isTreble: false, offboard: true };
   }
 
-  if (radius <= 0.03) {
-    return { label: 'DBull', score: 50, isDouble: true };
+  // Double Bull (Bull's eye)
+  if (radius <= 0.035) {
+    return { label: 'DBull', score: 50, isDouble: true, isTreble: false, offboard: false };
   }
 
-  if (radius <= 0.065) {
-    return { label: 'SBull', score: 25, isDouble: false };
+  // Single Bull (outer bull)
+  if (radius <= 0.085) {
+    return { label: 'SBull', score: 25, isDouble: false, isTreble: false, offboard: false };
   }
 
   // Convert from standard angle (0° = right, counter-clockwise) to dartboard angle (0° = top, clockwise)
-  // Standard atan2 gives: 0° = right, 90° = up, 180° = left, 270° = down
-  // Dartboard needs: 0° = up (20), increasing clockwise
+  // atan2(y, x) gives: 0° = right (3 o'clock), 90° = up (12 o'clock), etc.
+  // Dartboard needs: 0° = up (20 at top), increasing clockwise
   let dartboardAngle = (Math.PI / 2) - angle;
 
   // Normalize to 0 to 2π
@@ -239,18 +270,22 @@ function determineSegment(x: number, y: number): { label: string; score: number;
   let adjustedAngle = dartboardAngle + (9 * Math.PI / 180);
   if (adjustedAngle >= 2 * Math.PI) adjustedAngle -= 2 * Math.PI;
 
+  // Determine which wedge (0-19)
   const wedgeIndex = Math.floor(adjustedAngle / (18 * Math.PI / 180));
   const number = DARTBOARD_NUMBERS[wedgeIndex % 20];
 
-  if (radius >= 0.88 && radius <= 1.0) {
-    return { label: `D${number}`, score: number * 2, isDouble: true };
+  // Double ring (outer ring)
+  if (radius >= 0.93 && radius <= 1.00) {
+    return { label: `D${number}`, score: number * 2, isDouble: true, isTreble: false, offboard: false };
   }
 
-  if (radius >= 0.55 && radius <= 0.65) {
-    return { label: `T${number}`, score: number * 3, isDouble: false };
+  // Treble ring (inner ring)
+  if (radius >= 0.53 && radius <= 0.60) {
+    return { label: `T${number}`, score: number * 3, isDouble: false, isTreble: true, offboard: false };
   }
 
-  return { label: `S${number}`, score: number, isDouble: false };
+  // Singles (everything else)
+  return { label: `S${number}`, score: number, isDouble: false, isTreble: false, offboard: false };
 }
 
 export function simulateDart(
@@ -286,12 +321,11 @@ export function simulateDart(
   const actualX = aimPoint.x + dx;
   const actualY = aimPoint.y + dy;
 
-  const { angle, radius } = cartesianToPolar(actualX, actualY);
-
+  // Apply random offboard probability for poor throws
   const offboardProb = getOffboardProbability(level);
-  const offboard = radius > 1.02 || Math.random() < offboardProb;
+  const forceOffboard = Math.random() < offboardProb;
 
-  if (offboard) {
+  if (forceOffboard) {
     const edgeAngle = Math.atan2(actualY, actualX);
     return {
       x: 1.1 * Math.cos(edgeAngle),
@@ -299,19 +333,22 @@ export function simulateDart(
       label: 'MISS',
       score: 0,
       isDouble: false,
+      isTreble: false,
       offboard: true,
     };
   }
 
-  const segment = determineSegment(actualX, actualY);
+  // Use the single shared evaluation function to determine score from position
+  const evaluation = evaluateDartFromXY(actualX, actualY);
 
   return {
     x: actualX,
     y: actualY,
-    label: segment.label,
-    score: segment.score,
-    isDouble: segment.isDouble,
-    offboard: false,
+    label: evaluation.label,
+    score: evaluation.score,
+    isDouble: evaluation.isDouble,
+    isTreble: evaluation.isTreble,
+    offboard: evaluation.offboard,
   };
 }
 
@@ -491,39 +528,46 @@ export function simulateVisit({
 }
 
 /**
- * Debug helper: Returns the dartboard label for given normalized coordinates
+ * Debug helper: Returns the dartboard evaluation for given normalized coordinates
  * Use this to verify alignment with the physical dartboard image
  * @param x - normalized x coordinate (-1 to 1, 0 = center)
  * @param y - normalized y coordinate (-1 to 1, 0 = center)
- * @returns label like "T20", "D6", "S3", etc.
+ * @returns full evaluation object with label, score, isDouble, isTreble, offboard
  */
 export function debugCoordinateToLabel(x: number, y: number): string {
-  return determineSegment(x, y).label;
+  return evaluateDartFromXY(x, y).label;
 }
 
 /**
  * Debug helper: Log test points to verify dartboard alignment
+ * Validates the dartboard wedge mapping with 20 at the top
  * Expected results:
- * - (0, -0.8) => 20 region (top)
- * - (0.8, 0) => 6 region (right)
- * - (0, 0.8) => 3 region (bottom)
- * - (-0.8, 0) => 11 region (left)
+ * - (0, -0.9) => 20 wedge (top)
+ * - (0.9, 0) => 6 wedge (right)
+ * - (0, 0.9) => 3 wedge (bottom)
+ * - (-0.9, 0) => 11 wedge (left)
  */
 export function debugDartboardAlignment(): void {
   const testPoints = [
-    { x: 0, y: -0.8, expected: '20', position: 'top' },
-    { x: 0.8, y: 0, expected: '6', position: 'right' },
-    { x: 0, y: 0.8, expected: '3', position: 'bottom' },
-    { x: -0.8, y: 0, expected: '11', position: 'left' },
-    { x: 0, y: -0.6, expected: 'T20', position: 'triple 20 (top)' },
-    { x: 0, y: -0.93, expected: 'D20', position: 'double 20 (top)' },
+    { x: 0, y: -0.9, expected: '20', position: 'top' },
+    { x: 0.9, y: 0, expected: '6', position: 'right' },
+    { x: 0, y: 0.9, expected: '3', position: 'bottom' },
+    { x: -0.9, y: 0, expected: '11', position: 'left' },
+    { x: 0, y: -0.57, expected: 'T20', position: 'triple 20 (top)' },
+    { x: 0, y: -0.96, expected: 'D20', position: 'double 20 (top)' },
+    { x: 0, y: 0, expected: 'DBull', position: 'bull center' },
+    { x: 0, y: -0.06, expected: 'SBull', position: 'outer bull' },
   ];
 
-  console.log('=== Dartboard Alignment Debug ===');
+  console.log('=== Dartboard Alignment Validation ===');
   testPoints.forEach(({ x, y, expected, position }) => {
-    const result = debugCoordinateToLabel(x, y);
-    const match = result.includes(expected) ? '✓' : '✗';
-    console.log(`${match} (${x.toFixed(2)}, ${y.toFixed(2)}) [${position}]: ${result} (expected: ${expected})`);
+    const evaluation = evaluateDartFromXY(x, y);
+    const match = evaluation.label.includes(expected) ? '✓' : '✗';
+    console.log(
+      `${match} (${x.toFixed(2)}, ${y.toFixed(2)}) [${position}]: ${evaluation.label} (score: ${evaluation.score}) ${
+        evaluation.isDouble ? '[DOUBLE]' : ''
+      }${evaluation.isTreble ? '[TREBLE]' : ''}`
+    );
   });
-  console.log('================================');
+  console.log('======================================');
 }
