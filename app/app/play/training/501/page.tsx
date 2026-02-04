@@ -138,6 +138,7 @@ export default function Training501Page() {
   const [botLastVisitTotal, setBotLastVisitTotal] = useState<number | null>(null);
   const [showVisualization, setShowVisualization] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
+  const [showDebugRings, setShowDebugRings] = useState(false);
   const [lastThreeDarts, setLastThreeDarts] = useState<DartResult[]>([]);
   const [botFormMultiplier] = useState(() => 0.85 + Math.random() * 0.3);
   const [botPerformanceTracker, setBotPerformanceTracker] = useState<BotPerformanceTracker | null>(null);
@@ -1199,6 +1200,17 @@ export default function Training501Page() {
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
+                      variant={showDebugRings ? "default" : "outline"}
+                      onClick={() => {
+                        setShowDebugRings(!showDebugRings);
+                      }}
+                      className="text-xs h-6 px-2"
+                      title="Show ring boundaries overlay"
+                    >
+                      Rings
+                    </Button>
+                    <Button
+                      size="sm"
                       variant={debugMode ? "default" : "outline"}
                       onClick={() => {
                         const newDebugMode = !debugMode;
@@ -1209,6 +1221,7 @@ export default function Training501Page() {
                         }
                       }}
                       className="text-xs h-6 px-2"
+                      title="Enable debug console logging"
                     >
                       Debug
                     </Button>
@@ -1220,7 +1233,7 @@ export default function Training501Page() {
                   </div>
                 </div>
                 <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                  <DartboardOverlay hits={dartboardHits} className="max-w-full" />
+                  <DartboardOverlay hits={dartboardHits} showDebugRings={showDebugRings} className="max-w-full" />
                   {botLastVisitTotal !== null && (
                     <div className="mt-2 text-center">
                       <p className="text-sm text-gray-400">Last Visit</p>

@@ -1,5 +1,28 @@
 const DARTBOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
+/**
+ * Dartboard Geometry Constants
+ *
+ * The dartboard PNG includes the number ring, but the PLAYABLE board
+ * is ONLY inside the outer double ring.
+ *
+ * In normalized coordinates where the overlay square maps to [-1..1]:
+ * - R_BOARD = playable outer radius (excludes number ring)
+ * - All ring radii are defined as fractions of R_BOARD
+ * - Anything with r > R_BOARD is OFFBOARD (MISS)
+ */
+
+// Playable board radius (tunable - excludes number ring)
+export const R_BOARD = 0.86;
+
+// Ring radii as fractions of R_BOARD (based on real dartboard proportions)
+export const R_BULL_IN = R_BOARD * 0.04;     // Double Bull inner (12.7mm / 340mm ≈ 0.037)
+export const R_BULL_OUT = R_BOARD * 0.10;    // Single Bull outer (31.8mm / 340mm ≈ 0.094)
+export const R_TREBLE_IN = R_BOARD * 0.56;   // Treble ring inner (107mm / 170mm ≈ 0.63 * R_BOARD)
+export const R_TREBLE_OUT = R_BOARD * 0.64;  // Treble ring outer (115mm / 170mm ≈ 0.68 * R_BOARD)
+export const R_DOUBLE_IN = R_BOARD * 0.92;   // Double ring inner (162mm / 170mm ≈ 0.95 * R_BOARD)
+export const R_DOUBLE_OUT = R_BOARD * 1.00;  // Double ring outer (== R_BOARD)
+
 export interface DartResult {
   x: number;
   y: number;
@@ -226,12 +249,10 @@ function cartesianToPolar(x: number, y: number): { angle: number; radius: number
  * Dartboard wedge order (clockwise from top):
  * 20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5
  *
- * Ring detection:
- * - DBull: r <= 0.035
- * - SBull: 0.035 < r <= 0.085
- * - Treble ring: 0.53 to 0.60
- * - Double ring: 0.93 to 1.00
- * - Offboard: r > 1.00
+ * Geometry:
+ * - Playable board radius: R_BOARD (excludes number ring)
+ * - Anything beyond R_BOARD is OFFBOARD (MISS)
+ * - Ring radii defined as fractions of R_BOARD
  */
 export function evaluateDartFromXY(x: number, y: number): {
   label: string;
@@ -242,23 +263,23 @@ export function evaluateDartFromXY(x: number, y: number): {
 } {
   const { angle, radius } = cartesianToPolar(x, y);
 
-  // Offboard: outside dartboard
-  if (radius > 1.00) {
+  // OFFBOARD: Outside playable board (beyond double ring, in number ring area)
+  if (radius > R_BOARD) {
     return { label: 'MISS', score: 0, isDouble: false, isTreble: false, offboard: true };
   }
 
-  // Double Bull (Bull's eye)
-  if (radius <= 0.035) {
+  // Double Bull (Bull's eye) - innermost circle
+  if (radius <= R_BULL_IN) {
     return { label: 'DBull', score: 50, isDouble: true, isTreble: false, offboard: false };
   }
 
-  // Single Bull (outer bull)
-  if (radius <= 0.085) {
+  // Single Bull (outer bull) - outer bull circle
+  if (radius <= R_BULL_OUT) {
     return { label: 'SBull', score: 25, isDouble: false, isTreble: false, offboard: false };
   }
 
   // Convert from standard angle (0° = right, counter-clockwise) to dartboard angle (0° = top, clockwise)
-  // atan2(y, x) gives: 0° = right (3 o'clock), 90° = up (12 o'clock), etc.
+  // atan2(-y, x) gives: 0° = right (3 o'clock), 90° = up (12 o'clock), etc.
   // Dartboard needs: 0° = up (20 at top), increasing clockwise
   let dartboardAngle = (Math.PI / 2) - angle;
 
@@ -274,17 +295,17 @@ export function evaluateDartFromXY(x: number, y: number): {
   const wedgeIndex = Math.floor(adjustedAngle / (18 * Math.PI / 180));
   const number = DARTBOARD_NUMBERS[wedgeIndex % 20];
 
-  // Double ring (outer ring)
-  if (radius >= 0.93 && radius <= 1.00) {
+  // Double ring (outermost scoring ring)
+  if (radius >= R_DOUBLE_IN && radius <= R_DOUBLE_OUT) {
     return { label: `D${number}`, score: number * 2, isDouble: true, isTreble: false, offboard: false };
   }
 
-  // Treble ring (inner ring)
-  if (radius >= 0.53 && radius <= 0.60) {
+  // Treble ring (middle scoring ring)
+  if (radius >= R_TREBLE_IN && radius <= R_TREBLE_OUT) {
     return { label: `T${number}`, score: number * 3, isDouble: false, isTreble: true, offboard: false };
   }
 
-  // Singles (everything else)
+  // Singles (all remaining areas inside the board)
   return { label: `S${number}`, score: number, isDouble: false, isTreble: false, offboard: false };
 }
 
@@ -541,32 +562,34 @@ export function debugCoordinateToLabel(x: number, y: number): string {
 /**
  * Debug helper: Log test points to verify dartboard alignment
  * Validates the dartboard wedge mapping with 20 at the top
- * Expected results:
- * - (0, -0.9) => 20 wedge (top)
- * - (0.9, 0) => 6 wedge (right)
- * - (0, 0.9) => 3 wedge (bottom)
- * - (-0.9, 0) => 11 wedge (left)
+ * Tests boundary conditions with new geometry constants
  */
 export function debugDartboardAlignment(): void {
   const testPoints = [
-    { x: 0, y: -0.9, expected: '20', position: 'top' },
-    { x: 0.9, y: 0, expected: '6', position: 'right' },
-    { x: 0, y: 0.9, expected: '3', position: 'bottom' },
-    { x: -0.9, y: 0, expected: '11', position: 'left' },
-    { x: 0, y: -0.57, expected: 'T20', position: 'triple 20 (top)' },
-    { x: 0, y: -0.96, expected: 'D20', position: 'double 20 (top)' },
-    { x: 0, y: 0, expected: 'DBull', position: 'bull center' },
-    { x: 0, y: -0.06, expected: 'SBull', position: 'outer bull' },
+    { x: 0, y: -0.75, expected: '20', position: 'Singles 20 (top)' },
+    { x: 0.75, y: 0, expected: '6', position: 'Singles 6 (right)' },
+    { x: 0, y: 0.75, expected: '3', position: 'Singles 3 (bottom)' },
+    { x: -0.75, y: 0, expected: '11', position: 'Singles 11 (left)' },
+    { x: 0, y: -R_TREBLE_IN - 0.02, expected: 'T20', position: 'Treble 20 (top)' },
+    { x: 0, y: -R_DOUBLE_IN - 0.02, expected: 'D20', position: 'Double 20 (top)' },
+    { x: 0, y: 0, expected: 'DBull', position: 'Bull center' },
+    { x: 0, y: -R_BULL_OUT + 0.01, expected: 'SBull', position: 'Outer bull' },
+    { x: 0, y: -R_BOARD - 0.05, expected: 'MISS', position: 'Offboard (beyond R_BOARD)' },
+    { x: 0, y: -R_BOARD + 0.01, expected: 'D20', position: 'Just inside board edge' },
   ];
 
   console.log('=== Dartboard Alignment Validation ===');
+  console.log(`Geometry: R_BOARD=${R_BOARD.toFixed(3)}, R_DOUBLE_IN=${R_DOUBLE_IN.toFixed(3)}, R_TREBLE_IN=${R_TREBLE_IN.toFixed(3)}`);
+  console.log('--------------------------------------');
   testPoints.forEach(({ x, y, expected, position }) => {
     const evaluation = evaluateDartFromXY(x, y);
-    const match = evaluation.label.includes(expected) ? '✓' : '✗';
+    const radius = Math.sqrt(x * x + y * y);
+    const match = evaluation.label.includes(expected) || expected.includes(evaluation.label.match(/\d+/)?.[0] || '');
+    const symbol = match ? '✓' : '✗';
     console.log(
-      `${match} (${x.toFixed(2)}, ${y.toFixed(2)}) [${position}]: ${evaluation.label} (score: ${evaluation.score}) ${
+      `${symbol} (${x.toFixed(3)}, ${y.toFixed(3)}) r=${radius.toFixed(3)} [${position}]: ${evaluation.label} (${evaluation.score}) ${
         evaluation.isDouble ? '[DOUBLE]' : ''
-      }${evaluation.isTreble ? '[TREBLE]' : ''}`
+      }${evaluation.isTreble ? '[TREBLE]' : ''}${evaluation.offboard ? '[OFFBOARD]' : ''}`
     );
   });
   console.log('======================================');

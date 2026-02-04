@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { R_BOARD, R_BULL_IN, R_BULL_OUT, R_TREBLE_IN, R_TREBLE_OUT, R_DOUBLE_IN, R_DOUBLE_OUT } from '@/lib/botThrowEngine';
 
 export interface DartHit {
   x: number;
@@ -12,13 +13,19 @@ export interface DartHit {
 interface DartboardOverlayProps {
   hits?: DartHit[];
   className?: string;
+  showDebugRings?: boolean;
 }
 
-export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlayProps) {
+export function DartboardOverlay({ hits = [], className = '', showDebugRings = false }: DartboardOverlayProps) {
   // Trimmed PNG: board circle diameter = container size, center = container center
   // Normalized coords (-1..1) map directly to pixels
   const normalizedToPixel = (coord: number, size: number): number => {
     return (coord * 0.5 + 0.5) * size;
+  };
+
+  // Convert normalized radius to SVG percentage
+  const radiusToPercent = (radius: number): number => {
+    return radius * 50; // radius 1.0 = 50% of container
   };
 
   const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
@@ -37,6 +44,80 @@ export function DartboardOverlay({ hits = [], className = '' }: DartboardOverlay
             height: '100%',
           }}
         />
+
+        {/* Debug rings overlay */}
+        {showDebugRings && (
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox="0 0 100 100"
+            style={{ mixBlendMode: 'difference' }}
+          >
+            {/* Board edge (playable area) - Green dashed */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_BOARD)}
+              fill="none"
+              stroke="#00ff00"
+              strokeWidth="0.5"
+              strokeDasharray="2,2"
+            />
+            {/* Double ring outer - Red */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_DOUBLE_OUT)}
+              fill="none"
+              stroke="#ff0000"
+              strokeWidth="0.3"
+            />
+            {/* Double ring inner - Red */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_DOUBLE_IN)}
+              fill="none"
+              stroke="#ff0000"
+              strokeWidth="0.3"
+            />
+            {/* Treble ring outer - Yellow */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_TREBLE_OUT)}
+              fill="none"
+              stroke="#ffff00"
+              strokeWidth="0.3"
+            />
+            {/* Treble ring inner - Yellow */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_TREBLE_IN)}
+              fill="none"
+              stroke="#ffff00"
+              strokeWidth="0.3"
+            />
+            {/* Bull outer - Cyan */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_BULL_OUT)}
+              fill="none"
+              stroke="#00ffff"
+              strokeWidth="0.3"
+            />
+            {/* Bull inner - Cyan */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radiusToPercent(R_BULL_IN)}
+              fill="none"
+              stroke="#00ffff"
+              strokeWidth="0.3"
+            />
+          </svg>
+        )}
 
         {/* Hit marker overlay layer */}
         <div className="absolute inset-0 pointer-events-none">
