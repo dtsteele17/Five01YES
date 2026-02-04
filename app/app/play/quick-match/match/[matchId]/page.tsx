@@ -419,7 +419,8 @@ export default function QuickMatchRoomPage() {
     console.log('[HANDLE_BUST] User ID:', currentUserId);
     console.log('[HANDLE_BUST] ========================');
 
-    await submitScore(0, true);
+    const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
+    await submitScore(visitTotal, true, currentVisit);
   };
 
   const handleSubmitVisit = async () => {
@@ -479,21 +480,6 @@ export default function QuickMatchRoomPage() {
       return { mult, n: dart.number };
     });
 
-    const dartsThrown = darts.length || 3; // Default to 3 if no darts specified
-
-    // Client-side pre-validation (server will also validate)
-    if (matchState.youArePlayer) {
-      const myRemaining = matchState.players[matchState.youArePlayer - 1].remaining;
-      const newRemaining = myRemaining - score;
-
-      // Check standard bust conditions (server will also check double-out)
-      if (!isBust && (newRemaining < 0 || newRemaining === 1)) {
-        isBust = true;
-        score = 0;
-        toast.error('Bust! Score would leave you below 0 or on 1');
-      }
-    }
-
     setSubmitting(true);
 
     try {
@@ -504,58 +490,44 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Is Bust:', isBust);
       console.log('[SUBMIT] Darts:', darts);
       console.log('[SUBMIT] Server Darts:', serverDarts);
-      console.log('[SUBMIT] Darts Thrown:', dartsThrown);
       console.log('[SUBMIT] Match Type:', room.match_type);
       console.log('[SUBMIT] Room Status:', room.status);
       console.log('[SUBMIT] Current Turn:', room.current_turn);
       console.log('[SUBMIT] Is My Turn:', isMyTurn);
       console.log('[SUBMIT] ========================');
 
-      const { data, error } = await supabase.rpc('submit_quick_match_throw', {
+      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v2', {
         p_room_id: matchId,
         p_score: score,
         p_darts: serverDarts,
-        p_darts_thrown: dartsThrown,
+        p_is_bust: isBust,
       });
 
       if (error) {
         console.error('[SUBMIT] Supabase Error:', error);
-        throw error;
+        toast.error('Failed to submit visit');
+        return;
       }
 
       console.log('[SUBMIT] ===== SUCCESS =====');
       console.log('[SUBMIT] Response:', data);
       console.log('[SUBMIT] ========================');
 
-      if (data.is_bust || isBust) {
-        // Show specific bust message based on reason
-        if (data.bust_reason === 'double_out_required') {
-          toast.error('Double out required — bust');
-        } else if (data.bust_reason === 'below_zero') {
-          toast.error('Bust! Score went below 0');
-        } else if (data.bust_reason === 'left_on_one') {
-          toast.error('Bust! Cannot finish on 1');
-        } else {
-          toast.error('Bust!');
-        }
-      } else if (data.is_checkout) {
-        toast.success('Checkout!');
+      // Backend returns: { ok, remaining_after, score_applied, double_out }
+      if (!data.ok) {
+        toast.error('Failed to submit visit');
+        return;
       }
 
-      if (data.leg_won) {
-        toast.success('Leg won!');
-      }
-
-      if (data.match_won) {
-        console.log('[SUBMIT] Match complete!');
-        setShowMatchCompleteModal(true);
-      }
-
+      // Clear visit on successful submission
       setScoreInput('');
       setCurrentVisit([]);
+
+      // The room state will be updated via realtime subscription
+      // No need to manually handle bust/checkout here as the backend manages all logic
     } catch (error: any) {
       console.error('[SUBMIT] Error:', error);
-      toast.error(error.message || 'Failed to submit score');
+      toast.error('Failed to submit visit');
     } finally {
       setSubmitting(false);
     }
