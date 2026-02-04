@@ -540,16 +540,27 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Is My Turn:', isMyTurn);
       console.log('[SUBMIT] ========================');
 
-      const { data, error } = await supabase.rpc("submit_quick_match_throw", {
+      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v2", {
         p_room_id: matchId,
         p_score: visitTotal,
         p_darts: dartsArray ?? [],
-        p_darts_thrown: darts.length || 3,
+        p_is_bust: !!isBust
+      });
+
+      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v2", {
+        p_room_id: matchId,
+        p_score: visitTotal,
+        p_darts: dartsArray ?? [],
         p_is_bust: !!isBust
       });
 
       if (error) {
-        console.error("[SUBMIT] Supabase error:", error);
+        console.error("[SUBMIT] Supabase error", {
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code
+        });
         throw error;
       }
 

@@ -310,15 +310,27 @@ export default function OnlineMatchPage() {
         isCheckout,
       });
 
-      // Use submit_quick_match_throw since we're using match_rooms (not online_matches)
-      const { data, error } = await supabase.rpc('submit_quick_match_throw', {
+      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v2", {
         p_room_id: matchId,
         p_score: isBust ? 0 : score,
-        p_is_bust: isBust,
+        p_darts: [],
+        p_is_bust: isBust
+      });
+
+      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v2', {
+        p_room_id: matchId,
+        p_score: isBust ? 0 : score,
+        p_darts: [],
+        p_is_bust: isBust
       });
 
       if (error) {
-        console.error('Submit RPC error:', error);
+        console.error("[SUBMIT] Supabase error", {
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code
+        });
         throw error;
       }
 

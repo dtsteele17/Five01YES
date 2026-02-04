@@ -338,13 +338,27 @@ export default function RankedMatchPage() {
     setSubmitting(true);
 
     try {
-      const { data, error } = await supabase.rpc('submit_quick_match_throw', {
+      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v2", {
         p_room_id: matchRoomId,
         p_score: score,
+        p_darts: [],
+        p_is_bust: false
+      });
+
+      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v2', {
+        p_room_id: matchRoomId,
+        p_score: score,
+        p_darts: [],
+        p_is_bust: false
       });
 
       if (error) {
-        console.error('Error submitting score:', error);
+        console.error("[SUBMIT] Supabase error", {
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code
+        });
         toast.error('Failed to submit score');
         return;
       }
