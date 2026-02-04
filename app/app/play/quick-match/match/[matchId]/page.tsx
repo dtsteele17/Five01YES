@@ -382,7 +382,7 @@ export default function QuickMatchRoomPage() {
 
         // Navigate to play page
         await clearMatchState(matchId);
-        router.push('/app/play');
+        router.push('/app/play/quick-match');
         return;
       }
 
@@ -395,7 +395,7 @@ export default function QuickMatchRoomPage() {
 
       // Clean up storage on error as well
       await clearMatchState(matchId);
-      router.push('/app/play');
+      router.push('/app/play/quick-match');
     } finally {
       setLoading(false);
     }
@@ -942,7 +942,7 @@ export default function QuickMatchRoomPage() {
         cleanupMatchRef.current();
       }
       await clearMatchState(matchId);
-      router.push('/app/play');
+      router.push('/app/play/quick-match');
     } catch (error: any) {
       console.error('[FORFEIT] Failed to forfeit:', error);
       toast.error(`Failed to forfeit: ${error.message}`);
@@ -1584,12 +1584,12 @@ export default function QuickMatchRoomPage() {
                   cleanupMatchRef.current();
                 }
                 await clearMatchState(matchId);
-                router.push('/app/play');
+                router.push('/app/play/quick-match');
               }}
               className="border-white/20 text-white hover:bg-white/10 px-8"
             >
               <Home className="w-5 h-5 mr-2" />
-              Leave
+              Back to Quick Match
             </Button>
             <Button
               size="lg"
