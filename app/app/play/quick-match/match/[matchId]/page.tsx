@@ -88,10 +88,12 @@ interface MatchEvent {
   created_at: string;
 }
 
-function QuickMatchRoomPageContent() {
+interface QuickMatchRoomContentProps {
+  matchId: string;
+}
+
+function QuickMatchRoomPageContent({ matchId }: QuickMatchRoomContentProps) {
   const router = useRouter();
-  const params = useParams();
-  const matchId = params.matchId as string;
   const supabase = createClient();
 
   const [room, setRoom] = useState<MatchRoom | null>(null);
@@ -689,6 +691,7 @@ function QuickMatchRoomPageContent() {
     }
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -697,6 +700,7 @@ function QuickMatchRoomPageContent() {
     );
   }
 
+  // Room not found state
   if (!room) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -713,6 +717,7 @@ function QuickMatchRoomPageContent() {
     );
   }
 
+  // Waiting for opponent state
   if (!room.player2_id) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -724,6 +729,7 @@ function QuickMatchRoomPageContent() {
     );
   }
 
+  // Match state loading
   if (!matchState) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
@@ -1310,9 +1316,21 @@ function QuickMatchRoomPageContent() {
 }
 
 export default function QuickMatchRoomPage() {
+  const params = useParams();
+  const matchId = params.matchId as string;
+
+  // Safety check: only render if we have a valid matchId
+  if (!matchId) {
+    return (
+      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
+        <div className="text-white">Invalid match ID</div>
+      </div>
+    );
+  }
+
   return (
     <MatchErrorBoundary>
-      <QuickMatchRoomPageContent />
+      <QuickMatchRoomPageContent matchId={matchId} />
     </MatchErrorBoundary>
   );
 }
