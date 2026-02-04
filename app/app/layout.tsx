@@ -17,6 +17,7 @@ export default function AppLayout({
 }) {
   const pathname = usePathname();
   const isQuickMatchGame = pathname?.includes('/app/play/quick-match/match/');
+  const isTrainingMatch = pathname === '/app/play/training/501';
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -28,7 +29,7 @@ export default function AppLayout({
     }
   }, []);
 
-  if (isQuickMatchGame) {
+  if (isQuickMatchGame || isTrainingMatch) {
     return (
       <ProfileProvider>
         <NotificationsProvider>

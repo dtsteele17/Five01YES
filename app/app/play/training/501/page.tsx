@@ -1029,37 +1029,34 @@ export default function Training501Page() {
 
   return (
     <MatchErrorBoundary>
-      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
-      <div className="border-b border-white/10 bg-slate-900/50 backdrop-blur-sm">
-        <div className="max-w-[1800px] mx-auto px-4 py-3">
+      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
+      <div className="border-b border-white/10 bg-slate-900/80 backdrop-blur-sm flex-shrink-0">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
-                <Target className="w-6 h-6 text-emerald-400" />
-                <span className="text-xl font-bold text-white">FIVE<span className="text-emerald-400">01</span></span>
+                <Target className="w-5 h-5 text-emerald-400" />
+                <span className="text-lg font-bold text-white">FIVE<span className="text-emerald-400">01</span></span>
               </div>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">TRAINING</Badge>
-            </div>
-
-            <div className="flex items-center space-x-4 text-sm text-gray-400">
-              <span>{config.mode === 'around-the-clock' ? 'Around the Clock' : config.mode}</span>
-              <span>•</span>
-              <span>{config.bestOf.replace('best-of-', 'Best of ')}</span>
-              {config.doubleOut && (
-                <>
-                  <span>•</span>
-                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-xs">
-                    Double Out
-                  </Badge>
-                </>
-              )}
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">TRAINING</Badge>
+              <div className="flex items-center space-x-2 text-xs text-gray-400">
+                <span>{config.bestOf.replace('best-of-', 'Best of ')}</span>
+                {config.doubleOut && (
+                  <>
+                    <span>•</span>
+                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px] px-1 py-0">
+                      Double Out
+                    </Badge>
+                  </>
+                )}
+              </div>
             </div>
 
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowEndMatchDialog(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs h-8"
             >
               End Training
             </Button>
@@ -1067,23 +1064,23 @@ export default function Training501Page() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="max-w-[1800px] mx-auto px-4 py-2 h-full flex flex-col">
-          <div className="grid grid-cols-3 gap-3 mb-2 flex-shrink-0">
-            <Card className="bg-slate-900/50 border-white/10 p-3">
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="px-4 py-3 flex-shrink-0">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="bg-slate-900/50 border-white/10 p-4 lg:p-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white">Current Leg</h3>
+                  <h3 className="text-sm font-semibold text-white">Match Score</h3>
                   <Badge variant="outline" className="text-xs">Leg {currentLeg.legNumber}</Badge>
                 </div>
-                <div className="flex items-center justify-center space-x-3">
+                <div className="flex items-center justify-center space-x-4">
                   <div className="text-center">
-                    <p className="text-xl font-bold text-white">{player1LegsWon}</p>
+                    <p className="text-3xl lg:text-2xl font-bold text-white">{player1LegsWon}</p>
                     <p className="text-xs text-gray-400">You</p>
                   </div>
-                  <div className="text-2xl font-bold text-gray-600">-</div>
+                  <div className="text-3xl lg:text-2xl font-bold text-gray-600">-</div>
                   <div className="text-center">
-                    <p className="text-xl font-bold text-white">{player2LegsWon}</p>
+                    <p className="text-3xl lg:text-2xl font-bold text-white">{player2LegsWon}</p>
                     <p className="text-xs text-gray-400">Bot</p>
                   </div>
                 </div>
@@ -1095,10 +1092,10 @@ export default function Training501Page() {
               </div>
             </Card>
 
-            <Card className={`p-3 transition-all ${currentPlayer === 'player1' ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center justify-between mb-2">
+            <Card className={`p-4 lg:p-3 transition-all ${currentPlayer === 'player1' ? 'bg-emerald-500/20 border-emerald-500/50 ring-2 ring-emerald-500/30' : 'bg-slate-900/50 border-white/10'}`}>
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <Avatar className="w-8 h-8">
+                  <Avatar className="w-9 h-9">
                     <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
                       YOU
                     </AvatarFallback>
@@ -1110,25 +1107,25 @@ export default function Training501Page() {
                 </div>
               </div>
               <div className="text-center py-2">
-                <p className="text-4xl font-bold text-white">{player1Score}</p>
+                <p className="text-6xl lg:text-5xl font-bold text-white tabular-nums">{player1Score}</p>
                 <p className="text-xs text-gray-400 mt-1">Remaining</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="text-center bg-white/5 rounded p-1">
+              <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                <div className="text-center bg-white/5 rounded p-1.5">
                   <p className="text-gray-400">Avg</p>
                   <p className="text-white font-semibold">{player1MatchAverage}</p>
                 </div>
-                <div className="text-center bg-white/5 rounded p-1">
+                <div className="text-center bg-white/5 rounded p-1.5">
                   <p className="text-gray-400">High</p>
                   <p className="text-white font-semibold">{player1Stats.highestScore}</p>
                 </div>
               </div>
             </Card>
 
-            <Card className={`p-3 transition-all ${currentPlayer === 'player2' ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center justify-between mb-2">
+            <Card className={`p-4 lg:p-3 transition-all ${currentPlayer === 'player2' ? 'bg-blue-500/20 border-blue-500/50 ring-2 ring-blue-500/30' : 'bg-slate-900/50 border-white/10'}`}>
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <Avatar className="w-8 h-8">
+                  <Avatar className="w-9 h-9">
                     <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-sm">
                       <Bot className="w-5 h-5" />
                     </AvatarFallback>
@@ -1140,25 +1137,27 @@ export default function Training501Page() {
                 </div>
               </div>
               <div className="text-center py-2">
-                <p className="text-4xl font-bold text-white">{player2Score}</p>
+                <p className="text-6xl lg:text-5xl font-bold text-white tabular-nums">{player2Score}</p>
                 <p className="text-xs text-gray-400 mt-1">Remaining</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="text-center bg-white/5 rounded p-1">
+              <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                <div className="text-center bg-white/5 rounded p-1.5">
                   <p className="text-gray-400">Avg</p>
                   <p className="text-white font-semibold">{player2MatchAverage}</p>
                 </div>
-                <div className="text-center bg-white/5 rounded p-1">
+                <div className="text-center bg-white/5 rounded p-1.5">
                   <p className="text-gray-400">High</p>
                   <p className="text-white font-semibold">{player2Stats.highestScore}</p>
                 </div>
               </div>
             </Card>
           </div>
+        </div>
 
-          <div className="grid gap-3 flex-1 min-h-0" style={{ gridTemplateColumns: showVisualization ? '0.65fr 0.65fr 1.25fr' : '0.75fr 1.25fr' }}>
+          <div className="px-4 flex-1 min-h-0 overflow-hidden">
+            <div className={`grid gap-3 h-full ${showVisualization ? 'lg:grid-cols-[0.6fr_0.6fr_1.4fr] grid-cols-1' : 'lg:grid-cols-[1fr_1.5fr] grid-cols-1'}`}>
             {showVisualization && (
-              <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden">
+              <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden h-full">
                 <div className="flex items-center justify-between mb-2 flex-shrink-0">
                   <h3 className="text-sm font-semibold text-white">Dartbot Board</h3>
                   {isBotThinking && (
@@ -1167,7 +1166,7 @@ export default function Training501Page() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0">
                   <DartboardOverlay hits={dartboardHits} className="max-w-full" />
                   {botLastVisitTotal !== null && (
                     <div className="mt-2 text-center">
@@ -1244,13 +1243,13 @@ export default function Training501Page() {
               </div>
             </Card>
 
-            <Card className="bg-slate-900/50 border-white/10 p-2 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-1 flex-shrink-0">
+            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden h-full">
+              <div className="flex items-center justify-between mb-2 flex-shrink-0">
                 <h3 className="text-base font-semibold text-white">Scoring</h3>
                 <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
-                  <TabsList className="bg-slate-800/50 h-8">
-                    <TabsTrigger value="quick" className="data-[state=active]:bg-emerald-500 text-xs">Quick</TabsTrigger>
-                    <TabsTrigger value="input" className="data-[state=active]:bg-emerald-500 text-xs">Input</TabsTrigger>
+                  <TabsList className="bg-slate-800/50 h-9">
+                    <TabsTrigger value="quick" className="data-[state=active]:bg-emerald-500 text-sm px-4">Quick</TabsTrigger>
+                    <TabsTrigger value="input" className="data-[state=active]:bg-emerald-500 text-sm px-4">Input</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -1288,31 +1287,31 @@ export default function Training501Page() {
               )}
 
               {scoringMode === 'quick' ? (
-                <div className="flex-1 flex flex-col min-h-0">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 mb-1 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold text-sm">Total: {visitTotal}</span>
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-2.5 mb-2 flex-shrink-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h4 className="text-sm font-semibold text-emerald-400">Current Visit</h4>
+                      <span className="text-emerald-400 font-bold text-lg">Total: {visitTotal}</span>
                     </div>
-                    <div className="flex items-center space-x-1.5 mt-1">
+                    <div className="flex items-center space-x-2 mt-1">
                       {currentVisit.map((dart, idx) => (
-                        <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-xs py-0.5">
+                        <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-sm py-1 px-2">
                           {getDartLabel(dart)} ({dart.value})
                         </Badge>
                       ))}
                       {[...Array(3 - currentVisit.length)].map((_, idx) => (
-                        <div key={idx} className="w-14 h-5 border-2 border-dashed border-gray-600 rounded"></div>
+                        <div key={idx} className="flex-1 h-8 border-2 border-dashed border-gray-600 rounded"></div>
                       ))}
                     </div>
                   </Card>
 
-                  <div className="flex flex-col">
-                    <div className="flex space-x-1.5 mb-1 flex-shrink-0">
+                  <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
+                    <div className="flex space-x-2 mb-2 flex-shrink-0">
                       <Button
                         size="sm"
                         variant={dartboardGroup === 'singles' ? 'default' : 'outline'}
                         onClick={() => setDartboardGroup('singles')}
-                        className={`${dartboardGroup === 'singles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-7 text-xs`}
+                        className={`${dartboardGroup === 'singles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
                         disabled={currentPlayer !== 'player1'}
                       >
                         Singles
@@ -1321,7 +1320,7 @@ export default function Training501Page() {
                         size="sm"
                         variant={dartboardGroup === 'doubles' ? 'default' : 'outline'}
                         onClick={() => setDartboardGroup('doubles')}
-                        className={`${dartboardGroup === 'doubles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-7 text-xs`}
+                        className={`${dartboardGroup === 'doubles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
                         disabled={currentPlayer !== 'player1'}
                       >
                         Doubles
@@ -1330,7 +1329,7 @@ export default function Training501Page() {
                         size="sm"
                         variant={dartboardGroup === 'triples' ? 'default' : 'outline'}
                         onClick={() => setDartboardGroup('triples')}
-                        className={`${dartboardGroup === 'triples' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-7 text-xs`}
+                        className={`${dartboardGroup === 'triples' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
                         disabled={currentPlayer !== 'player1'}
                       >
                         Triples
@@ -1339,7 +1338,7 @@ export default function Training501Page() {
                         size="sm"
                         variant={dartboardGroup === 'bulls' ? 'default' : 'outline'}
                         onClick={() => setDartboardGroup('bulls')}
-                        className={`${dartboardGroup === 'bulls' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-7 text-xs`}
+                        className={`${dartboardGroup === 'bulls' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
                         disabled={currentPlayer !== 'player1'}
                       >
                         Bulls
@@ -1347,38 +1346,38 @@ export default function Training501Page() {
                     </div>
 
                     {dartboardGroup !== 'bulls' ? (
-                      <div className="grid grid-cols-5 gap-1 mb-1">
+                      <div className="grid grid-cols-5 gap-1.5 mb-2">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
                           <Button
                             key={num}
                             onClick={() => handleDartClick(dartboardGroup, num)}
                             disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                            className="h-10 text-xs font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                            className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
                           >
-                            {dartboardGroup === 'singles' ? `S${num}` : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}
-                            <span className="text-[10px] text-gray-400 ml-0.5">
+                            <span>{dartboardGroup === 'singles' ? `S${num}` : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}</span>
+                            <span className="text-[10px] text-gray-400">
                               ({dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? num * 2 : num * 3})
                             </span>
                           </Button>
                         ))}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-2 mb-1">
+                      <div className="grid grid-cols-2 gap-3 mb-2">
                         <Button
                           onClick={() => handleDartClick('bulls', 25)}
                           disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                          className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                          className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
                         >
-                          Single Bull
-                          <span className="block text-xs text-gray-400">(25)</span>
+                          <span>Single Bull</span>
+                          <span className="text-sm text-gray-400">(25)</span>
                         </Button>
                         <Button
                           onClick={() => handleDartClick('bulls', 50)}
                           disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                          className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                          className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
                         >
-                          Double Bull
-                          <span className="block text-xs text-gray-400">(50)</span>
+                          <span>Double Bull</span>
+                          <span className="text-sm text-gray-400">(50)</span>
                         </Button>
                       </div>
                     )}
@@ -1386,7 +1385,7 @@ export default function Training501Page() {
                     <Button
                       onClick={() => handleDartClick('singles', 0)}
                       variant="outline"
-                      className="w-full h-8 mb-1 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
+                      className="w-full h-10 mb-2 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
                       disabled={currentPlayer !== 'player1'}
                     >
                       Miss (0)
@@ -1397,8 +1396,7 @@ export default function Training501Page() {
                         onClick={handleClearVisit}
                         disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
                         variant="outline"
-                        size="sm"
-                        className="border-white/10 text-white hover:bg-white/5"
+                        className="border-white/10 text-white hover:bg-white/5 h-11 text-sm"
                       >
                         <X className="w-4 h-4 mr-1" />
                         Clear
@@ -1406,17 +1404,15 @@ export default function Training501Page() {
                       <Button
                         onClick={handleSubmitVisit}
                         disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
-                        size="sm"
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white h-11 text-sm font-semibold"
                       >
                         <Check className="w-4 h-4 mr-1" />
-                        Submit Visit
+                        Submit
                       </Button>
                       <Button
                         onClick={handleBust}
                         variant="outline"
-                        size="sm"
-                        className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/10 h-11 text-sm"
                         disabled={currentPlayer !== 'player1'}
                       >
                         Bust
@@ -1425,13 +1421,13 @@ export default function Training501Page() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col space-y-0.5 min-h-0">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold">Total: {scoreInput && !isNaN(parseInt(scoreInput)) ? parseInt(scoreInput) : 0}</span>
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-2.5 mb-2 flex-shrink-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h4 className="text-sm font-semibold text-emerald-400">Current Visit</h4>
+                      <span className="text-emerald-400 font-bold text-lg">Total: {scoreInput && !isNaN(parseInt(scoreInput)) ? parseInt(scoreInput) : 0}</span>
                     </div>
-                    <div className="text-center text-white text-sm">
+                    <div className="text-center text-white text-base">
                       {scoreInput && !isNaN(parseInt(scoreInput)) ? `Visit total: ${scoreInput}` : 'Enter visit total (0-180)'}
                     </div>
                   </Card>
@@ -1442,7 +1438,7 @@ export default function Training501Page() {
                     </Card>
                   )}
 
-                  <div className="flex space-x-2 flex-shrink-0">
+                  <div className="flex space-x-2 mb-2 flex-shrink-0">
                     <Input
                       type="number"
                       min="0"
@@ -1453,7 +1449,7 @@ export default function Training501Page() {
                         setInputModeError('');
                       }}
                       placeholder="Enter score (0-180)"
-                      className="flex-1 bg-white/5 border-white/10 text-white text-lg"
+                      className="flex-1 bg-white/5 border-white/10 text-white text-2xl h-14"
                       disabled={currentPlayer !== 'player1'}
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && scoreInput) {
@@ -1474,7 +1470,7 @@ export default function Training501Page() {
                         }
                       }}
                       disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || currentPlayer !== 'player1'}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 h-14 text-base font-semibold"
                     >
                       Submit
                     </Button>
@@ -1485,7 +1481,7 @@ export default function Training501Page() {
                       <Button
                         key={num}
                         onClick={() => setScoreInput(prev => prev + num.toString())}
-                        className="h-12 text-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white"
+                        className="h-16 text-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold"
                         disabled={currentPlayer !== 'player1'}
                       >
                         {num}
@@ -1493,7 +1489,7 @@ export default function Training501Page() {
                     ))}
                     <Button
                       onClick={() => setScoreInput('')}
-                      className="h-12 text-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400"
+                      className="h-16 text-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-semibold"
                       disabled={currentPlayer !== 'player1'}
                     >
                       Clear
@@ -1504,6 +1500,7 @@ export default function Training501Page() {
             </Card>
           </div>
         </div>
+      </div>
       </div>
 
       <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
@@ -1760,7 +1757,6 @@ export default function Training501Page() {
         savedMatchId={savedMatchId}
         saveError={saveError}
       />
-    </div>
     </MatchErrorBoundary>
   );
 }
