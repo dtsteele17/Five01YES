@@ -33,7 +33,9 @@ import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomT
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
-import { PlayerScoreCard } from '@/components/match/PlayerScoreCard';
+import { MatchHUDTop } from '@/components/match/MatchHUDTop';
+import { MatchCameraPanel } from '@/components/match/MatchCameraPanel';
+import { MatchTurnPanel } from '@/components/match/MatchTurnPanel';
 import { clearMatchStorage, hasAttemptedMatch, markMatchAttempted } from '@/lib/utils/match-storage';
 import { clearMatchState } from '@/lib/utils/match-resume';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
@@ -1177,13 +1179,8 @@ export default function QuickMatchRoomPage() {
 
   const doubleOut = matchState.matchFormat.includes('best-of');
 
-  const myVisitHistory = matchState.visitHistory.filter(v => v.by === 'you');
-  const lastMyVisit = myVisitHistory[myVisitHistory.length - 1];
-  const opponentVisitHistory = matchState.visitHistory.filter(v => v.by !== 'you');
-  const lastOpponentVisit = opponentVisitHistory[opponentVisitHistory.length - 1];
-
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden p-3">
+    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
       {showSoundBanner && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
           <span className="text-sm font-medium">Tap to enable match sound</span>
@@ -1197,7 +1194,7 @@ export default function QuickMatchRoomPage() {
         </div>
       )}
 
-      {/* Top Bar - Minimal */}
+      {/* Forfeit Button - Top Right */}
       <div className="absolute top-3 right-3 z-10 flex items-center space-x-3">
         {isConnected ? (
           <Wifi className="w-4 h-4 text-emerald-400" />
@@ -1216,74 +1213,146 @@ export default function QuickMatchRoomPage() {
         </Button>
       </div>
 
-      {/* Match Info Banner - Top Center */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-        <Card className="bg-slate-900/80 border-white/20 px-4 py-2 rounded-xl backdrop-blur-sm">
-          <div className="flex items-center space-x-3 text-xs text-gray-300">
-            <span className="font-semibold text-white">{matchState.gameMode}</span>
-            <span>•</span>
-            <span>{matchState.matchFormat.replace('best-of-', 'Best of ')}</span>
-            <span>•</span>
-            <span className="font-semibold text-emerald-400">Leg {matchState.currentLeg}</span>
-            <span>•</span>
-            <span className="text-white">{myLegs} – {opponentLegs}</span>
-          </div>
-        </Card>
+      {/* Top Row: Best of X + Player Score Cards */}
+      <MatchHUDTop
+        bestOf={matchState.matchFormat.replace('best-of-', 'Best of ')}
+        myPlayer={{
+          name: myName,
+          remaining: myRemaining,
+          average: myAvg,
+          legsWon: myLegs,
+          isActive: isMyTurn,
+          isMe: true,
+        }}
+        opponentPlayer={{
+          name: opponentName,
+          remaining: opponentRemaining,
+          average: opponentAvg,
+          legsWon: opponentLegs,
+          isActive: !isMyTurn,
+          isMe: false,
+        }}
+        legsToWin={matchState.legsToWin}
+      />
+
+      {/* Main Row: Camera Panel (left) + Turn Panel (right) */}
+      <div className="flex-1 grid grid-cols-2 gap-4 px-4 pb-4 min-h-0" style={{ gridTemplateColumns: '1.5fr 1fr' }}>
+        <MatchCameraPanel
+          liveVideoRef={liveVideoRef}
+          localStream={localStream}
+          remoteStream={remoteStream}
+          isMyTurn={isMyTurn}
+          myName={myName}
+          opponentName={opponentName}
+          callStatus={callStatus}
+          isCameraOn={isCameraOn}
+          isMicMuted={isMicMuted}
+          isVideoDisabled={isVideoDisabled}
+          toggleCamera={toggleCamera}
+          toggleMic={toggleMic}
+          toggleVideo={toggleVideo}
+        />
+
+        <MatchTurnPanel
+          isMyTurn={isMyTurn}
+          scoreInput={scoreInput}
+          setScoreInput={setScoreInput}
+          inputModeError={inputModeError}
+          setInputModeError={setInputModeError}
+          handleInputScoreSubmit={handleInputScoreSubmit}
+          submitting={submitting}
+          isOnCheckout={isOnCheckout}
+          myRemaining={myRemaining}
+          checkoutOptions={checkoutOptions}
+          currentVisit={currentVisit}
+          getDartLabel={getDartLabel}
+          visitTotal={visitTotal}
+          dartboardGroup={dartboardGroup}
+          setDartboardGroup={setDartboardGroup}
+          handleNumberClick={handleNumberClick}
+          handleClearVisit={handleClearVisit}
+          handleSubmitVisit={handleSubmitVisit}
+          handleBust={handleBust}
+          visitHistory={matchState.visitHistory}
+          handleEditVisit={handleEditVisit}
+        />
       </div>
 
-      {/* 3-Column Grid Layout - DartCounter Style */}
-      <div className="grid gap-3 h-full pt-16" style={{ gridTemplateColumns: '320px 1fr 520px' }}>
-        {/* Left Column: Player Score Cards (Stacked) */}
-        <div className="flex flex-col gap-3 min-h-0">
-          <PlayerScoreCard
-            name={myName}
-            remaining={myRemaining}
-            average={myAvg}
-            lastScore={lastMyVisit?.score}
-            dartsThrown={myVisitHistory.length * 3}
-            legsWon={myLegs}
-            legsToWin={matchState.legsToWin}
-            isActive={isMyTurn}
-            isMe={true}
-          />
-          <PlayerScoreCard
-            name={opponentName}
-            remaining={opponentRemaining}
-            average={opponentAvg}
-            lastScore={lastOpponentVisit?.score}
-            dartsThrown={opponentVisitHistory.length * 3}
-            legsWon={opponentLegs}
-            legsToWin={matchState.legsToWin}
-            isActive={!isMyTurn}
-            isMe={false}
-            trustRating={opponentTrustRating}
-          />
-        </div>
+      <AlertDialog open={showEndMatchDialog} onOpenChange={(open) => !forfeitLoading && setShowEndMatchDialog(open)}>
+        <AlertDialogContent className="bg-slate-900 border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Forfeit Match?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              Are you sure you want to forfeit? This will end the match.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={forfeitLoading}
+              className="bg-white/5 border-white/10 text-white hover:bg-white/10 disabled:opacity-50"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={forfeitMatch}
+              disabled={forfeitLoading}
+              className="bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
+            >
+              {forfeitLoading ? 'Forfeiting...' : 'Forfeit'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        {/* Middle Column: Scoring Section */}
-        <div className="flex flex-col gap-2 min-h-0 overflow-hidden">
-          {/* Always-Visible Score Input - Top */}
-          <Card className="bg-slate-900/50 border-white/10 p-4 flex-shrink-0">
-            <label className="text-sm text-gray-300 mb-2 block font-medium">Enter a score and press Enter</label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="number"
-                min="0"
-                max="180"
-                value={scoreInput}
-                onChange={(e) => {
-                  setScoreInput(e.target.value);
-                  setInputModeError('');
-                }}
-                placeholder="0–180"
-                className="flex-1 h-12 bg-white/5 border-white/10 text-white text-lg"
-                disabled={!isMyTurn || submitting}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && scoreInput) {
-                    const score = parseInt(scoreInput);
-                    if (score >= 0 && score <= 180) {
-                      handleInputScoreSubmit(score);
-                      setScoreInput('');
+      <Dialog open={showOpponentForfeitSignalModal} onOpenChange={() => {}}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white text-center">
+              Opponent forfeited the match.
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center">
+            <Button
+              onClick={async () => {
+                setShowOpponentForfeitSignalModal(false);
+                if (cleanupMatchRef.current) {
+                  cleanupMatchRef.current();
+                }
+                await clearMatchState(matchId);
+                router.push('/app/play');
+              }}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
+            >
+              Return
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showMatchCompleteModal || showOpponentForfeitModal} onOpenChange={() => {}}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-3xl">
+          <DialogHeader>
+            <div className="flex flex-col items-center space-y-2 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full">
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
+              <DialogTitle className="text-3xl font-bold text-white text-center">
+                {matchState?.endedReason === 'forfeit'
+                  ? 'Opponent Forfeited'
+                  : `${matchState?.winnerName} Wins!`}
+              </DialogTitle>
+              <p className="text-base text-gray-400 text-center">
+                {matchState?.endedReason === 'forfeit'
+                  ? 'Match ended early'
+                  : `Final score: ${myLegs}-${opponentLegs}`}
+              </p>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <h3 className="text-lg font-semibold text-white mb-3">Match Stats</h3>
+
+            <div className="grid grid-cols-2 gap-4">
                     }
                   }
                 }}
