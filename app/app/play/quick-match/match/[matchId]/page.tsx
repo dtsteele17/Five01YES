@@ -94,7 +94,171 @@ interface QuickMatchVisit {
 }
 
 // ============================================================
-// EDIT VISIT MODAL COMPONENT (Inline to avoid import issues)
+// VISIT HISTORY COMPONENT - DARTCOUNTER STYLE
+// ============================================================
+function VisitHistoryTable({
+  visits,
+  myUserId,
+  opponentUserId,
+  myName,
+  opponentName,
+  myColor,
+  opponentColor,
+  onEditVisit,
+  onDeleteVisit,
+  doubleOutEnabled,
+}: {
+  visits: QuickMatchVisit[];
+  myUserId: string;
+  opponentUserId: string;
+  myName: string;
+  opponentName: string;
+  myColor: string;
+  opponentColor: string;
+  onEditVisit: (visit: QuickMatchVisit) => void;
+  onDeleteVisit: (visitId: string) => void;
+  doubleOutEnabled: boolean;
+}) {
+  // Group visits by turn number (like DartCounter - side by side)
+  const maxTurns = Math.max(
+    ...visits.map(v => v.turn_no),
+    0
+  );
+
+  const getVisitForTurn = (turnNo: number, playerId: string) => {
+    return visits.find(v => v.turn_no === turnNo && v.player_id === playerId);
+  };
+
+  const formatDart = (d: any) => {
+    if (!d) return '';
+    if (d.mult === 'DB') return 'DB';
+    if (d.mult === 'SB') return 'SB';
+    if (d.mult === 'D') return `D${d.n}`;
+    if (d.mult === 'T') return `T${d.n}`;
+    return d.n.toString();
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
+      
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-slate-800">
+            <tr className="text-gray-400 text-xs">
+              <th className="text-left py-2 px-1 w-8">#</th>
+              <th className={`text-left py-2 px-1 ${myColor}`}>{myName}</th>
+              <th className="text-center py-2 px-1 w-16">Score</th>
+              <th className={`text-right py-2 px-1 ${opponentColor}`}>{opponentName}</th>
+              <th className="text-center py-2 px-1 w-8"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {Array.from({ length: maxTurns }, (_, i) => i + 1).map((turnNo) => {
+              const myVisit = getVisitForTurn(turnNo, myUserId);
+              const opponentVisit = getVisitForTurn(turnNo, opponentUserId);
+              
+              return (
+                <tr key={turnNo} className="hover:bg-white/5">
+                  <td className="py-2 px-1 text-gray-500">{turnNo}</td>
+                  
+                  {/* My Visit */}
+                  <td className="py-2 px-1">
+                    {myVisit ? (
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap gap-1">
+                          {myVisit.darts?.map((d: any, i: number) => (
+                            <span key={i} className={`text-xs px-1.5 py-0.5 rounded ${
+                              d.mult === 'D' || d.mult === 'DB' ? 'bg-red-500/20 text-red-400' :
+                              d.mult === 'T' ? 'bg-amber-500/20 text-amber-400' :
+                              'bg-slate-700 text-gray-300'
+                            }`}>
+                              {formatDart(d)}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-white font-bold">{myVisit.score}</span>
+                          <span className="text-gray-500">→ {myVisit.remaining_after}</span>
+                          {myVisit.is_bust && <span className="text-red-400 text-xs">BUST</span>}
+                          {myVisit.is_checkout && <span className="text-emerald-400 text-xs">OUT</span>}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-600">-</span>
+                    )}
+                  </td>
+                  
+                  {/* Score Comparison */}
+                  <td className="py-2 px-1 text-center">
+                    {myVisit && opponentVisit ? (
+                      <span className="text-gray-400">
+                        {myVisit.score} - {opponentVisit.score}
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">-</span>
+                    )}
+                  </td>
+                  
+                  {/* Opponent Visit */}
+                  <td className="py-2 px-1 text-right">
+                    {opponentVisit ? (
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {opponentVisit.darts?.map((d: any, i: number) => (
+                            <span key={i} className={`text-xs px-1.5 py-0.5 rounded ${
+                              d.mult === 'D' || d.mult === 'DB' ? 'bg-red-500/20 text-red-400' :
+                              d.mult === 'T' ? 'bg-amber-500/20 text-amber-400' :
+                              'bg-slate-700 text-gray-300'
+                            }`}>
+                              {formatDart(d)}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs justify-end">
+                          {opponentVisit.is_checkout && <span className="text-emerald-400 text-xs">OUT</span>}
+                          {opponentVisit.is_bust && <span className="text-red-400 text-xs">BUST</span>}
+                          <span className="text-gray-500">{opponentVisit.remaining_after} ←</span>
+                          <span className="text-white font-bold">{opponentVisit.score}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-600">-</span>
+                    )}
+                  </td>
+                  
+                  {/* Edit Button */}
+                  <td className="py-2 px-1 text-center">
+                    {myVisit && (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => onEditVisit(myVisit)}
+                          className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                          title="Edit visit"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        
+        {maxTurns === 0 && (
+          <div className="text-center text-gray-500 py-8">
+            No visits yet
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// EDIT VISIT MODAL COMPONENT
 // ============================================================
 function EditVisitModal({ 
   open, 
@@ -118,7 +282,6 @@ function EditVisitModal({
 
   useEffect(() => {
     if (visit && visit.darts) {
-      // Convert stored darts to Dart format
       const convertedDarts = visit.darts.map((d: any) => {
         const mult = d.mult || 'S';
         const number = d.n || 0;
@@ -172,7 +335,7 @@ function EditVisitModal({
     let isDouble = false;
 
     if (type === 'bull') {
-      value = number; // 25 or 50
+      value = number;
       multiplier = number === 50 ? 2 : 1;
       label = number === 50 ? 'DBULL' : 'SBULL';
       isDouble = number === 50;
@@ -337,14 +500,14 @@ function EditVisitModal({
                   disabled={darts.length >= 3}
                   className="h-8 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded disabled:opacity-30"
                 >
-                  D{num}
+                  D
                 </button>
                 <button
                   onClick={() => addDart('triple', num)}
                   disabled={darts.length >= 3}
                   className="h-8 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-xs rounded disabled:opacity-30"
                 >
-                  T{num}
+                  T
                 </button>
               </div>
             ))}
@@ -406,132 +569,6 @@ function EditVisitModal({
   );
 }
 
-// ============================================================
-// VISIT HISTORY PANEL COMPONENT
-// ============================================================
-function QuickMatchVisitHistoryPanel({
-  visits,
-  myUserId,
-  opponentUserId,
-  myName,
-  opponentName,
-  myColor,
-  opponentColor,
-  onEditVisit,
-  doubleOutEnabled,
-  isMyTurn,
-}: {
-  visits: QuickMatchVisit[];
-  myUserId: string;
-  opponentUserId: string;
-  myName: string;
-  opponentName: string;
-  myColor: string;
-  opponentColor: string;
-  onEditVisit: (visit: QuickMatchVisit) => void;
-  doubleOutEnabled: boolean;
-  isMyTurn: boolean;
-}) {
-  const myVisits = visits.filter(v => v.player_id === myUserId);
-  const opponentVisits = visits.filter(v => v.player_id === opponentUserId);
-  const maxVisits = Math.max(myVisits.length, opponentVisits.length);
-
-  return (
-    <div className="space-y-2 h-full overflow-auto">
-      <h3 className="text-sm font-semibold text-white mb-2">Visit History</h3>
-      
-      {Array.from({ length: maxVisits }).map((_, idx) => {
-        const myVisit = myVisits[idx];
-        const opponentVisit = opponentVisits[idx];
-        
-        return (
-          <div key={idx} className="grid grid-cols-2 gap-2 p-2 bg-white/5 rounded-lg">
-            {/* My Visit */}
-            <div className={`space-y-1 ${myVisit ? '' : 'opacity-30'}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-medium ${myColor}`}>{myName}</span>
-                {myVisit && (
-                  <div className="flex items-center space-x-1">
-                    {myVisit.is_bust && <span className="text-xs text-red-400">BUST</span>}
-                    {myVisit.is_checkout && <span className="text-xs text-emerald-400">CHECKOUT</span>}
-                    {/* Edit button - show for all my visits, but disable if not my turn and it's not the last visit */}
-                    <button
-                      onClick={() => myVisit && onEditVisit(myVisit)}
-                      className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
-                      title="Edit visit"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              {myVisit ? (
-                <div className="space-y-1">
-                  <div className="flex flex-wrap gap-1">
-                    {myVisit.darts?.map((d: any, i: number) => (
-                      <span key={i} className={`text-xs px-1.5 py-0.5 rounded ${
-                        d.mult === 'D' || d.mult === 'DB' ? 'bg-red-500/20 text-red-400' :
-                        d.mult === 'T' ? 'bg-amber-500/20 text-amber-400' :
-                        'bg-slate-700 text-gray-300'
-                      }`}>
-                        {d.mult}{d.n}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white font-bold">{myVisit.score}</span>
-                    <span className="text-gray-500">→ {myVisit.remaining_after}</span>
-                  </div>
-                </div>
-              ) : (
-                <span className="text-xs text-gray-600">-</span>
-              )}
-            </div>
-
-            {/* Opponent Visit */}
-            <div className={`space-y-1 ${opponentVisit ? '' : 'opacity-30'}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-medium ${opponentColor}`}>{opponentName}</span>
-                {opponentVisit && (
-                  <div className="flex items-center space-x-1">
-                    {opponentVisit.is_bust && <span className="text-xs text-red-400">BUST</span>}
-                    {opponentVisit.is_checkout && <span className="text-xs text-emerald-400">CHECKOUT</span>}
-                  </div>
-                )}
-              </div>
-              {opponentVisit ? (
-                <div className="space-y-1">
-                  <div className="flex flex-wrap gap-1">
-                    {opponentVisit.darts?.map((d: any, i: number) => (
-                      <span key={i} className={`text-xs px-1.5 py-0.5 rounded ${
-                        d.mult === 'D' || d.mult === 'DB' ? 'bg-red-500/20 text-red-400' :
-                        d.mult === 'T' ? 'bg-amber-500/20 text-amber-400' :
-                        'bg-slate-700 text-gray-300'
-                      }`}>
-                        {d.mult}{d.n}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white font-bold">{opponentVisit.score}</span>
-                    <span className="text-gray-500">→ {opponentVisit.remaining_after}</span>
-                  </div>
-                </div>
-              ) : (
-                <span className="text-xs text-gray-600">-</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
-      
-      {maxVisits === 0 && (
-        <p className="text-center text-gray-500 text-sm py-4">No visits yet</p>
-      )}
-    </div>
-  );
-}
-
 export default function QuickMatchRoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -559,7 +596,7 @@ export default function QuickMatchRoomPage() {
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
 
-  // Visit editing - NEW STATE
+  // Visit editing
   const [editingVisit, setEditingVisit] = useState<QuickMatchVisit | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -678,13 +715,15 @@ export default function QuickMatchRoomPage() {
 
     setRoom(roomData as MatchRoom);
 
+    // Load ALL visits for current leg, not just filtered
     const { data: visitsData } = await supabase
       .from('quick_match_visits')
       .select('*')
       .eq('room_id', matchId)
       .eq('leg', roomData.current_leg)
-      .order('created_at', { ascending: true });
+      .order('turn_no', { ascending: true });
 
+    console.log('[LOAD] Loaded visits:', visitsData?.length || 0, visitsData);
     setVisits((visitsData as QuickMatchVisit[]) || []);
 
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
@@ -727,8 +766,9 @@ export default function QuickMatchRoomPage() {
         .select('*')
         .eq('room_id', matchId)
         .eq('leg', room.current_leg)
-        .order('created_at', { ascending: true })
+        .order('turn_no', { ascending: true })
         .then(({ data }) => {
+          console.log('[LEG_CHANGE] Refetched visits:', data?.length || 0);
           setVisits((data as QuickMatchVisit[]) || []);
         });
     }
@@ -782,7 +822,12 @@ export default function QuickMatchRoomPage() {
           console.log('[REALTIME] Visit inserted:', payload.new);
           const newVisit = payload.new as QuickMatchVisit;
           if (room && newVisit.leg === room.current_leg) {
-            setVisits((prev) => [...prev, newVisit]);
+            setVisits((prev) => {
+              // Check if visit already exists (avoid duplicates)
+              const exists = prev.find(v => v.id === newVisit.id);
+              if (exists) return prev;
+              return [...prev, newVisit];
+            });
           }
         }
       )
@@ -924,9 +969,6 @@ export default function QuickMatchRoomPage() {
     setCurrentVisit([...currentVisit, missDart]);
   };
 
-  // ============================================================
-  // VALIDATED CHECKOUT - Ensures double finish when required
-  // ============================================================
   const validateCheckout = (score: number, darts: Dart[]): { valid: boolean; error?: string; isCheckout: boolean } => {
     if (!room) return { valid: false, error: 'No room', isCheckout: false };
     
@@ -939,7 +981,6 @@ export default function QuickMatchRoomPage() {
     }
     
     if (newRemaining === 0) {
-      // Must finish on double if doubleOut is enabled
       if (room.double_out) {
         const lastDart = darts[darts.length - 1];
         if (!lastDart.is_double) {
@@ -962,7 +1003,6 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    console.log('[HANDLE_BUST] ===== BUST CLICKED =====');
     await submitScore(0, true, currentVisit);
   };
 
@@ -976,14 +1016,12 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    // Validate checkout before submitting
     const validation = validateCheckout(visitTotal, currentVisit);
     if (!validation.valid) {
       toast.error(validation.error);
       return;
     }
 
-    console.log('[HANDLE_SUBMIT] ===== SUBMIT VISIT =====');
     await submitScore(visitTotal, false, currentVisit, validation.isCheckout);
   };
 
@@ -1135,11 +1173,7 @@ export default function QuickMatchRoomPage() {
     }
   }
 
-  // ============================================================
-  // NEW VISIT EDITING FUNCTIONS
-  // ============================================================
   const handleEditVisit = (visit: QuickMatchVisit) => {
-    // Only allow editing your own visits
     if (visit.player_id !== currentUserId) {
       toast.error("You can only edit your own visits");
       return;
@@ -1179,7 +1213,7 @@ export default function QuickMatchRoomPage() {
       if (insertError) throw insertError;
 
       toast.success('Visit updated successfully');
-      await loadMatchData(); // Refresh all data
+      await loadMatchData();
     } catch (error: any) {
       console.error('[EDIT] Failed to save visit:', error);
       toast.error(`Failed to update visit: ${error.message}`);
@@ -1298,25 +1332,10 @@ export default function QuickMatchRoomPage() {
   const myAvg = myPlayer.threeDartAvg;
   const opponentAvg = opponentPlayer.threeDartAvg;
 
-  const myVisits = matchState.visitHistory.filter(v => v.playerId === myPlayer.id).map((v, idx) => ({
-    visitNumber: idx + 1,
-    score: v.score,
-    remaining: v.remainingAfter,
-    isBust: v.isBust,
-    isCheckout: v.isCheckout,
-  }));
-  const opponentVisits = matchState.visitHistory.filter(v => v.playerId === opponentPlayer.id).map((v, idx) => ({
-    visitNumber: idx + 1,
-    score: v.score,
-    remaining: v.remainingAfter,
-    isBust: v.isBust,
-    isCheckout: v.isCheckout,
-  }));
-
-  const myLastScore = myVisits.length > 0 ? myVisits[myVisits.length - 1].score : 0;
-  const opponentLastScore = opponentVisits.length > 0 ? opponentVisits[opponentVisits.length - 1].score : 0;
-  const myDartsThrown = myVisits.length * 3;
-  const opponentDartsThrown = opponentVisits.length * 3;
+  const myLastScore = visits.filter(v => v.player_id === currentUserId).pop()?.score || 0;
+  const opponentLastScore = visits.filter(v => v.player_id !== currentUserId).pop()?.score || 0;
+  const myDartsThrown = visits.filter(v => v.player_id === currentUserId).length * 3;
+  const opponentDartsThrown = visits.filter(v => v.player_id !== currentUserId).length * 3;
 
   const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
   const matchComplete = matchState.status === 'finished' || matchState.status === 'abandoned' || matchState.status === 'forfeited';
@@ -1324,11 +1343,14 @@ export default function QuickMatchRoomPage() {
     ? (matchState.winnerId === currentUserId ? 'you' : 'opponent')
     : null;
 
-  const myHighestVisit = myVisits.length > 0 ? Math.max(...myVisits.map(v => v.score)) : 0;
-  const opponentHighestVisit = opponentVisits.length > 0 ? Math.max(...opponentVisits.map(v => v.score)) : 0;
+  const myHighestVisit = visits.filter(v => v.player_id === currentUserId).reduce((max, v) => Math.max(max, v.score), 0);
+  const opponentHighestVisit = visits.filter(v => v.player_id !== currentUserId).reduce((max, v) => Math.max(max, v.score), 0);
 
   const currentVisitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
   const myPreviewRemaining = isMyTurn && currentVisit.length > 0 ? myRemaining - currentVisitTotal : null;
+
+  // Get opponent ID for visit history
+  const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
@@ -1472,17 +1494,17 @@ export default function QuickMatchRoomPage() {
                 currentRemaining={myRemaining}
               />
             ) : (
-              <QuickMatchVisitHistoryPanel
+              <VisitHistoryTable
                 visits={visits}
                 myUserId={currentUserId || ''}
-                opponentUserId={matchState.youArePlayer === 1 ? room.player2_id! : room.player1_id!}
+                opponentUserId={opponentId || ''}
                 myName={myName}
                 opponentName={opponentName}
                 myColor="text-emerald-400"
                 opponentColor="text-blue-400"
                 onEditVisit={handleEditVisit}
-                doubleOutEnabled={room.double_out || false}
-                isMyTurn={isMyTurn}
+                onDeleteVisit={handleDeleteVisit}
+                doubleOutEnabled={room?.double_out || false}
               />
             )}
           </Card>
