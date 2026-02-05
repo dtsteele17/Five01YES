@@ -257,7 +257,7 @@ const CHECKOUT_ROUTES: Record<number, string[]> = {
 };
 
 // ============================================================
-// VISIT HISTORY COMPONENT - ALWAYS VISIBLE
+// VISIT HISTORY COMPONENT - SHOWN WHEN NOT YOUR TURN
 // ============================================================
 function VisitHistoryPanel({
   visits,
@@ -968,17 +968,7 @@ export default function QuickMatchRoomPage() {
         },
         created_at: v.created_at
       }));
-
-      // Transform room to include summary object for mapRoomToMatchState
-      const roomWithSummary = {
-        ...room,
-        summary: {
-          player1_legs: room.player1_legs || 0,
-          player2_legs: room.player2_legs || 0,
-        }
-      };
-
-      const mapped = mapRoomToMatchState(roomWithSummary, eventsFromVisits, profiles, currentUserId || '');
+      const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
       setMatchState(mapped);
     }
   }, [room, visits, profiles, currentUserId]);
@@ -1518,43 +1508,27 @@ export default function QuickMatchRoomPage() {
         </Button>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - LAYOUT CHANGE: Camera on left full height, Player cards and scoring/visit history on right */}
       <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
-        {/* LEFT: Camera & Visit History */}
-        <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Camera */}
-          <Card className="h-48 bg-slate-800/50 border-white/10 overflow-hidden">
-            <div className="flex items-center justify-between p-2 border-b border-white/5">
-              <span className="text-xs text-gray-400">Camera</span>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
-                  {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
-                </Button>
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleMic}>
-                  {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                </Button>
-              </div>
+        {/* LEFT: Camera - Full height like in screenshot 2 */}
+        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between p-2 border-b border-white/5">
+            <span className="text-xs text-gray-400">Camera</span>
+            <div className="flex gap-1">
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
+                {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
+              </Button>
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleMic}>
+                {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+              </Button>
             </div>
+          </div>
+          <div className="flex-1 relative">
             <video ref={liveVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          </Card>
+          </div>
+        </Card>
 
-          {/* Visit History - ALWAYS VISIBLE */}
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
-            <VisitHistoryPanel
-              visits={visits}
-              myUserId={currentUserId || ''}
-              opponentUserId={opponentId || ''}
-              myName={myPlayer.name}
-              opponentName={opponentPlayer.name}
-              myColor="text-emerald-400"
-              opponentColor="text-blue-400"
-              onEditVisit={handleEditVisit}
-              onDeleteVisit={handleDeleteVisit}
-            />
-          </Card>
-        </div>
-
-        {/* RIGHT: Player Cards & Scoring */}
+        {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
           {/* Player Cards */}
           <div className="grid grid-cols-2 gap-4">
@@ -1588,7 +1562,7 @@ export default function QuickMatchRoomPage() {
             />
           </div>
 
-          {/* Scoring Panel - Only when my turn */}
+          {/* CONDITIONAL: Show Scoring Panel when my turn, Visit History when not */}
           <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
             {isMyTurn ? (
               <ScoringPanel
@@ -1607,12 +1581,17 @@ export default function QuickMatchRoomPage() {
                 doubleOut={room.double_out}
               />
             ) : (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-white mb-2">{opponentPlayer.name}&apos;s Turn</p>
-                  <p className="text-gray-400">Waiting for opponent...</p>
-                </div>
-              </div>
+              <VisitHistoryPanel
+                visits={visits}
+                myUserId={currentUserId || ''}
+                opponentUserId={opponentId || ''}
+                myName={myPlayer.name}
+                opponentName={opponentPlayer.name}
+                myColor="text-emerald-400"
+                opponentColor="text-blue-400"
+                onEditVisit={handleEditVisit}
+                onDeleteVisit={handleDeleteVisit}
+              />
             )}
           </Card>
         </div>
