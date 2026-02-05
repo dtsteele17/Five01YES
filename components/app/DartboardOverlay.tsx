@@ -45,77 +45,82 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
           }}
         />
 
-        {/* Debug rings overlay */}
+        {/* Debug rings overlay - Enhanced visibility */}
         {showDebugRings && (
           <svg
             className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox="0 0 100 100"
-            style={{ mixBlendMode: 'difference' }}
+            style={{ mixBlendMode: 'normal', opacity: 0.8 }}
           >
-            {/* Board edge (playable area) - Green dashed */}
+            {/* Board edge (playable area) - Bright Green dashed */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_BOARD)}
               fill="none"
               stroke="#00ff00"
-              strokeWidth="0.5"
-              strokeDasharray="2,2"
+              strokeWidth="0.8"
+              strokeDasharray="3,2"
             />
-            {/* Double ring outer - Red */}
+            {/* Double ring outer - Bright Red */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_DOUBLE_OUT)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.3"
+              strokeWidth="0.6"
             />
-            {/* Double ring inner - Red */}
+            {/* Double ring inner - Bright Red */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_DOUBLE_IN)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.3"
+              strokeWidth="0.6"
             />
-            {/* Treble ring outer - Yellow */}
+            {/* Treble ring outer - Bright Yellow */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_TREBLE_OUT)}
               fill="none"
               stroke="#ffff00"
-              strokeWidth="0.3"
+              strokeWidth="0.6"
             />
-            {/* Treble ring inner - Yellow */}
+            {/* Treble ring inner - Bright Yellow */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_TREBLE_IN)}
               fill="none"
               stroke="#ffff00"
-              strokeWidth="0.3"
+              strokeWidth="0.6"
             />
-            {/* Bull outer - Cyan */}
+            {/* Bull outer - Bright Cyan */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_BULL_OUT)}
               fill="none"
               stroke="#00ffff"
-              strokeWidth="0.3"
+              strokeWidth="0.6"
             />
-            {/* Bull inner - Cyan */}
+            {/* Bull inner - Bright Cyan */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_BULL_IN)}
               fill="none"
               stroke="#00ffff"
-              strokeWidth="0.3"
+              strokeWidth="0.6"
             />
+            {/* Legend text */}
+            <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Board Edge</text>
+            <text x="2" y="14" fill="#ff0000" fontSize="4" fontWeight="bold">Doubles</text>
+            <text x="2" y="20" fill="#ffff00" fontSize="4" fontWeight="bold">Trebles</text>
+            <text x="2" y="26" fill="#00ffff" fontSize="4" fontWeight="bold">Bulls</text>
           </svg>
         )}
 
@@ -184,25 +189,26 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
                   left: `${pixelX}%`,
                   top: `${pixelY}%`,
                   transform: 'translate(-50%, -50%)',
-                  animation: 'fadeOut 2s ease-out forwards',
+                  animation: 'dartPop 0.3s ease-out, fadeOut 2.5s ease-out 0.3s forwards',
                 }}
               >
                 <div className="relative">
-                  {/* Golden dart hit marker */}
+                  {/* Enhanced dart hit marker - larger and more visible */}
                   <div
-                    className="rounded-full border-2 shadow-lg"
+                    className="rounded-full shadow-2xl"
                     style={{
-                      width: '14px',
-                      height: '14px',
+                      width: '20px',
+                      height: '20px',
                       backgroundColor: '#FFD700',
-                      borderColor: '#FFA500',
+                      border: '3px solid #FFFFFF',
+                      boxShadow: '0 0 12px rgba(255, 215, 0, 0.9), 0 0 20px rgba(255, 215, 0, 0.6)',
                     }}
                   >
                     <div
                       className="rounded-full absolute inset-0 m-auto"
                       style={{
-                        width: '8px',
-                        height: '8px',
+                        width: '10px',
+                        height: '10px',
                         backgroundColor: '#FFA500',
                       }}
                     />
@@ -215,6 +221,20 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
       </div>
 
       <style jsx>{`
+        @keyframes dartPop {
+          0% {
+            transform: translate(-50%, -50%) scale(0.3);
+            opacity: 0;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.3);
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+          }
+        }
+
         @keyframes fadeOut {
           0% {
             opacity: 1;
@@ -222,11 +242,11 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
           }
           50% {
             opacity: 0.8;
-            transform: translate(-50%, -50%) scale(1.1);
+            transform: translate(-50%, -50%) scale(1.05);
           }
           100% {
             opacity: 0;
-            transform: translate(-50%, -50%) scale(0.9);
+            transform: translate(-50%, -50%) scale(0.8);
           }
         }
       `}</style>

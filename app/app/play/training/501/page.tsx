@@ -226,9 +226,10 @@ export default function Training501Page() {
   const animateBotThrows = useCallback(async (darts: DartResult[]): Promise<void> => {
     clearDartboardAnimationTimer();
     setDartboardHits([]);
+    setBotLastVisitTotal(null);
 
     // Track last 3 darts for debug display
-    setLastThreeDarts(darts);
+    setLastThreeDarts([]);
 
     // Log debug info if debug mode is enabled
     if (debugMode) {
@@ -244,29 +245,58 @@ export default function Training501Page() {
       console.log('======================');
     }
 
+    // Sequential throw animation: throw → dot appears → score updates
     for (let i = 0; i < darts.length; i++) {
+      const dart = darts[i];
+
+      // 1. Dart "throws" (thinking time)
       await new Promise<void>((resolve) => {
         dartboardAnimationTimerRef.current = window.setTimeout(() => {
-          const dart = darts[i];
-          setDartboardHits(prev => [
-            ...prev,
-            {
-              x: dart.x,
-              y: dart.y,
-              label: dart.label,
-              offboard: dart.offboard,
-            },
-          ]);
           resolve();
-        }, 500);
+        }, i === 0 ? 300 : 1000); // First dart shorter delay, subsequent darts 1 second
       });
+
+      // 2. Dot appears on board
+      setDartboardHits(prev => [
+        ...prev,
+        {
+          x: dart.x,
+          y: dart.y,
+          label: dart.label,
+          offboard: dart.offboard,
+        },
+      ]);
+
+      // 3. Small delay before showing score text
+      await new Promise<void>((resolve) => {
+        dartboardAnimationTimerRef.current = window.setTimeout(() => {
+          resolve();
+        }, 400);
+      });
+
+      // 4. Update "Last Visit" text to show this dart
+      setLastThreeDarts(prev => [...prev, dart]);
+
+      // Short pause before next dart (unless it's the last dart)
+      if (i < darts.length - 1) {
+        await new Promise<void>((resolve) => {
+          dartboardAnimationTimerRef.current = window.setTimeout(() => {
+            resolve();
+          }, 300);
+        });
+      }
     }
 
+    // Show total after all darts
+    const visitTotal = darts.reduce((sum, dart) => sum + dart.score, 0);
+    setBotLastVisitTotal(visitTotal);
+
+    // Keep dots visible for a moment, then clear
     await new Promise<void>((resolve) => {
       dartboardAnimationTimerRef.current = window.setTimeout(() => {
         setDartboardHits([]);
         resolve();
-      }, 1500);
+      }, 1800);
     });
   }, [clearDartboardAnimationTimer, debugMode]);
 
