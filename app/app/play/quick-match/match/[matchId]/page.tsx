@@ -737,7 +737,7 @@ function ScoringPanel({
             </Button>
           </>
         ) : (
-          [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5].map((num) => (
+          Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
             <Button
               key={num}
               onClick={() => onDartClick(activeTab === 'singles' ? 'single' : activeTab === 'doubles' ? 'double' : 'triple', num)}
@@ -1118,20 +1118,55 @@ export default function QuickMatchRoomPage() {
   };
 
   const handleSubmitVisit = async () => {
-    if (!room || !currentUserId || submitting) return;
+    console.log('[SUBMIT] CLICKED');
+
+    if (!matchId) {
+      console.error('[SUBMIT] Missing roomId');
+      toast.error('Missing room ID');
+      return;
+    }
+
+    if (!currentUserId) {
+      console.error('[SUBMIT] Missing user id');
+      toast.error('User not authenticated');
+      return;
+    }
+
+    if (submitting) {
+      console.warn('[SUBMIT] Already submitting - blocked');
+      return;
+    }
+
+    if (!room) {
+      console.error('[SUBMIT] Missing room data');
+      toast.error('Room data not loaded');
+      return;
+    }
+
+    if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer) {
+      console.warn('[SUBMIT] Not your turn – blocked');
+      toast.error('Not your turn');
+      return;
+    }
+
     if (currentVisit.length === 0) {
+      console.warn('[SUBMIT] No darts entered');
       toast.error('Please enter darts');
       return;
     }
 
     const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
     const validation = validateCheckout(visitTotal, currentVisit);
-    
+
+    console.log('[SUBMIT] Validation result:', validation);
+
     if (!validation.valid) {
+      console.warn('[SUBMIT] Validation failed:', validation.error);
       toast.error(validation.error);
       return;
     }
 
+    console.log('[SUBMIT] All checks passed, proceeding to submitScore');
     await submitScore(visitTotal, false, currentVisit, validation.isCheckout);
   };
 
@@ -1157,8 +1192,28 @@ export default function QuickMatchRoomPage() {
   };
 
   async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false) {
-    if (!room || !matchState || !currentUserId) return;
+    console.log('[SUBMIT] submitScore called', { score, isBust, dartsCount: darts.length, isCheckout });
+
+    if (!room) {
+      console.error('[SUBMIT] No room data');
+      toast.error('Room data missing');
+      return;
+    }
+
+    if (!matchState) {
+      console.error('[SUBMIT] No match state');
+      toast.error('Match state missing');
+      return;
+    }
+
+    if (!currentUserId) {
+      console.error('[SUBMIT] No current user ID');
+      toast.error('User not authenticated');
+      return;
+    }
+
     if (matchState.currentTurnPlayer !== matchState.youArePlayer) {
+      console.warn('[SUBMIT] Not your turn in submitScore');
       toast.error('Not your turn');
       return;
     }
@@ -1171,10 +1226,18 @@ export default function QuickMatchRoomPage() {
       return { n: dart.number, mult };
     });
 
+    console.log('[SUBMIT] Submitting payload:', {
+      roomId: matchId,
+      score,
+      isBust,
+      darts: dartsArray,
+      isCheckout
+    });
+
     setSubmitting(true);
 
     try {
-      console.log('[SUBMIT] Submitting:', { score, isBust, darts: dartsArray });
+      console.log('[SUBMIT] Calling rpc_quick_match_submit_visit_v4...');
 
       const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v4", {
         p_room_id: matchId,
@@ -1184,20 +1247,29 @@ export default function QuickMatchRoomPage() {
         p_is_checkout: isCheckout
       });
 
+      console.log('[SUBMIT] RPC returned', { data, error });
+
       if (error) {
-        console.error("[SUBMIT] Error:", error);
+        console.error('[SUBMIT] Supabase RPC error:', error);
         toast.error(error.message || 'Failed to submit');
         return;
       }
 
       if (!data?.ok) {
+        console.error('[SUBMIT] RPC returned not ok:', data);
         toast.error(data?.error || 'Failed to submit visit');
         return;
       }
 
+      console.log('[SUBMIT] RPC success:', data);
+
       // Update local room state
       if (room && data.remaining_after !== undefined) {
         const isPlayer1 = room.player1_id === currentUserId;
+        console.log('[SUBMIT] Updating local room state', {
+          isPlayer1,
+          remainingAfter: data.remaining_after
+        });
         setRoom({
           ...room,
           player1_remaining: isPlayer1 ? data.remaining_after : room.player1_remaining,
@@ -1205,17 +1277,23 @@ export default function QuickMatchRoomPage() {
         });
       }
 
+      // Clear local visit state for next turn
+      console.log('[SUBMIT] Clearing local visit state');
       setScoreInput('');
       setCurrentVisit([]);
 
       if (data.leg_won) {
+        console.log('[SUBMIT] Leg won!');
         toast.success('Leg won!');
       }
+
+      console.log('[SUBMIT] Submit completed successfully');
     } catch (error: any) {
-      console.error('[SUBMIT] Exception:', error);
+      console.error('[SUBMIT] Unexpected error:', error);
       toast.error(error?.message || 'Failed to submit visit');
     } finally {
       setSubmitting(false);
+      console.log('[SUBMIT] Submitting flag cleared');
     }
   }
 
