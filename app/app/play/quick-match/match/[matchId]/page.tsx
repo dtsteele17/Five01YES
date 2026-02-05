@@ -968,7 +968,17 @@ export default function QuickMatchRoomPage() {
         },
         created_at: v.created_at
       }));
-      const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
+
+      // Transform room to include summary object for mapRoomToMatchState
+      const roomWithSummary = {
+        ...room,
+        summary: {
+          player1_legs: room.player1_legs || 0,
+          player2_legs: room.player2_legs || 0,
+        }
+      };
+
+      const mapped = mapRoomToMatchState(roomWithSummary, eventsFromVisits, profiles, currentUserId || '');
       setMatchState(mapped);
     }
   }, [room, visits, profiles, currentUserId]);
