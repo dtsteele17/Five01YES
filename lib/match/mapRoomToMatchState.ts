@@ -11,7 +11,10 @@ interface MatchRoom {
   player2_remaining: number;
   current_turn: string;
   winner_id: string | null;
-  summary: {
+  // Support both root-level legs and nested summary (for compatibility)
+  player1_legs?: number;
+  player2_legs?: number;
+  summary?: {
     player1_legs?: number;
     player2_legs?: number;
   };
@@ -176,7 +179,7 @@ export function mapRoomToMatchState(
       id: room.player1_id,
       name: player1Profile?.username || 'Player 1',
       remaining: room.player1_remaining,
-      legsWon: room.summary?.player1_legs || 0,
+      legsWon: room.player1_legs ?? room.summary?.player1_legs ?? 0,
       threeDartAvg: player1ThreeDartAvg,
     },
     {
@@ -184,7 +187,7 @@ export function mapRoomToMatchState(
       id: room.player2_id,
       name: player2Profile?.username || 'Waiting...',
       remaining: room.player2_remaining,
-      legsWon: room.summary?.player2_legs || 0,
+      legsWon: room.player2_legs ?? room.summary?.player2_legs ?? 0,
       threeDartAvg: player2ThreeDartAvg,
     },
   ];
