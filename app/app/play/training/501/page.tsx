@@ -351,6 +351,7 @@ export default function Training501Page() {
         doubleOut: config.doubleOut,
         formMultiplier: botFormMultiplier,
         tracker: botPerformanceTracker,
+        debug: debugMode,
       });
 
       setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));

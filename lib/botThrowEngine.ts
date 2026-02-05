@@ -17,27 +17,25 @@ export const R_BOARD = 0.86;
 
 // === CALIBRATION ADJUSTMENTS ===
 // Fine-tune ring alignment with the physical dartboard image
-// Adjust these values to align overlay rings with the PNG dartboard
+// Multiplicative calibration factors to align overlay rings with the PNG dartboard
 
-// Treble ring adjustments (move inward and make slightly smaller)
-export const TREBLE_INNER_RADIUS_ADJUST = -0.02;  // Move inner edge inward
-export const TREBLE_OUTER_RADIUS_ADJUST = -0.015; // Move outer edge inward
+// Treble ring calibration: move inward by ~2.5% (shrink both inner+outer treble radii)
+export const TREBLE_CAL = 0.975;  // 2.5% reduction
 
-// Double ring adjustments (move inward slightly)
-export const DOUBLE_INNER_RADIUS_ADJUST = -0.01;  // Move inner edge inward
-export const DOUBLE_OUTER_RADIUS_ADJUST = 0.00;   // Outer edge (board edge) - no change
+// Double ring calibration: move inward by ~1.5% (shrink both inner+outer double radii)
+export const DOUBLE_CAL = 0.985;  // 1.5% reduction
 
-// Bull ring adjustments (keep unchanged unless needed)
-export const BULL_INNER_RADIUS_ADJUST = 0.00;
-export const BULL_OUTER_RADIUS_ADJUST = 0.00;
+// Bull ring calibration (keep unchanged)
+export const BULL_CAL = 1.00;
 
 // Ring radii as fractions of R_BOARD (based on real dartboard proportions)
-export const R_BULL_IN = R_BOARD * (0.04 + BULL_INNER_RADIUS_ADJUST);     // Double Bull inner
-export const R_BULL_OUT = R_BOARD * (0.10 + BULL_OUTER_RADIUS_ADJUST);    // Single Bull outer
-export const R_TREBLE_IN = R_BOARD * (0.56 + TREBLE_INNER_RADIUS_ADJUST);   // Treble ring inner
-export const R_TREBLE_OUT = R_BOARD * (0.64 + TREBLE_OUTER_RADIUS_ADJUST);  // Treble ring outer
-export const R_DOUBLE_IN = R_BOARD * (0.92 + DOUBLE_INNER_RADIUS_ADJUST);   // Double ring inner
-export const R_DOUBLE_OUT = R_BOARD * (1.00 + DOUBLE_OUTER_RADIUS_ADJUST);  // Double ring outer
+// Base proportions are multiplied by calibration factors for precise alignment
+export const R_BULL_IN = R_BOARD * (0.04 * BULL_CAL);     // Double Bull inner
+export const R_BULL_OUT = R_BOARD * (0.10 * BULL_CAL);    // Single Bull outer
+export const R_TREBLE_IN = R_BOARD * (0.56 * TREBLE_CAL);   // Treble ring inner
+export const R_TREBLE_OUT = R_BOARD * (0.64 * TREBLE_CAL);  // Treble ring outer
+export const R_DOUBLE_IN = R_BOARD * (0.92 * DOUBLE_CAL);   // Double ring inner
+export const R_DOUBLE_OUT = R_BOARD * (1.00 * DOUBLE_CAL);  // Double ring outer
 
 // === ANIMATION TIMING CONSTANTS ===
 // Control the speed and feel of bot throw animations
@@ -823,12 +821,14 @@ export function simulateVisit({
   doubleOut,
   formMultiplier,
   tracker = null,
+  debug = false,
 }: {
   level: number;
   remaining: number;
   doubleOut: boolean;
   formMultiplier: number;
   tracker?: BotPerformanceTracker | null;
+  debug?: boolean;
 }): VisitResult {
   const darts: DartResult[] = [];
   let currentRemaining = remaining;
@@ -838,10 +838,23 @@ export function simulateVisit({
   // Initial plan for all 3 darts
   let plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
 
+  if (debug) {
+    console.log('🎯 DartBot Turn Start:', {
+      remaining: currentRemaining,
+      doubleOut,
+      level,
+      initialPlan: plannedTargets,
+    });
+  }
+
   for (let i = 0; i < 3; i++) {
     // Get the target for this dart from the plan
     const aimTarget = plannedTargets[i] || 'T20'; // Fallback to T20 if plan doesn't cover this dart
     const isDoubleAttempt = doubleOut && isDoubleTarget(aimTarget);
+
+    if (debug) {
+      console.log(`  Dart ${i + 1}: Aiming at ${aimTarget} (remaining: ${currentRemaining})`);
+    }
 
     // Throw the dart
     const dart = simulateDart(aimTarget, level, formMultiplier, tracker, isDoubleAttempt);
@@ -849,27 +862,36 @@ export function simulateVisit({
 
     const newRemaining = currentRemaining - dart.score;
 
+    if (debug) {
+      console.log(`  Dart ${i + 1}: Hit ${dart.label} (scored: ${dart.score}, new remaining: ${newRemaining})`);
+    }
+
     // Check for finish or bust
     if (newRemaining === 0) {
       if (doubleOut) {
         if (dart.isDouble) {
           finished = true;
           currentRemaining = 0;
+          if (debug) console.log('  ✅ CHECKOUT! (Double finish)');
           break;
         } else {
           bust = true;
+          if (debug) console.log('  ❌ BUST! (Finished on single, not double)');
           break;
         }
       } else {
         finished = true;
         currentRemaining = 0;
+        if (debug) console.log('  ✅ CHECKOUT!');
         break;
       }
     } else if (newRemaining === 1) {
       bust = true;
+      if (debug) console.log('  ❌ BUST! (Left on 1)');
       break;
     } else if (newRemaining < 0) {
       bust = true;
+      if (debug) console.log('  ❌ BUST! (Went below 0)');
       break;
     } else {
       currentRemaining = newRemaining;
@@ -878,6 +900,9 @@ export function simulateVisit({
       const dartsLeft = 3 - (i + 1);
       if (dartsLeft > 0) {
         plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
+        if (debug && dart.label !== aimTarget) {
+          console.log(`  🔄 Replan: Missed ${aimTarget}, hit ${dart.label}. New plan for ${dartsLeft} darts: ${plannedTargets.slice(0, dartsLeft)}`);
+        }
       }
     }
   }

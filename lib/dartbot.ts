@@ -215,42 +215,116 @@ function generateScoringDarts(botAvg: number, remaining: number): DartThrow[] {
 }
 
 function getCheckoutRoute(remaining: number): { target: number; mult: 1 | 2 | 3; isBull?: boolean }[] {
+  // Common one-dart finishes
   if (remaining === 50) return [{ target: 0, mult: 2, isBull: true }];
   if (remaining === 40) return [{ target: 20, mult: 2 }];
-  if (remaining === 32) return [{ target: 16, mult: 2 }];
+  if (remaining === 38) return [{ target: 19, mult: 2 }];
   if (remaining === 36) return [{ target: 18, mult: 2 }];
+  if (remaining === 34) return [{ target: 17, mult: 2 }];
+  if (remaining === 32) return [{ target: 16, mult: 2 }];
+  if (remaining === 30) return [{ target: 15, mult: 2 }];
+  if (remaining === 28) return [{ target: 14, mult: 2 }];
+  if (remaining === 26) return [{ target: 13, mult: 2 }];
   if (remaining === 24) return [{ target: 12, mult: 2 }];
+  if (remaining === 22) return [{ target: 11, mult: 2 }];
   if (remaining === 20) return [{ target: 10, mult: 2 }];
+  if (remaining === 18) return [{ target: 9, mult: 2 }];
   if (remaining === 16) return [{ target: 8, mult: 2 }];
+  if (remaining === 14) return [{ target: 7, mult: 2 }];
+  if (remaining === 12) return [{ target: 6, mult: 2 }];
+  if (remaining === 10) return [{ target: 5, mult: 2 }];
+  if (remaining === 8) return [{ target: 4, mult: 2 }];
+  if (remaining === 6) return [{ target: 3, mult: 2 }];
+  if (remaining === 4) return [{ target: 2, mult: 2 }];
+  if (remaining === 2) return [{ target: 1, mult: 2 }];
 
+  // Two-dart finishes (61-110 range) - T20 + Double
   if (remaining >= 61 && remaining <= 110) {
     const after_triple = remaining - 60;
-    if (after_triple % 2 === 0 && after_triple <= 40) {
+    if (after_triple % 2 === 0 && after_triple >= 2 && after_triple <= 40) {
       return [
         { target: 20, mult: 3 },
         { target: after_triple / 2, mult: 2 }
       ];
     }
+    // Try T19 for odd finishes
+    const after_t19 = remaining - 57;
+    if (after_t19 % 2 === 0 && after_t19 >= 2 && after_t19 <= 40) {
+      return [
+        { target: 19, mult: 3 },
+        { target: after_t19 / 2, mult: 2 }
+      ];
+    }
   }
 
+  // Two-dart finishes (41-60 range) - Single + Double
+  if (remaining >= 41 && remaining <= 60) {
+    // Prefer leaving D20 (40), D16 (32), or D12 (24)
+    const preferredDoubles = [20, 16, 12];
+    for (const double of preferredDoubles) {
+      const doubleValue = double * 2;
+      const setup = remaining - doubleValue;
+      if (setup >= 1 && setup <= 20) {
+        return [
+          { target: setup, mult: 1 },
+          { target: double, mult: 2 }
+        ];
+      }
+    }
+  }
+
+  // Small odd numbers (3-39) - Single + Double
+  if (remaining >= 3 && remaining <= 39 && remaining % 2 === 1) {
+    // For odd numbers: single 1, then double the remainder
+    const setup = 1;
+    const doubleTarget = (remaining - setup) / 2;
+    if (doubleTarget >= 1 && doubleTarget <= 20) {
+      return [
+        { target: setup, mult: 1 },
+        { target: doubleTarget, mult: 2 }
+      ];
+    }
+  }
+
+  // Fallback for even numbers not covered above
   if (remaining >= 2 && remaining <= 40 && remaining % 2 === 0) {
     return [{ target: remaining / 2, mult: 2 }];
   }
 
-  if (remaining >= 3 && remaining <= 40) {
-    const setup = 1;
-    return [
-      { target: setup, mult: 1 },
-      { target: (remaining - setup) / 2, mult: 2 }
-    ];
-  }
-
-  if (remaining > 40 && remaining <= 60) {
-    const setup = remaining - 32;
-    return [
-      { target: setup, mult: 1 },
-      { target: 16, mult: 2 }
-    ];
+  // Three-dart finishes (111-170) - T20/T19 + T20/T19/T18 + Double
+  if (remaining >= 111 && remaining <= 170) {
+    // Try T20 + T20 + Double
+    const after_t20_t20 = remaining - 120;
+    if (after_t20_t20 % 2 === 0 && after_t20_t20 >= 2 && after_t20_t20 <= 40) {
+      return [
+        { target: 20, mult: 3 },
+        { target: 20, mult: 3 },
+        { target: after_t20_t20 / 2, mult: 2 }
+      ];
+    }
+    // Try T20 + T19 + Double
+    const after_t20_t19 = remaining - 117;
+    if (after_t20_t19 % 2 === 0 && after_t20_t19 >= 2 && after_t20_t19 <= 40) {
+      return [
+        { target: 20, mult: 3 },
+        { target: 19, mult: 3 },
+        { target: after_t20_t19 / 2, mult: 2 }
+      ];
+    }
+    // Try T20 + T18 + Double
+    const after_t20_t18 = remaining - 114;
+    if (after_t20_t18 % 2 === 0 && after_t20_t18 >= 2 && after_t20_t18 <= 40) {
+      return [
+        { target: 20, mult: 3 },
+        { target: 18, mult: 3 },
+        { target: after_t20_t18 / 2, mult: 2 }
+      ];
+    }
+    // For bull finishes (170, 167, 164, 161)
+    if (remaining === 170) return [{ target: 20, mult: 3 }, { target: 20, mult: 3 }, { target: 0, mult: 2, isBull: true }];
+    if (remaining === 167) return [{ target: 20, mult: 3 }, { target: 19, mult: 3 }, { target: 0, mult: 2, isBull: true }];
+    if (remaining === 164) return [{ target: 20, mult: 3 }, { target: 18, mult: 3 }, { target: 0, mult: 2, isBull: true }];
+    if (remaining === 161) return [{ target: 20, mult: 3 }, { target: 17, mult: 3 }, { target: 0, mult: 2, isBull: true }];
   }
 
   return [];
