@@ -1237,14 +1237,13 @@ export default function QuickMatchRoomPage() {
     setSubmitting(true);
 
     try {
-      console.log('[SUBMIT] Calling rpc_quick_match_submit_visit_v4...');
+      console.log('[SUBMIT] Calling rpc_quick_match_submit_visit_v3...');
 
-      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v4", {
+      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
         p_room_id: matchId,
         p_score: score,
         p_darts: dartsArray,
-        p_is_bust: isBust,
-        p_is_checkout: isCheckout
+        p_is_bust: isBust
       });
 
       console.log('[SUBMIT] RPC returned', { data, error });
