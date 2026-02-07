@@ -274,7 +274,22 @@ export default function OnlineMatchPage() {
   }, []);
 
   async function submitVisit() {
-    if (!inputScore || !matchData || !currentUserId) return;
+    console.log('[SUBMIT] Function called!', {
+      inputScore,
+      hasMatchData: !!matchData,
+      currentUserId,
+      matchId,
+    });
+
+    if (!inputScore || !matchData || !currentUserId) {
+      console.error('[SUBMIT] Missing required data:', {
+        hasInputScore: !!inputScore,
+        hasMatchData: !!matchData,
+        hasCurrentUserId: !!currentUserId,
+      });
+      toast.error('Missing required data');
+      return;
+    }
 
     const score = parseInt(inputScore);
     if (isNaN(score) || score < 0 || score > 180) {
@@ -283,6 +298,10 @@ export default function OnlineMatchPage() {
     }
 
     if (matchData.match.current_turn_player_id !== currentUserId) {
+      console.warn('[SUBMIT] Not your turn:', {
+        currentTurn: matchData.match.current_turn_player_id,
+        myUserId: currentUserId,
+      });
       toast.error('Not your turn');
       return;
     }
@@ -303,38 +322,52 @@ export default function OnlineMatchPage() {
     const supabase = createClient();
 
     try {
-      console.log('Submitting visit:', {
+      console.log('[SUBMIT] Submitting visit:', {
+        matchId,
         score,
         remaining: actualRemaining,
         isBust,
         isCheckout,
+        currentTurn: matchData.match.current_turn_player_id,
+        myUserId: currentUserId,
       });
 
-      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v2", {
+      // Use rpc_quick_match_submit_visit_v3 (fixed to use UUID for current_turn)
+      console.log('[SUBMIT] Calling RPC with:', {
+        p_room_id: matchId,
+        p_score: isBust ? 0 : score,
+        p_darts: [],
+        p_is_bust: isBust,
+      });
+      
+      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v3', {
         p_room_id: matchId,
         p_score: isBust ? 0 : score,
         p_darts: [],
         p_is_bust: isBust
       });
-
-      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v2', {
-        p_room_id: matchId,
-        p_score: isBust ? 0 : score,
-        p_darts: [],
-        p_is_bust: isBust
-      });
+      
+      console.log('[SUBMIT] RPC response received:', { data, error });
 
       if (error) {
-        console.error("[SUBMIT] Supabase error", {
-          message: error?.message,
-          details: error?.details,
-          hint: error?.hint,
-          code: error?.code
+        console.error('[SUBMIT] RPC error:', error);
+        console.error('[SUBMIT] Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
         });
-        throw error;
+        toast.error(`Failed to submit: ${error.message || 'Unknown error'}`);
+        return;
       }
 
-      console.log('Visit submitted:', data);
+      if (!data) {
+        console.error('[SUBMIT] No data returned from RPC');
+        toast.error('No response from server');
+        return;
+      }
+
+      console.log('[SUBMIT] Visit submitted successfully:', data);
 
       if (data.is_bust) {
         toast.error('Bust!');
@@ -587,9 +620,40 @@ export default function OnlineMatchPage() {
                 }}
               />
               <Button
-                onClick={submitVisit}
+                onClick={async () => {
+                  console.log('[BUTTON] Submit button clicked!', {
+                    isMyTurn,
+                    inputScore,
+                    submitting,
+                    matchData: !!matchData,
+                    currentUserId,
+                    matchId,
+                    buttonDisabled: !isMyTurn || !inputScore || submitting,
+                  });
+                  
+                  // Check if button should be disabled
+                  if (!isMyTurn) {
+                    console.warn('[BUTTON] Button disabled: Not your turn');
+                    toast.error('Not your turn');
+                    return;
+                  }
+                  
+                  if (!inputScore) {
+                    console.warn('[BUTTON] Button disabled: No score entered');
+                    toast.error('Please enter a score');
+                    return;
+                  }
+                  
+                  if (submitting) {
+                    console.warn('[BUTTON] Button disabled: Already submitting');
+                    return;
+                  }
+                  
+                  // Call submit function
+                  await submitVisit();
+                }}
                 disabled={!isMyTurn || !inputScore || submitting}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />

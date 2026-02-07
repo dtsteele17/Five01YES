@@ -21,7 +21,8 @@
 */
 
 -- Ensure submit_quick_match_throw properly switches turns and updates leg scores
-DROP FUNCTION IF EXISTS public.submit_quick_match_throw(UUID, INTEGER);
+-- Drop ALL versions of the function (there might be multiple with different signatures)
+DROP FUNCTION IF EXISTS public.submit_quick_match_throw CASCADE;
 
 CREATE OR REPLACE FUNCTION public.submit_quick_match_throw(
   p_room_id UUID,
