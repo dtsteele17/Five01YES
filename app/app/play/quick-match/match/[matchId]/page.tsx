@@ -353,10 +353,7 @@ function VisitHistoryPanel({
                           </button>
                         )}
                       </div>
-                      <div className="text-sm font-mono text-gray-300">
-                        {formatDarts(myVisit.darts)}
-                      </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mt-1">
                         <span className={`text-lg font-bold ${myColor}`}>{myVisit.score}</span>
                         <span className="text-xs text-gray-500">→ {myVisit.remaining_after}</span>
                       </div>
@@ -375,10 +372,7 @@ function VisitHistoryPanel({
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">#{opponentVisit.turn_no}</span>
                       </div>
-                      <div className="text-sm font-mono text-gray-300 text-right">
-                        {formatDarts(opponentVisit.darts)}
-                      </div>
-                      <div className="flex items-center justify-between flex-row-reverse">
+                      <div className="flex items-center justify-between flex-row-reverse mt-1">
                         <span className={`text-lg font-bold ${opponentColor}`}>{opponentVisit.score}</span>
                         <span className="text-xs text-gray-500">{opponentVisit.remaining_after} ←</span>
                       </div>
@@ -1426,6 +1420,19 @@ export default function QuickMatchRoomPage() {
       
       // Recalculate all subsequent visits for this player
       await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no);
+      
+      // Update room state with new remaining from this visit (if it's the latest)
+      const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
+      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
+      
+      // Update local room state immediately for responsive UI
+      if (room) {
+        setRoom({
+          ...room,
+          player1_remaining: isPlayer1 ? finalRemaining : room.player1_remaining,
+          player2_remaining: !isPlayer1 ? finalRemaining : room.player2_remaining,
+        });
+      }
       
       await loadMatchData();
     } catch (error: any) {
