@@ -318,16 +318,6 @@ function VisitHistoryPanel({
     <div className="h-full flex flex-col">
       <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
       
-      {/* DEBUG INFO */}
-      <div className="text-xs text-gray-500 mb-2 bg-slate-800/50 p-2 rounded">
-        <div>Total visits: {visits.length}</div>
-        <div>Current leg visits: {currentLegVisits.length}</div>
-        <div>My ID: {myUserId?.slice(0, 8)}...</div>
-        <div>Opponent ID: {actualOpponentId?.slice(0, 8)}...</div>
-        <div>My visits: {myVisits.length}</div>
-        <div>Opponent visits: {opponentVisits.length}</div>
-      </div>
-      
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
         <div className="grid grid-cols-2 gap-4 text-xs text-gray-400 border-b border-white/10 pb-2">
@@ -355,10 +345,11 @@ function VisitHistoryPanel({
                         {isLatestMyVisit && (
                           <button
                             onClick={() => onEditVisit(myVisit)}
-                            className="p-1 bg-emerald-500/20 hover:bg-emerald-500/30 rounded text-emerald-400 transition-colors"
+                            className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 rounded text-emerald-400 text-xs font-medium transition-colors flex items-center gap-1"
                             title="Edit this visit"
                           >
                             <Edit2 className="w-3 h-3" />
+                            Edit
                           </button>
                         )}
                       </div>
