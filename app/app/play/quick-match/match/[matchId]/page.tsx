@@ -1105,26 +1105,29 @@ export default function QuickMatchRoomPage() {
     setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
   };
 
-  const validateCheckout = (score: number, darts: Dart[]): { valid: boolean; error?: string; isCheckout: boolean } => {
-    if (!room) return { valid: false, error: 'No room', isCheckout: false };
+  const validateCheckout = (score: number, darts: Dart[]): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
+    if (!room) return { valid: false, error: 'No room', isCheckout: false, isBust: false };
     
     const isPlayer1 = room.player1_id === currentUserId;
     const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
     const newRemaining = currentRemaining - score;
     
-    if (newRemaining < 0) return { valid: false, error: 'Bust!', isCheckout: false };
+    // Bust if score goes below 0
+    if (newRemaining < 0) return { valid: true, isCheckout: false, isBust: true };
     
+    // Bust if score is exactly 1 (can't finish on 1)
+    if (newRemaining === 1) return { valid: true, isCheckout: false, isBust: true };
+    
+    // Checkout - must finish on double
     if (newRemaining === 0) {
-      if (room.double_out) {
-        const lastDart = darts[darts.length - 1];
-        if (!lastDart?.is_double) {
-          return { valid: false, error: 'Must finish on a double!', isCheckout: false };
-        }
+      const lastDart = darts[darts.length - 1];
+      if (!lastDart?.is_double) {
+        return { valid: true, isCheckout: false, isBust: true };
       }
-      return { valid: true, isCheckout: true };
+      return { valid: true, isCheckout: true, isBust: false };
     }
     
-    return { valid: true, isCheckout: false };
+    return { valid: true, isCheckout: false, isBust: false };
   };
 
   const handleBust = async () => {
@@ -1179,9 +1182,10 @@ export default function QuickMatchRoomPage() {
 
     console.log('[SUBMIT] Validation result:', validation);
 
-    if (!validation.valid) {
-      console.warn('[SUBMIT] Validation failed:', validation.error);
-      toast.error(validation.error);
+    // If bust, submit with score 0
+    if (validation.isBust) {
+      console.log('[SUBMIT] Bust detected, submitting with score 0');
+      await submitScore(0, true, currentVisit, false);
       return;
     }
 
@@ -1215,15 +1219,25 @@ export default function QuickMatchRoomPage() {
       return;
     }
     
-    // For typed scores, create generic darts
+    // For typed scores, create generic darts (not a double)
     const genericDarts: Dart[] = [
       { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false }
     ];
     
+    // Check if this would be a checkout - typed scores can't checkout because they're not doubles
+    const currentRemaining = room.player1_id === currentUserId ? room.player1_remaining : room.player2_remaining;
+    if (currentRemaining - score === 0) {
+      toast.error('Must finish on a double! Use the dart buttons to enter D1-D20 or DB');
+      return;
+    }
+    
     const validation = validateCheckout(score, genericDarts);
     console.log('[TYPED SCORE] Validation:', validation);
-    if (!validation.valid) {
-      toast.error(validation.error);
+    
+    // If bust, submit with score 0
+    if (validation.isBust) {
+      console.log('[TYPED SCORE] Bust detected, submitting with score 0');
+      await submitScore(0, true, genericDarts, false);
       return;
     }
     
@@ -1323,7 +1337,9 @@ export default function QuickMatchRoomPage() {
 
       if (data.leg_won) {
         console.log('[SUBMIT] Leg won!');
-        toast.success('Leg won!');
+        toast.success('🎯 CHECKOUT! Leg won!');
+      } else if (isBust) {
+        toast.error('💥 BUST!');
       }
 
       console.log('[SUBMIT] Submit completed successfully');
@@ -1404,17 +1420,28 @@ export default function QuickMatchRoomPage() {
       let isCheckout = false;
       let isBust = false;
       let bustReason = null;
+      let finalScore = newScore;  // If bust, score is 0
 
       if (newRemaining < 0) {
+        // Bust: score goes below 0
         isBust = true;
         bustReason = 'Bust';
+        finalScore = 0;  // Score is 0 on bust
+      } else if (newRemaining === 1) {
+        // Bust: can't finish on 1
+        isBust = true;
+        bustReason = 'Cannot finish on 1';
+        finalScore = 0;
       } else if (newRemaining === 0) {
         // Check if last dart is double for checkout validation
         const lastDart = newDarts[newDarts.length - 1];
-        if (room?.double_out && lastDart?.mult !== 'D' && lastDart?.mult !== 'DB') {
+        if (lastDart?.mult !== 'D' && lastDart?.mult !== 'DB') {
+          // Not a double - it's a bust
           isBust = true;
           bustReason = 'Must finish on a double';
+          finalScore = 0;
         } else {
+          // Valid checkout!
           isCheckout = true;
         }
       }
@@ -1423,7 +1450,7 @@ export default function QuickMatchRoomPage() {
       const { error: updateError } = await supabase
         .from('quick_match_visits')
         .update({
-          score: newScore,
+          score: finalScore,
           darts: newDarts,
           darts_thrown: newDarts.length,
           darts_at_double: newDarts.filter((d: any) => d.mult === 'D' || d.mult === 'DB').length,
@@ -1441,13 +1468,20 @@ export default function QuickMatchRoomPage() {
       }
 
       toast.success('Visit updated');
-
-      // Update room state with new remaining from this visit (if it's the latest)
+      
+      // Show checkout/bust message if applicable
+      if (isCheckout) {
+        toast.success('🎯 CHECKOUT! Leg won!');
+      } else if (isBust) {
+        toast.error('💥 BUST!');
+      }
+      
+      // Calculate final remaining BEFORE using it
       const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
-
+      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
+      
       // Recalculate all subsequent visits for this player (pass new remaining for room update)
       await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
-      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
       
       // Update local room state immediately for responsive UI
       if (room) {
