@@ -68,18 +68,21 @@ interface Profile {
   trust_rating_count?: number;
 }
 
-interface MatchEvent {
+interface QuickMatchVisit {
   id: string;
+  room_id: string;
   player_id: string;
-  seq: number;
-  event_type: string;
-  payload: {
-    score: number;
-    remaining: number;
-    is_bust: boolean;
-    is_checkout: boolean;
-    leg: number;
-  };
+  leg: number;
+  turn_no: number;
+  score: number;
+  remaining_before: number;
+  remaining_after: number;
+  darts: any[];
+  darts_thrown: number;
+  darts_at_double: number;
+  is_bust: boolean;
+  bust_reason: string | null;
+  is_checkout: boolean;
   created_at: string;
 }
 
@@ -112,12 +115,28 @@ export default function RankedMatchPage() {
 
   const [room, setRoom] = useState<MatchRoom | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [visits, setVisits] = useState<QuickMatchVisit[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const matchState = mapRoomToMatchState(room, events, profiles, currentUserId);
+  // Convert visits to events format for mapRoomToMatchState
+  const eventsFromVisits = visits.map(v => ({
+    id: v.id,
+    player_id: v.player_id,
+    seq: v.turn_no,
+    event_type: 'visit',
+    payload: {
+      score: v.score,
+      remaining: v.remaining_after,
+      is_bust: v.is_bust,
+      is_checkout: v.is_checkout,
+      leg: v.leg
+    },
+    created_at: v.created_at
+  }));
+
+  const matchState = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId);
 
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [dartboardGroup, setDartboardGroup] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
@@ -273,7 +292,7 @@ export default function RankedMatchPage() {
       }
 
       const { data, error } = await supabase
-        .from('ranked_match_rooms')
+        .from('match_rooms')
         .select('*')
         .eq('id', roomId)
         .maybeSingle();
@@ -328,16 +347,17 @@ export default function RankedMatchPage() {
       setProfiles(profilesData);
     }
 
-    // Load events
-    const { data: eventsData } = await supabase
-      .from('match_events')
+    // Load visits from ranked_match_visits
+    const { data: visitsData } = await supabase
+      .from('ranked_match_visits')
       .select('*')
       .eq('room_id', roomId)
-      .order('seq', { ascending: true });
+      .eq('leg', roomData.current_leg)
+      .order('turn_no', { ascending: true });
 
-    if (eventsData) {
-      console.log('[RankedMatch] Events loaded:', eventsData.length);
-      setEvents(eventsData);
+    if (visitsData) {
+      console.log('[RankedMatch] Visits loaded:', visitsData.length);
+      setVisits(visitsData);
     }
 
     setLoading(false);
@@ -349,9 +369,9 @@ export default function RankedMatchPage() {
     const channel = supabase
       .channel(`ranked_match:${roomId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'UPDATE',
         schema: 'public',
-        table: 'ranked_match_rooms',
+        table: 'match_rooms',
         filter: `id=eq.${roomId}`,
       }, (payload) => {
         console.log('[RankedMatch] Room update received:', payload.new);
@@ -360,11 +380,25 @@ export default function RankedMatchPage() {
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'match_events',
+        table: 'ranked_match_visits',
         filter: `room_id=eq.${roomId}`,
       }, (payload) => {
-        console.log('[RankedMatch] New event received:', payload.new);
-        setEvents((prev) => [...prev, payload.new as MatchEvent]);
+        console.log('[RankedMatch] New visit received:', payload.new);
+        const newVisit = payload.new as QuickMatchVisit;
+        setVisits((prev) => {
+          const exists = prev.find(v => v.id === newVisit.id);
+          if (exists) return prev;
+          return [...prev, newVisit];
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'ranked_match_visits',
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const updatedVisit = payload.new as QuickMatchVisit;
+        setVisits((prev) => prev.map((v) => (v.id === updatedVisit.id ? updatedVisit : v)));
       })
       .subscribe();
 
@@ -478,18 +512,32 @@ export default function RankedMatchPage() {
     console.log('[RankedMatch] Submitting score:', score);
 
     try {
-      console.log("[SUBMIT] calling rpc_quick_match_submit_visit_v2", {
-        p_room_id: roomId,
-        p_score: score,
-        p_darts: [],
-        p_is_bust: false
+      // Calculate remaining after
+      const myRemainingBefore = matchState.youArePlayer === 1 
+        ? room.player1_remaining 
+        : room.player2_remaining;
+      const remainingAfter = myRemainingBefore - score;
+      const isCheckout = remainingAfter === 0;
+
+      console.log("[SUBMIT] calling rpc_ranked_match_submit_visit", {
+        roomId,
+        currentUserId,
+        score,
+        myRemainingBefore,
+        remainingAfter,
+        isCheckout
       });
 
-      const { data, error } = await supabase.rpc('rpc_quick_match_submit_visit_v2', {
+      const { data, error } = await supabase.rpc('rpc_ranked_match_submit_visit', {
         p_room_id: roomId,
+        p_player_id: currentUserId,
         p_score: score,
+        p_remaining_before: myRemainingBefore,
+        p_remaining_after: remainingAfter,
         p_darts: [],
-        p_is_bust: false
+        p_is_bust: false,
+        p_bust_reason: null,
+        p_is_checkout: isCheckout
       });
 
       if (error) {
@@ -503,7 +551,14 @@ export default function RankedMatchPage() {
         return;
       }
 
-      console.log('[RankedMatch] Score submitted successfully');
+      // Check RPC response
+      if (data && !data.ok) {
+        console.error("[SUBMIT] RPC returned error:", data.error);
+        toast.error(data.error || 'Failed to submit score');
+        return;
+      }
+
+      console.log('[RankedMatch] Score submitted successfully:', data);
       setCurrentVisit([]);
       setScoreInput('');
       toast.success('Score submitted');
