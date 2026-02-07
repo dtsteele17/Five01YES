@@ -668,11 +668,14 @@ function ScoringPanel({
             onKeyDown={(e) => e.key === 'Enter' && onTypeScoreSubmit()}
           />
           <Button 
-            onClick={onTypeScoreSubmit}
+            onClick={() => {
+              console.log('[BUTTON] Typed score submit clicked');
+              onTypeScoreSubmit();
+            }}
             disabled={!scoreInput || submitting}
-            className="bg-emerald-500 hover:bg-emerald-600"
+            className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
           >
-            Submit
+            {submitting ? '...' : 'Submit'}
           </Button>
         </div>
       </div>
@@ -1187,9 +1190,28 @@ export default function QuickMatchRoomPage() {
   };
 
   const handleInputScoreSubmit = async () => {
-    const score = parseInt(scoreInput);
+    console.log('[TYPED SCORE] Submit clicked, scoreInput:', scoreInput);
+    
+    if (!scoreInput || scoreInput.trim() === '') {
+      toast.error('Please enter a score');
+      return;
+    }
+    
+    const score = parseInt(scoreInput.trim());
+    console.log('[TYPED SCORE] Parsed score:', score);
+    
     if (isNaN(score) || score < 0 || score > 180) {
       toast.error('Invalid score (0-180)');
+      return;
+    }
+    
+    if (!room || !matchState) {
+      toast.error('Game not ready');
+      return;
+    }
+    
+    if (matchState.currentTurnPlayer !== matchState.youArePlayer) {
+      toast.error('Not your turn');
       return;
     }
     
@@ -1199,11 +1221,13 @@ export default function QuickMatchRoomPage() {
     ];
     
     const validation = validateCheckout(score, genericDarts);
+    console.log('[TYPED SCORE] Validation:', validation);
     if (!validation.valid) {
       toast.error(validation.error);
       return;
     }
     
+    console.log('[TYPED SCORE] Calling submitScore...');
     await submitScore(score, false, genericDarts, validation.isCheckout);
   };
 
@@ -1418,8 +1442,8 @@ export default function QuickMatchRoomPage() {
 
       toast.success('Visit updated');
       
-      // Recalculate all subsequent visits for this player
-      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no);
+      // Recalculate all subsequent visits for this player (pass new remaining for room update)
+      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
       
       // Update room state with new remaining from this visit (if it's the latest)
       const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
@@ -1427,11 +1451,14 @@ export default function QuickMatchRoomPage() {
       
       // Update local room state immediately for responsive UI
       if (room) {
-        setRoom({
+        console.log('[EDIT] Updating room state:', { isPlayer1, finalRemaining });
+        const newRoom = {
           ...room,
           player1_remaining: isPlayer1 ? finalRemaining : room.player1_remaining,
           player2_remaining: !isPlayer1 ? finalRemaining : room.player2_remaining,
-        });
+        };
+        console.log('[EDIT] New room state:', newRoom);
+        setRoom(newRoom);
       }
       
       await loadMatchData();
@@ -1442,7 +1469,7 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  async function recalculateSubsequentVisits(playerId: string, leg: number, fromTurnNo: number) {
+  async function recalculateSubsequentVisits(playerId: string, leg: number, fromTurnNo: number, editedVisitNewRemaining?: number) {
     // Get all subsequent visits for this player in this leg
     const { data: subsequentVisits } = await supabase
       .from('quick_match_visits')
@@ -1453,7 +1480,17 @@ export default function QuickMatchRoomPage() {
       .gt('turn_no', fromTurnNo)
       .order('turn_no', { ascending: true });
 
-    if (!subsequentVisits || subsequentVisits.length === 0) return;
+    // If no subsequent visits, update room with the edited visit's remaining
+    if (!subsequentVisits || subsequentVisits.length === 0) {
+      if (editedVisitNewRemaining !== undefined) {
+        const isPlayer1 = room?.player1_id === playerId;
+        await supabase
+          .from('match_rooms')
+          .update(isPlayer1 ? { player1_remaining: editedVisitNewRemaining } : { player2_remaining: editedVisitNewRemaining })
+          .eq('id', matchId);
+      }
+      return;
+    }
 
     // Get the updated visit to find the new remaining_after
     const { data: updatedVisit } = await supabase
