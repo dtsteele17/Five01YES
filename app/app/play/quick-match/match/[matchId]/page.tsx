@@ -1441,12 +1441,12 @@ export default function QuickMatchRoomPage() {
       }
 
       toast.success('Visit updated');
-      
-      // Recalculate all subsequent visits for this player (pass new remaining for room update)
-      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
-      
+
       // Update room state with new remaining from this visit (if it's the latest)
       const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
+
+      // Recalculate all subsequent visits for this player (pass new remaining for room update)
+      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
       const isPlayer1 = room?.player1_id === updatedVisit.player_id;
       
       // Update local room state immediately for responsive UI
