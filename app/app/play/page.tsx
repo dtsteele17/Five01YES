@@ -636,7 +636,7 @@ export default function PlayPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Training Game</label>
-                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as 'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge')})>
+                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as 'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge')}>
                       <SelectTrigger className="bg-slate-800/50 border-emerald-500/30 text-white">
                         <SelectValue />
                       </SelectTrigger>
