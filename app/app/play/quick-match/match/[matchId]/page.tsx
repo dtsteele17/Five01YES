@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -267,6 +267,7 @@ function VisitHistoryPanel({
   opponentName,
   myColor,
   opponentColor,
+  currentLeg,
   onEditVisit,
   onDeleteVisit,
 }: {
@@ -277,11 +278,25 @@ function VisitHistoryPanel({
   opponentName: string;
   myColor: string;
   opponentColor: string;
+  currentLeg: number;
   onEditVisit: (visit: QuickMatchVisit) => void;
   onDeleteVisit: (visitId: string) => void;
 }) {
-  const myVisits = visits.filter(v => v.player_id === myUserId).sort((a, b) => a.turn_no - b.turn_no);
-  const opponentVisits = visits.filter(v => v.player_id === opponentUserId).sort((a, b) => a.turn_no - b.turn_no);
+  // Filter visits by current leg only
+  const currentLegVisits = useMemo(() => {
+    return visits.filter(v => v.leg === currentLeg);
+  }, [visits, currentLeg]);
+  
+  // Derive opponent ID from visits data if not provided or mismatch
+  // This is more reliable than passing opponentUserId from parent
+  const actualOpponentId = useMemo(() => {
+    // Find a visit that doesn't belong to me - that's the opponent
+    const opponentVisit = currentLegVisits.find(v => v.player_id !== myUserId);
+    return opponentVisit?.player_id || opponentUserId;
+  }, [currentLegVisits, myUserId, opponentUserId]);
+  
+  const myVisits = currentLegVisits.filter(v => v.player_id === myUserId).sort((a, b) => a.turn_no - b.turn_no);
+  const opponentVisits = currentLegVisits.filter(v => v.player_id === actualOpponentId).sort((a, b) => a.turn_no - b.turn_no);
   
   const maxVisits = Math.max(myVisits.length, opponentVisits.length);
 
@@ -302,6 +317,16 @@ function VisitHistoryPanel({
   return (
     <div className="h-full flex flex-col">
       <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
+      
+      {/* DEBUG INFO */}
+      <div className="text-xs text-gray-500 mb-2 bg-slate-800/50 p-2 rounded">
+        <div>Total visits: {visits.length}</div>
+        <div>Current leg visits: {currentLegVisits.length}</div>
+        <div>My ID: {myUserId?.slice(0, 8)}...</div>
+        <div>Opponent ID: {actualOpponentId?.slice(0, 8)}...</div>
+        <div>My visits: {myVisits.length}</div>
+        <div>Opponent visits: {opponentVisits.length}</div>
+      </div>
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
@@ -931,15 +956,17 @@ export default function QuickMatchRoomPage() {
 
     setRoom(roomData as MatchRoom);
 
-    // Load visits ordered by turn_no
-    const { data: visitsData } = await supabase
+    // Load visits for ALL legs ordered by leg and turn_no
+    const { data: visitsData, error: visitsError } = await supabase
       .from('quick_match_visits')
       .select('*')
       .eq('room_id', matchId)
-      .eq('leg', roomData.current_leg)
+      .order('leg', { ascending: true })
       .order('turn_no', { ascending: true });
 
-    console.log('[LOAD] Visits loaded:', visitsData?.length || 0);
+    console.log('[LOAD] Visits loaded:', visitsData?.length || 0, 'Error:', visitsError);
+    console.log('[LOAD] Room leg:', roomData.current_leg, 'Match ID:', matchId);
+    console.log('[LOAD] Visits data:', visitsData);
     setVisits((visitsData as QuickMatchVisit[]) || []);
 
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
@@ -998,13 +1025,17 @@ export default function QuickMatchRoomPage() {
         { event: 'INSERT', schema: 'public', table: 'quick_match_visits', filter: `room_id=eq.${matchId}` },
         (payload) => {
           const newVisit = payload.new as QuickMatchVisit;
-          if (room && newVisit.leg === room.current_leg) {
-            setVisits((prev) => {
-              const exists = prev.find(v => v.id === newVisit.id);
-              if (exists) return prev;
+          // Use functional update to always check against latest room state
+          setVisits((prev) => {
+            const exists = prev.find(v => v.id === newVisit.id);
+            if (exists) return prev;
+            // Only add if it's for the current leg (check against the first visit's leg or default to accepting)
+            const currentLeg = prev.length > 0 ? prev[0].leg : newVisit.leg;
+            if (newVisit.leg === currentLeg) {
               return [...prev, newVisit];
-            });
-          }
+            }
+            return prev;
+          });
         }
       )
       .on(
@@ -1666,6 +1697,7 @@ export default function QuickMatchRoomPage() {
                 opponentName={opponentPlayer.name}
                 myColor="text-emerald-400"
                 opponentColor="text-blue-400"
+                currentLeg={room.current_leg}
                 onEditVisit={handleEditVisit}
                 onDeleteVisit={handleDeleteVisit}
               />
