@@ -1228,7 +1228,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
