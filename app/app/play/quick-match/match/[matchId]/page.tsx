@@ -428,8 +428,9 @@ function VisitHistoryPanel({
     return opponentVisit?.player_id || opponentUserId;
   }, [currentLegVisits, myUserId, opponentUserId]);
   
-  const myVisits = currentLegVisits.filter(v => v.player_id === myUserId).sort((a, b) => a.turn_no - b.turn_no);
-  const opponentVisits = currentLegVisits.filter(v => v.player_id === actualOpponentId).sort((a, b) => a.turn_no - b.turn_no);
+  // Sort visits with newest first (descending turn_no) so most recent is at top
+  const myVisits = currentLegVisits.filter(v => v.player_id === myUserId).sort((a, b) => b.turn_no - a.turn_no);
+  const opponentVisits = currentLegVisits.filter(v => v.player_id === actualOpponentId).sort((a, b) => b.turn_no - a.turn_no);
   
   const maxVisits = Math.max(myVisits.length, opponentVisits.length);
 
@@ -458,14 +459,15 @@ function VisitHistoryPanel({
           <div className={`text-center font-bold ${opponentColor}`}>{opponentName}</div>
         </div>
 
-        {/* Visit Rows */}
+        {/* Visit Rows - Newest first */}
         {maxVisits === 0 ? (
           <div className="text-center text-gray-500 py-8">No visits yet</div>
         ) : (
           Array.from({ length: maxVisits }, (_, i) => {
             const myVisit = myVisits[i];
             const opponentVisit = opponentVisits[i];
-            const isLatestMyVisit = myVisit && i === myVisits.length - 1;
+            // Since we reversed the order, index 0 is the latest visit
+            const isLatestMyVisit = myVisit && i === 0;
             
             return (
               <div key={i} className="grid grid-cols-2 gap-4 py-2 border-b border-white/5">
@@ -952,7 +954,7 @@ function ScoringPanel({
         </Button>
         <Button
           onClick={onBust}
-          disabled={currentDarts.length === 0 || submitting}
+          disabled={submitting}
           className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50"
         >
           Bust
@@ -1086,6 +1088,16 @@ export default function QuickMatchRoomPage() {
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
+    // Calculate FIRST 9 DART AVERAGE (first 3 visits, max 9 darts)
+    let first9Score = 0;
+    let first9Darts = 0;
+    for (const visit of playerVisits.slice(0, 3)) {
+      first9Score += visit.score;
+      first9Darts += visit.darts_thrown;
+      if (first9Darts >= 9) break;
+    }
+    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+    
     // Find highest checkout
     const checkouts = playerVisits.filter(v => v.is_checkout);
     const highestCheckout = checkouts.length > 0 
@@ -1104,6 +1116,7 @@ export default function QuickMatchRoomPage() {
       name: playerName,
       legsWon,
       threeDartAverage,
+      first9Average,
       highestCheckout,
       checkoutPercentage,
       totalDartsThrown: totalDarts,
@@ -1414,7 +1427,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1440,6 +1453,38 @@ export default function QuickMatchRoomPage() {
             setTimeout(() => {
               router.push(`/app/play/quick-match/match/${signal.payload.new_match_id}`);
             }, 1500);
+          }
+          // Handle match_won signal - show winner popup for the other player
+          if (signal.type === 'match_won' && signal.from_user_id !== currentUserId) {
+            console.log('[SIGNAL] Received match_won signal:', signal.payload);
+            matchWonRef.current = true;
+            
+            const winnerId = signal.payload?.winner_id;
+            const winnerProfile = profiles.find(p => p.user_id === winnerId);
+            const loserId = winnerId === room?.player1_id ? room?.player2_id : room?.player1_id;
+            const loserProfile = profiles.find(p => p.user_id === loserId);
+            
+            const winnerLegs = signal.payload?.winner_legs || 0;
+            const loserLegs = signal.payload?.loser_legs || 0;
+            
+            const wStats = calculatePlayerStats(
+              winnerId,
+              winnerProfile?.username || 'Winner',
+              winnerLegs
+            );
+            const lStats = calculatePlayerStats(
+              loserId,
+              loserProfile?.username || 'Loser',
+              loserLegs
+            );
+            
+            setWinnerData({
+              winner: winnerProfile || null,
+              loser: loserProfile || null,
+              winnerStats: wStats,
+              loserStats: lStats,
+            });
+            setShowWinnerPopup(true);
           }
         }
       )
@@ -1527,7 +1572,8 @@ export default function QuickMatchRoomPage() {
       toast.error('Not your turn');
       return;
     }
-    await submitScore(0, true, currentVisit);
+    // Allow bust even with no darts entered - this records a bust turn
+    await submitScore(0, true, currentVisit.length > 0 ? currentVisit : []);
   };
 
   const handleSubmitVisit = async () => {
@@ -1787,6 +1833,23 @@ export default function QuickMatchRoomPage() {
             loserStats: lStats,
           });
           setShowWinnerPopup(true);
+          
+          // Send signal to opponent so they also see the winner popup
+          const opponentId = isPlayer1Winner ? room.player2_id : room.player1_id;
+          await supabase.from('match_signals').insert({
+            room_id: matchId,
+            from_user_id: currentUserId,
+            to_user_id: opponentId,
+            type: 'match_won',
+            payload: {
+              winner_id: winnerId,
+              winner_name: winnerProfile?.username || 'Winner',
+              winner_legs: winnerLegs,
+              loser_legs: loserLegs,
+              game_mode: room.game_mode,
+              legs_to_win: room.legs_to_win,
+            }
+          });
           
           // Also update local room state to reflect match end
           setRoom({
@@ -2254,7 +2317,7 @@ export default function QuickMatchRoomPage() {
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Player Cards */}
+          {/* Player Cards - Darts thrown now resets per leg */}
           <div className="grid grid-cols-2 gap-4">
             <QuickMatchPlayerCard
               name={myPlayer.name}
@@ -2266,8 +2329,8 @@ export default function QuickMatchRoomPage() {
               position="left"
               stats={{ 
                 average: myPlayer.threeDartAvg, 
-                lastScore: visits.filter(v => v.player_id === currentUserId).pop()?.score || 0,
-                dartsThrown: visits.filter(v => v.player_id === currentUserId).length * 3 
+                lastScore: visits.filter(v => v.player_id === currentUserId && v.leg === room.current_leg).pop()?.score || 0,
+                dartsThrown: visits.filter(v => v.player_id === currentUserId && v.leg === room.current_leg).reduce((sum, v) => sum + v.darts_thrown, 0)
               }}
             />
             <QuickMatchPlayerCard
@@ -2280,8 +2343,8 @@ export default function QuickMatchRoomPage() {
               position="right"
               stats={{ 
                 average: opponentPlayer.threeDartAvg,
-                lastScore: visits.filter(v => v.player_id !== currentUserId).pop()?.score || 0,
-                dartsThrown: visits.filter(v => v.player_id !== currentUserId).length * 3
+                lastScore: visits.filter(v => v.player_id !== currentUserId && v.leg === room.current_leg).pop()?.score || 0,
+                dartsThrown: visits.filter(v => v.player_id !== currentUserId && v.leg === room.current_leg).reduce((sum, v) => sum + v.darts_thrown, 0)
               }}
             />
           </div>
