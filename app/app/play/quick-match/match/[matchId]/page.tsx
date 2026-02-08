@@ -415,10 +415,11 @@ function VisitHistoryPanel({
   onEditVisit: (visit: QuickMatchVisit) => void;
   onDeleteVisit: (visitId: string) => void;
 }) {
-  // Filter visits by current leg only
+  // Show visits from ALL legs (not just current) so checkout visits remain visible
+  // This ensures winning visits don't disappear when leg increments
   const currentLegVisits = useMemo(() => {
-    return visits.filter(v => v.leg === currentLeg);
-  }, [visits, currentLeg]);
+    return visits;
+  }, [visits]);
   
   // Derive opponent ID from visits data if not provided or mismatch
   // This is more reliable than passing opponentUserId from parent
@@ -450,7 +451,7 @@ function VisitHistoryPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-3">Visit History - Leg {currentLeg}</h3>
+      <h3 className="text-sm font-semibold text-white mb-3">Visit History (All Legs)</h3>
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
@@ -476,7 +477,7 @@ function VisitHistoryPanel({
                   {myVisit ? (
                     <div className="bg-slate-800/50 rounded-lg p-2 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">#{myVisit.turn_no}</span>
+                        <span className="text-xs text-gray-500">L{myVisit.leg} #{myVisit.turn_no}</span>
                         {isLatestMyVisit && (
                           <button
                             onClick={() => onEditVisit(myVisit)}
@@ -505,7 +506,7 @@ function VisitHistoryPanel({
                   {opponentVisit ? (
                     <div className="bg-slate-800/50 rounded-lg p-2 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">#{opponentVisit.turn_no}</span>
+                        <span className="text-xs text-gray-500">L{opponentVisit.leg} #{opponentVisit.turn_no}</span>
                       </div>
                       <div className="flex items-center justify-between flex-row-reverse mt-1">
                         <span className={`text-lg font-bold ${opponentColor}`}>{opponentVisit.score}</span>
@@ -1427,7 +1428,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1463,21 +1464,21 @@ export default function QuickMatchRoomPage() {
             const winnerProfile = profiles.find(p => p.user_id === winnerId);
             const loserId = winnerId === room?.player1_id ? room?.player2_id : room?.player1_id;
             const loserProfile = profiles.find(p => p.user_id === loserId);
-
+            
             const winnerLegs = signal.payload?.winner_legs || 0;
             const loserLegs = signal.payload?.loser_legs || 0;
-
-            const wStats = winnerId ? calculatePlayerStats(
+            
+            const wStats = calculatePlayerStats(
               winnerId,
               winnerProfile?.username || 'Winner',
               winnerLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-            const lStats = loserId ? calculatePlayerStats(
+            );
+            const lStats = calculatePlayerStats(
               loserId,
               loserProfile?.username || 'Loser',
               loserLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-
+            );
+            
             setWinnerData({
               winner: winnerProfile || null,
               loser: loserProfile || null,
@@ -1543,23 +1544,42 @@ export default function QuickMatchRoomPage() {
     const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
     const newRemaining = currentRemaining - score;
     
+    console.log('[VALIDATE] Checkout validation:', {
+      score,
+      currentRemaining,
+      newRemaining,
+      dartsCount: darts.length,
+      lastDart: darts[darts.length - 1],
+      doubleOut: room.double_out,
+      isTypedScore
+    });
+    
     // Bust if score goes below 0
-    if (newRemaining < 0) return { valid: true, isCheckout: false, isBust: true };
+    if (newRemaining < 0) {
+      console.log('[VALIDATE] Bust - below zero');
+      return { valid: true, isCheckout: false, isBust: true };
+    }
     
     // Bust if score is exactly 1 (can't finish on 1)
-    if (newRemaining === 1) return { valid: true, isCheckout: false, isBust: true };
+    if (newRemaining === 1) {
+      console.log('[VALIDATE] Bust - left on 1');
+      return { valid: true, isCheckout: false, isBust: true };
+    }
     
-    // Checkout - typed scores can checkout without double, button inputs require double
+    // Checkout - check if we reached exactly 0
     if (newRemaining === 0) {
-      // Typed scores always allow checkout
-      if (isTypedScore) {
-        return { valid: true, isCheckout: true, isBust: false };
+      // Default to true for double_out if undefined (standard darts rules)
+      const requireDouble = room.double_out !== false;
+      
+      if (requireDouble) {
+        const lastDart = darts[darts.length - 1];
+        console.log('[VALIDATE] Checking double requirement:', { lastDartIsDouble: lastDart?.is_double, lastDart });
+        if (!lastDart?.is_double) {
+          console.log('[VALIDATE] Bust - must finish on double');
+          return { valid: true, isCheckout: false, isBust: true };
+        }
       }
-      // Button inputs require double to checkout
-      const lastDart = darts[darts.length - 1];
-      if (!lastDart?.is_double) {
-        return { valid: true, isCheckout: false, isBust: true };
-      }
+      console.log('[VALIDATE] Valid checkout!');
       return { valid: true, isCheckout: true, isBust: false };
     }
     
