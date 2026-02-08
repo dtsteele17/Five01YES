@@ -1039,6 +1039,7 @@ export default function QuickMatchRoomPage() {
   const [newMatchId, setNewMatchId] = useState<string | null>(null);
 
   const cleanupMatchRef = useRef<() => void>();
+  const matchWonRef = useRef<boolean>(false); // Track if match is won to prevent popup from closing
 
   // WebRTC
   const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
@@ -1175,7 +1176,24 @@ export default function QuickMatchRoomPage() {
       legs_to_win: roomData.legs_to_win,
       winner_id: roomData.winner_id
     });
-    setRoom(roomData as MatchRoom);
+    
+    // Check if match was already won in DB
+    const p1Legs = roomData.player1_legs || 0;
+    const p2Legs = roomData.player2_legs || 0;
+    const legsToWin = roomData.legs_to_win || 1;
+    const isMatchWonInDB = p1Legs >= legsToWin || p2Legs >= legsToWin || roomData.status === 'finished';
+    
+    if (isMatchWonInDB) {
+      matchWonRef.current = true;
+    }
+    
+    // Don't overwrite room state if match is already won locally
+    // This prevents the winner popup from disappearing
+    if (showWinnerPopup || winnerData || matchWonRef.current) {
+      console.log('[LOAD] Match already won, keeping current room state');
+    } else {
+      setRoom(roomData as MatchRoom);
+    }
 
     // Load visits for ALL legs ordered by leg and turn_no
     const { data: visitsData, error: visitsError } = await supabase
@@ -1202,6 +1220,13 @@ export default function QuickMatchRoomPage() {
 
   useEffect(() => {
     if (room && profiles.length > 0) {
+      // Don't recalculate match state if match is already won
+      // This prevents UI flickering and keeps the winner popup stable
+      if (matchWonRef.current || showWinnerPopup || winnerData) {
+        console.log('[EFFECT] Match already won, skipping matchState recalculation');
+        return;
+      }
+      
       const eventsFromVisits = visits.map(v => ({
         id: v.id,
         player_id: v.player_id,
@@ -1219,7 +1244,7 @@ export default function QuickMatchRoomPage() {
       const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
       setMatchState(mapped);
     }
-  }, [room, visits, profiles, currentUserId]);
+  }, [room, visits, profiles, currentUserId, showWinnerPopup, winnerData]);
 
   function setupRealtimeSubscriptions() {
     const roomChannel = supabase
@@ -1231,10 +1256,26 @@ export default function QuickMatchRoomPage() {
           const updatedRoom = payload.new as MatchRoom;
           const oldRoom = payload.old as MatchRoom;
           
+          // Check if match is won in this update
+          const updatedP1Legs = updatedRoom.player1_legs || 0;
+          const updatedP2Legs = updatedRoom.player2_legs || 0;
+          const updatedLegsToWin = updatedRoom.legs_to_win || 1;
+          const isMatchWonNow = updatedP1Legs >= updatedLegsToWin || updatedP2Legs >= updatedLegsToWin || updatedRoom.status === 'finished';
+          
+          if (isMatchWonNow) {
+            matchWonRef.current = true;
+          }
+          
           // Reload visits when leg changes to get the new leg's visit history
+          // BUT don't reload if match is already won (prevents popup from closing)
           if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
-            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg, '- reloading visits');
-            loadMatchData();
+            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
+            if (!matchWonRef.current && !showWinnerPopup && !winnerData) {
+              console.log('[ROOM] Reloading match data');
+              loadMatchData();
+            } else {
+              console.log('[ROOM] Match already won, skipping data reload to keep popup open');
+            }
           }
           
           // Reload when leg counts change
@@ -1246,7 +1287,17 @@ export default function QuickMatchRoomPage() {
                         'P2:', oldRoom.player2_legs, '->', updatedRoom.player2_legs);
           }
           
-          setRoom(updatedRoom);
+          // Don't overwrite room state if match is already won
+          if (matchWonRef.current || showWinnerPopup || winnerData) {
+            console.log('[ROOM] Match already won, preserving winner state');
+            // Only update if the DB now shows finished status (confirmation)
+            if (updatedRoom.status === 'finished' || updatedRoom.winner_id) {
+              console.log('[ROOM] DB confirms match finished, updating room state');
+              setRoom(updatedRoom);
+            }
+          } else {
+            setRoom(updatedRoom);
+          }
 
           // Check if match is won based on leg counts or status
           // Use fallback calculation from visits if DB columns are missing
@@ -1264,7 +1315,10 @@ export default function QuickMatchRoomPage() {
           if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished' || isMatchWon) {
             if (updatedRoom.status === 'forfeited' && !didIForfeit) {
               setShowOpponentForfeitModal(true);
-            } else if ((updatedRoom.status === 'finished' || isMatchWon) && !showWinnerPopup && !winnerData) {
+            } else if ((updatedRoom.status === 'finished' || isMatchWon) && !matchWonRef.current && !showWinnerPopup && !winnerData) {
+              // Mark match as won
+              matchWonRef.current = true;
+              
               // Determine winner based on leg counts if not already set
               let winnerId = updatedRoom.winner_id;
               if (!winnerId && isMatchWon) {
@@ -1360,7 +1414,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1701,6 +1755,9 @@ export default function QuickMatchRoomPage() {
         if (isMatchWon) {
           console.log('[SUBMIT] MATCH WON!');
           toast.success('🏆 MATCH WON!');
+          
+          // Mark match as won to prevent state updates from closing the popup
+          matchWonRef.current = true;
           
           const winnerId = data.winner_id || currentUserId;
           const isPlayer1Winner = winnerId === room.player1_id;
