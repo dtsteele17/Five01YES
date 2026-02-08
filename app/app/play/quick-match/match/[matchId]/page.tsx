@@ -857,6 +857,14 @@ export default function QuickMatchRoomPage() {
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
+  // Edit notification popup
+  const [editNotification, setEditNotification] = useState<{
+    show: boolean;
+    playerName: string;
+    oldScore: number;
+    newScore: number;
+  } | null>(null);
+
   const cleanupMatchRef = useRef<() => void>();
 
   // WebRTC
@@ -996,6 +1004,14 @@ export default function QuickMatchRoomPage() {
         { event: 'UPDATE', schema: 'public', table: 'match_rooms', filter: `id=eq.${matchId}` },
         (payload) => {
           const updatedRoom = payload.new as MatchRoom;
+          const oldRoom = payload.old as MatchRoom;
+          
+          // Reload visits when leg changes to get the new leg's visit history
+          if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
+            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg, '- reloading visits');
+            loadMatchData();
+          }
+          
           setRoom(updatedRoom);
 
           if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') {
@@ -1013,16 +1029,11 @@ export default function QuickMatchRoomPage() {
         { event: 'INSERT', schema: 'public', table: 'quick_match_visits', filter: `room_id=eq.${matchId}` },
         (payload) => {
           const newVisit = payload.new as QuickMatchVisit;
-          // Use functional update to always check against latest room state
+          // Add all visits - the VisitHistoryPanel will filter by currentLeg
           setVisits((prev) => {
             const exists = prev.find(v => v.id === newVisit.id);
             if (exists) return prev;
-            // Only add if it's for the current leg (check against the first visit's leg or default to accepting)
-            const currentLeg = prev.length > 0 ? prev[0].leg : newVisit.leg;
-            if (newVisit.leg === currentLeg) {
-              return [...prev, newVisit];
-            }
-            return prev;
+            return [...prev, newVisit];
           });
         }
       )
@@ -1031,7 +1042,26 @@ export default function QuickMatchRoomPage() {
         { event: 'UPDATE', schema: 'public', table: 'quick_match_visits', filter: `room_id=eq.${matchId}` },
         (payload) => {
           const updatedVisit = payload.new as QuickMatchVisit;
-          setVisits((prev) => prev.map((v) => (v.id === updatedVisit.id ? updatedVisit : v)));
+          
+          // Get old visit from current state to compare scores
+          setVisits((prev) => {
+            const oldVisit = prev.find(v => v.id === updatedVisit.id);
+            
+            // Show notification if another player edited their visit and score changed
+            if (oldVisit && updatedVisit.player_id !== currentUserId && oldVisit.score !== updatedVisit.score) {
+              const player = profiles.find(p => p.user_id === updatedVisit.player_id);
+              setEditNotification({
+                show: true,
+                playerName: player?.username || 'Opponent',
+                oldScore: oldVisit.score,
+                newScore: updatedVisit.score,
+              });
+              // Hide after 2 seconds
+              setTimeout(() => setEditNotification(null), 2000);
+            }
+            
+            return prev.map((v) => (v.id === updatedVisit.id ? updatedVisit : v));
+          });
         }
       )
       .on(
@@ -1105,7 +1135,7 @@ export default function QuickMatchRoomPage() {
     setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
   };
 
-  const validateCheckout = (score: number, darts: Dart[]): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
+  const validateCheckout = (score: number, darts: Dart[], isTypedScore: boolean = false): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
     if (!room) return { valid: false, error: 'No room', isCheckout: false, isBust: false };
     
     const isPlayer1 = room.player1_id === currentUserId;
@@ -1118,8 +1148,13 @@ export default function QuickMatchRoomPage() {
     // Bust if score is exactly 1 (can't finish on 1)
     if (newRemaining === 1) return { valid: true, isCheckout: false, isBust: true };
     
-    // Checkout - must finish on double
+    // Checkout - typed scores can checkout without double, button inputs require double
     if (newRemaining === 0) {
+      // Typed scores always allow checkout
+      if (isTypedScore) {
+        return { valid: true, isCheckout: true, isBust: false };
+      }
+      // Button inputs require double to checkout
       const lastDart = darts[darts.length - 1];
       if (!lastDart?.is_double) {
         return { valid: true, isCheckout: false, isBust: true };
@@ -1178,7 +1213,7 @@ export default function QuickMatchRoomPage() {
     }
 
     const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
-    const validation = validateCheckout(visitTotal, currentVisit);
+    const validation = validateCheckout(visitTotal, currentVisit, false);  // false = button input
 
     console.log('[SUBMIT] Validation result:', validation);
 
@@ -1220,18 +1255,12 @@ export default function QuickMatchRoomPage() {
     }
     
     // For typed scores, create generic darts (not a double)
+    // Typed scores can checkout (win leg) - double only required for button inputs
     const genericDarts: Dart[] = [
       { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false }
     ];
     
-    // Check if this would be a checkout - typed scores can't checkout because they're not doubles
-    const currentRemaining = room.player1_id === currentUserId ? room.player1_remaining : room.player2_remaining;
-    if (currentRemaining - score === 0) {
-      toast.error('Must finish on a double! Use the dart buttons to enter D1-D20 or DB');
-      return;
-    }
-    
-    const validation = validateCheckout(score, genericDarts);
+    const validation = validateCheckout(score, genericDarts, true);  // true = typed score
     console.log('[TYPED SCORE] Validation:', validation);
     
     // If bust, submit with score 0
@@ -1433,17 +1462,9 @@ export default function QuickMatchRoomPage() {
         bustReason = 'Cannot finish on 1';
         finalScore = 0;
       } else if (newRemaining === 0) {
-        // Check if last dart is double for checkout validation
-        const lastDart = newDarts[newDarts.length - 1];
-        if (lastDart?.mult !== 'D' && lastDart?.mult !== 'DB') {
-          // Not a double - it's a bust
-          isBust = true;
-          bustReason = 'Must finish on a double';
-          finalScore = 0;
-        } else {
-          // Valid checkout!
-          isCheckout = true;
-        }
+        // Edited score brings remaining to 0 - it's a checkout (win leg)!
+        // Edited scores can checkout without requiring a double
+        isCheckout = true;
       }
 
       // Use UPDATE instead of DELETE/INSERT to avoid unique constraint violation
@@ -1811,6 +1832,23 @@ export default function QuickMatchRoomPage() {
         onOpenChange={setShowChatDrawer}
         onUnreadChange={setHasUnreadMessages}
       />
+
+      {/* Edit Notification Popup */}
+      {editNotification?.show && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-amber-500 text-white px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
+            <div className="flex items-center gap-2">
+              <Edit2 className="w-5 h-5" />
+              <span className="font-bold">{editNotification.playerName} edited their visit</span>
+            </div>
+            <div className="text-center mt-1 text-lg">
+              <span className="line-through opacity-70">{editNotification.oldScore}</span>
+              <span className="mx-2">→</span>
+              <span className="font-bold">{editNotification.newScore}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
