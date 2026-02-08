@@ -78,7 +78,7 @@ export default function DashboardPage() {
 
       try {
         const { data: playerStats, error: statsError } = await supabase
-          .from('player_stats')
+          .from('user_stats')
           .select('*')
           .eq('user_id', profile.id)
           .maybeSingle();
