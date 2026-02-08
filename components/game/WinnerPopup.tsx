@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Target, TrendingUp, Award, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Target, TrendingUp, Award, RotateCcw, Home, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PlayerStats {
@@ -35,6 +35,10 @@ interface WinnerPopupProps {
   onClose: () => void;
   onRematch: () => void;
   onHome: () => void;
+  // Rematch functionality
+  rematchStatus?: 'none' | 'waiting' | 'ready' | 'starting';
+  opponentRematchReady?: boolean;
+  youReady?: boolean;
 }
 
 export function WinnerPopup({
@@ -48,11 +52,56 @@ export function WinnerPopup({
   onClose,
   onRematch,
   onHome,
+  rematchStatus = 'none',
+  opponentRematchReady = false,
+  youReady = false,
 }: WinnerPopupProps) {
   if (!winner || !winnerStats) return null;
 
   const winnerName = winner.display_name || winner.username;
   const loserName = loser?.display_name || loser?.username || 'Opponent';
+
+  // Calculate rematch button text
+  const getRematchButtonContent = () => {
+    if (rematchStatus === 'starting') {
+      return (
+        <>
+          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+          Starting...
+        </>
+      );
+    }
+    if (youReady && opponentRematchReady) {
+      return (
+        <>
+          <Check className="w-5 h-5 mr-2" />
+          Starting Rematch (2/2)
+        </>
+      );
+    }
+    if (youReady) {
+      return (
+        <>
+          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+          Waiting for opponent (1/2)
+        </>
+      );
+    }
+    if (opponentRematchReady) {
+      return (
+        <>
+          <RotateCcw className="w-5 h-5 mr-2" />
+          Rematch (1/2)
+        </>
+      );
+    }
+    return (
+      <>
+        <RotateCcw className="w-5 h-5 mr-2" />
+        Rematch
+      </>
+    );
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -205,20 +254,44 @@ export function WinnerPopup({
           <div className="flex gap-3 mt-6">
             <Button
               onClick={onRematch}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto"
+              disabled={youReady || rematchStatus === 'starting'}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto disabled:opacity-70"
             >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Rematch
+              {getRematchButtonContent()}
             </Button>
             <Button
               onClick={onHome}
               variant="outline"
+              disabled={rematchStatus === 'starting'}
               className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 py-3 h-auto"
             >
               <Home className="w-5 h-5 mr-2" />
-              Back to Lobby
+              Back to Menu
             </Button>
           </div>
+
+          {/* Rematch Status */}
+          {rematchStatus !== 'none' && (
+            <div className="mt-4 p-3 bg-slate-800/50 rounded-lg text-center">
+              <div className="flex items-center justify-center gap-4">
+                <div className={`flex items-center gap-2 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <div className={`w-3 h-3 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                  <span className="text-sm">You</span>
+                </div>
+                <div className="text-slate-600">|</div>
+                <div className={`flex items-center gap-2 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <div className={`w-3 h-3 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                  <span className="text-sm">Opponent</span>
+                </div>
+              </div>
+              {youReady && !opponentRematchReady && (
+                <p className="text-xs text-slate-400 mt-2">Waiting for opponent to accept rematch...</p>
+              )}
+              {opponentRematchReady && !youReady && (
+                <p className="text-xs text-emerald-400 mt-2">Opponent wants a rematch!</p>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
