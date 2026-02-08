@@ -36,6 +36,7 @@ import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
+import { WinnerPopup } from '@/components/game/WinnerPopup';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -1021,6 +1022,15 @@ export default function QuickMatchRoomPage() {
     newScore: number;
   } | null>(null);
 
+  // Winner popup state
+  const [showWinnerPopup, setShowWinnerPopup] = useState(false);
+  const [winnerData, setWinnerData] = useState<{
+    winner: Profile | null;
+    loser: Profile | null;
+    winnerStats: any;
+    loserStats: any;
+  } | null>(null);
+
   const cleanupMatchRef = useRef<() => void>();
 
   // WebRTC
@@ -1049,6 +1059,40 @@ export default function QuickMatchRoomPage() {
       sessionStorage.removeItem(`match_context_${matchId}`);
       sessionStorage.removeItem(`lobby_id_${matchId}`);
     }
+  };
+
+  // Calculate player stats from visits
+  const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number) => {
+    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    // Find highest checkout
+    const checkouts = playerVisits.filter(v => v.is_checkout);
+    const highestCheckout = checkouts.length > 0 
+      ? Math.max(...checkouts.map(v => v.score))
+      : 0;
+    
+    // Calculate checkout percentage
+    const checkoutAttempts = playerVisits.filter(v => v.remaining_before <= 170 && v.remaining_before > 0).length;
+    const successfulCheckouts = checkouts.length;
+    const checkoutPercentage = checkoutAttempts > 0 
+      ? (successfulCheckouts / checkoutAttempts) * 100 
+      : 0;
+    
+    return {
+      id: playerId,
+      name: playerName,
+      legsWon,
+      threeDartAverage,
+      highestCheckout,
+      checkoutPercentage,
+      totalDartsThrown: totalDarts,
+      totalScore: totalScored,
+      checkouts: successfulCheckouts,
+      checkoutAttempts,
+    };
   };
 
   useEffect(() => {
@@ -1174,7 +1218,37 @@ export default function QuickMatchRoomPage() {
             if (updatedRoom.status === 'forfeited' && !didIForfeit) {
               setShowOpponentForfeitModal(true);
             } else if (updatedRoom.status === 'finished') {
-              setShowMatchCompleteModal(true);
+              // Show winner popup with stats
+              if (!showWinnerPopup && !winnerData) {
+                const winnerId = updatedRoom.winner_id;
+                const isPlayer1Winner = winnerId === updatedRoom.player1_id;
+                
+                const winnerProfile = profiles.find(p => p.user_id === winnerId);
+                const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
+                const loserProfile = profiles.find(p => p.user_id === loserId);
+                
+                const winnerLegs = isPlayer1Winner ? (updatedRoom.player1_legs || 0) : (updatedRoom.player2_legs || 0);
+                const loserLegs = isPlayer1Winner ? (updatedRoom.player2_legs || 0) : (updatedRoom.player1_legs || 0);
+                
+                const wStats = calculatePlayerStats(
+                  winnerId,
+                  winnerProfile?.username || 'Winner',
+                  winnerLegs
+                );
+                const lStats = calculatePlayerStats(
+                  loserId,
+                  loserProfile?.username || 'Loser',
+                  loserLegs
+                );
+                
+                setWinnerData({
+                  winner: winnerProfile || null,
+                  loser: loserProfile || null,
+                  winnerStats: wStats,
+                  loserStats: lStats,
+                });
+                setShowWinnerPopup(true);
+              }
             }
             setTimeout(() => cleanupMatchRef.current?.(), 100);
           }
@@ -1228,7 +1302,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1808,6 +1882,22 @@ export default function QuickMatchRoomPage() {
     }
   };
 
+  // Winner popup handlers
+  const handleWinnerPopupClose = () => {
+    setShowWinnerPopup(false);
+    router.push(`/app/match/${matchId}/summary`);
+  };
+
+  const handleRematch = () => {
+    setShowWinnerPopup(false);
+    router.push('/app/play/quick-match');
+  };
+
+  const handleGoHome = () => {
+    setShowWinnerPopup(false);
+    router.push('/app/play');
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -2016,6 +2106,22 @@ export default function QuickMatchRoomPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Winner Popup */}
+      {winnerData && (
+        <WinnerPopup
+          isOpen={showWinnerPopup}
+          winner={winnerData.winner}
+          loser={winnerData.loser}
+          winnerStats={winnerData.winnerStats}
+          loserStats={winnerData.loserStats}
+          gameMode={room?.game_mode?.toString() || '501'}
+          bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
+          onClose={handleWinnerPopupClose}
+          onRematch={handleRematch}
+          onHome={handleGoHome}
+        />
       )}
     </div>
   );
