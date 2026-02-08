@@ -1318,7 +1318,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1975,7 +1975,6 @@ export default function QuickMatchRoomPage() {
           player2_remaining: room.game_mode,
           current_turn: room.player1_id, // Player 1 starts
           double_out: room.double_out,
-          source: room.source,
         })
         .select()
         .single();
