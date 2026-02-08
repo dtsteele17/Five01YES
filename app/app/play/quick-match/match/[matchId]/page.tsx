@@ -63,8 +63,9 @@ interface MatchRoom {
   current_turn: string;
   winner_id: string | null;
   double_out: boolean;
-  player1_legs?: number;
-  player2_legs?: number;
+  player1_legs: number;
+  player2_legs: number;
+  source: string;
 }
 
 interface Profile {
@@ -1067,6 +1068,16 @@ export default function QuickMatchRoomPage() {
     }
   };
 
+  // Calculate leg wins from visits (fallback if DB columns don't exist)
+  const calculateLegWinsFromVisits = () => {
+    const p1Checkouts = visits.filter(v => v.player_id === room?.player1_id && v.is_checkout);
+    const p2Checkouts = visits.filter(v => v.player_id === room?.player2_id && v.is_checkout);
+    return {
+      p1: p1Checkouts.length,
+      p2: p2Checkouts.length
+    };
+  };
+
   // Calculate player stats from visits
   const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number) => {
     const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
@@ -1156,6 +1167,14 @@ export default function QuickMatchRoomPage() {
       return false;
     }
 
+    console.log('[LOAD] Room data loaded:', {
+      id: roomData.id,
+      status: roomData.status,
+      p1_legs: roomData.player1_legs,
+      p2_legs: roomData.player2_legs,
+      legs_to_win: roomData.legs_to_win,
+      winner_id: roomData.winner_id
+    });
     setRoom(roomData as MatchRoom);
 
     // Load visits for ALL legs ordered by leg and turn_no
@@ -1218,13 +1237,29 @@ export default function QuickMatchRoomPage() {
             loadMatchData();
           }
           
+          // Reload when leg counts change
+          if (oldRoom && (
+            updatedRoom.player1_legs !== oldRoom.player1_legs || 
+            updatedRoom.player2_legs !== oldRoom.player2_legs
+          )) {
+            console.log('[ROOM] Leg counts changed - P1:', oldRoom.player1_legs, '->', updatedRoom.player1_legs, 
+                        'P2:', oldRoom.player2_legs, '->', updatedRoom.player2_legs);
+          }
+          
           setRoom(updatedRoom);
 
           // Check if match is won based on leg counts or status
-          const p1Legs = updatedRoom.player1_legs || 0;
-          const p2Legs = updatedRoom.player2_legs || 0;
+          // Use fallback calculation from visits if DB columns are missing
+          const calculatedLegs = calculateLegWinsFromVisits();
+          const p1Legs = updatedRoom.player1_legs ?? calculatedLegs.p1;
+          const p2Legs = updatedRoom.player2_legs ?? calculatedLegs.p2;
           const legsToWin = updatedRoom.legs_to_win || 1;
           const isMatchWon = p1Legs >= legsToWin || p2Legs >= legsToWin;
+          
+          console.log('[ROOM] Checking match end - P1 legs:', p1Legs, '(DB:', updatedRoom.player1_legs, ', calc:', calculatedLegs.p1, 
+                      ') P2 legs:', p2Legs, '(DB:', updatedRoom.player2_legs, ', calc:', calculatedLegs.p2,
+                      ') Legs to win:', legsToWin, 'Status:', updatedRoom.status, 
+                      'IsMatchWon:', isMatchWon, 'WinnerId:', updatedRoom.winner_id);
           
           if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished' || isMatchWon) {
             if (updatedRoom.status === 'forfeited' && !didIForfeit) {
@@ -1243,8 +1278,12 @@ export default function QuickMatchRoomPage() {
                 const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
                 const loserProfile = profiles.find(p => p.user_id === loserId);
                 
-                const winnerLegs = isPlayer1Winner ? p1Legs : p2Legs;
-                const loserLegs = isPlayer1Winner ? p2Legs : p1Legs;
+                // Use calculated legs for display if DB columns are missing
+                const calculatedLegs = calculateLegWinsFromVisits();
+                const displayP1Legs = updatedRoom.player1_legs ?? calculatedLegs.p1;
+                const displayP2Legs = updatedRoom.player2_legs ?? calculatedLegs.p2;
+                const winnerLegs = isPlayer1Winner ? displayP1Legs : displayP2Legs;
+                const loserLegs = isPlayer1Winner ? displayP2Legs : displayP1Legs;
                 
                 const wStats = calculatePlayerStats(
                   winnerId,
@@ -1256,6 +1295,9 @@ export default function QuickMatchRoomPage() {
                   loserProfile?.username || 'Loser',
                   loserLegs
                 );
+                
+                console.log('[ROOM] Showing winner popup - Winner:', winnerProfile?.username, 
+                            'Loser:', loserProfile?.username, 'Winner legs:', winnerLegs, 'Loser legs:', loserLegs);
                 
                 setWinnerData({
                   winner: winnerProfile || null,
@@ -1318,7 +1360,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1639,6 +1681,65 @@ export default function QuickMatchRoomPage() {
       if (data.leg_won) {
         console.log('[SUBMIT] Leg won!');
         toast.success('🎯 CHECKOUT! Leg won!');
+        
+        // Check if match was also won - calculate from current legs + this new leg
+        const currentP1Legs = room.player1_legs || 0;
+        const currentP2Legs = room.player2_legs || 0;
+        const isPlayer1 = currentUserId === room.player1_id;
+        
+        // Add the leg we just won
+        const newP1Legs = isPlayer1 ? currentP1Legs + 1 : currentP1Legs;
+        const newP2Legs = !isPlayer1 ? currentP2Legs + 1 : currentP2Legs;
+        const legsToWin = room.legs_to_win || 1;
+        
+        // Check if match is won (either from RPC response or our calculation)
+        const isMatchWon = data.match_won || newP1Legs >= legsToWin || newP2Legs >= legsToWin;
+        
+        console.log('[SUBMIT] Checking match win - P1 legs:', newP1Legs, 'P2 legs:', newP2Legs, 
+                    'Legs to win:', legsToWin, 'IsMatchWon:', isMatchWon, 'RPC match_won:', data.match_won);
+        
+        if (isMatchWon) {
+          console.log('[SUBMIT] MATCH WON!');
+          toast.success('🏆 MATCH WON!');
+          
+          const winnerId = data.winner_id || currentUserId;
+          const isPlayer1Winner = winnerId === room.player1_id;
+          
+          const winnerProfile = profiles.find(p => p.user_id === winnerId);
+          const loserId = isPlayer1Winner ? room.player2_id : room.player1_id;
+          const loserProfile = profiles.find(p => p.user_id === loserId);
+          
+          const winnerLegs = isPlayer1Winner ? newP1Legs : newP2Legs;
+          const loserLegs = isPlayer1Winner ? newP2Legs : newP1Legs;
+          
+          const wStats = calculatePlayerStats(
+            winnerId,
+            winnerProfile?.username || 'Winner',
+            winnerLegs
+          );
+          const lStats = calculatePlayerStats(
+            loserId,
+            loserProfile?.username || 'Loser',
+            loserLegs
+          );
+          
+          setWinnerData({
+            winner: winnerProfile || null,
+            loser: loserProfile || null,
+            winnerStats: wStats,
+            loserStats: lStats,
+          });
+          setShowWinnerPopup(true);
+          
+          // Also update local room state to reflect match end
+          setRoom({
+            ...room,
+            player1_legs: newP1Legs,
+            player2_legs: newP2Legs,
+            status: 'finished',
+            winner_id: winnerId,
+          });
+        }
       } else if (isBust) {
         toast.error('💥 BUST!');
       }
@@ -1975,6 +2076,7 @@ export default function QuickMatchRoomPage() {
           player2_remaining: room.game_mode,
           current_turn: room.player1_id, // Player 1 starts
           double_out: room.double_out,
+          source: room.source,
         })
         .select()
         .single();
