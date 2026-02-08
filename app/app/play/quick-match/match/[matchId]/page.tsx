@@ -256,6 +256,137 @@ const CHECKOUT_ROUTES: Record<number, string[]> = {
   2: ['D1'],
 };
 
+// 2-dart checkout routes (for when 1 dart already thrown)
+const CHECKOUT_ROUTES_2_DARTS: Record<number, string[]> = {
+  110: ['T20', 'DB'],
+  107: ['T19', 'DB'],
+  104: ['T18', 'DB'],
+  101: ['T17', 'DB'],
+  100: ['T20', 'D20'],
+  98: ['T20', 'D19'],
+  97: ['T19', 'D20'],
+  96: ['T20', 'D18'],
+  95: ['T19', 'D19'],
+  94: ['T18', 'D20'],
+  93: ['T19', 'D18'],
+  92: ['T20', 'D16'],
+  91: ['T17', 'D20'],
+  90: ['T20', 'D15'],
+  89: ['T19', 'D16'],
+  88: ['T20', 'D14'],
+  87: ['T17', 'D18'],
+  86: ['T18', 'D16'],
+  85: ['T19', 'D14'],
+  84: ['T20', 'D12'],
+  83: ['T17', 'D16'],
+  82: ['T14', 'D20'],
+  81: ['T19', 'D12'],
+  80: ['T20', 'D10'],
+  79: ['T13', 'D20'],
+  78: ['T18', 'D12'],
+  77: ['T19', 'D10'],
+  76: ['T20', 'D8'],
+  75: ['T17', 'D12'],
+  74: ['T14', 'D16'],
+  73: ['T19', 'D8'],
+  72: ['T16', 'D12'],
+  71: ['T13', 'D16'],
+  70: ['T20', 'D5'],
+  69: ['T19', 'D6'],
+  68: ['T20', 'D4'],
+  67: ['T17', 'D8'],
+  66: ['T10', 'D18'],
+  65: ['T19', 'D4'],
+  64: ['T16', 'D8'],
+  63: ['T13', 'D12'],
+  62: ['T10', 'D16'],
+  61: ['T15', 'D8'],
+  60: ['20', 'D20'],
+  59: ['19', 'D20'],
+  58: ['18', 'D20'],
+  57: ['17', 'D20'],
+  56: ['16', 'D20'],
+  55: ['15', 'D20'],
+  54: ['14', 'D20'],
+  53: ['13', 'D20'],
+  52: ['12', 'D20'],
+  51: ['11', 'D20'],
+  50: ['10', 'D20'],
+  49: ['9', 'D20'],
+  48: ['8', 'D20'],
+  47: ['15', 'D16'],
+  46: ['6', 'D20'],
+  45: ['13', 'D16'],
+  44: ['12', 'D16'],
+  43: ['11', 'D16'],
+  42: ['10', 'D16'],
+  41: ['9', 'D16'],
+  40: ['D20'],
+  39: ['7', 'D16'],
+  38: ['D19'],
+  37: ['5', 'D16'],
+  36: ['D18'],
+  35: ['3', 'D16'],
+  34: ['D17'],
+  33: ['1', 'D16'],
+  32: ['D16'],
+  31: ['7', 'D12'],
+  30: ['D15'],
+  29: ['13', 'D8'],
+  28: ['D14'],
+  27: ['11', 'D8'],
+  26: ['D13'],
+  25: ['9', 'D8'],
+  24: ['D12'],
+  23: ['7', 'D8'],
+  22: ['D11'],
+  21: ['5', 'D8'],
+  20: ['D10'],
+  19: ['3', 'D8'],
+  18: ['D9'],
+  17: ['1', 'D8'],
+  16: ['D8'],
+  15: ['7', 'D4'],
+  14: ['D7'],
+  13: ['5', 'D4'],
+  12: ['D6'],
+  11: ['3', 'D4'],
+  10: ['D5'],
+  9: ['1', 'D4'],
+  8: ['D4'],
+  7: ['3', 'D2'],
+  6: ['D3'],
+  5: ['1', 'D2'],
+  4: ['D2'],
+  3: ['1', 'D1'],
+  2: ['D1'],
+};
+
+// 1-dart checkout routes (for when 2 darts already thrown)
+const CHECKOUT_ROUTES_1_DART: Record<number, string[]> = {
+  40: ['D20'],
+  38: ['D19'],
+  36: ['D18'],
+  34: ['D17'],
+  32: ['D16'],
+  30: ['D15'],
+  28: ['D14'],
+  26: ['D13'],
+  24: ['D12'],
+  22: ['D11'],
+  20: ['D10'],
+  18: ['D9'],
+  16: ['D8'],
+  14: ['D7'],
+  12: ['D6'],
+  10: ['D5'],
+  8: ['D4'],
+  6: ['D3'],
+  4: ['D2'],
+  2: ['D1'],
+  50: ['DB'],
+};
+
 // ============================================================
 // VISIT HISTORY COMPONENT - SHOWN WHEN NOT YOUR TURN
 // ============================================================
@@ -316,7 +447,7 @@ function VisitHistoryPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
+      <h3 className="text-sm font-semibold text-white mb-3">Visit History - Leg {currentLeg}</h3>
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
@@ -628,30 +759,55 @@ function ScoringPanel({
 
   const visitTotal = currentDarts.reduce((sum, d) => sum + d.value, 0);
   const previewRemaining = currentRemaining - visitTotal;
+  const dartsThrown = currentDarts.length;
+  const dartsRemaining = 3 - dartsThrown;
 
-  // Get checkout suggestion
-  const checkoutSuggestion = CHECKOUT_ROUTES[previewRemaining] || null;
+  // Get checkout suggestion based on darts thrown
+  const getCheckoutSuggestion = () => {
+    if (previewRemaining <= 0 || previewRemaining > 170) return null;
+    
+    // Based on darts remaining, show appropriate checkout route
+    if (dartsRemaining === 3) {
+      // 3 darts available - show 3-dart checkout
+      return CHECKOUT_ROUTES[previewRemaining] || null;
+    } else if (dartsRemaining === 2) {
+      // 2 darts available - show 2-dart checkout
+      return CHECKOUT_ROUTES_2_DARTS[previewRemaining] || null;
+    } else if (dartsRemaining === 1) {
+      // 1 dart available - show 1-dart checkout (must be a double)
+      return CHECKOUT_ROUTES_1_DART[previewRemaining] || null;
+    }
+    return null;
+  };
+
+  const checkoutSuggestion = getCheckoutSuggestion();
 
   return (
     <div className="h-full flex flex-col">
-      {/* Checkout Help - BIG DISPLAY */}
-      {previewRemaining <= 170 && previewRemaining > 0 && checkoutSuggestion && (
+      {/* Checkout Help - DYNAMIC BASED ON DARTS THROWN */}
+      {previewRemaining > 0 && previewRemaining <= 170 && (
         <div className="mb-4 p-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
           <div className="text-center">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">Checkout {previewRemaining}</p>
-            <div className="flex items-center justify-center gap-3 text-2xl font-bold">
-              {checkoutSuggestion.map((dart, idx) => (
-                <span key={idx} className={`
-                  px-3 py-1 rounded-lg
-                  ${dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
-                    dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
-                    dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
-                    'bg-slate-700 text-white'}
-                `}>
-                  {dart}
-                </span>
-              ))}
-            </div>
+            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">
+              Checkout {previewRemaining} ({dartsRemaining} dart{dartsRemaining !== 1 ? 's' : ''} left)
+            </p>
+            {checkoutSuggestion ? (
+              <div className="flex items-center justify-center gap-3 text-2xl font-bold">
+                {checkoutSuggestion.map((dart, idx) => (
+                  <span key={idx} className={`
+                    px-3 py-1 rounded-lg
+                    ${dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
+                      dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
+                      dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
+                      'bg-slate-700 text-white'}
+                  `}>
+                    {dart}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-amber-400 font-bold">No checkout possible</p>
+            )}
           </div>
         </div>
       )}
@@ -1072,7 +1228,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1260,18 +1416,30 @@ export default function QuickMatchRoomPage() {
       { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false }
     ];
     
-    const validation = validateCheckout(score, genericDarts, true);  // true = typed score
-    console.log('[TYPED SCORE] Validation:', validation);
+    // IMPORTANT: For typed scores, we check if it would be a checkout (remaining = 0)
+    // Typed scores can checkout WITHOUT requiring a double
+    const isPlayer1 = room.player1_id === currentUserId;
+    const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
+    const newRemaining = currentRemaining - score;
     
-    // If bust, submit with score 0
-    if (validation.isBust) {
-      console.log('[TYPED SCORE] Bust detected, submitting with score 0');
+    // Check for bust conditions
+    if (newRemaining < 0) {
+      console.log('[TYPED SCORE] Bust - below zero');
       await submitScore(0, true, genericDarts, false);
       return;
     }
     
-    console.log('[TYPED SCORE] Calling submitScore...');
-    await submitScore(score, false, genericDarts, validation.isCheckout);
+    if (newRemaining === 1) {
+      console.log('[TYPED SCORE] Bust - left on 1');
+      await submitScore(0, true, genericDarts, false);
+      return;
+    }
+    
+    // Checkout - typed scores can win without double
+    const isCheckout = newRemaining === 0;
+    
+    console.log('[TYPED SCORE] Submitting - remaining:', newRemaining, 'isCheckout:', isCheckout);
+    await submitScore(score, false, genericDarts, isCheckout);
   };
 
   async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false) {
@@ -1467,6 +1635,10 @@ export default function QuickMatchRoomPage() {
         isCheckout = true;
       }
 
+      // Calculate final remaining BEFORE using it
+      const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
+      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
+
       // Use UPDATE instead of DELETE/INSERT to avoid unique constraint violation
       const { error: updateError } = await supabase
         .from('quick_match_visits')
@@ -1496,10 +1668,6 @@ export default function QuickMatchRoomPage() {
       } else if (isBust) {
         toast.error('💥 BUST!');
       }
-      
-      // Calculate final remaining BEFORE using it
-      const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
-      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
       
       // Recalculate all subsequent visits for this player (pass new remaining for room update)
       await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
