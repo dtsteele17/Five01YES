@@ -9,6 +9,7 @@ interface PlayerStats {
   name: string;
   legsWon: number;
   threeDartAverage: number;
+  first9Average: number;
   highestCheckout: number;
   checkoutPercentage: number;
   totalDartsThrown: number;
@@ -56,10 +57,23 @@ export function WinnerPopup({
   opponentRematchReady = false,
   youReady = false,
 }: WinnerPopupProps) {
-  if (!winner || !winnerStats) return null;
+  // Don't render if no winner data
+  if (!winner || !winnerStats) {
+    console.log('[WinnerPopup] No winner data, not rendering');
+    return null;
+  }
+  
+  console.log('[WinnerPopup] Rendering - isOpen:', isOpen, 'winner:', winner?.username, 'rematchStatus:', rematchStatus);
 
   const winnerName = winner.display_name || winner.username;
   const loserName = loser?.display_name || loser?.username || 'Opponent';
+  
+  // Prevent closing by clicking outside or pressing escape while match is active
+  const handleOpenChange = (open: boolean) => {
+    if (!open && rematchStatus !== 'starting') {
+      onClose();
+    }
+  };
 
   // Calculate rematch button text
   const getRematchButtonContent = () => {
@@ -104,8 +118,8 @@ export function WinnerPopup({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl p-0 overflow-hidden max-h-[95vh]">
         {/* Winner Banner */}
         <div className="bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-yellow-500/20 border-b border-yellow-500/30 p-6 text-center">
           <div className="w-20 h-20 bg-yellow-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-bounce">
@@ -122,7 +136,18 @@ export function WinnerPopup({
         </div>
 
         {/* Stats Comparison */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto max-h-[70vh]">
+          {/* Final Result */}
+          <div className="text-center mb-6">
+            <p className="text-lg text-slate-300">Final Result</p>
+            <p className="text-4xl font-bold text-white">
+              {winnerStats.legsWon} - {loserStats?.legsWon || 0}
+            </p>
+            <p className="text-sm text-slate-400 mt-1">
+              {winnerStats.legsWon} legs to {loserStats?.legsWon || 0}
+            </p>
+          </div>
+
           {/* Score Bar */}
           <div className="flex items-center justify-center gap-4 mb-8">
             {/* Winner */}
@@ -172,12 +197,38 @@ export function WinnerPopup({
                   <div 
                     className="h-full bg-yellow-500 rounded-full"
                     style={{ 
-                      width: `${Math.min((winnerStats.threeDartAverage / Math.max(winnerStats.threeDartAverage, loserStats?.threeDartAverage || 0)) * 100, 100)}%` 
+                      width: `${Math.min((winnerStats.threeDartAverage / Math.max(winnerStats.threeDartAverage, loserStats?.threeDartAverage || 0.1)) * 100, 100)}%` 
                     }}
                   />
                 </div>
                 <span className="text-lg font-bold text-slate-400">
                   {loserStats?.threeDartAverage.toFixed(1) || '0.0'}
+                </span>
+              </div>
+            </div>
+
+            {/* First 9 Dart Average */}
+            <div className="bg-slate-800/50 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Award className="w-4 h-4" />
+                  <span className="text-sm">First 9 Dart Average</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-yellow-400">
+                  {(winnerStats.first9Average || 0).toFixed(1)}
+                </span>
+                <div className="flex-1 mx-4 h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500 rounded-full"
+                    style={{ 
+                      width: `${Math.min(((winnerStats.first9Average || 0) / Math.max((winnerStats.first9Average || 0), (loserStats?.first9Average || 0.1))) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+                <span className="text-lg font-bold text-slate-400">
+                  {((loserStats?.first9Average || 0)).toFixed(1)}
                 </span>
               </div>
             </div>
