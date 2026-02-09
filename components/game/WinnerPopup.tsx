@@ -68,10 +68,13 @@ export function WinnerPopup({
   const winnerName = winner.display_name || winner.username;
   const loserName = loser?.display_name || loser?.username || 'Opponent';
   
-  // Prevent closing by clicking outside or pressing escape while match is active
+  // Prevent closing by clicking outside or pressing escape - force user to use buttons
   const handleOpenChange = (open: boolean) => {
-    if (!open && rematchStatus !== 'starting') {
-      onClose();
+    // Never allow closing by clicking outside or pressing escape
+    // User must click Rematch or Back to Menu
+    if (!open) {
+      // Do nothing - prevent closing
+      console.log('[WinnerPopup] Prevented closing - user must use buttons');
     }
   };
 
@@ -118,8 +121,12 @@ export function WinnerPopup({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl p-0 overflow-hidden max-h-[95vh]">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange} modal>
+      <DialogContent 
+        className="bg-slate-900 border-slate-700 text-white max-w-2xl p-0 overflow-hidden max-h-[95vh]"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         {/* Winner Banner */}
         <div className="bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-yellow-500/20 border-b border-yellow-500/30 p-6 text-center">
           <div className="w-20 h-20 bg-yellow-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-bounce">
