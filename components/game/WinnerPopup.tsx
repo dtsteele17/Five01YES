@@ -45,6 +45,18 @@ export function WinnerPopup({
   onRematch,
   onHome,
 }: WinnerPopupProps) {
+  // Debug logging
+  console.log('[WinnerPopup] Stats:', { 
+    winner: winner.name, 
+    winnerLegs: winnerStats.legsWon,
+    winnerAvg: winnerStats.threeDartAverage,
+    winnerDarts: winnerStats.totalDartsThrown,
+    loser: loser.name,
+    loserLegs: loserStats.legsWon,
+    loserAvg: loserStats.threeDartAverage,
+    loserDarts: loserStats.totalDartsThrown,
+  });
+  
   return (
     <Dialog open={true} modal>
       <DialogContent 
@@ -58,7 +70,7 @@ export function WinnerPopup({
             <Trophy className="w-8 h-8 text-white" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
+            <DialogTitle className="text-3xl font-bold text-white">
               {winner.name} Wins!
             </DialogTitle>
           </DialogHeader>
@@ -115,18 +127,18 @@ export function WinnerPopup({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-yellow-400">
-                  {winnerStats.threeDartAverage.toFixed(1)}
+                  {(winnerStats.threeDartAverage || 0).toFixed(1)}
                 </span>
                 <div className="flex-1 mx-4 h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-yellow-500 rounded-full"
                     style={{ 
-                      width: `${Math.min((winnerStats.threeDartAverage / Math.max(winnerStats.threeDartAverage, loserStats?.threeDartAverage || 0.1)) * 100, 100)}%` 
+                      width: `${Math.min(((winnerStats.threeDartAverage || 0) / Math.max((winnerStats.threeDartAverage || 0), (loserStats?.threeDartAverage || 0.1))) * 100, 100)}%` 
                     }}
                   />
                 </div>
                 <span className="text-lg font-bold text-slate-400">
-                  {loserStats?.threeDartAverage.toFixed(1) || '0.0'}
+                  {(loserStats?.threeDartAverage || 0).toFixed(1)}
                 </span>
               </div>
             </div>
@@ -212,7 +224,7 @@ export function WinnerPopup({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">Total Darts Thrown</span>
                 <div className="flex gap-6">
-                  <span className="font-bold text-yellow-400 text-sm">{winnerStats.totalDartsThrown}</span>
+                  <span className="font-bold text-yellow-400 text-sm">{winnerStats.totalDartsThrown || 0}</span>
                   <span className="font-bold text-slate-400 text-sm">{loserStats?.totalDartsThrown || 0}</span>
                 </div>
               </div>
