@@ -18,6 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 import { Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -966,11 +973,6 @@ function ScoringPanel({
   );
 }
 
-// Label component
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
-}
-
 export default function QuickMatchRoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -1088,8 +1090,8 @@ export default function QuickMatchRoomPage() {
     // Find the leg with fewest darts (that had a checkout)
     let bestLegDarts = Infinity;
     let bestLegNum = 0;
-    
-    for (const [legNum, legVisits] of visitsByLeg) {
+
+    Array.from(visitsByLeg.entries()).forEach(([legNum, legVisits]) => {
       const hasCheckout = legVisits.some(v => v.is_checkout);
       if (hasCheckout) {
         const legDarts = legVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
@@ -1098,7 +1100,7 @@ export default function QuickMatchRoomPage() {
           bestLegNum = legNum;
         }
       }
-    }
+    });
     
     return {
       darts: bestLegDarts === Infinity ? 0 : bestLegDarts,
@@ -1330,10 +1332,10 @@ export default function QuickMatchRoomPage() {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
               
-              const winnerId = updatedRoom.winner_id;
+              const winnerId = updatedRoom.winner_id!;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
-              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
+              const loserId = (isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id)!;
               const loserProfile = profiles.find(p => p.user_id === loserId);
               
               const p1Legs = updatedRoom.player1_legs || 0;
@@ -1424,7 +1426,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
