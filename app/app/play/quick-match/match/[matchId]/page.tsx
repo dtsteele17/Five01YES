@@ -1155,6 +1155,14 @@ export default function QuickMatchRoomPage() {
     };
   }, [matchId]);
 
+  // Force popup to stay open when match is won
+  useEffect(() => {
+    if (matchWonRef.current && winnerData && !showWinnerPopup) {
+      console.log('[EFFECT] Re-opening winner popup');
+      setShowWinnerPopup(true);
+    }
+  }, [showWinnerPopup, winnerData]);
+
   async function initializeMatch() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1434,7 +1442,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1475,17 +1483,17 @@ export default function QuickMatchRoomPage() {
             
             const winnerLegs = signal.payload?.winner_legs || 0;
             const loserLegs = signal.payload?.loser_legs || 0;
-
-            const wStats = winnerId ? calculatePlayerStats(
+            
+            const wStats = calculatePlayerStats(
               winnerId,
               winnerProfile?.username || 'Winner',
               winnerLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-            const lStats = loserId ? calculatePlayerStats(
+            );
+            const lStats = calculatePlayerStats(
               loserId,
               loserProfile?.username || 'Loser',
               loserLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
+            );
             
             setWinnerData({
               winner: winnerProfile || null,
@@ -1864,20 +1872,29 @@ export default function QuickMatchRoomPage() {
           
           // Send signal to opponent so they also see the winner popup
           const opponentId = isPlayer1Winner ? room.player2_id : room.player1_id;
-          await supabase.from('match_signals').insert({
-            room_id: matchId,
-            from_user_id: currentUserId,
-            to_user_id: opponentId,
-            type: 'match_won',
-            payload: {
-              winner_id: winnerId,
-              winner_name: winnerProfile?.username || 'Winner',
-              winner_legs: winnerLegs,
-              loser_legs: loserLegs,
-              game_mode: room.game_mode,
-              legs_to_win: room.legs_to_win,
+          try {
+            const { error: signalError } = await supabase.from('match_signals').insert({
+              room_id: matchId,
+              from_user_id: currentUserId,
+              to_user_id: opponentId,
+              type: 'match_won',
+              payload: {
+                winner_id: winnerId,
+                winner_name: winnerProfile?.username || 'Winner',
+                winner_legs: winnerLegs,
+                loser_legs: loserLegs,
+                game_mode: room.game_mode,
+                legs_to_win: room.legs_to_win,
+              }
+            });
+            if (signalError) {
+              console.error('[SUBMIT] Failed to send match_won signal:', signalError);
+            } else {
+              console.log('[SUBMIT] match_won signal sent successfully');
             }
-          });
+          } catch (signalErr) {
+            console.error('[SUBMIT] Exception sending match_won signal:', signalErr);
+          }
           
           // Also update local room state to reflect match end
           setRoom({
@@ -2173,8 +2190,9 @@ export default function QuickMatchRoomPage() {
 
   // Winner popup handlers
   const handleWinnerPopupClose = () => {
-    setShowWinnerPopup(false);
-    router.push(`/app/match/${matchId}/summary`);
+    // Don't allow closing the popup - user must use rematch or home buttons
+    console.log('[POPUP] Close requested but prevented');
+    // router.push(`/app/match/${matchId}/summary`);
   };
 
   const handleRematch = async () => {
@@ -2486,8 +2504,8 @@ export default function QuickMatchRoomPage() {
         </div>
       )}
 
-      {/* Winner Popup - stays open once match is won, force isOpen=true */}
-      {winnerData && (
+      {/* Winner Popup - stays open once match is won */}
+      {(winnerData || matchWonRef.current) && winnerData && (
         <WinnerPopup
           isOpen={true}
           winner={winnerData.winner}
