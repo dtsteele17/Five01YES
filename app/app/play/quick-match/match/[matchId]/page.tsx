@@ -415,11 +415,10 @@ function VisitHistoryPanel({
   onEditVisit: (visit: QuickMatchVisit) => void;
   onDeleteVisit: (visitId: string) => void;
 }) {
-  // Show visits from ALL legs (not just current) so checkout visits remain visible
-  // This ensures winning visits don't disappear when leg increments
+  // Show visits from CURRENT LEG ONLY - resets when new leg starts
   const currentLegVisits = useMemo(() => {
-    return visits;
-  }, [visits]);
+    return visits.filter(v => v.leg === currentLeg);
+  }, [visits, currentLeg]);
   
   // Derive opponent ID from visits data if not provided or mismatch
   // This is more reliable than passing opponentUserId from parent
@@ -451,7 +450,7 @@ function VisitHistoryPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-3">Visit History (All Legs)</h3>
+      <h3 className="text-sm font-semibold text-white mb-3">Visit History - Leg {currentLeg}</h3>
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
@@ -1315,81 +1314,74 @@ export default function QuickMatchRoomPage() {
                         'P2:', oldRoom.player2_legs, '->', updatedRoom.player2_legs);
           }
           
-          // Don't overwrite room state if match is already won
-          if (matchWonRef.current || showWinnerPopup || winnerData) {
-            console.log('[ROOM] Match already won, preserving winner state');
-            // Only update if the DB now shows finished status (confirmation)
-            if (updatedRoom.status === 'finished' || updatedRoom.winner_id) {
-              console.log('[ROOM] DB confirms match finished, updating room state');
-              setRoom(updatedRoom);
-            }
-          } else {
-            setRoom(updatedRoom);
-          }
-
+          // ALWAYS update room state to get latest data
+          setRoom(updatedRoom);
+          
           // Check if match is won based on leg counts or status
-          // Use fallback calculation from visits if DB columns are missing
           const calculatedLegs = calculateLegWinsFromVisits();
           const p1Legs = updatedRoom.player1_legs ?? calculatedLegs.p1;
           const p2Legs = updatedRoom.player2_legs ?? calculatedLegs.p2;
           const legsToWin = updatedRoom.legs_to_win || 1;
           const isMatchWon = p1Legs >= legsToWin || p2Legs >= legsToWin;
           
-          console.log('[ROOM] Checking match end - P1 legs:', p1Legs, '(DB:', updatedRoom.player1_legs, ', calc:', calculatedLegs.p1, 
-                      ') P2 legs:', p2Legs, '(DB:', updatedRoom.player2_legs, ', calc:', calculatedLegs.p2,
-                      ') Legs to win:', legsToWin, 'Status:', updatedRoom.status, 
-                      'IsMatchWon:', isMatchWon, 'WinnerId:', updatedRoom.winner_id);
+          console.log('[ROOM] Checking match end - P1 legs:', p1Legs, 'P2 legs:', p2Legs, 
+                      'Legs to win:', legsToWin, 'Status:', updatedRoom.status, 
+                      'IsMatchWon:', isMatchWon, 'matchWonRef:', matchWonRef.current,
+                      'showWinnerPopup:', showWinnerPopup);
           
-          if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished' || isMatchWon) {
-            if (updatedRoom.status === 'forfeited' && !didIForfeit) {
-              setShowOpponentForfeitModal(true);
-            } else if ((updatedRoom.status === 'finished' || isMatchWon) && !matchWonRef.current && !showWinnerPopup && !winnerData) {
-              // Mark match as won
-              matchWonRef.current = true;
-              
-              // Determine winner based on leg counts if not already set
-              let winnerId = updatedRoom.winner_id;
-              if (!winnerId && isMatchWon) {
-                winnerId = p1Legs >= legsToWin ? updatedRoom.player1_id : updatedRoom.player2_id;
-              }
-              
-              if (winnerId) {
-                const isPlayer1Winner = winnerId === updatedRoom.player1_id;
-                
-                const winnerProfile = profiles.find(p => p.user_id === winnerId);
-                const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
-                const loserProfile = profiles.find(p => p.user_id === loserId);
-                
-                // Use calculated legs for display if DB columns are missing
-                const calculatedLegs = calculateLegWinsFromVisits();
-                const displayP1Legs = updatedRoom.player1_legs ?? calculatedLegs.p1;
-                const displayP2Legs = updatedRoom.player2_legs ?? calculatedLegs.p2;
-                const winnerLegs = isPlayer1Winner ? displayP1Legs : displayP2Legs;
-                const loserLegs = isPlayer1Winner ? displayP2Legs : displayP1Legs;
-                
-                const wStats = calculatePlayerStats(
-                  winnerId,
-                  winnerProfile?.username || 'Winner',
-                  winnerLegs
-                );
-                const lStats = calculatePlayerStats(
-                  loserId,
-                  loserProfile?.username || 'Loser',
-                  loserLegs
-                );
-                
-                console.log('[ROOM] Showing winner popup - Winner:', winnerProfile?.username, 
-                            'Loser:', loserProfile?.username, 'Winner legs:', winnerLegs, 'Loser legs:', loserLegs);
-                
-                setWinnerData({
-                  winner: winnerProfile || null,
-                  loser: loserProfile || null,
-                  winnerStats: wStats,
-                  loserStats: lStats,
-                });
-                setShowWinnerPopup(true);
-              }
+          // Handle forfeit
+          if (updatedRoom.status === 'forfeited' && !didIForfeit) {
+            setShowOpponentForfeitModal(true);
+          }
+          
+          // Show winner popup if match is won and we haven't shown it yet
+          if ((updatedRoom.status === 'finished' || isMatchWon) && !matchWonRef.current) {
+            // Mark match as won IMMEDIATELY to prevent any other code from running
+            matchWonRef.current = true;
+            
+            // Determine winner
+            let winnerId = updatedRoom.winner_id;
+            if (!winnerId && isMatchWon) {
+              winnerId = p1Legs >= legsToWin ? updatedRoom.player1_id : updatedRoom.player2_id;
             }
+            
+            if (winnerId) {
+              const isPlayer1Winner = winnerId === updatedRoom.player1_id;
+              const winnerProfile = profiles.find(p => p.user_id === winnerId);
+              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
+              const loserProfile = profiles.find(p => p.user_id === loserId);
+              
+              const winnerLegs = isPlayer1Winner ? p1Legs : p2Legs;
+              const loserLegs = isPlayer1Winner ? p2Legs : p1Legs;
+              
+              const wStats = calculatePlayerStats(
+                winnerId,
+                winnerProfile?.username || 'Winner',
+                winnerLegs
+              );
+              const lStats = calculatePlayerStats(
+                loserId,
+                loserProfile?.username || 'Loser',
+                loserLegs
+              );
+              
+              console.log('[ROOM] Setting winner popup - Winner:', winnerProfile?.username);
+              
+              // Set winner data and show popup
+              setWinnerData({
+                winner: winnerProfile || null,
+                loser: loserProfile || null,
+                winnerStats: wStats,
+                loserStats: lStats,
+              });
+              
+              // Force show popup
+              setShowWinnerPopup(true);
+            }
+          }
+          
+          // Cleanup if match ended
+          if (updatedRoom.status === 'finished' || updatedRoom.status === 'forfeited') {
             setTimeout(() => cleanupMatchRef.current?.(), 100);
           }
         }
@@ -1442,7 +1434,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1460,14 +1452,16 @@ export default function QuickMatchRoomPage() {
             setOpponentRematchReady(true);
             toast.info('Opponent wants a rematch!');
           }
+          // Handle rematch start - BOTH players navigate to new match
           if (signal.type === 'rematch_start' && signal.payload?.new_match_id) {
+            console.log('[SIGNAL] Rematch start received, navigating to:', signal.payload.new_match_id);
             setRematchStatus('starting');
             setNewMatchId(signal.payload.new_match_id);
             toast.success('Rematch starting...');
-            // Navigate to new match after short delay
+            // Navigate to new match after short delay (both players do this)
             setTimeout(() => {
-              router.push(`/app/play/quick-match/match/${signal.payload.new_match_id}`);
-            }, 1500);
+              window.location.href = `/app/play/quick-match/match/${signal.payload.new_match_id}`;
+            }, 1000);
           }
           // Handle match_won signal - show winner popup for the other player
           if (signal.type === 'match_won' && signal.from_user_id !== currentUserId) {
@@ -1481,17 +1475,17 @@ export default function QuickMatchRoomPage() {
             
             const winnerLegs = signal.payload?.winner_legs || 0;
             const loserLegs = signal.payload?.loser_legs || 0;
-
-            const wStats = winnerId ? calculatePlayerStats(
+            
+            const wStats = calculatePlayerStats(
               winnerId,
               winnerProfile?.username || 'Winner',
               winnerLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-            const lStats = loserId ? calculatePlayerStats(
+            );
+            const lStats = calculatePlayerStats(
               loserId,
               loserProfile?.username || 'Loser',
               loserLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
+            );
             
             setWinnerData({
               winner: winnerProfile || null,
@@ -2247,9 +2241,10 @@ export default function QuickMatchRoomPage() {
       });
       
       toast.success('Rematch starting...');
+      // Use window.location for full page reload to ensure clean state
       setTimeout(() => {
-        router.push(`/app/play/quick-match/match/${newRoom.id}`);
-      }, 1000);
+        window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
+      }, 800);
       
     } catch (error: any) {
       toast.error('Failed to create rematch');
@@ -2491,10 +2486,10 @@ export default function QuickMatchRoomPage() {
         </div>
       )}
 
-      {/* Winner Popup */}
+      {/* Winner Popup - stays open once match is won, force isOpen=true */}
       {winnerData && (
         <WinnerPopup
-          isOpen={showWinnerPopup}
+          isOpen={true}
           winner={winnerData.winner}
           loser={winnerData.loser}
           winnerStats={winnerData.winnerStats}
