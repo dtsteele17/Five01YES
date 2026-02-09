@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Target, TrendingUp, Award, RotateCcw, Home, Check, Loader2 } from 'lucide-react';
+import { Trophy, Target, TrendingUp, Award, RotateCcw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PlayerStats {
@@ -18,112 +18,37 @@ interface PlayerStats {
   checkoutAttempts: number;
 }
 
-interface Profile {
-  user_id?: string;
-  username: string;
-  display_name?: string;
-  avatar_url?: string;
+interface SimplePlayer {
+  id: string;
+  name: string;
+  legs: number;
 }
 
 interface WinnerPopupProps {
-  isOpen: boolean;
-  winner: Profile | null;
-  loser: Profile | null;
-  winnerStats: PlayerStats | null;
-  loserStats: PlayerStats | null;
+  winner: SimplePlayer;
+  loser: SimplePlayer;
+  winnerStats: PlayerStats;
+  loserStats: PlayerStats;
   gameMode: string;
   bestOf: number;
-  onClose: () => void;
   onRematch: () => void;
   onHome: () => void;
-  // Rematch functionality
-  rematchStatus?: 'none' | 'waiting' | 'ready' | 'starting';
-  opponentRematchReady?: boolean;
-  youReady?: boolean;
 }
 
 export function WinnerPopup({
-  isOpen,
   winner,
   loser,
   winnerStats,
   loserStats,
   gameMode,
   bestOf,
-  onClose,
   onRematch,
   onHome,
-  rematchStatus = 'none',
-  opponentRematchReady = false,
-  youReady = false,
 }: WinnerPopupProps) {
-  // Don't render if no winner data
-  if (!winner || !winnerStats) {
-    console.log('[WinnerPopup] No winner data, not rendering');
-    return null;
-  }
-  
-  console.log('[WinnerPopup] Rendering - isOpen:', isOpen, 'winner:', winner?.username, 'rematchStatus:', rematchStatus);
-
-  const winnerName = winner.display_name || winner.username;
-  const loserName = loser?.display_name || loser?.username || 'Opponent';
-  
-  // Prevent closing by clicking outside or pressing escape - force user to use buttons
-  const handleOpenChange = (open: boolean) => {
-    // Never allow closing by clicking outside or pressing escape
-    // User must click Rematch or Back to Menu
-    if (!open) {
-      // Do nothing - prevent closing
-      console.log('[WinnerPopup] Prevented closing - user must use buttons');
-    }
-  };
-
-  // Calculate rematch button text
-  const getRematchButtonContent = () => {
-    if (rematchStatus === 'starting') {
-      return (
-        <>
-          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-          Starting...
-        </>
-      );
-    }
-    if (youReady && opponentRematchReady) {
-      return (
-        <>
-          <Check className="w-5 h-5 mr-2" />
-          Starting Rematch (2/2)
-        </>
-      );
-    }
-    if (youReady) {
-      return (
-        <>
-          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-          Waiting for opponent (1/2)
-        </>
-      );
-    }
-    if (opponentRematchReady) {
-      return (
-        <>
-          <RotateCcw className="w-5 h-5 mr-2" />
-          Rematch (1/2)
-        </>
-      );
-    }
-    return (
-      <>
-        <RotateCcw className="w-5 h-5 mr-2" />
-        Rematch
-      </>
-    );
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange} modal>
+    <Dialog open={true} modal>
       <DialogContent 
-        className="bg-slate-900 border-slate-700 text-white max-w-2xl p-0 overflow-hidden max-h-[95vh]"
+        className="bg-slate-900 border-slate-700 text-white max-w-2xl p-0 overflow-hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -134,7 +59,7 @@ export function WinnerPopup({
           </div>
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold text-white">
-              {winnerName} Wins!
+              {winner.name} Wins!
             </DialogTitle>
           </DialogHeader>
           <p className="text-slate-400 mt-2">
@@ -143,15 +68,15 @@ export function WinnerPopup({
         </div>
 
         {/* Stats Comparison */}
-        <div className="p-6 overflow-y-auto max-h-[70vh]">
+        <div className="p-6">
           {/* Final Result */}
           <div className="text-center mb-6">
             <p className="text-lg text-slate-300">Final Result</p>
             <p className="text-4xl font-bold text-white">
-              {winnerStats.legsWon} - {loserStats?.legsWon || 0}
+              {winner.legs} - {loser.legs}
             </p>
             <p className="text-sm text-slate-400 mt-1">
-              {winnerStats.legsWon} legs to {loserStats?.legsWon || 0}
+              {winner.legs} legs to {loser.legs}
             </p>
           </div>
 
@@ -161,10 +86,10 @@ export function WinnerPopup({
             <div className="text-center flex-1">
               <div className="w-16 h-16 bg-yellow-500/20 rounded-full mx-auto mb-2 flex items-center justify-center border-2 border-yellow-500">
                 <span className="text-2xl font-bold text-yellow-400">
-                  {winnerName[0]?.toUpperCase()}
+                  {winner.name[0]?.toUpperCase()}
                 </span>
               </div>
-              <p className="font-bold text-yellow-400">{winnerName}</p>
+              <p className="font-bold text-yellow-400">{winner.name}</p>
               <p className="text-3xl font-bold text-white mt-1">{winnerStats.legsWon}</p>
               <span className="inline-block mt-1 px-3 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full font-bold">
                 WINNER
@@ -178,11 +103,11 @@ export function WinnerPopup({
             <div className="text-center flex-1">
               <div className="w-16 h-16 bg-slate-800 rounded-full mx-auto mb-2 flex items-center justify-center border-2 border-slate-600">
                 <span className="text-2xl font-bold text-slate-400">
-                  {loserName[0]?.toUpperCase()}
+                  {loser.name[0]?.toUpperCase()}
                 </span>
               </div>
-              <p className="font-bold text-slate-400">{loserName}</p>
-              <p className="text-3xl font-bold text-white mt-1">{loserStats?.legsWon || 0}</p>
+              <p className="font-bold text-slate-400">{loser.name}</p>
+              <p className="text-3xl font-bold text-white mt-1">{loserStats.legsWon}</p>
             </div>
           </div>
 
@@ -312,44 +237,20 @@ export function WinnerPopup({
           <div className="flex gap-3 mt-6">
             <Button
               onClick={onRematch}
-              disabled={youReady || rematchStatus === 'starting'}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto disabled:opacity-70"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto"
             >
-              {getRematchButtonContent()}
+              <RotateCcw className="w-5 h-5 mr-2" />
+              Rematch
             </Button>
             <Button
               onClick={onHome}
               variant="outline"
-              disabled={rematchStatus === 'starting'}
               className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 py-3 h-auto"
             >
               <Home className="w-5 h-5 mr-2" />
               Back to Menu
             </Button>
           </div>
-
-          {/* Rematch Status */}
-          {rematchStatus !== 'none' && (
-            <div className="mt-4 p-3 bg-slate-800/50 rounded-lg text-center">
-              <div className="flex items-center justify-center gap-4">
-                <div className={`flex items-center gap-2 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-                  <div className={`w-3 h-3 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-                  <span className="text-sm">You</span>
-                </div>
-                <div className="text-slate-600">|</div>
-                <div className={`flex items-center gap-2 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-                  <div className={`w-3 h-3 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-                  <span className="text-sm">Opponent</span>
-                </div>
-              </div>
-              {youReady && !opponentRematchReady && (
-                <p className="text-xs text-slate-400 mt-2">Waiting for opponent to accept rematch...</p>
-              )}
-              {opponentRematchReady && !youReady && (
-                <p className="text-xs text-emerald-400 mt-2">Opponent wants a rematch!</p>
-              )}
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
