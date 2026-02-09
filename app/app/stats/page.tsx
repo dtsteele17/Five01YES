@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
-import { Trophy, Gamepad2, BarChart3, ArrowLeft, History, Target, TrendingUp, Award } from 'lucide-react';
+import { Trophy, Gamepad2, BarChart3, ArrowLeft, History, Target, TrendingUp, Award, Disc } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StatsPage() {
@@ -33,7 +33,7 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = overallStats?.total_matches && overallStats.total_matches > 0
+  const winPercentage = overallStats?.total_matches > 0 
     ? ((overallStats.wins / overallStats.total_matches) * 100).toFixed(1)
     : '0.0';
 
@@ -56,7 +56,7 @@ export default function StatsPage() {
         </div>
 
         {/* Quick Overview Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <Card className="bg-slate-900/50 border-slate-700 p-4">
             <div className="flex items-center gap-2 mb-2">
               <Trophy className="w-5 h-5 text-yellow-400" />
@@ -94,6 +94,16 @@ export default function StatsPage() {
             </div>
             <div className="text-3xl font-bold text-white">
               {overallStats?.highest_checkout || '-'}
+            </div>
+          </Card>
+          
+          <Card className="bg-slate-900/50 border-slate-700 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Disc className="w-5 h-5 text-orange-400" />
+              <span className="text-slate-400 text-sm">Darts Thrown</span>
+            </div>
+            <div className="text-3xl font-bold text-white">
+              {overallStats?.total_darts_thrown || 0}
             </div>
           </Card>
         </div>
