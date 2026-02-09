@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Target, TrendingUp, Award, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Target, TrendingUp, Award, RotateCcw, Home, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PlayerStats {
@@ -33,6 +33,9 @@ interface WinnerPopupProps {
   bestOf: number;
   onRematch: () => void;
   onHome: () => void;
+  rematchStatus?: 'none' | 'waiting' | 'ready';
+  opponentRematchReady?: boolean;
+  youReady?: boolean;
 }
 
 export function WinnerPopup({
@@ -44,19 +47,44 @@ export function WinnerPopup({
   bestOf,
   onRematch,
   onHome,
+  rematchStatus = 'none',
+  opponentRematchReady = false,
+  youReady = false,
 }: WinnerPopupProps) {
-  // Debug logging
-  console.log('[WinnerPopup] Stats:', { 
-    winner: winner.name, 
-    winnerLegs: winnerStats.legsWon,
-    winnerAvg: winnerStats.threeDartAverage,
-    winnerDarts: winnerStats.totalDartsThrown,
-    loser: loser.name,
-    loserLegs: loserStats.legsWon,
-    loserAvg: loserStats.threeDartAverage,
-    loserDarts: loserStats.totalDartsThrown,
-  });
-  
+  // Get rematch button content
+  const getRematchButtonContent = () => {
+    if (youReady && opponentRematchReady) {
+      return (
+        <>
+          <Check className="w-4 h-4 mr-2" />
+          Starting (2/2)
+        </>
+      );
+    }
+    if (youReady) {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Waiting (1/2)
+        </>
+      );
+    }
+    if (opponentRematchReady) {
+      return (
+        <>
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Rematch (1/2)
+        </>
+      );
+    }
+    return (
+      <>
+        <RotateCcw className="w-4 h-4 mr-2" />
+        Rematch
+      </>
+    );
+  };
+
   return (
     <Dialog open={true} modal>
       <DialogContent 
@@ -201,7 +229,7 @@ export function WinnerPopup({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-yellow-400">
-                  {winnerStats.checkoutPercentage.toFixed(1)}%
+                  {(winnerStats.checkoutPercentage || 0).toFixed(1)}%
                 </span>
                 <div className="flex-1 mx-4 h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div 
@@ -214,7 +242,7 @@ export function WinnerPopup({
                   />
                 </div>
                 <span className="text-lg font-bold text-slate-400">
-                  {loserStats?.checkoutPercentage.toFixed(1) || '0.0'}%
+                  {(loserStats?.checkoutPercentage || 0).toFixed(1)}%
                 </span>
               </div>
             </div>
@@ -235,10 +263,10 @@ export function WinnerPopup({
           <div className="flex gap-3 mt-4">
             <Button
               onClick={onRematch}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 h-auto"
+              disabled={youReady}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 h-auto disabled:opacity-70"
             >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Rematch
+              {getRematchButtonContent()}
             </Button>
             <Button
               onClick={onHome}
@@ -249,6 +277,21 @@ export function WinnerPopup({
               Back to Menu
             </Button>
           </div>
+          
+          {/* Rematch Status */}
+          {(youReady || opponentRematchReady) && (
+            <div className="mt-3 flex items-center justify-center gap-4 text-sm">
+              <div className={`flex items-center gap-2 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+                <div className={`w-2 h-2 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                You {youReady ? '(Ready)' : ''}
+              </div>
+              <div className="text-slate-600">|</div>
+              <div className={`flex items-center gap-2 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+                <div className={`w-2 h-2 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                Opponent {opponentRematchReady ? '(Ready)' : ''}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
