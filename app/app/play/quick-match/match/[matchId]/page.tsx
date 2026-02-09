@@ -1082,7 +1082,7 @@ export default function QuickMatchRoomPage() {
     };
   };
 
-  // Calculate player stats from visits
+  // Calculate player stats from visits - for FINISHED match (all legs)
   const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number) => {
     const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
     const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
@@ -1124,6 +1124,20 @@ export default function QuickMatchRoomPage() {
       totalScore: totalScored,
       checkouts: successfulCheckouts,
       checkoutAttempts,
+    };
+  };
+
+  // Calculate PER LEG stats for the current leg display
+  const calculatePerLegStats = (playerId: string) => {
+    const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
+    const totalDarts = currentLegVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const totalScored = currentLegVisits.reduce((sum, v) => sum + v.score, 0);
+    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    return {
+      average: threeDartAverage,
+      lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0,
+      dartsThrown: totalDarts,
     };
   };
 
@@ -1428,7 +1442,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1467,17 +1481,17 @@ export default function QuickMatchRoomPage() {
             
             const winnerLegs = signal.payload?.winner_legs || 0;
             const loserLegs = signal.payload?.loser_legs || 0;
-
-            const wStats = winnerId ? calculatePlayerStats(
+            
+            const wStats = calculatePlayerStats(
               winnerId,
               winnerProfile?.username || 'Winner',
               winnerLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-            const lStats = loserId ? calculatePlayerStats(
+            );
+            const lStats = calculatePlayerStats(
               loserId,
               loserProfile?.username || 'Loser',
               loserLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
+            );
             
             setWinnerData({
               winner: winnerProfile || null,
@@ -2337,41 +2351,59 @@ export default function QuickMatchRoomPage() {
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Player Cards - Darts thrown now resets per leg */}
+          {/* Player Cards - Stats reset per leg */}
           <div className="grid grid-cols-2 gap-4">
             <QuickMatchPlayerCard
               name={myPlayer.name}
               remaining={myPlayer.remaining}
               legs={myPlayer.legsWon}
               legsToWin={matchState.legsToWin}
-              isActive={isMyTurn}
+              isActive={isMyTurn && room.status === 'active'}
               color="text-emerald-400"
               position="left"
-              stats={{ 
-                average: myPlayer.threeDartAvg, 
-                lastScore: visits.filter(v => v.player_id === currentUserId && v.leg === room.current_leg).pop()?.score || 0,
-                dartsThrown: visits.filter(v => v.player_id === currentUserId && v.leg === room.current_leg).reduce((sum, v) => sum + v.darts_thrown, 0)
-              }}
+              stats={calculatePerLegStats(currentUserId || '')}
             />
             <QuickMatchPlayerCard
               name={opponentPlayer.name}
               remaining={opponentPlayer.remaining}
               legs={opponentPlayer.legsWon}
               legsToWin={matchState.legsToWin}
-              isActive={!isMyTurn}
+              isActive={!isMyTurn && room.status === 'active'}
               color="text-blue-400"
               position="right"
-              stats={{ 
-                average: opponentPlayer.threeDartAvg,
-                lastScore: visits.filter(v => v.player_id !== currentUserId && v.leg === room.current_leg).pop()?.score || 0,
-                dartsThrown: visits.filter(v => v.player_id !== currentUserId && v.leg === room.current_leg).reduce((sum, v) => sum + v.darts_thrown, 0)
-              }}
+              stats={calculatePerLegStats(opponentId || '')}
             />
           </div>
 
-          {/* CONDITIONAL: Show Scoring Panel when my turn, Visit History when not */}
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
-            {isMyTurn ? (
+          {/* CONDITIONAL: Show Scoring Panel when my turn AND game active, Visit History when not, Match Finished overlay when done */}
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden relative">
+            {room.status === 'finished' || room.status === 'forfeited' ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6">
+                <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center mb-4">
+                  <Trophy className="w-10 h-10 text-yellow-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Match Finished</h3>
+                <p className="text-slate-400 mb-6">
+                  {room.winner_id === currentUserId ? 'You won!' : 'Match complete'}
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleRematch}
+                    disabled={youRematchReady}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {youRematchReady ? 'Waiting...' : 'Rematch'}
+                  </Button>
+                  <Button
+                    onClick={handleGoHome}
+                    variant="outline"
+                    className="border-slate-600"
+                  >
+                    Back to Menu
+                  </Button>
+                </div>
+              </div>
+            ) : isMyTurn ? (
               <ScoringPanel
                 scoreInput={scoreInput}
                 onScoreInputChange={setScoreInput}
