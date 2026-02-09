@@ -1442,7 +1442,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1483,17 +1483,17 @@ export default function QuickMatchRoomPage() {
             
             const winnerLegs = signal.payload?.winner_legs || 0;
             const loserLegs = signal.payload?.loser_legs || 0;
-            
-            const wStats = calculatePlayerStats(
+
+            const wStats = winnerId ? calculatePlayerStats(
               winnerId,
               winnerProfile?.username || 'Winner',
               winnerLegs
-            );
-            const lStats = calculatePlayerStats(
+            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
+            const lStats = loserId ? calculatePlayerStats(
               loserId,
               loserProfile?.username || 'Loser',
               loserLegs
-            );
+            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
             
             setWinnerData({
               winner: winnerProfile || null,
