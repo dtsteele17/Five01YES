@@ -18,13 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 
 import { Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -973,6 +966,11 @@ function ScoringPanel({
   );
 }
 
+// Label component
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
+}
+
 export default function QuickMatchRoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -1230,12 +1228,15 @@ export default function QuickMatchRoomPage() {
     return calculatePlayerStats(playerId, playerName, legsWon, extraVisit);
   };
 
-  // Calculate PER LEG stats for the current leg display
-  const calculatePerLegStats = (playerId: string) => {
-    const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
-    const totalDarts = currentLegVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
-    const totalScored = currentLegVisits.reduce((sum, v) => sum + v.score, 0);
+  // Calculate WHOLE MATCH stats (across all legs) for the display
+  const calculateMatchStats = (playerId: string) => {
+    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    // Get last score from current leg only (most recent visit)
+    const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
     
     return {
       average: threeDartAverage,
@@ -1383,7 +1384,7 @@ export default function QuickMatchRoomPage() {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
               
-              const winnerId = updatedRoom.winner_id!;
+              const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
@@ -1481,7 +1482,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1875,7 +1876,6 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
-            bust_reason: isBust ? 'bust' : null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
@@ -2461,7 +2461,7 @@ export default function QuickMatchRoomPage() {
               isActive={isMyTurn && room.status === 'active'}
               color="text-emerald-400"
               position="left"
-              stats={calculatePerLegStats(currentUserId || '')}
+              stats={calculateMatchStats(currentUserId || '')}
             />
             <QuickMatchPlayerCard
               name={opponentPlayer.name}
@@ -2471,7 +2471,7 @@ export default function QuickMatchRoomPage() {
               isActive={!isMyTurn && room.status === 'active'}
               color="text-blue-400"
               position="right"
-              stats={calculatePerLegStats(opponentId || '')}
+              stats={calculateMatchStats(opponentId || '')}
             />
           </div>
 
