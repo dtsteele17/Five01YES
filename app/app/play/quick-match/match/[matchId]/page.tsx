@@ -1043,12 +1043,33 @@ export default function QuickMatchRoomPage() {
 
   const cleanupMatchRef = useRef<() => void>();
 
+  // Track rematch ready status from both players using refs for immediate access
+  const myRematchReadyRef = useRef(false);
+  const opponentReadyRef = useRef(false);
+  const opponentIdRef = useRef<string | null>(null);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    myRematchReadyRef.current = rematchStatus === 'waiting' || rematchStatus === 'ready';
+  }, [rematchStatus]);
+  
+  useEffect(() => {
+    opponentReadyRef.current = opponentRematchReady;
+  }, [opponentRematchReady]);
+  
+  useEffect(() => {
+    if (rematchOpponentId) {
+      opponentIdRef.current = rematchOpponentId;
+    }
+  }, [rematchOpponentId]);
+  
   // Effect to handle when both players are ready for rematch
   useEffect(() => {
     // Only proceed if both players are ready and we haven't created the room yet
     if (rematchStatus === 'waiting' && opponentRematchReady && rematchOpponentId && !rematchRoomCreatedRef.current) {
       console.log('[REMATCH] Both players ready - creating rematch room from effect');
       rematchRoomCreatedRef.current = true;
+      setRematchStatus('ready');
       createRematchRoom(rematchOpponentId);
     }
   }, [rematchStatus, opponentRematchReady, rematchOpponentId]);
@@ -1416,8 +1437,8 @@ export default function QuickMatchRoomPage() {
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
-
-              const winnerId = updatedRoom.winner_id!;
+              
+              const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
@@ -1522,7 +1543,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1540,6 +1561,16 @@ export default function QuickMatchRoomPage() {
             console.log('[REMATCH] Opponent is ready for rematch');
             setOpponentRematchReady(true);
             setRematchOpponentId(signal.from_user_id);
+            opponentReadyRef.current = true;
+            opponentIdRef.current = signal.from_user_id;
+            
+            // If I'm also ready, create the room immediately (race condition protection)
+            if (myRematchReadyRef.current && !rematchRoomCreatedRef.current) {
+              console.log('[REMATCH] Both ready (detected by signal receiver) - creating room');
+              rematchRoomCreatedRef.current = true;
+              setRematchStatus('ready');
+              createRematchRoom(signal.from_user_id);
+            }
           }
           // Handle rematch start - navigate to new room
           if (signal.type === 'rematch_start' && signal.to_user_id === currentUserId) {
@@ -1655,8 +1686,13 @@ export default function QuickMatchRoomPage() {
       toast.error('Not your turn');
       return;
     }
-    // Allow bust even with no darts entered - this records a bust turn
-    await submitScore(0, true, currentVisit.length > 0 ? currentVisit : []);
+    // Bust always counts as 3 darts thrown
+    // If no darts entered, create 3 miss darts
+    let bustDarts = [...currentVisit];
+    while (bustDarts.length < 3) {
+      bustDarts.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+    }
+    await submitScore(0, true, bustDarts);
   };
 
   const handleSubmitVisit = async () => {
@@ -1798,7 +1834,23 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    const dartsArray = darts.map(dart => {
+    // DART COUNTING FIX:
+    // - If bust, count as 3 darts thrown (per dart rules)
+    // - If not checkout and fewer than 3 darts, pad to 3 darts (all darts count)
+    let dartsToSubmit = [...darts];
+    if (isBust) {
+      // Bust always counts as 3 darts (or however many were entered, minimum 3)
+      while (dartsToSubmit.length < 3) {
+        dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+      }
+    } else if (!isCheckout && dartsToSubmit.length > 0 && dartsToSubmit.length < 3) {
+      // Non-checkout visit with partial darts - pad to 3 darts
+      while (dartsToSubmit.length < 3) {
+        dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+      }
+    }
+
+    const dartsArray = dartsToSubmit.map(dart => {
       let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
       if (dart.type === 'bull') mult = dart.value === 50 ? 'DB' : 'SB';
       else if (dart.type === 'double') mult = 'D';
@@ -1917,7 +1969,6 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
-            bust_reason: isBust ? 'bust' : null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
@@ -2262,8 +2313,9 @@ export default function QuickMatchRoomPage() {
       ? matchEndStats.player2.id 
       : matchEndStats.player1.id;
     
-    // Store opponent ID for use in the effect
+    // Store opponent ID for use in the effect and refs
     setRematchOpponentId(opponentId);
+    opponentIdRef.current = opponentId;
     
     // If already ready, do nothing
     if (rematchStatus === 'waiting' || rematchStatus === 'ready') {
@@ -2272,6 +2324,7 @@ export default function QuickMatchRoomPage() {
     
     // Mark self as ready
     setRematchStatus('waiting');
+    myRematchReadyRef.current = true;
     
     try {
       // Send rematch ready signal to opponent
@@ -2285,12 +2338,18 @@ export default function QuickMatchRoomPage() {
       
       console.log('[REMATCH] Sent ready signal to opponent');
       
-      // The effect will handle creating the room when both are ready
-      // This prevents race conditions where both players try to create the room
+      // Check if opponent is already ready (we might have received their signal before clicking)
+      if (opponentReadyRef.current && !rematchRoomCreatedRef.current) {
+        console.log('[REMATCH] Opponent already ready - creating room now');
+        rematchRoomCreatedRef.current = true;
+        setRematchStatus('ready');
+        createRematchRoom(opponentId);
+      }
       
     } catch (error: any) {
       console.error('[REMATCH] Error:', error);
       setRematchStatus('none');
+      myRematchReadyRef.current = false;
       toast.error('Failed to ready up for rematch');
     }
   };
