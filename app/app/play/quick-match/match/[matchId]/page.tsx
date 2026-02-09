@@ -18,13 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Trophy, Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
+
+import { Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -1025,23 +1020,15 @@ export default function QuickMatchRoomPage() {
     newScore: number;
   } | null>(null);
 
-  // Winner popup state
-  const [showWinnerPopup, setShowWinnerPopup] = useState(false);
-  const [winnerData, setWinnerData] = useState<{
-    winner: Profile | null;
-    loser: Profile | null;
-    winnerStats: any;
-    loserStats: any;
+  // Winner popup state - SIMPLE
+  const [winnerStats, setWinnerStats] = useState<{
+    winner: { id: string; name: string; legs: number };
+    loser: { id: string; name: string; legs: number };
+    winnerFullStats: any;
+    loserFullStats: any;
   } | null>(null);
 
-  // Rematch state
-  const [youRematchReady, setYouRematchReady] = useState(false);
-  const [opponentRematchReady, setOpponentRematchReady] = useState(false);
-  const [rematchStatus, setRematchStatus] = useState<'none' | 'waiting' | 'ready' | 'starting'>('none');
-  const [newMatchId, setNewMatchId] = useState<string | null>(null);
-
   const cleanupMatchRef = useRef<() => void>();
-  const matchWonRef = useRef<boolean>(false); // Track if match is won to prevent popup from closing
 
   // WebRTC
   const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
@@ -1155,14 +1142,6 @@ export default function QuickMatchRoomPage() {
     };
   }, [matchId]);
 
-  // Force popup to stay open when match is won
-  useEffect(() => {
-    if (matchWonRef.current && winnerData && !showWinnerPopup) {
-      console.log('[EFFECT] Re-opening winner popup');
-      setShowWinnerPopup(true);
-    }
-  }, [showWinnerPopup, winnerData]);
-
   async function initializeMatch() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1212,23 +1191,7 @@ export default function QuickMatchRoomPage() {
       winner_id: roomData.winner_id
     });
     
-    // Check if match was already won in DB
-    const p1Legs = roomData.player1_legs || 0;
-    const p2Legs = roomData.player2_legs || 0;
-    const legsToWin = roomData.legs_to_win || 1;
-    const isMatchWonInDB = p1Legs >= legsToWin || p2Legs >= legsToWin || roomData.status === 'finished';
-    
-    if (isMatchWonInDB) {
-      matchWonRef.current = true;
-    }
-    
-    // Don't overwrite room state if match is already won locally
-    // This prevents the winner popup from disappearing
-    if (showWinnerPopup || winnerData || matchWonRef.current) {
-      console.log('[LOAD] Match already won, keeping current room state');
-    } else {
-      setRoom(roomData as MatchRoom);
-    }
+    setRoom(roomData as MatchRoom);
 
     // Load visits for ALL legs ordered by leg and turn_no
     const { data: visitsData, error: visitsError } = await supabase
@@ -1255,13 +1218,6 @@ export default function QuickMatchRoomPage() {
 
   useEffect(() => {
     if (room && profiles.length > 0) {
-      // Don't recalculate match state if match is already won
-      // This prevents UI flickering and keeps the winner popup stable
-      if (matchWonRef.current || showWinnerPopup || winnerData) {
-        console.log('[EFFECT] Match already won, skipping matchState recalculation');
-        return;
-      }
-      
       const eventsFromVisits = visits.map(v => ({
         id: v.id,
         player_id: v.player_id,
@@ -1279,7 +1235,7 @@ export default function QuickMatchRoomPage() {
       const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
       setMatchState(mapped);
     }
-  }, [room, visits, profiles, currentUserId, showWinnerPopup, winnerData]);
+  }, [room, visits, profiles, currentUserId]);
 
   function setupRealtimeSubscriptions() {
     const roomChannel = supabase
@@ -1291,106 +1247,50 @@ export default function QuickMatchRoomPage() {
           const updatedRoom = payload.new as MatchRoom;
           const oldRoom = payload.old as MatchRoom;
           
-          // Check if match is won in this update
-          const updatedP1Legs = updatedRoom.player1_legs || 0;
-          const updatedP2Legs = updatedRoom.player2_legs || 0;
-          const updatedLegsToWin = updatedRoom.legs_to_win || 1;
-          const isMatchWonNow = updatedP1Legs >= updatedLegsToWin || updatedP2Legs >= updatedLegsToWin || updatedRoom.status === 'finished';
-          
-          if (isMatchWonNow) {
-            matchWonRef.current = true;
-          }
-          
-          // Reload visits when leg changes to get the new leg's visit history
-          // BUT don't reload if match is already won (prevents popup from closing)
-          if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
-            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
-            if (!matchWonRef.current && !showWinnerPopup && !winnerData) {
-              console.log('[ROOM] Reloading match data');
-              loadMatchData();
-            } else {
-              console.log('[ROOM] Match already won, skipping data reload to keep popup open');
-            }
-          }
-          
-          // Reload when leg counts change
-          if (oldRoom && (
-            updatedRoom.player1_legs !== oldRoom.player1_legs || 
-            updatedRoom.player2_legs !== oldRoom.player2_legs
-          )) {
-            console.log('[ROOM] Leg counts changed - P1:', oldRoom.player1_legs, '->', updatedRoom.player1_legs, 
-                        'P2:', oldRoom.player2_legs, '->', updatedRoom.player2_legs);
-          }
-          
-          // ALWAYS update room state to get latest data
+          // Update room state
           setRoom(updatedRoom);
           
-          // Check if match is won based on leg counts or status
-          const calculatedLegs = calculateLegWinsFromVisits();
-          const p1Legs = updatedRoom.player1_legs ?? calculatedLegs.p1;
-          const p2Legs = updatedRoom.player2_legs ?? calculatedLegs.p2;
-          const legsToWin = updatedRoom.legs_to_win || 1;
-          const isMatchWon = p1Legs >= legsToWin || p2Legs >= legsToWin;
-          
-          console.log('[ROOM] Checking match end - P1 legs:', p1Legs, 'P2 legs:', p2Legs, 
-                      'Legs to win:', legsToWin, 'Status:', updatedRoom.status, 
-                      'IsMatchWon:', isMatchWon, 'matchWonRef:', matchWonRef.current,
-                      'showWinnerPopup:', showWinnerPopup);
+          // Handle leg change - reload visits
+          if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
+            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
+            loadMatchData();
+          }
           
           // Handle forfeit
           if (updatedRoom.status === 'forfeited' && !didIForfeit) {
             setShowOpponentForfeitModal(true);
           }
           
-          // Show winner popup if match is won and we haven't shown it yet
-          if ((updatedRoom.status === 'finished' || isMatchWon) && !matchWonRef.current) {
-            // Mark match as won IMMEDIATELY to prevent any other code from running
-            matchWonRef.current = true;
+          // Handle match finished - show winner popup
+          if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !winnerStats) {
+            console.log('[ROOM] Match finished detected, showing winner popup');
             
-            // Determine winner
-            let winnerId = updatedRoom.winner_id;
-            if (!winnerId && isMatchWon) {
-              winnerId = p1Legs >= legsToWin ? updatedRoom.player1_id : updatedRoom.player2_id;
-            }
+            const winnerId = updatedRoom.winner_id;
+            const isPlayer1Winner = winnerId === updatedRoom.player1_id;
+            const winnerProfile = profiles.find(p => p.user_id === winnerId);
+            const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
+            const loserProfile = profiles.find(p => p.user_id === loserId);
             
-            if (winnerId) {
-              const isPlayer1Winner = winnerId === updatedRoom.player1_id;
-              const winnerProfile = profiles.find(p => p.user_id === winnerId);
-              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
-              const loserProfile = profiles.find(p => p.user_id === loserId);
-              
-              const winnerLegs = isPlayer1Winner ? p1Legs : p2Legs;
-              const loserLegs = isPlayer1Winner ? p2Legs : p1Legs;
-              
-              const wStats = calculatePlayerStats(
-                winnerId,
-                winnerProfile?.username || 'Winner',
-                winnerLegs
-              );
-              const lStats = calculatePlayerStats(
-                loserId,
-                loserProfile?.username || 'Loser',
-                loserLegs
-              );
-              
-              console.log('[ROOM] Setting winner popup - Winner:', winnerProfile?.username);
-              
-              // Set winner data and show popup
-              setWinnerData({
-                winner: winnerProfile || null,
-                loser: loserProfile || null,
-                winnerStats: wStats,
-                loserStats: lStats,
-              });
-              
-              // Force show popup
-              setShowWinnerPopup(true);
-            }
-          }
-          
-          // Cleanup if match ended
-          if (updatedRoom.status === 'finished' || updatedRoom.status === 'forfeited') {
-            setTimeout(() => cleanupMatchRef.current?.(), 100);
+            const p1Legs = updatedRoom.player1_legs || 0;
+            const p2Legs = updatedRoom.player2_legs || 0;
+            
+            const wStats = calculatePlayerStats(
+              winnerId,
+              winnerProfile?.username || 'Winner',
+              isPlayer1Winner ? p1Legs : p2Legs
+            );
+            const lStats = calculatePlayerStats(
+              loserId,
+              loserProfile?.username || 'Loser',
+              isPlayer1Winner ? p2Legs : p1Legs
+            );
+            
+            setWinnerStats({
+              winner: { id: winnerId, name: winnerProfile?.username || 'Winner', legs: isPlayer1Winner ? p1Legs : p2Legs },
+              loser: { id: loserId, name: loserProfile?.username || 'Loser', legs: isPlayer1Winner ? p2Legs : p1Legs },
+              winnerFullStats: wStats,
+              loserFullStats: lStats,
+            });
           }
         }
       )
@@ -1442,7 +1342,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1455,54 +1355,7 @@ export default function QuickMatchRoomPage() {
             setShowOpponentForfeitSignalModal(true);
             setTimeout(() => cleanupMatchRef.current?.(), 100);
           }
-          // Handle rematch signals
-          if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
-            setOpponentRematchReady(true);
-            toast.info('Opponent wants a rematch!');
-          }
-          // Handle rematch start - BOTH players navigate to new match
-          if (signal.type === 'rematch_start' && signal.payload?.new_match_id) {
-            console.log('[SIGNAL] Rematch start received, navigating to:', signal.payload.new_match_id);
-            setRematchStatus('starting');
-            setNewMatchId(signal.payload.new_match_id);
-            toast.success('Rematch starting...');
-            // Navigate to new match after short delay (both players do this)
-            setTimeout(() => {
-              window.location.href = `/app/play/quick-match/match/${signal.payload.new_match_id}`;
-            }, 1000);
-          }
-          // Handle match_won signal - show winner popup for the other player
-          if (signal.type === 'match_won' && signal.from_user_id !== currentUserId) {
-            console.log('[SIGNAL] Received match_won signal:', signal.payload);
-            matchWonRef.current = true;
-            
-            const winnerId = signal.payload?.winner_id;
-            const winnerProfile = profiles.find(p => p.user_id === winnerId);
-            const loserId = winnerId === room?.player1_id ? room?.player2_id : room?.player1_id;
-            const loserProfile = profiles.find(p => p.user_id === loserId);
-            
-            const winnerLegs = signal.payload?.winner_legs || 0;
-            const loserLegs = signal.payload?.loser_legs || 0;
-
-            const wStats = winnerId ? calculatePlayerStats(
-              winnerId,
-              winnerProfile?.username || 'Winner',
-              winnerLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-            const lStats = loserId ? calculatePlayerStats(
-              loserId,
-              loserProfile?.username || 'Loser',
-              loserLegs
-            ) : { average: 0, checkoutPct: 0, highestCheckout: 0 };
-            
-            setWinnerData({
-              winner: winnerProfile || null,
-              loser: loserProfile || null,
-              winnerStats: wStats,
-              loserStats: lStats,
-            });
-            setShowWinnerPopup(true);
-          }
+          // Note: Match won detection is done via room status change
         }
       )
       .subscribe();
@@ -1838,10 +1691,7 @@ export default function QuickMatchRoomPage() {
           console.log('[SUBMIT] MATCH WON!');
           toast.success('🏆 MATCH WON!');
           
-          // Mark match as won to prevent state updates from closing the popup
-          matchWonRef.current = true;
-          
-          const winnerId = data.winner_id || currentUserId;
+          const winnerId = currentUserId;
           const isPlayer1Winner = winnerId === room.player1_id;
           
           const winnerProfile = profiles.find(p => p.user_id === winnerId);
@@ -1862,41 +1712,15 @@ export default function QuickMatchRoomPage() {
             loserLegs
           );
           
-          setWinnerData({
-            winner: winnerProfile || null,
-            loser: loserProfile || null,
-            winnerStats: wStats,
-            loserStats: lStats,
+          // Show winner popup immediately for the winner
+          setWinnerStats({
+            winner: { id: winnerId, name: winnerProfile?.username || 'Winner', legs: winnerLegs },
+            loser: { id: loserId, name: loserProfile?.username || 'Loser', legs: loserLegs },
+            winnerFullStats: wStats,
+            loserFullStats: lStats,
           });
-          setShowWinnerPopup(true);
           
-          // Send signal to opponent so they also see the winner popup
-          const opponentId = isPlayer1Winner ? room.player2_id : room.player1_id;
-          try {
-            const { error: signalError } = await supabase.from('match_signals').insert({
-              room_id: matchId,
-              from_user_id: currentUserId,
-              to_user_id: opponentId,
-              type: 'match_won',
-              payload: {
-                winner_id: winnerId,
-                winner_name: winnerProfile?.username || 'Winner',
-                winner_legs: winnerLegs,
-                loser_legs: loserLegs,
-                game_mode: room.game_mode,
-                legs_to_win: room.legs_to_win,
-              }
-            });
-            if (signalError) {
-              console.error('[SUBMIT] Failed to send match_won signal:', signalError);
-            } else {
-              console.log('[SUBMIT] match_won signal sent successfully');
-            }
-          } catch (signalErr) {
-            console.error('[SUBMIT] Exception sending match_won signal:', signalErr);
-          }
-          
-          // Also update local room state to reflect match end
+          // Update room state
           setRoom({
             ...room,
             player1_legs: newP1Legs,
@@ -2178,55 +2002,13 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Handle rematch when both players are ready
-  useEffect(() => {
-    if (youRematchReady && opponentRematchReady && rematchStatus !== 'starting' && !newMatchId) {
-      // Both ready - create rematch (only if we're player1 to avoid race condition)
-      if (room && currentUserId === room.player1_id) {
-        createRematch();
-      }
-    }
-  }, [youRematchReady, opponentRematchReady, rematchStatus, newMatchId, room, currentUserId]);
-
-  // Winner popup handlers
-  const handleWinnerPopupClose = () => {
-    // Don't allow closing the popup - user must use rematch or home buttons
-    console.log('[POPUP] Close requested but prevented');
-    // router.push(`/app/match/${matchId}/summary`);
-  };
-
+  // Simple rematch - just create a new room and navigate
   const handleRematch = async () => {
-    if (!room || !currentUserId || !matchState) return;
-    
-    setYouRematchReady(true);
-    setRematchStatus('waiting');
-    
-    const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
-    
-    // Send rematch ready signal to opponent
-    await supabase.from('match_signals').insert({
-      room_id: matchId,
-      from_user_id: currentUserId,
-      to_user_id: opponentId,
-      type: 'rematch_ready',
-      payload: {}
-    });
-    
-    // If opponent is already ready, create new match
-    if (opponentRematchReady) {
-      await createRematch();
-    }
-  };
-
-  const createRematch = async () => {
-    if (!room || !currentUserId || !matchState) return;
-    
-    setRematchStatus('starting');
-    
-    const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+    if (!room || !currentUserId) return;
     
     try {
-      // Create a new match room with same settings
+      toast.loading('Creating rematch...');
+      
       const { data: newRoom, error } = await supabase
         .from('match_rooms')
         .insert({
@@ -2240,7 +2022,7 @@ export default function QuickMatchRoomPage() {
           legs_to_win: room.legs_to_win,
           player1_remaining: room.game_mode,
           player2_remaining: room.game_mode,
-          current_turn: room.player1_id, // Player 1 starts
+          current_turn: room.player1_id,
           double_out: room.double_out,
           source: room.source,
         })
@@ -2249,29 +2031,15 @@ export default function QuickMatchRoomPage() {
       
       if (error) throw error;
       
-      // Send rematch start signal to opponent
-      await supabase.from('match_signals').insert({
-        room_id: matchId,
-        from_user_id: currentUserId,
-        to_user_id: opponentId,
-        type: 'rematch_start',
-        payload: { new_match_id: newRoom.id }
-      });
-      
       toast.success('Rematch starting...');
-      // Use window.location for full page reload to ensure clean state
-      setTimeout(() => {
-        window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
-      }, 800);
+      window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
       
     } catch (error: any) {
       toast.error('Failed to create rematch');
-      setRematchStatus('ready');
     }
   };
 
   const handleGoHome = () => {
-    setShowWinnerPopup(false);
     cleanupMatchRef.current?.();
     router.push('/app/play');
   };
@@ -2388,35 +2156,9 @@ export default function QuickMatchRoomPage() {
             />
           </div>
 
-          {/* CONDITIONAL: Show Scoring Panel when my turn AND game active, Visit History when not, Match Finished overlay when done */}
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden relative">
-            {room.status === 'finished' || room.status === 'forfeited' ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6">
-                <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center mb-4">
-                  <Trophy className="w-10 h-10 text-yellow-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Match Finished</h3>
-                <p className="text-slate-400 mb-6">
-                  {room.winner_id === currentUserId ? 'You won!' : 'Match complete'}
-                </p>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleRematch}
-                    disabled={youRematchReady}
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    {youRematchReady ? 'Waiting...' : 'Rematch'}
-                  </Button>
-                  <Button
-                    onClick={handleGoHome}
-                    variant="outline"
-                    className="border-slate-600"
-                  >
-                    Back to Menu
-                  </Button>
-                </div>
-              </div>
-            ) : isMyTurn ? (
+          {/* CONDITIONAL: Show Scoring Panel when my turn AND game active, Visit History when not */}
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
+            {isMyTurn && room.status === 'active' ? (
               <ScoringPanel
                 scoreInput={scoreInput}
                 onScoreInputChange={setScoreInput}
@@ -2504,22 +2246,17 @@ export default function QuickMatchRoomPage() {
         </div>
       )}
 
-      {/* Winner Popup - stays open once match is won */}
-      {(winnerData || matchWonRef.current) && winnerData && (
+      {/* Winner Popup - shows when match is finished */}
+      {winnerStats && room?.status === 'finished' && (
         <WinnerPopup
-          isOpen={true}
-          winner={winnerData.winner}
-          loser={winnerData.loser}
-          winnerStats={winnerData.winnerStats}
-          loserStats={winnerData.loserStats}
+          winner={winnerStats.winner}
+          loser={winnerStats.loser}
+          winnerStats={winnerStats.winnerFullStats}
+          loserStats={winnerStats.loserFullStats}
           gameMode={room?.game_mode?.toString() || '501'}
           bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
-          onClose={handleWinnerPopupClose}
           onRematch={handleRematch}
           onHome={handleGoHome}
-          rematchStatus={rematchStatus}
-          opponentRematchReady={opponentRematchReady}
-          youReady={youRematchReady}
         />
       )}
     </div>
