@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
-import { Trophy, Gamepad2, User, Mail, ArrowLeft, BarChart3 } from 'lucide-react';
+import { Trophy, Gamepad2, User, Mail, ArrowLeft, BarChart3, History } from 'lucide-react';
+import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import Link from 'next/link';
 
 interface Profile {
@@ -117,6 +118,15 @@ export default function ProfilePage() {
             title="Quick Match Stats"
             icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
           />
+        </div>
+
+        {/* Recent Matches */}
+        <div className="mt-8">
+          <div className="flex items-center gap-3 mb-4">
+            <History className="w-6 h-6 text-emerald-400" />
+            <h2 className="text-xl font-bold text-white">Recent Matches</h2>
+          </div>
+          <MatchHistoryList limit={10} />
         </div>
       </div>
     </div>
