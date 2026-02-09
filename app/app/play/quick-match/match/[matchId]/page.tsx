@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -24,8 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
+
+import { LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -972,6 +972,11 @@ function ScoringPanel({
   );
 }
 
+// Label component
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
+}
+
 export default function QuickMatchRoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -1021,19 +1026,32 @@ export default function QuickMatchRoomPage() {
     newScore: number;
   } | null>(null);
 
-  // Winner popup state - SIMPLE
-  const [winnerStats, setWinnerStats] = useState<{
-    winner: { id: string; name: string; legs: number };
-    loser: { id: string; name: string; legs: number };
-    winnerFullStats: any;
-    loserFullStats: any;
+  // Match end stats state - stores player1 and player2 data with winner info
+  const [matchEndStats, setMatchEndStats] = useState<{
+    player1: { id: string; name: string; legs: number };
+    player2: { id: string; name: string; legs: number };
+    player1FullStats: any;
+    player2FullStats: any;
+    winnerId: string;
   } | null>(null);
 
   // Rematch state
   const [rematchStatus, setRematchStatus] = useState<'none' | 'waiting' | 'ready'>('none');
   const [opponentRematchReady, setOpponentRematchReady] = useState(false);
+  const [rematchOpponentId, setRematchOpponentId] = useState<string | null>(null);
+  const rematchRoomCreatedRef = useRef(false);
 
   const cleanupMatchRef = useRef<() => void>();
+
+  // Effect to handle when both players are ready for rematch
+  useEffect(() => {
+    // Only proceed if both players are ready and we haven't created the room yet
+    if (rematchStatus === 'waiting' && opponentRematchReady && rematchOpponentId && !rematchRoomCreatedRef.current) {
+      console.log('[REMATCH] Both players ready - creating rematch room from effect');
+      rematchRoomCreatedRef.current = true;
+      createRematchRoom(rematchOpponentId);
+    }
+  }, [rematchStatus, opponentRematchReady, rematchOpponentId]);
 
   // WebRTC
   const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
@@ -1141,6 +1159,11 @@ export default function QuickMatchRoomPage() {
     // Calculate BEST LEG (fewest darts to win a leg)
     const bestLeg = calculateBestLeg(playerId, visitData);
     
+    // Count 100+, 140+, and 180s
+    const count100Plus = playerVisits.filter(v => v.score >= 100 && v.score < 140).length;
+    const count140Plus = playerVisits.filter(v => v.score >= 140 && v.score < 180).length;
+    const oneEighties = playerVisits.filter(v => v.score === 180).length;
+    
     return {
       id: playerId,
       name: playerName,
@@ -1155,6 +1178,9 @@ export default function QuickMatchRoomPage() {
       totalScore: totalScored,
       checkouts: successfulCheckouts,
       checkoutAttempts,
+      count100Plus,
+      count140Plus,
+      oneEighties,
     };
   };
 
@@ -1230,24 +1256,27 @@ export default function QuickMatchRoomPage() {
   };
 
   // Calculate WHOLE MATCH stats (across all legs) for the display
-  // But darts thrown resets per leg as requested
-  const calculateMatchStats = (playerId: string) => {
+  // 3-dart average is calculated across ALL legs (entire game) as per dart rules
+  const calculateMatchStats = useCallback((playerId: string) => {
     // ALL visits for average calculation (whole match)
     const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
     const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    // 3-dart average across the ENTIRE game (all legs)
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
-    // CURRENT LEG visits for darts thrown display (resets each leg)
+    // CURRENT LEG visits for last score and darts thrown display (resets each leg)
     const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
     const dartsThisLeg = currentLegVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
     
     return {
-      average: threeDartAverage,
+      average: threeDartAverage, // 3-dart average across WHOLE game
       lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0,
-      dartsThrown: dartsThisLeg, // This resets per leg as requested
+      dartsThrown: dartsThisLeg, // Darts thrown in CURRENT leg only
+      totalDartsThrown: totalDarts, // Total darts across all legs
+      totalScore: totalScored, // Total score across all legs
     };
-  };
+  }, [visits, room?.current_leg]);
 
   useEffect(() => {
     let cleanupFn: (() => void) | undefined;
@@ -1384,11 +1413,11 @@ export default function QuickMatchRoomPage() {
           }
           
           // Handle match finished - show winner popup
-          if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !winnerStats) {
+          if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
-
-              const winnerId = updatedRoom.winner_id!;
+              
+              const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
@@ -1425,11 +1454,18 @@ export default function QuickMatchRoomPage() {
               // Update visits state to match
               setVisits(completeVisits);
               
-              setWinnerStats({
-                winner: { id: winnerId, name: winnerProfile?.username || 'Winner', legs: isPlayer1Winner ? p1Legs : p2Legs },
-                loser: { id: loserId, name: loserProfile?.username || 'Loser', legs: isPlayer1Winner ? p2Legs : p1Legs },
-                winnerFullStats: wStats,
-                loserFullStats: lStats,
+              // Determine player1 and player2 based on room data
+              const p1Id = updatedRoom.player1_id;
+              const p2Id = updatedRoom.player2_id;
+              const p1Profile = profiles.find(p => p.user_id === p1Id);
+              const p2Profile = profiles.find(p => p.user_id === p2Id);
+              
+              setMatchEndStats({
+                player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: updatedRoom.player1_legs || 0 },
+                player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: updatedRoom.player2_legs || 0 },
+                player1FullStats: p1Id === winnerId ? wStats : lStats,
+                player2FullStats: p2Id === winnerId ? wStats : lStats,
+                winnerId: winnerId,
               });
               
               // Save stats to database (for opponent who detected via realtime)
@@ -1486,7 +1522,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1503,6 +1539,7 @@ export default function QuickMatchRoomPage() {
           if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
             console.log('[REMATCH] Opponent is ready for rematch');
             setOpponentRematchReady(true);
+            setRematchOpponentId(signal.from_user_id);
           }
           // Handle rematch start - navigate to new room
           if (signal.type === 'rematch_start' && signal.to_user_id === currentUserId) {
@@ -1880,7 +1917,6 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
-            bust_reason: isBust ? 'bust' : null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
@@ -1905,11 +1941,18 @@ export default function QuickMatchRoomPage() {
           setVisits(completeVisits);
           
           // Show winner popup immediately for the winner
-          setWinnerStats({
-            winner: { id: winnerId, name: winnerProfile?.username || 'Winner', legs: winnerLegs },
-            loser: { id: loserId, name: loserProfile?.username || 'Loser', legs: loserLegs },
-            winnerFullStats: wStats,
-            loserFullStats: lStats,
+          // Determine player1 and player2 based on room data
+          const p1Id = room.player1_id;
+          const p2Id = room.player2_id;
+          const p1Profile = profiles.find(p => p.user_id === p1Id);
+          const p2Profile = profiles.find(p => p.user_id === p2Id);
+          
+          setMatchEndStats({
+            player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: newP1Legs },
+            player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: newP2Legs },
+            player1FullStats: p1Id === winnerId ? wStats : lStats,
+            player2FullStats: p2Id === winnerId ? wStats : lStats,
+            winnerId: winnerId,
           });
           
           // Save stats to database for both players
@@ -2212,11 +2255,14 @@ export default function QuickMatchRoomPage() {
 
   // Handle rematch with ready tracking (1/2, 2/2)
   const handleRematch = async () => {
-    if (!room || !currentUserId || !winnerStats) return;
+    if (!room || !currentUserId || !matchEndStats) return;
     
-    const opponentId = winnerStats.winner.id === currentUserId 
-      ? winnerStats.loser.id 
-      : winnerStats.winner.id;
+    const opponentId = matchEndStats.player1.id === currentUserId 
+      ? matchEndStats.player2.id 
+      : matchEndStats.player1.id;
+    
+    // Store opponent ID for use in the effect
+    setRematchOpponentId(opponentId);
     
     // If already ready, do nothing
     if (rematchStatus === 'waiting' || rematchStatus === 'ready') {
@@ -2238,12 +2284,8 @@ export default function QuickMatchRoomPage() {
       
       console.log('[REMATCH] Sent ready signal to opponent');
       
-      // Check if opponent is already ready
-      if (opponentRematchReady) {
-        console.log('[REMATCH] Both players ready - creating rematch');
-        setRematchStatus('ready');
-        await createRematchRoom(opponentId);
-      }
+      // The effect will handle creating the room when both are ready
+      // This prevents race conditions where both players try to create the room
       
     } catch (error: any) {
       console.error('[REMATCH] Error:', error);
@@ -2363,7 +2405,7 @@ export default function QuickMatchRoomPage() {
     }
   }
 
-  const handleGoHome = () => {
+  const handleReturn = () => {
     cleanupMatchRef.current?.();
     router.push('/app/play');
   };
@@ -2571,17 +2613,17 @@ export default function QuickMatchRoomPage() {
       )}
 
       {/* Winner Popup - shows when match is finished */}
-      {winnerStats && room?.status === 'finished' && (
+      {matchEndStats && room?.status === 'finished' && (
         <WinnerPopup
-          winner={winnerStats.winner}
-          loser={winnerStats.loser}
-          winnerStats={winnerStats.winnerFullStats}
-          loserStats={winnerStats.loserFullStats}
+          player1={matchEndStats.player1}
+          player2={matchEndStats.player2}
+          player1Stats={matchEndStats.player1FullStats}
+          player2Stats={matchEndStats.player2FullStats}
+          winnerId={matchEndStats.winnerId}
           gameMode={room?.game_mode?.toString() || '501'}
           bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
           onRematch={handleRematch}
-          onHome={handleGoHome}
-          onReturnToPlay={() => router.push('/app/play')}
+          onReturn={handleReturn}
           rematchStatus={rematchStatus}
           opponentRematchReady={opponentRematchReady}
           youReady={rematchStatus === 'waiting' || rematchStatus === 'ready'}
