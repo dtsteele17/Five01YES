@@ -11,7 +11,6 @@ interface MatchRoom {
   player2_remaining: number;
   current_turn: string;
   winner_id: string | null;
-  // Support both root-level legs and nested summary (for compatibility)
   player1_legs?: number;
   player2_legs?: number;
   summary?: {
@@ -70,20 +69,14 @@ export interface MappedMatchState {
   id: string;
   status: 'active' | 'finished' | 'abandoned' | 'forfeited';
   currentTurnPlayer: 1 | 2;
-
   players: [MatchStatePlayer, MatchStatePlayer];
-
   youArePlayer: 1 | 2 | null;
-
   visitHistory: MatchStateVisit[];
-
   winnerId: string | null;
   winnerName?: string;
-
   endedReason: 'active' | 'forfeit' | 'win';
   forfeiterId?: string;
   forfeiterName?: string;
-
   currentLeg: number;
   legsToWin: number;
   gameMode: number;
@@ -108,13 +101,10 @@ export function mapRoomToMatchState(
 
   const currentTurnPlayer = room.current_turn === room.player1_id ? 1 : 2;
 
-  // Get all visit events sorted by sequence
   const allVisitEvents = events
     .filter(e => e.event_type === 'visit')
     .sort((a, b) => a.seq - b.seq);
 
-  // Compute turnNumberInLeg for each player per leg
-  // Structure: { [leg: number]: { [playerId: string]: number } }
   const legPlayerTurnCounts: { [leg: number]: { [playerId: string]: number } } = {};
 
   const visitHistory: MatchStateVisit[] = allVisitEvents.map(e => {
@@ -122,21 +112,14 @@ export function mapRoomToMatchState(
     const isCurrentUser = e.player_id === currentUserId;
     const playerName = playerProfile?.username || 'Unknown';
 
-    // Get score from event.score or event.payload.score
     const score = e.score ?? e.payload.score ?? 0;
-
-    // Get remainingAfter from event.remaining_after or event.payload.remaining
     const remainingAfter = e.remaining_after ?? e.payload.remaining ?? 0;
-
-    // Get leg from event.payload.leg or default to current leg
     const leg = e.payload.leg ?? room.current_leg;
 
-    // Initialize leg counter if needed
     if (!legPlayerTurnCounts[leg]) {
       legPlayerTurnCounts[leg] = {};
     }
 
-    // Increment turn count for this player in this leg
     if (!legPlayerTurnCounts[leg][e.player_id]) {
       legPlayerTurnCounts[leg][e.player_id] = 0;
     }
@@ -159,18 +142,28 @@ export function mapRoomToMatchState(
     };
   });
 
-  // Calculate 3-dart averages for each player
+  // Calculate 3-dart averages for each player (like dartcounter.net)
   const player1Visits = visitHistory.filter(v => v.playerId === room.player1_id);
   const player2Visits = visitHistory.filter(v => v.playerId === room.player2_id);
 
   const player1TotalScore = player1Visits.reduce((sum, v) => sum + v.score, 0);
   const player2TotalScore = player2Visits.reduce((sum, v) => sum + v.score, 0);
 
-  const player1ThreeDartAvg = player1Visits.length > 0
-    ? player1TotalScore / player1Visits.length
+  // Count total darts thrown (3 per visit, 2 for checkouts)
+  const player1TotalDarts = player1Visits.reduce((sum, v) => {
+    return sum + (v.isCheckout ? 2 : 3);
+  }, 0);
+  
+  const player2TotalDarts = player2Visits.reduce((sum, v) => {
+    return sum + (v.isCheckout ? 2 : 3);
+  }, 0);
+
+  // Calculate 3-dart average: (totalScore / totalDarts) * 3
+  const player1ThreeDartAvg = player1TotalDarts > 0
+    ? (player1TotalScore / player1TotalDarts) * 3
     : 0;
-  const player2ThreeDartAvg = player2Visits.length > 0
-    ? player2TotalScore / player2Visits.length
+  const player2ThreeDartAvg = player2TotalDarts > 0
+    ? (player2TotalScore / player2TotalDarts) * 3
     : 0;
 
   const players: [MatchStatePlayer, MatchStatePlayer] = [
@@ -192,13 +185,11 @@ export function mapRoomToMatchState(
     },
   ];
 
-  // Determine endedReason, forfeiterId, winnerId, and their names
   let endedReason: 'active' | 'forfeit' | 'win' = 'active';
   let forfeiterId: string | undefined;
   let forfeiterName: string | undefined;
   let winnerName: string | undefined;
 
-  // Check for forfeit: either status is 'forfeited' or latest event is a forfeit
   const latestForfeitEvent = events
     .filter(e => e.event_type === 'forfeit')
     .sort((a, b) => b.seq - a.seq)[0];
