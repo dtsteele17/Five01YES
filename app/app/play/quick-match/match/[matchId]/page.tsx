@@ -18,13 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 
 import { Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -973,6 +966,11 @@ function ScoringPanel({
   );
 }
 
+// Label component
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
+}
+
 export default function QuickMatchRoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -1074,6 +1072,40 @@ export default function QuickMatchRoomPage() {
     };
   };
 
+  // Calculate BEST LEG (fewest darts thrown in a winning leg)
+  const calculateBestLeg = (playerId: string) => {
+    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    
+    // Group visits by leg
+    const visitsByLeg = new Map<number, typeof playerVisits>();
+    for (const visit of playerVisits) {
+      if (!visitsByLeg.has(visit.leg)) {
+        visitsByLeg.set(visit.leg, []);
+      }
+      visitsByLeg.get(visit.leg)!.push(visit);
+    }
+    
+    // Find the leg with fewest darts (that had a checkout)
+    let bestLegDarts = Infinity;
+    let bestLegNum = 0;
+    
+    for (const [legNum, legVisits] of visitsByLeg) {
+      const hasCheckout = legVisits.some(v => v.is_checkout);
+      if (hasCheckout) {
+        const legDarts = legVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+        if (legDarts < bestLegDarts) {
+          bestLegDarts = legDarts;
+          bestLegNum = legNum;
+        }
+      }
+    }
+    
+    return {
+      darts: bestLegDarts === Infinity ? 0 : bestLegDarts,
+      legNum: bestLegNum
+    };
+  };
+
   // Calculate player stats from visits - for FINISHED match (all legs)
   const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number, extraVisit?: any) => {
     let playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
@@ -1110,6 +1142,19 @@ export default function QuickMatchRoomPage() {
       ? (successfulCheckouts / checkoutAttempts) * 100 
       : 0;
     
+    // Calculate BEST LEG (fewest darts to win a leg)
+    const bestLeg = calculateBestLeg(playerId);
+    // If this was the winning leg and extraVisit provided, check if it's the best
+    if (extraVisit && extraVisit.player_id === playerId && extraVisit.is_checkout) {
+      const currentLegDarts = playerVisits
+        .filter(v => v.leg === extraVisit.leg)
+        .reduce((sum, v) => sum + v.darts_thrown, 0);
+      if (currentLegDarts < bestLeg.darts || bestLeg.darts === 0) {
+        bestLeg.darts = currentLegDarts;
+        bestLeg.legNum = extraVisit.leg;
+      }
+    }
+    
     return {
       id: playerId,
       name: playerName,
@@ -1119,6 +1164,8 @@ export default function QuickMatchRoomPage() {
       highestCheckout,
       checkoutPercentage,
       totalDartsThrown: totalDarts,
+      bestLegDarts: bestLeg.darts,
+      bestLegNum: bestLeg.legNum,
       totalScore: totalScored,
       checkouts: successfulCheckouts,
       checkoutAttempts,
@@ -1283,10 +1330,10 @@ export default function QuickMatchRoomPage() {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
               
-              const winnerId = updatedRoom.winner_id!;
+              const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
-              const loserId = (isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id)!;
+              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
               const loserProfile = profiles.find(p => p.user_id === loserId);
               
               const p1Legs = updatedRoom.player1_legs || 0;
@@ -1377,7 +1424,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -2109,7 +2156,7 @@ export default function QuickMatchRoomPage() {
         from_user_id: currentUserId,
         to_user_id: opponentId,
         type: 'rematch_ready',
-        payload: { ready: true }
+        payload: { ready: true, timestamp: Date.now() }
       });
       
       console.log('[REMATCH] Sent ready signal to opponent');
@@ -2133,7 +2180,7 @@ export default function QuickMatchRoomPage() {
     if (!room) return;
     
     try {
-      toast.loading('Starting rematch...');
+      toast.loading('Creating rematch room...');
       
       const { data: newRoom, error } = await supabase
         .from('match_rooms')
@@ -2157,16 +2204,25 @@ export default function QuickMatchRoomPage() {
       
       if (error) throw error;
       
+      console.log('[REMATCH] Created room:', newRoom.id);
+      
       // Send rematch start signal to opponent with new room ID
-      await supabase.from('match_signals').insert({
+      const { error: signalError } = await supabase.from('match_signals').insert({
         room_id: matchId,
         from_user_id: currentUserId,
         to_user_id: opponentId,
         type: 'rematch_start',
-        payload: { new_room_id: newRoom.id }
+        payload: { new_room_id: newRoom.id, creator_id: currentUserId }
       });
       
-      toast.success('Rematch starting...');
+      if (signalError) {
+        console.error('[REMATCH] Error sending start signal:', signalError);
+      }
+      
+      // Small delay to ensure signal is sent before navigation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('[REMATCH] Navigating to new room:', newRoom.id);
       window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
       
     } catch (error: any) {
