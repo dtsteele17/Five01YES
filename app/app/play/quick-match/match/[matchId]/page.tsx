@@ -1416,8 +1416,8 @@ export default function QuickMatchRoomPage() {
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
-              
-              const winnerId = updatedRoom.winner_id;
+
+              const winnerId = updatedRoom.winner_id!;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
@@ -1522,7 +1522,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1917,6 +1917,7 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
+            bust_reason: isBust ? 'bust' : null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
