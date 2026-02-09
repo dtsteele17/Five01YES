@@ -18,13 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 
 import { Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -973,6 +966,11 @@ function ScoringPanel({
   );
 }
 
+// Label component
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
+}
+
 export default function QuickMatchRoomPage() {
   const router = useRouter();
   const params = useParams();
@@ -1071,8 +1069,14 @@ export default function QuickMatchRoomPage() {
   };
 
   // Calculate player stats from visits - for FINISHED match (all legs)
-  const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number) => {
-    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+  const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number, extraVisit?: any) => {
+    let playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    
+    // Add extra visit if provided (for when match just ended)
+    if (extraVisit && extraVisit.player_id === playerId && !extraVisit.is_bust) {
+      playerVisits = [...playerVisits, extraVisit];
+    }
+    
     const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
@@ -1113,6 +1117,11 @@ export default function QuickMatchRoomPage() {
       checkouts: successfulCheckouts,
       checkoutAttempts,
     };
+  };
+
+  // Wrapper for winner that includes the final visit
+  const calculatePlayerStatsWithVisit = (playerId: string, playerName: string, legsWon: number, extraVisit: any) => {
+    return calculatePlayerStats(playerId, playerName, legsWon, extraVisit);
   };
 
   // Calculate PER LEG stats for the current leg display
@@ -1344,7 +1353,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1703,10 +1712,30 @@ export default function QuickMatchRoomPage() {
           const winnerLegs = isPlayer1Winner ? newP1Legs : newP2Legs;
           const loserLegs = isPlayer1Winner ? newP2Legs : newP1Legs;
           
-          const wStats = calculatePlayerStats(
+          // Create the final visit object that was just submitted
+          const finalVisit = {
+            id: 'temp-' + Date.now(),
+            room_id: matchId,
+            player_id: currentUserId,
+            leg: room.current_leg,
+            turn_no: 999, // temporary
+            score: isBust ? 0 : score,
+            remaining_before: isPlayer1 ? room.player1_remaining : room.player2_remaining,
+            remaining_after: data.remaining_after,
+            darts: darts.map(d => ({ n: d.number, mult: d.type === 'bull' ? (d.value === 50 ? 'DB' : 'SB') : d.type === 'double' ? 'D' : d.type === 'triple' ? 'T' : 'S' })),
+            darts_thrown: darts.length,
+            darts_at_double: darts.filter(d => d.is_double).length,
+            is_bust: isBust,
+            is_checkout: true,
+            created_at: new Date().toISOString()
+          };
+          
+          // Calculate stats including the final visit
+          const wStats = calculatePlayerStatsWithVisit(
             winnerId,
             winnerProfile?.username || 'Winner',
-            winnerLegs
+            winnerLegs,
+            finalVisit
           );
           const lStats = calculatePlayerStats(
             loserId,
