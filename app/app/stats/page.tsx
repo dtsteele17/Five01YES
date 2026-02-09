@@ -33,8 +33,8 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = overallStats?.total_matches > 0 
-    ? ((overallStats.wins / overallStats.total_matches) * 100).toFixed(1)
+  const winPercentage = (overallStats?.total_matches ?? 0) > 0
+    ? (((overallStats?.wins ?? 0) / (overallStats?.total_matches ?? 1)) * 100).toFixed(1)
     : '0.0';
 
   return (
