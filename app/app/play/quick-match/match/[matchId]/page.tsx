@@ -1414,16 +1414,13 @@ export default function QuickMatchRoomPage() {
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
-
-              const winnerId = updatedRoom.winner_id!;
+              
+              const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
-              const loserId = (isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id) || '';
+              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
               const loserProfile = profiles.find(p => p.user_id === loserId);
-
-              const p1Legs = updatedRoom.player1_legs || 0;
-              const p2Legs = updatedRoom.player2_legs || 0;
-
+              
               // Fetch ALL visits from database to ensure we have complete data for both players
               const { data: allVisits } = await supabase
                 .from('quick_match_visits')
@@ -1431,10 +1428,20 @@ export default function QuickMatchRoomPage() {
                 .eq('room_id', matchId)
                 .order('leg', { ascending: true })
                 .order('turn_no', { ascending: true });
-
+              
               // Temporarily update visits state for accurate calculation
               const completeVisits = (allVisits as QuickMatchVisit[]) || visits;
-
+              
+              // Calculate legs from visits (count checkouts per player)
+              const p1LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player1_id && v.is_checkout).length;
+              const p2LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player2_id && v.is_checkout).length;
+              
+              // Use room data as fallback, but visits count is more accurate
+              const p1Legs = p1LegsFromVisits || updatedRoom.player1_legs || 0;
+              const p2Legs = p2LegsFromVisits || updatedRoom.player2_legs || 0;
+              
+              console.log('[MATCH END] Legs calculated:', { p1Legs, p2Legs, p1LegsFromVisits, p2LegsFromVisits, roomP1Legs: updatedRoom.player1_legs, roomP2Legs: updatedRoom.player2_legs });
+              
               // Calculate stats for both players using complete visits
               const wStats = calculatePlayerStatsFromVisits(
                 completeVisits,
@@ -1458,9 +1465,11 @@ export default function QuickMatchRoomPage() {
               const p1Profile = profiles.find(p => p.user_id === p1Id);
               const p2Profile = profiles.find(p => p.user_id === p2Id);
               
+              console.log('[MATCH END] Setting match end stats:', { p1Legs, p2Legs, winnerId });
+              
               setMatchEndStats({
-                player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: updatedRoom.player1_legs || 0 },
-                player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: updatedRoom.player2_legs || 0 },
+                player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: p1Legs },
+                player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: p2Legs },
                 player1FullStats: p1Id === winnerId ? wStats : lStats,
                 player2FullStats: p2Id === winnerId ? wStats : lStats,
                 winnerId: winnerId,
@@ -1520,7 +1529,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1905,12 +1914,12 @@ export default function QuickMatchRoomPage() {
         if (isMatchWon) {
           console.log('[SUBMIT] MATCH WON!');
           toast.success('🏆 MATCH WON!');
-
-          const winnerId = currentUserId!;
+          
+          const winnerId = currentUserId;
           const isPlayer1Winner = winnerId === room.player1_id;
-
+          
           const winnerProfile = profiles.find(p => p.user_id === winnerId);
-          const loserId = (isPlayer1Winner ? room.player2_id : room.player1_id) || '';
+          const loserId = isPlayer1Winner ? room.player2_id : room.player1_id;
           const loserProfile = profiles.find(p => p.user_id === loserId);
           
           const winnerLegs = isPlayer1Winner ? newP1Legs : newP2Legs;
@@ -1928,7 +1937,7 @@ export default function QuickMatchRoomPage() {
           const finalVisit: QuickMatchVisit = {
             id: 'temp-' + Date.now(),
             room_id: matchId,
-            player_id: currentUserId!,
+            player_id: currentUserId,
             leg: room.current_leg,
             turn_no: 999,
             score: isBust ? 0 : score,
@@ -1938,25 +1947,34 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
-            bust_reason: null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
           
           const completeVisits = [...((allVisits as QuickMatchVisit[]) || visits), finalVisit];
           
+          // Verify legs from visits (count checkouts per player) - more accurate than state
+          const p1LegsFromVisits = completeVisits.filter(v => v.player_id === room.player1_id && v.is_checkout).length;
+          const p2LegsFromVisits = completeVisits.filter(v => v.player_id === room.player2_id && v.is_checkout).length;
+          
+          // Use calculated legs from visits as they're more accurate
+          const finalP1Legs = p1LegsFromVisits || newP1Legs;
+          const finalP2Legs = p2LegsFromVisits || newP2Legs;
+          
+          console.log('[MATCH END] Legs from visits:', { finalP1Legs, finalP2Legs, p1LegsFromVisits, p2LegsFromVisits });
+          
           // Calculate stats for both players using complete visits
           const wStats = calculatePlayerStatsFromVisits(
             completeVisits,
             winnerId,
             winnerProfile?.username || 'Winner',
-            winnerLegs
+            isPlayer1Winner ? finalP1Legs : finalP2Legs
           );
           const lStats = calculatePlayerStatsFromVisits(
             completeVisits,
             loserId,
             loserProfile?.username || 'Loser',
-            loserLegs
+            isPlayer1Winner ? finalP2Legs : finalP1Legs
           );
           
           // Update visits state
@@ -1969,22 +1987,26 @@ export default function QuickMatchRoomPage() {
           const p1Profile = profiles.find(p => p.user_id === p1Id);
           const p2Profile = profiles.find(p => p.user_id === p2Id);
           
+          console.log('[MATCH END] Setting winner popup stats:', { finalP1Legs, finalP2Legs, winnerId });
+          
           setMatchEndStats({
-            player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: newP1Legs },
-            player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: newP2Legs },
+            player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: finalP1Legs },
+            player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: finalP2Legs },
             player1FullStats: p1Id === winnerId ? wStats : lStats,
             player2FullStats: p2Id === winnerId ? wStats : lStats,
             winnerId: winnerId,
           });
           
-          // Save stats to database for both players
-          await saveMatchStats(matchId, winnerId, loserId, winnerLegs, loserLegs, room.game_mode);
+          // Save stats to database for both players using accurate leg counts
+          const finalWinnerLegs = isPlayer1Winner ? finalP1Legs : finalP2Legs;
+          const finalLoserLegs = isPlayer1Winner ? finalP2Legs : finalP1Legs;
+          await saveMatchStats(matchId, winnerId, loserId, finalWinnerLegs, finalLoserLegs, room.game_mode);
           
           // Update room state
           setRoom({
             ...room,
-            player1_legs: newP1Legs,
-            player2_legs: newP2Legs,
+            player1_legs: finalP1Legs,
+            player2_legs: finalP2Legs,
             status: 'finished',
             winner_id: winnerId,
           });
