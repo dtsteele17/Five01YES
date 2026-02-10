@@ -39,6 +39,7 @@ import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
+import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -1067,6 +1068,11 @@ export default function QuickMatchRoomPage() {
   const [showCoinToss, setShowCoinToss] = useState(false);
   const [coinTossCompleted, setCoinTossCompleted] = useState(false);
 
+  // Checkout dialog state for typed scores
+  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [pendingCheckoutScore, setPendingCheckoutScore] = useState(0);
+  const [pendingRemainingBefore, setPendingRemainingBefore] = useState(501);
+
   const cleanupMatchRef = useRef<() => void>();
   
   // Navigate to rematch room when set
@@ -1119,6 +1125,8 @@ export default function QuickMatchRoomPage() {
   const calculateBestLeg = (playerId: string, visitData: QuickMatchVisit[]) => {
     const playerVisits = visitData.filter(v => v.player_id === playerId && !v.is_bust);
     
+    console.log(`[BEST LEG] Calculating for player ${playerId.substring(0, 8)}, visits:`, playerVisits.length);
+    
     // Group visits by leg
     const visitsByLeg = new Map<number, typeof playerVisits>();
     for (const visit of playerVisits) {
@@ -1128,6 +1136,13 @@ export default function QuickMatchRoomPage() {
       visitsByLeg.get(visit.leg)!.push(visit);
     }
     
+    console.log(`[BEST LEG] Visits grouped by leg:`, Array.from(visitsByLeg.entries()).map(([leg, visits]) => ({ 
+      leg, 
+      visitCount: visits.length,
+      hasCheckout: visits.some(v => v.is_checkout),
+      dartsThrown: visits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0)
+    })));
+    
     // Find the leg with fewest darts (that had a checkout)
     let bestLegDarts = Infinity;
     let bestLegNum = 0;
@@ -1135,7 +1150,9 @@ export default function QuickMatchRoomPage() {
     for (const [legNum, legVisits] of visitsByLeg) {
       const hasCheckout = legVisits.some(v => v.is_checkout);
       if (hasCheckout) {
-        const legDarts = legVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+        // Sum actual darts thrown, default to 3 if not recorded
+        const legDarts = legVisits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0);
+        console.log(`[BEST LEG] Leg ${legNum} won with ${legDarts} darts`);
         if (legDarts < bestLegDarts) {
           bestLegDarts = legDarts;
           bestLegNum = legNum;
@@ -1143,10 +1160,13 @@ export default function QuickMatchRoomPage() {
       }
     }
     
-    return {
+    const result = {
       darts: bestLegDarts === Infinity ? 0 : bestLegDarts,
       legNum: bestLegNum
     };
+    
+    console.log(`[BEST LEG] Result:`, result);
+    return result;
   };
 
   // Calculate player stats from provided visits array (for accurate calculation)
@@ -1185,12 +1205,22 @@ export default function QuickMatchRoomPage() {
       ? Math.max(...checkouts.map(v => v.score))
       : 0;
     
-    // Calculate checkout percentage
+    // Calculate checkout percentage - use darts_at_double from visits when available
+    // Count any visit at a checkout score (<= 170, > 0 remaining) as a checkout attempt
     const checkoutAttempts = playerVisits.filter(v => v.remaining_before <= 170 && v.remaining_before > 0).length;
     const successfulCheckouts = checkouts.length;
+    
+    // For checkout percentage: successful checkouts / total checkout attempts
+    // A checkout attempt is any visit where remaining was <= 170 (finish range)
     const checkoutPercentage = checkoutAttempts > 0 
       ? (successfulCheckouts / checkoutAttempts) * 100 
       : 0;
+    
+    console.log(`[STATS CALC] ${playerName} checkout calc:`, {
+      checkoutAttempts,
+      successfulCheckouts,
+      checkoutPercentage: checkoutPercentage.toFixed(1)
+    });
     
     // Calculate BEST LEG (fewest darts to win a leg)
     const bestLeg = calculateBestLeg(playerId, visitData);
@@ -1852,6 +1882,12 @@ export default function QuickMatchRoomPage() {
     await submitScore(visitTotal, false, currentVisit, validation.isCheckout);
   };
 
+  // Store pending checkout info for typed scores
+  const [pendingCheckoutInfo, setPendingCheckoutInfo] = useState<{
+    score: number;
+    remainingBefore: number;
+  } | null>(null);
+
   const handleInputScoreSubmit = async () => {
     console.log('[TYPED SCORE] Submit clicked, scoreInput:', scoreInput);
     
@@ -1906,9 +1942,126 @@ export default function QuickMatchRoomPage() {
     // Checkout - typed scores can win without double
     const isCheckout = newRemaining === 0;
     
+    // If it's a checkout, show the checkout details dialog first
+    if (isCheckout) {
+      console.log('[TYPED SCORE] Checkout detected, showing details dialog');
+      setPendingCheckoutInfo({ score, remainingBefore: currentRemaining });
+      setShowCheckoutDialog(true);
+      return;
+    }
+    
     console.log('[TYPED SCORE] Submitting - remaining:', newRemaining, 'isCheckout:', isCheckout);
     await submitScore(score, false, genericDarts, isCheckout, true); // true = isTypedScore
   };
+
+  // Handle checkout details submission from dialog
+  const handleCheckoutDetailsSubmit = async (dartsThrown: number, dartsAtDouble: number) => {
+    if (!pendingCheckoutInfo) return;
+    
+    console.log('[TYPED SCORE] Checkout details submitted:', { dartsThrown, dartsAtDouble });
+    
+    const { score, remainingBefore } = pendingCheckoutInfo;
+    
+    // Create darts with proper checkout info
+    const checkoutDarts: Dart[] = [];
+    
+    // Add darts based on dartsThrown (last one is the checkout dart)
+    for (let i = 0; i < dartsThrown; i++) {
+      const isLastDart = i === dartsThrown - 1;
+      checkoutDarts.push({
+        type: isLastDart ? 'double' : 'single',
+        number: isLastDart ? score : 0,
+        value: isLastDart ? score : 0,
+        multiplier: isLastDart ? 2 : 1,
+        label: isLastDart ? `D${score}` : 'Miss',
+        score: isLastDart ? score : 0,
+        is_double: isLastDart
+      });
+    }
+    
+    // Close dialog and clear pending state
+    setShowCheckoutDialog(false);
+    setPendingCheckoutInfo(null);
+    setScoreInput('');
+    
+    // Submit with checkout details
+    await submitScoreWithCheckoutDetails(score, checkoutDarts, dartsThrown, dartsAtDouble);
+  };
+
+  // Submit score with checkout details (darts thrown and darts at double)
+  async function submitScoreWithCheckoutDetails(score: number, darts: Dart[], dartsThrown: number, dartsAtDouble: number) {
+    console.log('[SUBMIT CHECKOUT] submitScoreWithCheckoutDetails called', { score, dartsThrown, dartsAtDouble });
+
+    if (!room) {
+      toast.error('Room data missing');
+      return;
+    }
+
+    if (!matchState) {
+      toast.error('Match state missing');
+      return;
+    }
+
+    if (!currentUserId) {
+      toast.error('User not authenticated');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const dartsArray = darts.map(dart => {
+        let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
+        if (dart.type === 'bull') mult = dart.value === 50 ? 'DB' : 'SB';
+        else if (dart.type === 'double') mult = 'D';
+        else if (dart.type === 'triple') mult = 'T';
+        return { n: dart.number, mult };
+      });
+
+      console.log('[SUBMIT CHECKOUT] Submitting with dartsThrown:', dartsThrown, 'dartsAtDouble:', dartsAtDouble);
+
+      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
+        p_room_id: matchId,
+        p_score: score,
+        p_darts: dartsArray,
+        p_is_bust: false,
+        p_darts_thrown: dartsThrown,
+        p_darts_at_double: dartsAtDouble,
+        p_is_typed_score: true
+      });
+
+      if (error) {
+        console.error('[SUBMIT CHECKOUT] Supabase RPC error:', error);
+        toast.error(error.message || 'Failed to submit');
+        return;
+      }
+
+      if (!data?.ok) {
+        console.error('[SUBMIT CHECKOUT] RPC returned not ok:', data);
+        toast.error(data?.error || 'Failed to submit visit');
+        return;
+      }
+
+      console.log('[SUBMIT CHECKOUT] RPC success:', data);
+      toast.success('🎯 CHECKOUT!');
+
+      // Clear input
+      setScoreInput('');
+      setCurrentVisit([]);
+
+      // Handle match won
+      if (data.match_won) {
+        // Stats and popup will be handled by the realtime subscription or the submit handler
+        console.log('[SUBMIT CHECKOUT] Match won!');
+      }
+
+    } catch (error: any) {
+      console.error('[SUBMIT CHECKOUT] Unexpected error:', error);
+      toast.error(error?.message || 'Failed to submit visit');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false, isTypedScore: boolean = false) {
     console.log('[SUBMIT] submitScore called', { score, isBust, dartsCount: darts.length, isCheckout, isTypedScore });
@@ -2902,6 +3055,16 @@ export default function QuickMatchRoomPage() {
           player1Id={room.player1_id}
           player2Id={room.player2_id}
           onComplete={handleCoinTossComplete}
+        />
+      )}
+
+      {/* Checkout Details Dialog - shows when typed score is a checkout */}
+      {showCheckoutDialog && pendingCheckoutInfo && (
+        <CheckoutDetailsDialog
+          isOpen={showCheckoutDialog}
+          score={pendingCheckoutInfo.score}
+          remainingBefore={pendingCheckoutInfo.remainingBefore}
+          onSubmit={handleCheckoutDetailsSubmit}
         />
       )}
 

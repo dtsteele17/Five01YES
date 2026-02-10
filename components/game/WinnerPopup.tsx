@@ -212,34 +212,34 @@ export function WinnerPopup({
               )}
             </div>
             
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">3-Dart Avg</span>
-                <span className={`font-bold ${p1Color}`}>{fmt(player1Stats?.threeDartAverage)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">3-Dart Avg</span>
+                <span className={`font-bold ${p1Color} text-base`}>{fmt(player1Stats?.threeDartAverage)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">First 9</span>
-                <span className={`font-bold ${p1Color}`}>{fmt(player1Stats?.first9Average)}</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">First 9</span>
+                <span className={`font-bold ${p1Color} text-base`}>{fmt(player1Stats?.first9Average)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Best Checkout</span>
-                <span className={`font-bold ${p1Color}`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Best Checkout</span>
+                <span className={`font-bold ${p1Color} text-base`}>
                   {(player1Stats?.checkouts || 0) > 0 ? fmtInt(player1Stats?.highestCheckout) : '-'}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Checkout %</span>
-                <span className={`font-bold ${p1Color}`}>{fmt(player1Stats?.checkoutPercentage, '%')}</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Checkout %</span>
+                <span className={`font-bold ${p1Color} text-base`}>{fmt(player1Stats?.checkoutPercentage, '%')}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Best Leg</span>
-                <span className={`font-bold ${p1Color}`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Best Leg</span>
+                <span className={`font-bold ${p1Color} text-base`}>
                   {player1Stats?.bestLegDarts > 0 ? `${player1Stats.bestLegDarts} darts` : '-'}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">100+/140+/180</span>
-                <span className={`font-bold ${p1Color} text-xs`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">100+/140+/180</span>
+                <span className={`font-bold ${p1Color} text-sm`}>
                   {player1Stats?.count100Plus || 0}/{player1Stats?.count140Plus || 0}/{player1Stats?.oneEighties || 0}
                 </span>
               </div>
@@ -255,34 +255,34 @@ export function WinnerPopup({
               )}
             </div>
             
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">3-Dart Avg</span>
-                <span className={`font-bold ${p2Color}`}>{fmt(player2Stats?.threeDartAverage)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">3-Dart Avg</span>
+                <span className={`font-bold ${p2Color} text-base`}>{fmt(player2Stats?.threeDartAverage)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">First 9</span>
-                <span className={`font-bold ${p2Color}`}>{fmt(player2Stats?.first9Average)}</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">First 9</span>
+                <span className={`font-bold ${p2Color} text-base`}>{fmt(player2Stats?.first9Average)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Best Checkout</span>
-                <span className={`font-bold ${p2Color}`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Best Checkout</span>
+                <span className={`font-bold ${p2Color} text-base`}>
                   {(player2Stats?.checkouts || 0) > 0 ? fmtInt(player2Stats?.highestCheckout) : '-'}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Checkout %</span>
-                <span className={`font-bold ${p2Color}`}>{fmt(player2Stats?.checkoutPercentage, '%')}</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Checkout %</span>
+                <span className={`font-bold ${p2Color} text-base`}>{fmt(player2Stats?.checkoutPercentage, '%')}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Best Leg</span>
-                <span className={`font-bold ${p2Color}`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">Best Leg</span>
+                <span className={`font-bold ${p2Color} text-base`}>
                   {player2Stats?.bestLegDarts > 0 ? `${player2Stats.bestLegDarts} darts` : '-'}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">100+/140+/180</span>
-                <span className={`font-bold ${p2Color} text-xs`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400 text-sm">100+/140+/180</span>
+                <span className={`font-bold ${p2Color} text-sm`}>
                   {player2Stats?.count100Plus || 0}/{player2Stats?.count140Plus || 0}/{player2Stats?.oneEighties || 0}
                 </span>
               </div>
