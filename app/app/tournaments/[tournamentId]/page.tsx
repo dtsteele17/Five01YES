@@ -101,6 +101,24 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       )
       .subscribe();
 
+    // Watch for participant changes - reload when someone registers
+    const participantsChannel = supabase
+      .channel(`tournament-participants-${tournamentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tournament_participants',
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        () => {
+          console.log('[TOURNAMENT PAGE] Participant change detected, reloading data');
+          loadData();
+        }
+      )
+      .subscribe();
+
     // Watch for match updates - auto-redirect when match starts
     const matchChannel = supabase
       .channel(`tournament-matches-${tournamentId}`)
@@ -147,6 +165,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(participantsChannel);
       supabase.removeChannel(matchChannel);
       clearInterval(pollInterval);
     };

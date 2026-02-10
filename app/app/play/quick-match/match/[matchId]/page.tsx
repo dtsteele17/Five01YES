@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -24,7 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Trophy, Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
+
+import { LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -36,6 +37,7 @@ import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
+import { WinnerPopup } from '@/components/game/WinnerPopup';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -62,8 +64,9 @@ interface MatchRoom {
   current_turn: string;
   winner_id: string | null;
   double_out: boolean;
-  player1_legs?: number;
-  player2_legs?: number;
+  player1_legs: number;
+  player2_legs: number;
+  source: string;
 }
 
 interface Profile {
@@ -256,6 +259,137 @@ const CHECKOUT_ROUTES: Record<number, string[]> = {
   2: ['D1'],
 };
 
+// 2-dart checkout routes (for when 1 dart already thrown)
+const CHECKOUT_ROUTES_2_DARTS: Record<number, string[]> = {
+  110: ['T20', 'DB'],
+  107: ['T19', 'DB'],
+  104: ['T18', 'DB'],
+  101: ['T17', 'DB'],
+  100: ['T20', 'D20'],
+  98: ['T20', 'D19'],
+  97: ['T19', 'D20'],
+  96: ['T20', 'D18'],
+  95: ['T19', 'D19'],
+  94: ['T18', 'D20'],
+  93: ['T19', 'D18'],
+  92: ['T20', 'D16'],
+  91: ['T17', 'D20'],
+  90: ['T20', 'D15'],
+  89: ['T19', 'D16'],
+  88: ['T20', 'D14'],
+  87: ['T17', 'D18'],
+  86: ['T18', 'D16'],
+  85: ['T19', 'D14'],
+  84: ['T20', 'D12'],
+  83: ['T17', 'D16'],
+  82: ['T14', 'D20'],
+  81: ['T19', 'D12'],
+  80: ['T20', 'D10'],
+  79: ['T13', 'D20'],
+  78: ['T18', 'D12'],
+  77: ['T19', 'D10'],
+  76: ['T20', 'D8'],
+  75: ['T17', 'D12'],
+  74: ['T14', 'D16'],
+  73: ['T19', 'D8'],
+  72: ['T16', 'D12'],
+  71: ['T13', 'D16'],
+  70: ['T20', 'D5'],
+  69: ['T19', 'D6'],
+  68: ['T20', 'D4'],
+  67: ['T17', 'D8'],
+  66: ['T10', 'D18'],
+  65: ['T19', 'D4'],
+  64: ['T16', 'D8'],
+  63: ['T13', 'D12'],
+  62: ['T10', 'D16'],
+  61: ['T15', 'D8'],
+  60: ['20', 'D20'],
+  59: ['19', 'D20'],
+  58: ['18', 'D20'],
+  57: ['17', 'D20'],
+  56: ['16', 'D20'],
+  55: ['15', 'D20'],
+  54: ['14', 'D20'],
+  53: ['13', 'D20'],
+  52: ['12', 'D20'],
+  51: ['11', 'D20'],
+  50: ['10', 'D20'],
+  49: ['9', 'D20'],
+  48: ['8', 'D20'],
+  47: ['15', 'D16'],
+  46: ['6', 'D20'],
+  45: ['13', 'D16'],
+  44: ['12', 'D16'],
+  43: ['11', 'D16'],
+  42: ['10', 'D16'],
+  41: ['9', 'D16'],
+  40: ['D20'],
+  39: ['7', 'D16'],
+  38: ['D19'],
+  37: ['5', 'D16'],
+  36: ['D18'],
+  35: ['3', 'D16'],
+  34: ['D17'],
+  33: ['1', 'D16'],
+  32: ['D16'],
+  31: ['7', 'D12'],
+  30: ['D15'],
+  29: ['13', 'D8'],
+  28: ['D14'],
+  27: ['11', 'D8'],
+  26: ['D13'],
+  25: ['9', 'D8'],
+  24: ['D12'],
+  23: ['7', 'D8'],
+  22: ['D11'],
+  21: ['5', 'D8'],
+  20: ['D10'],
+  19: ['3', 'D8'],
+  18: ['D9'],
+  17: ['1', 'D8'],
+  16: ['D8'],
+  15: ['7', 'D4'],
+  14: ['D7'],
+  13: ['5', 'D4'],
+  12: ['D6'],
+  11: ['3', 'D4'],
+  10: ['D5'],
+  9: ['1', 'D4'],
+  8: ['D4'],
+  7: ['3', 'D2'],
+  6: ['D3'],
+  5: ['1', 'D2'],
+  4: ['D2'],
+  3: ['1', 'D1'],
+  2: ['D1'],
+};
+
+// 1-dart checkout routes (for when 2 darts already thrown)
+const CHECKOUT_ROUTES_1_DART: Record<number, string[]> = {
+  40: ['D20'],
+  38: ['D19'],
+  36: ['D18'],
+  34: ['D17'],
+  32: ['D16'],
+  30: ['D15'],
+  28: ['D14'],
+  26: ['D13'],
+  24: ['D12'],
+  22: ['D11'],
+  20: ['D10'],
+  18: ['D9'],
+  16: ['D8'],
+  14: ['D7'],
+  12: ['D6'],
+  10: ['D5'],
+  8: ['D4'],
+  6: ['D3'],
+  4: ['D2'],
+  2: ['D1'],
+  50: ['DB'],
+};
+
 // ============================================================
 // VISIT HISTORY COMPONENT - SHOWN WHEN NOT YOUR TURN
 // ============================================================
@@ -267,6 +401,7 @@ function VisitHistoryPanel({
   opponentName,
   myColor,
   opponentColor,
+  currentLeg,
   onEditVisit,
   onDeleteVisit,
 }: {
@@ -277,11 +412,26 @@ function VisitHistoryPanel({
   opponentName: string;
   myColor: string;
   opponentColor: string;
+  currentLeg: number;
   onEditVisit: (visit: QuickMatchVisit) => void;
   onDeleteVisit: (visitId: string) => void;
 }) {
-  const myVisits = visits.filter(v => v.player_id === myUserId).sort((a, b) => a.turn_no - b.turn_no);
-  const opponentVisits = visits.filter(v => v.player_id === opponentUserId).sort((a, b) => a.turn_no - b.turn_no);
+  // Show visits from CURRENT LEG ONLY - resets when new leg starts
+  const currentLegVisits = useMemo(() => {
+    return visits.filter(v => v.leg === currentLeg);
+  }, [visits, currentLeg]);
+  
+  // Derive opponent ID from visits data if not provided or mismatch
+  // This is more reliable than passing opponentUserId from parent
+  const actualOpponentId = useMemo(() => {
+    // Find a visit that doesn't belong to me - that's the opponent
+    const opponentVisit = currentLegVisits.find(v => v.player_id !== myUserId);
+    return opponentVisit?.player_id || opponentUserId;
+  }, [currentLegVisits, myUserId, opponentUserId]);
+  
+  // Sort visits with newest first (descending turn_no) so most recent is at top
+  const myVisits = currentLegVisits.filter(v => v.player_id === myUserId).sort((a, b) => b.turn_no - a.turn_no);
+  const opponentVisits = currentLegVisits.filter(v => v.player_id === actualOpponentId).sort((a, b) => b.turn_no - a.turn_no);
   
   const maxVisits = Math.max(myVisits.length, opponentVisits.length);
 
@@ -301,7 +451,7 @@ function VisitHistoryPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-3">Visit History</h3>
+      <h3 className="text-sm font-semibold text-white mb-3">Visit History - Leg {currentLeg}</h3>
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
@@ -310,14 +460,15 @@ function VisitHistoryPanel({
           <div className={`text-center font-bold ${opponentColor}`}>{opponentName}</div>
         </div>
 
-        {/* Visit Rows */}
+        {/* Visit Rows - Newest first */}
         {maxVisits === 0 ? (
           <div className="text-center text-gray-500 py-8">No visits yet</div>
         ) : (
           Array.from({ length: maxVisits }, (_, i) => {
             const myVisit = myVisits[i];
             const opponentVisit = opponentVisits[i];
-            const isLatestMyVisit = myVisit && i === myVisits.length - 1;
+            // Since we reversed the order, index 0 is the latest visit
+            const isLatestMyVisit = myVisit && i === 0;
             
             return (
               <div key={i} className="grid grid-cols-2 gap-4 py-2 border-b border-white/5">
@@ -326,21 +477,19 @@ function VisitHistoryPanel({
                   {myVisit ? (
                     <div className="bg-slate-800/50 rounded-lg p-2 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">#{myVisit.turn_no}</span>
+                        <span className="text-xs text-gray-500">L{myVisit.leg} #{myVisit.turn_no}</span>
                         {isLatestMyVisit && (
                           <button
                             onClick={() => onEditVisit(myVisit)}
-                            className="p-1 bg-emerald-500/20 hover:bg-emerald-500/30 rounded text-emerald-400 transition-colors"
+                            className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 rounded text-emerald-400 text-xs font-medium transition-colors flex items-center gap-1"
                             title="Edit this visit"
                           >
                             <Edit2 className="w-3 h-3" />
+                            Edit
                           </button>
                         )}
                       </div>
-                      <div className="text-sm font-mono text-gray-300">
-                        {formatDarts(myVisit.darts)}
-                      </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mt-1">
                         <span className={`text-lg font-bold ${myColor}`}>{myVisit.score}</span>
                         <span className="text-xs text-gray-500">→ {myVisit.remaining_after}</span>
                       </div>
@@ -357,12 +506,9 @@ function VisitHistoryPanel({
                   {opponentVisit ? (
                     <div className="bg-slate-800/50 rounded-lg p-2 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">#{opponentVisit.turn_no}</span>
+                        <span className="text-xs text-gray-500">L{opponentVisit.leg} #{opponentVisit.turn_no}</span>
                       </div>
-                      <div className="text-sm font-mono text-gray-300 text-right">
-                        {formatDarts(opponentVisit.darts)}
-                      </div>
-                      <div className="flex items-center justify-between flex-row-reverse">
+                      <div className="flex items-center justify-between flex-row-reverse mt-1">
                         <span className={`text-lg font-bold ${opponentColor}`}>{opponentVisit.score}</span>
                         <span className="text-xs text-gray-500">{opponentVisit.remaining_after} ←</span>
                       </div>
@@ -618,30 +764,55 @@ function ScoringPanel({
 
   const visitTotal = currentDarts.reduce((sum, d) => sum + d.value, 0);
   const previewRemaining = currentRemaining - visitTotal;
+  const dartsThrown = currentDarts.length;
+  const dartsRemaining = 3 - dartsThrown;
 
-  // Get checkout suggestion
-  const checkoutSuggestion = CHECKOUT_ROUTES[previewRemaining] || null;
+  // Get checkout suggestion based on darts thrown
+  const getCheckoutSuggestion = () => {
+    if (previewRemaining <= 0 || previewRemaining > 170) return null;
+    
+    // Based on darts remaining, show appropriate checkout route
+    if (dartsRemaining === 3) {
+      // 3 darts available - show 3-dart checkout
+      return CHECKOUT_ROUTES[previewRemaining] || null;
+    } else if (dartsRemaining === 2) {
+      // 2 darts available - show 2-dart checkout
+      return CHECKOUT_ROUTES_2_DARTS[previewRemaining] || null;
+    } else if (dartsRemaining === 1) {
+      // 1 dart available - show 1-dart checkout (must be a double)
+      return CHECKOUT_ROUTES_1_DART[previewRemaining] || null;
+    }
+    return null;
+  };
+
+  const checkoutSuggestion = getCheckoutSuggestion();
 
   return (
     <div className="h-full flex flex-col">
-      {/* Checkout Help - BIG DISPLAY */}
-      {previewRemaining <= 170 && previewRemaining > 0 && checkoutSuggestion && (
+      {/* Checkout Help - DYNAMIC BASED ON DARTS THROWN */}
+      {previewRemaining > 0 && previewRemaining <= 170 && (
         <div className="mb-4 p-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
           <div className="text-center">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">Checkout {previewRemaining}</p>
-            <div className="flex items-center justify-center gap-3 text-2xl font-bold">
-              {checkoutSuggestion.map((dart, idx) => (
-                <span key={idx} className={`
-                  px-3 py-1 rounded-lg
-                  ${dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
-                    dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
-                    dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
-                    'bg-slate-700 text-white'}
-                `}>
-                  {dart}
-                </span>
-              ))}
-            </div>
+            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">
+              Checkout {previewRemaining} ({dartsRemaining} dart{dartsRemaining !== 1 ? 's' : ''} left)
+            </p>
+            {checkoutSuggestion ? (
+              <div className="flex items-center justify-center gap-3 text-2xl font-bold">
+                {checkoutSuggestion.map((dart, idx) => (
+                  <span key={idx} className={`
+                    px-3 py-1 rounded-lg
+                    ${dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
+                      dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
+                      dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
+                      'bg-slate-700 text-white'}
+                  `}>
+                    {dart}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-amber-400 font-bold">No checkout possible</p>
+            )}
           </div>
         </div>
       )}
@@ -658,11 +829,14 @@ function ScoringPanel({
             onKeyDown={(e) => e.key === 'Enter' && onTypeScoreSubmit()}
           />
           <Button 
-            onClick={onTypeScoreSubmit}
+            onClick={() => {
+              console.log('[BUTTON] Typed score submit clicked');
+              onTypeScoreSubmit();
+            }}
             disabled={!scoreInput || submitting}
-            className="bg-emerald-500 hover:bg-emerald-600"
+            className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
           >
-            Submit
+            {submitting ? '...' : 'Submit'}
           </Button>
         </div>
       </div>
@@ -781,7 +955,7 @@ function ScoringPanel({
         </Button>
         <Button
           onClick={onBust}
-          disabled={currentDarts.length === 0 || submitting}
+          disabled={submitting}
           className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50"
         >
           Bust
@@ -844,7 +1018,38 @@ export default function QuickMatchRoomPage() {
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
+  // Edit notification popup
+  const [editNotification, setEditNotification] = useState<{
+    show: boolean;
+    playerName: string;
+    oldScore: number;
+    newScore: number;
+  } | null>(null);
+
+  // Match end stats state - stores player1 and player2 data with winner info
+  const [matchEndStats, setMatchEndStats] = useState<{
+    player1: { id: string; name: string; legs: number };
+    player2: { id: string; name: string; legs: number };
+    player1FullStats: any;
+    player2FullStats: any;
+    winnerId: string;
+  } | null>(null);
+
+  // Rematch state - simplified and more reliable
+  const [rematchStatus, setRematchStatus] = useState<'none' | 'waiting' | 'ready' | 'creating'>('none');
+  const [opponentRematchReady, setOpponentRematchReady] = useState(false);
+  const [newRematchRoomId, setNewRematchRoomId] = useState<string | null>(null);
+  const rematchAttemptedRef = useRef(false);
+
   const cleanupMatchRef = useRef<() => void>();
+  
+  // Navigate to rematch room when set
+  useEffect(() => {
+    if (newRematchRoomId && newRematchRoomId !== matchId) {
+      console.log('[REMATCH] Auto-navigating to:', newRematchRoomId);
+      window.location.href = `/app/play/quick-match/match/${newRematchRoomId}`;
+    }
+  }, [newRematchRoomId, matchId]);
 
   // WebRTC
   const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
@@ -873,6 +1078,203 @@ export default function QuickMatchRoomPage() {
       sessionStorage.removeItem(`lobby_id_${matchId}`);
     }
   };
+
+  // Calculate leg wins from visits (fallback if DB columns don't exist)
+  const calculateLegWinsFromVisits = () => {
+    const p1Checkouts = visits.filter(v => v.player_id === room?.player1_id && v.is_checkout);
+    const p2Checkouts = visits.filter(v => v.player_id === room?.player2_id && v.is_checkout);
+    return {
+      p1: p1Checkouts.length,
+      p2: p2Checkouts.length
+    };
+  };
+
+  // Calculate BEST LEG (fewest darts thrown in a winning leg)
+  const calculateBestLeg = (playerId: string, visitData: QuickMatchVisit[]) => {
+    const playerVisits = visitData.filter(v => v.player_id === playerId && !v.is_bust);
+    
+    // Group visits by leg
+    const visitsByLeg = new Map<number, typeof playerVisits>();
+    for (const visit of playerVisits) {
+      if (!visitsByLeg.has(visit.leg)) {
+        visitsByLeg.set(visit.leg, []);
+      }
+      visitsByLeg.get(visit.leg)!.push(visit);
+    }
+    
+    // Find the leg with fewest darts (that had a checkout)
+    let bestLegDarts = Infinity;
+    let bestLegNum = 0;
+    
+    for (const [legNum, legVisits] of visitsByLeg) {
+      const hasCheckout = legVisits.some(v => v.is_checkout);
+      if (hasCheckout) {
+        const legDarts = legVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+        if (legDarts < bestLegDarts) {
+          bestLegDarts = legDarts;
+          bestLegNum = legNum;
+        }
+      }
+    }
+    
+    return {
+      darts: bestLegDarts === Infinity ? 0 : bestLegDarts,
+      legNum: bestLegNum
+    };
+  };
+
+  // Calculate player stats from provided visits array (for accurate calculation)
+  const calculatePlayerStatsFromVisits = (visitData: QuickMatchVisit[], playerId: string, playerName: string, legsWon: number) => {
+    const playerVisits = visitData.filter(v => v.player_id === playerId && !v.is_bust);
+    
+    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    // Calculate FIRST 9 DART AVERAGE (first 3 visits, max 9 darts)
+    let first9Score = 0;
+    let first9Darts = 0;
+    for (const visit of playerVisits.slice(0, 3)) {
+      first9Score += visit.score;
+      first9Darts += visit.darts_thrown;
+      if (first9Darts >= 9) break;
+    }
+    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+    
+    // Find highest checkout (even for losing players - they might have won some legs)
+    const checkouts = playerVisits.filter(v => v.is_checkout);
+    const highestCheckout = checkouts.length > 0 
+      ? Math.max(...checkouts.map(v => v.score))
+      : 0;
+    
+    // Calculate checkout percentage
+    const checkoutAttempts = playerVisits.filter(v => v.remaining_before <= 170 && v.remaining_before > 0).length;
+    const successfulCheckouts = checkouts.length;
+    const checkoutPercentage = checkoutAttempts > 0 
+      ? (successfulCheckouts / checkoutAttempts) * 100 
+      : 0;
+    
+    // Calculate BEST LEG (fewest darts to win a leg)
+    const bestLeg = calculateBestLeg(playerId, visitData);
+    
+    // Count 100+, 140+, and 180s
+    const count100Plus = playerVisits.filter(v => v.score >= 100 && v.score < 140).length;
+    const count140Plus = playerVisits.filter(v => v.score >= 140 && v.score < 180).length;
+    const oneEighties = playerVisits.filter(v => v.score === 180).length;
+    
+    return {
+      id: playerId,
+      name: playerName,
+      legsWon,
+      threeDartAverage,
+      first9Average,
+      highestCheckout,
+      checkoutPercentage,
+      totalDartsThrown: totalDarts,
+      bestLegDarts: bestLeg.darts,
+      bestLegNum: bestLeg.legNum,
+      totalScore: totalScored,
+      checkouts: successfulCheckouts,
+      checkoutAttempts,
+      count100Plus,
+      count140Plus,
+      oneEighties,
+    };
+  };
+
+  // Calculate player stats from visits - for FINISHED match (all legs)
+  const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number, extraVisit?: any) => {
+    let playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    
+    // Add extra visit if provided (for when match just ended)
+    if (extraVisit && extraVisit.player_id === playerId && !extraVisit.is_bust) {
+      playerVisits = [...playerVisits, extraVisit];
+    }
+    
+    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    // Calculate FIRST 9 DART AVERAGE (first 3 visits, max 9 darts)
+    let first9Score = 0;
+    let first9Darts = 0;
+    for (const visit of playerVisits.slice(0, 3)) {
+      first9Score += visit.score;
+      first9Darts += visit.darts_thrown;
+      if (first9Darts >= 9) break;
+    }
+    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+    
+    // Find highest checkout (even for losing players - they might have won some legs)
+    const checkouts = playerVisits.filter(v => v.is_checkout);
+    const highestCheckout = checkouts.length > 0 
+      ? Math.max(...checkouts.map(v => v.score))
+      : 0;
+    
+    // Calculate checkout percentage
+    const checkoutAttempts = playerVisits.filter(v => v.remaining_before <= 170 && v.remaining_before > 0).length;
+    const successfulCheckouts = checkouts.length;
+    const checkoutPercentage = checkoutAttempts > 0 
+      ? (successfulCheckouts / checkoutAttempts) * 100 
+      : 0;
+    
+    // Calculate BEST LEG (fewest darts to win a leg)
+    const bestLeg = calculateBestLeg(playerId, visits);
+    // If this was the winning leg and extraVisit provided, check if it's the best
+    if (extraVisit && extraVisit.player_id === playerId && extraVisit.is_checkout) {
+      const currentLegDarts = playerVisits
+        .filter(v => v.leg === extraVisit.leg)
+        .reduce((sum, v) => sum + v.darts_thrown, 0);
+      if (currentLegDarts < bestLeg.darts || bestLeg.darts === 0) {
+        bestLeg.darts = currentLegDarts;
+        bestLeg.legNum = extraVisit.leg;
+      }
+    }
+    
+    return {
+      id: playerId,
+      name: playerName,
+      legsWon,
+      threeDartAverage,
+      first9Average,
+      highestCheckout,
+      checkoutPercentage,
+      totalDartsThrown: totalDarts,
+      bestLegDarts: bestLeg.darts,
+      bestLegNum: bestLeg.legNum,
+      totalScore: totalScored,
+      checkouts: successfulCheckouts,
+      checkoutAttempts,
+    };
+  };
+
+  // Wrapper for winner that includes the final visit
+  const calculatePlayerStatsWithVisit = (playerId: string, playerName: string, legsWon: number, extraVisit: any) => {
+    return calculatePlayerStats(playerId, playerName, legsWon, extraVisit);
+  };
+
+  // Calculate WHOLE MATCH stats (across all legs) for the display
+  // 3-dart average is calculated across ALL legs (entire game) as per dart rules
+  const calculateMatchStats = useCallback((playerId: string) => {
+    // ALL visits for average calculation (whole match)
+    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    // 3-dart average across the ENTIRE game (all legs)
+    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    // CURRENT LEG visits for last score and darts thrown display (resets each leg)
+    const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
+    const dartsThisLeg = currentLegVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    
+    return {
+      average: threeDartAverage, // 3-dart average across WHOLE game
+      lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0,
+      dartsThrown: dartsThisLeg, // Darts thrown in CURRENT leg only
+      totalDartsThrown: totalDarts, // Total darts across all legs
+      totalScore: totalScored, // Total score across all legs
+    };
+  }, [visits, room?.current_leg]);
 
   useEffect(() => {
     let cleanupFn: (() => void) | undefined;
@@ -929,17 +1331,28 @@ export default function QuickMatchRoomPage() {
       return false;
     }
 
+    console.log('[LOAD] Room data loaded:', {
+      id: roomData.id,
+      status: roomData.status,
+      p1_legs: roomData.player1_legs,
+      p2_legs: roomData.player2_legs,
+      legs_to_win: roomData.legs_to_win,
+      winner_id: roomData.winner_id
+    });
+    
     setRoom(roomData as MatchRoom);
 
-    // Load visits ordered by turn_no
-    const { data: visitsData } = await supabase
+    // Load visits for ALL legs ordered by leg and turn_no
+    const { data: visitsData, error: visitsError } = await supabase
       .from('quick_match_visits')
       .select('*')
       .eq('room_id', matchId)
-      .eq('leg', roomData.current_leg)
+      .order('leg', { ascending: true })
       .order('turn_no', { ascending: true });
 
-    console.log('[LOAD] Visits loaded:', visitsData?.length || 0);
+    console.log('[LOAD] Visits loaded:', visitsData?.length || 0, 'Error:', visitsError);
+    console.log('[LOAD] Room leg:', roomData.current_leg, 'Match ID:', matchId);
+    console.log('[LOAD] Visits data:', visitsData);
     setVisits((visitsData as QuickMatchVisit[]) || []);
 
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
@@ -981,15 +1394,83 @@ export default function QuickMatchRoomPage() {
         { event: 'UPDATE', schema: 'public', table: 'match_rooms', filter: `id=eq.${matchId}` },
         (payload) => {
           const updatedRoom = payload.new as MatchRoom;
+          const oldRoom = payload.old as MatchRoom;
+          
+          // Update room state
           setRoom(updatedRoom);
+          
+          // Handle leg change - reload visits
+          if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
+            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
+            loadMatchData();
+          }
+          
+          // Handle forfeit
+          if (updatedRoom.status === 'forfeited' && !didIForfeit) {
+            setShowOpponentForfeitModal(true);
+          }
+          
+          // Handle match finished - show winner popup
+          if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
+            (async () => {
+              console.log('[ROOM] Match finished detected, showing winner popup');
 
-          if (updatedRoom.status === 'forfeited' || updatedRoom.status === 'finished') {
-            if (updatedRoom.status === 'forfeited' && !didIForfeit) {
-              setShowOpponentForfeitModal(true);
-            } else if (updatedRoom.status === 'finished') {
-              setShowMatchCompleteModal(true);
-            }
-            setTimeout(() => cleanupMatchRef.current?.(), 100);
+              const winnerId = updatedRoom.winner_id;
+              if (!winnerId) return; // TypeScript null check
+
+              const isPlayer1Winner = winnerId === updatedRoom.player1_id;
+              const winnerProfile = profiles.find(p => p.user_id === winnerId);
+              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
+              const loserProfile = profiles.find(p => p.user_id === loserId);
+              
+              const p1Legs = updatedRoom.player1_legs || 0;
+              const p2Legs = updatedRoom.player2_legs || 0;
+              
+              // Fetch ALL visits from database to ensure we have complete data for both players
+              const { data: allVisits } = await supabase
+                .from('quick_match_visits')
+                .select('*')
+                .eq('room_id', matchId)
+                .order('leg', { ascending: true })
+                .order('turn_no', { ascending: true });
+              
+              // Temporarily update visits state for accurate calculation
+              const completeVisits = (allVisits as QuickMatchVisit[]) || visits;
+              
+              // Calculate stats for both players using complete visits
+              const wStats = calculatePlayerStatsFromVisits(
+                completeVisits,
+                winnerId,
+                winnerProfile?.username || 'Winner',
+                isPlayer1Winner ? p1Legs : p2Legs
+              );
+              const lStats = calculatePlayerStatsFromVisits(
+                completeVisits,
+                loserId,
+                loserProfile?.username || 'Loser',
+                isPlayer1Winner ? p2Legs : p1Legs
+              );
+              
+              // Update visits state to match
+              setVisits(completeVisits);
+              
+              // Determine player1 and player2 based on room data
+              const p1Id = updatedRoom.player1_id;
+              const p2Id = updatedRoom.player2_id;
+              const p1Profile = profiles.find(p => p.user_id === p1Id);
+              const p2Profile = profiles.find(p => p.user_id === p2Id);
+              
+              setMatchEndStats({
+                player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: updatedRoom.player1_legs || 0 },
+                player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: updatedRoom.player2_legs || 0 },
+                player1FullStats: p1Id === winnerId ? wStats : lStats,
+                player2FullStats: p2Id === winnerId ? wStats : lStats,
+                winnerId: winnerId,
+              });
+              
+              // Save stats to database (for opponent who detected via realtime)
+              await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, updatedRoom.game_mode);
+            })();
           }
         }
       )
@@ -998,13 +1479,12 @@ export default function QuickMatchRoomPage() {
         { event: 'INSERT', schema: 'public', table: 'quick_match_visits', filter: `room_id=eq.${matchId}` },
         (payload) => {
           const newVisit = payload.new as QuickMatchVisit;
-          if (room && newVisit.leg === room.current_leg) {
-            setVisits((prev) => {
-              const exists = prev.find(v => v.id === newVisit.id);
-              if (exists) return prev;
-              return [...prev, newVisit];
-            });
-          }
+          // Add all visits - the VisitHistoryPanel will filter by currentLeg
+          setVisits((prev) => {
+            const exists = prev.find(v => v.id === newVisit.id);
+            if (exists) return prev;
+            return [...prev, newVisit];
+          });
         }
       )
       .on(
@@ -1012,7 +1492,26 @@ export default function QuickMatchRoomPage() {
         { event: 'UPDATE', schema: 'public', table: 'quick_match_visits', filter: `room_id=eq.${matchId}` },
         (payload) => {
           const updatedVisit = payload.new as QuickMatchVisit;
-          setVisits((prev) => prev.map((v) => (v.id === updatedVisit.id ? updatedVisit : v)));
+          
+          // Get old visit from current state to compare scores
+          setVisits((prev) => {
+            const oldVisit = prev.find(v => v.id === updatedVisit.id);
+            
+            // Show notification if another player edited their visit and score changed
+            if (oldVisit && updatedVisit.player_id !== currentUserId && oldVisit.score !== updatedVisit.score) {
+              const player = profiles.find(p => p.user_id === updatedVisit.player_id);
+              setEditNotification({
+                show: true,
+                playerName: player?.username || 'Opponent',
+                oldScore: oldVisit.score,
+                newScore: updatedVisit.score,
+              });
+              // Hide after 2 seconds
+              setTimeout(() => setEditNotification(null), 2000);
+            }
+            
+            return prev.map((v) => (v.id === updatedVisit.id ? updatedVisit : v));
+          });
         }
       )
       .on(
@@ -1036,6 +1535,23 @@ export default function QuickMatchRoomPage() {
             setShowOpponentForfeitSignalModal(true);
             setTimeout(() => cleanupMatchRef.current?.(), 100);
           }
+          // Handle rematch ready signals
+          if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
+            console.log('[REMATCH] Opponent is ready for rematch');
+            setOpponentRematchReady(true);
+          }
+          // Handle rematch room created - both players get this and navigate
+          if (signal.type === 'rematch_room_created') {
+            const newRoomId = signal.payload?.new_room_id;
+            if (newRoomId && newRoomId !== matchId) {
+              console.log('[REMATCH] Navigating to new room:', newRoomId);
+              // Small delay to ensure DB commit
+              setTimeout(() => {
+                window.location.href = `/app/play/quick-match/match/${newRoomId}`;
+              }, 300);
+            }
+          }
+          // Note: Match won detection is done via room status change
         }
       )
       .subscribe();
@@ -1086,26 +1602,53 @@ export default function QuickMatchRoomPage() {
     setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
   };
 
-  const validateCheckout = (score: number, darts: Dart[]): { valid: boolean; error?: string; isCheckout: boolean } => {
-    if (!room) return { valid: false, error: 'No room', isCheckout: false };
+  const validateCheckout = (score: number, darts: Dart[], isTypedScore: boolean = false): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
+    if (!room) return { valid: false, error: 'No room', isCheckout: false, isBust: false };
     
     const isPlayer1 = room.player1_id === currentUserId;
     const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
     const newRemaining = currentRemaining - score;
     
-    if (newRemaining < 0) return { valid: false, error: 'Bust!', isCheckout: false };
+    console.log('[VALIDATE] Checkout validation:', {
+      score,
+      currentRemaining,
+      newRemaining,
+      dartsCount: darts.length,
+      lastDart: darts[darts.length - 1],
+      doubleOut: room.double_out,
+      isTypedScore
+    });
     
-    if (newRemaining === 0) {
-      if (room.double_out) {
-        const lastDart = darts[darts.length - 1];
-        if (!lastDart?.is_double) {
-          return { valid: false, error: 'Must finish on a double!', isCheckout: false };
-        }
-      }
-      return { valid: true, isCheckout: true };
+    // Bust if score goes below 0
+    if (newRemaining < 0) {
+      console.log('[VALIDATE] Bust - below zero');
+      return { valid: true, isCheckout: false, isBust: true };
     }
     
-    return { valid: true, isCheckout: false };
+    // Bust if score is exactly 1 (can't finish on 1)
+    if (newRemaining === 1) {
+      console.log('[VALIDATE] Bust - left on 1');
+      return { valid: true, isCheckout: false, isBust: true };
+    }
+    
+    // Checkout - check if we reached exactly 0
+    if (newRemaining === 0) {
+      // Default to true for double_out if undefined (standard darts rules)
+      const requireDouble = room.double_out !== false;
+      
+      if (requireDouble) {
+        const lastDart = darts[darts.length - 1];
+        console.log('[VALIDATE] Checking double requirement:', { lastDartIsDouble: lastDart?.is_double, lastDart });
+        if (!lastDart?.is_double) {
+          console.log('[VALIDATE] Bust - must finish on double');
+          return { valid: true, isCheckout: false, isBust: true };
+        }
+      }
+      console.log('[VALIDATE] Valid checkout!');
+      return { valid: true, isCheckout: true, isBust: false };
+    }
+    
+    return { valid: true, isCheckout: false, isBust: false };
   };
 
   const handleBust = async () => {
@@ -1114,7 +1657,13 @@ export default function QuickMatchRoomPage() {
       toast.error('Not your turn');
       return;
     }
-    await submitScore(0, true, currentVisit);
+    // Bust always counts as 3 darts thrown
+    // If no darts entered, create 3 miss darts
+    let bustDarts = [...currentVisit];
+    while (bustDarts.length < 3) {
+      bustDarts.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+    }
+    await submitScore(0, true, bustDarts);
   };
 
   const handleSubmitVisit = async () => {
@@ -1156,13 +1705,14 @@ export default function QuickMatchRoomPage() {
     }
 
     const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
-    const validation = validateCheckout(visitTotal, currentVisit);
+    const validation = validateCheckout(visitTotal, currentVisit, false);  // false = button input
 
     console.log('[SUBMIT] Validation result:', validation);
 
-    if (!validation.valid) {
-      console.warn('[SUBMIT] Validation failed:', validation.error);
-      toast.error(validation.error);
+    // If bust, submit with score 0
+    if (validation.isBust) {
+      console.log('[SUBMIT] Bust detected, submitting with score 0');
+      await submitScore(0, true, currentVisit, false);
       return;
     }
 
@@ -1171,24 +1721,61 @@ export default function QuickMatchRoomPage() {
   };
 
   const handleInputScoreSubmit = async () => {
-    const score = parseInt(scoreInput);
+    console.log('[TYPED SCORE] Submit clicked, scoreInput:', scoreInput);
+    
+    if (!scoreInput || scoreInput.trim() === '') {
+      toast.error('Please enter a score');
+      return;
+    }
+    
+    const score = parseInt(scoreInput.trim());
+    console.log('[TYPED SCORE] Parsed score:', score);
+    
     if (isNaN(score) || score < 0 || score > 180) {
       toast.error('Invalid score (0-180)');
       return;
     }
     
-    // For typed scores, create generic darts
+    if (!room || !matchState) {
+      toast.error('Game not ready');
+      return;
+    }
+    
+    if (matchState.currentTurnPlayer !== matchState.youArePlayer) {
+      toast.error('Not your turn');
+      return;
+    }
+    
+    // For typed scores, create generic darts (not a double)
+    // Typed scores can checkout (win leg) - double only required for button inputs
     const genericDarts: Dart[] = [
       { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false }
     ];
     
-    const validation = validateCheckout(score, genericDarts);
-    if (!validation.valid) {
-      toast.error(validation.error);
+    // IMPORTANT: For typed scores, we check if it would be a checkout (remaining = 0)
+    // Typed scores can checkout WITHOUT requiring a double
+    const isPlayer1 = room.player1_id === currentUserId;
+    const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
+    const newRemaining = currentRemaining - score;
+    
+    // Check for bust conditions
+    if (newRemaining < 0) {
+      console.log('[TYPED SCORE] Bust - below zero');
+      await submitScore(0, true, genericDarts, false);
       return;
     }
     
-    await submitScore(score, false, genericDarts, validation.isCheckout);
+    if (newRemaining === 1) {
+      console.log('[TYPED SCORE] Bust - left on 1');
+      await submitScore(0, true, genericDarts, false);
+      return;
+    }
+    
+    // Checkout - typed scores can win without double
+    const isCheckout = newRemaining === 0;
+    
+    console.log('[TYPED SCORE] Submitting - remaining:', newRemaining, 'isCheckout:', isCheckout);
+    await submitScore(score, false, genericDarts, isCheckout);
   };
 
   async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false) {
@@ -1218,7 +1805,23 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    const dartsArray = darts.map(dart => {
+    // DART COUNTING FIX:
+    // - If bust, count as 3 darts thrown (per dart rules)
+    // - If not checkout and fewer than 3 darts, pad to 3 darts (all darts count)
+    let dartsToSubmit = [...darts];
+    if (isBust) {
+      // Bust always counts as 3 darts (or however many were entered, minimum 3)
+      while (dartsToSubmit.length < 3) {
+        dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+      }
+    } else if (!isCheckout && dartsToSubmit.length > 0 && dartsToSubmit.length < 3) {
+      // Non-checkout visit with partial darts - pad to 3 darts
+      while (dartsToSubmit.length < 3) {
+        dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+      }
+    }
+
+    const dartsArray = dartsToSubmit.map(dart => {
       let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
       if (dart.type === 'bull') mult = dart.value === 50 ? 'DB' : 'SB';
       else if (dart.type === 'double') mult = 'D';
@@ -1283,7 +1886,113 @@ export default function QuickMatchRoomPage() {
 
       if (data.leg_won) {
         console.log('[SUBMIT] Leg won!');
-        toast.success('Leg won!');
+        toast.success('🎯 CHECKOUT! Leg won!');
+        
+        // Check if match was also won - calculate from current legs + this new leg
+        const currentP1Legs = room.player1_legs || 0;
+        const currentP2Legs = room.player2_legs || 0;
+        const isPlayer1 = currentUserId === room.player1_id;
+        
+        // Add the leg we just won
+        const newP1Legs = isPlayer1 ? currentP1Legs + 1 : currentP1Legs;
+        const newP2Legs = !isPlayer1 ? currentP2Legs + 1 : currentP2Legs;
+        const legsToWin = room.legs_to_win || 1;
+        
+        // Check if match is won (either from RPC response or our calculation)
+        const isMatchWon = data.match_won || newP1Legs >= legsToWin || newP2Legs >= legsToWin;
+        
+        console.log('[SUBMIT] Checking match win - P1 legs:', newP1Legs, 'P2 legs:', newP2Legs, 
+                    'Legs to win:', legsToWin, 'IsMatchWon:', isMatchWon, 'RPC match_won:', data.match_won);
+        
+        if (isMatchWon) {
+          console.log('[SUBMIT] MATCH WON!');
+          toast.success('🏆 MATCH WON!');
+          
+          const winnerId = currentUserId;
+          const isPlayer1Winner = winnerId === room.player1_id;
+          
+          const winnerProfile = profiles.find(p => p.user_id === winnerId);
+          const loserId = isPlayer1Winner ? room.player2_id : room.player1_id;
+          const loserProfile = profiles.find(p => p.user_id === loserId);
+          
+          const winnerLegs = isPlayer1Winner ? newP1Legs : newP2Legs;
+          const loserLegs = isPlayer1Winner ? newP2Legs : newP1Legs;
+          
+          // Fetch ALL visits from database to ensure accurate stats for both players
+          const { data: allVisits } = await supabase
+            .from('quick_match_visits')
+            .select('*')
+            .eq('room_id', matchId)
+            .order('leg', { ascending: true })
+            .order('turn_no', { ascending: true });
+          
+          // Add the final winning visit to the data
+          const finalVisit: QuickMatchVisit = {
+            id: 'temp-' + Date.now(),
+            room_id: matchId,
+            player_id: currentUserId,
+            leg: room.current_leg,
+            turn_no: 999,
+            score: isBust ? 0 : score,
+            remaining_before: isPlayer1 ? room.player1_remaining : room.player2_remaining,
+            remaining_after: data.remaining_after,
+            darts: darts.map(d => ({ n: d.number, mult: d.type === 'bull' ? (d.value === 50 ? 'DB' : 'SB') : d.type === 'double' ? 'D' : d.type === 'triple' ? 'T' : 'S' })),
+            darts_thrown: darts.length,
+            darts_at_double: darts.filter(d => d.is_double).length,
+            is_bust: isBust,
+            bust_reason: null,
+            is_checkout: true,
+            created_at: new Date().toISOString()
+          };
+          
+          const completeVisits = [...((allVisits as QuickMatchVisit[]) || visits), finalVisit];
+          
+          // Calculate stats for both players using complete visits
+          const wStats = calculatePlayerStatsFromVisits(
+            completeVisits,
+            winnerId,
+            winnerProfile?.username || 'Winner',
+            winnerLegs
+          );
+          const lStats = calculatePlayerStatsFromVisits(
+            completeVisits,
+            loserId,
+            loserProfile?.username || 'Loser',
+            loserLegs
+          );
+          
+          // Update visits state
+          setVisits(completeVisits);
+          
+          // Show winner popup immediately for the winner
+          // Determine player1 and player2 based on room data
+          const p1Id = room.player1_id;
+          const p2Id = room.player2_id;
+          const p1Profile = profiles.find(p => p.user_id === p1Id);
+          const p2Profile = profiles.find(p => p.user_id === p2Id);
+          
+          setMatchEndStats({
+            player1: { id: p1Id, name: p1Profile?.username || 'Player 1', legs: newP1Legs },
+            player2: { id: p2Id, name: p2Profile?.username || 'Player 2', legs: newP2Legs },
+            player1FullStats: p1Id === winnerId ? wStats : lStats,
+            player2FullStats: p2Id === winnerId ? wStats : lStats,
+            winnerId: winnerId,
+          });
+          
+          // Save stats to database for both players
+          await saveMatchStats(matchId, winnerId, loserId, winnerLegs, loserLegs, room.game_mode);
+          
+          // Update room state
+          setRoom({
+            ...room,
+            player1_legs: newP1Legs,
+            player2_legs: newP2Legs,
+            status: 'finished',
+            winner_id: winnerId,
+          });
+        }
+      } else if (isBust) {
+        toast.error('💥 BUST!');
       }
 
       console.log('[SUBMIT] Submit completed successfully');
@@ -1330,6 +2039,19 @@ export default function QuickMatchRoomPage() {
       });
 
       toast.success('You forfeited the match');
+      
+      // Save forfeit stats
+      const p1Legs = room.player1_legs || 0;
+      const p2Legs = room.player2_legs || 0;
+      await saveMatchStats(
+        matchId, 
+        opponentId, 
+        currentUserId, 
+        matchState.youArePlayer === 1 ? p2Legs : p1Legs,
+        matchState.youArePlayer === 1 ? p1Legs : p2Legs,
+        room.game_mode
+      );
+      
       cleanupMatchRef.current?.();
       await clearMatchState(matchId);
       router.push('/app/play');
@@ -1364,26 +2086,33 @@ export default function QuickMatchRoomPage() {
       let isCheckout = false;
       let isBust = false;
       let bustReason = null;
+      let finalScore = newScore;  // If bust, score is 0
 
       if (newRemaining < 0) {
+        // Bust: score goes below 0
         isBust = true;
         bustReason = 'Bust';
+        finalScore = 0;  // Score is 0 on bust
+      } else if (newRemaining === 1) {
+        // Bust: can't finish on 1
+        isBust = true;
+        bustReason = 'Cannot finish on 1';
+        finalScore = 0;
       } else if (newRemaining === 0) {
-        // Check if last dart is double for checkout validation
-        const lastDart = newDarts[newDarts.length - 1];
-        if (room?.double_out && lastDart?.mult !== 'D' && lastDart?.mult !== 'DB') {
-          isBust = true;
-          bustReason = 'Must finish on a double';
-        } else {
-          isCheckout = true;
-        }
+        // Edited score brings remaining to 0 - it's a checkout (win leg)!
+        // Edited scores can checkout without requiring a double
+        isCheckout = true;
       }
+
+      // Calculate final remaining BEFORE using it
+      const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
+      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
 
       // Use UPDATE instead of DELETE/INSERT to avoid unique constraint violation
       const { error: updateError } = await supabase
         .from('quick_match_visits')
         .update({
-          score: newScore,
+          score: finalScore,
           darts: newDarts,
           darts_thrown: newDarts.length,
           darts_at_double: newDarts.filter((d: any) => d.mult === 'D' || d.mult === 'DB').length,
@@ -1402,8 +2131,27 @@ export default function QuickMatchRoomPage() {
 
       toast.success('Visit updated');
       
-      // Recalculate all subsequent visits for this player
-      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no);
+      // Show checkout/bust message if applicable
+      if (isCheckout) {
+        toast.success('🎯 CHECKOUT! Leg won!');
+      } else if (isBust) {
+        toast.error('💥 BUST!');
+      }
+      
+      // Recalculate all subsequent visits for this player (pass new remaining for room update)
+      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
+      
+      // Update local room state immediately for responsive UI
+      if (room) {
+        console.log('[EDIT] Updating room state:', { isPlayer1, finalRemaining });
+        const newRoom = {
+          ...room,
+          player1_remaining: isPlayer1 ? finalRemaining : room.player1_remaining,
+          player2_remaining: !isPlayer1 ? finalRemaining : room.player2_remaining,
+        };
+        console.log('[EDIT] New room state:', newRoom);
+        setRoom(newRoom);
+      }
       
       await loadMatchData();
     } catch (error: any) {
@@ -1413,7 +2161,7 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  async function recalculateSubsequentVisits(playerId: string, leg: number, fromTurnNo: number) {
+  async function recalculateSubsequentVisits(playerId: string, leg: number, fromTurnNo: number, editedVisitNewRemaining?: number) {
     // Get all subsequent visits for this player in this leg
     const { data: subsequentVisits } = await supabase
       .from('quick_match_visits')
@@ -1424,7 +2172,17 @@ export default function QuickMatchRoomPage() {
       .gt('turn_no', fromTurnNo)
       .order('turn_no', { ascending: true });
 
-    if (!subsequentVisits || subsequentVisits.length === 0) return;
+    // If no subsequent visits, update room with the edited visit's remaining
+    if (!subsequentVisits || subsequentVisits.length === 0) {
+      if (editedVisitNewRemaining !== undefined) {
+        const isPlayer1 = room?.player1_id === playerId;
+        await supabase
+          .from('match_rooms')
+          .update(isPlayer1 ? { player1_remaining: editedVisitNewRemaining } : { player2_remaining: editedVisitNewRemaining })
+          .eq('id', matchId);
+      }
+      return;
+    }
 
     // Get the updated visit to find the new remaining_after
     const { data: updatedVisit } = await supabase
@@ -1519,6 +2277,184 @@ export default function QuickMatchRoomPage() {
     }
   };
 
+  // Simple rematch - when both players click, create room and navigate both
+  const handleRematch = async () => {
+    if (!room || !currentUserId || !matchEndStats || rematchAttemptedRef.current) return;
+    
+    const opponentId = matchEndStats.player1.id === currentUserId 
+      ? matchEndStats.player2.id 
+      : matchEndStats.player1.id;
+    
+    // Prevent double-clicks
+    rematchAttemptedRef.current = true;
+    setRematchStatus('waiting');
+    
+    try {
+      // Send ready signal
+      await supabase.from('match_signals').insert({
+        room_id: matchId,
+        from_user_id: currentUserId,
+        to_user_id: opponentId,
+        type: 'rematch_ready',
+        payload: { ready: true, timestamp: Date.now() }
+      });
+      
+      console.log('[REMATCH] Ready signal sent');
+      
+      // Check if both ready - if so, create room
+      // Use a check function that queries the database
+      await checkAndCreateRematchRoom(opponentId);
+      
+    } catch (error: any) {
+      console.error('[REMATCH] Error:', error);
+      setRematchStatus('none');
+      rematchAttemptedRef.current = false;
+      toast.error('Failed to start rematch');
+    }
+  };
+  
+  // Check if both players are ready and create room
+  async function checkAndCreateRematchRoom(opponentId: string) {
+    if (!room || !currentUserId) return;
+    
+    // Wait a moment for the other player's signal to be recorded
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      // Check how many rematch_ready signals exist for this room
+      const { data: signals, error: sigError } = await supabase
+        .from('match_signals')
+        .select('*')
+        .eq('room_id', matchId)
+        .eq('type', 'rematch_ready');
+      
+      if (sigError) throw sigError;
+      
+      const uniquePlayers = new Set(signals?.map(s => s.from_user_id));
+      console.log('[REMATCH] Ready players:', uniquePlayers.size);
+      
+      // If both players are ready (2 unique players)
+      if (uniquePlayers.size >= 2) {
+        setRematchStatus('creating');
+        
+        // Create new room
+        const { data: newRoom, error } = await supabase
+          .from('match_rooms')
+          .insert({
+            player1_id: room.player1_id,
+            player2_id: room.player2_id,
+            game_mode: room.game_mode,
+            match_format: room.match_format,
+            match_type: room.match_type,
+            status: 'active',
+            current_leg: 1,
+            legs_to_win: room.legs_to_win,
+            player1_remaining: room.game_mode,
+            player2_remaining: room.game_mode,
+            current_turn: room.player1_id, // Player 1 starts
+            double_out: room.double_out,
+            source: room.source,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        console.log('[REMATCH] Room created:', newRoom.id);
+        
+        // Send room created signal to BOTH players (broadcast)
+        await supabase.from('match_signals').insert({
+          room_id: matchId,
+          from_user_id: currentUserId,
+          to_user_id: opponentId, // Signal to opponent
+          type: 'rematch_room_created',
+          payload: { new_room_id: newRoom.id }
+        });
+        
+        // Also send to self (via different signal) to ensure we navigate
+        setNewRematchRoomId(newRoom.id);
+        
+        // Navigate to new room
+        setTimeout(() => {
+          window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
+        }, 500);
+        
+      } else {
+        // Only one player ready, wait for the other
+        console.log('[REMATCH] Waiting for opponent...');
+        toast.info('Waiting for opponent to accept rematch...');
+        
+        // Poll for the other player
+        setTimeout(() => checkAndCreateRematchRoom(opponentId), 1500);
+      }
+      
+    } catch (error: any) {
+      console.error('[REMATCH] Error:', error);
+      setRematchStatus('none');
+      rematchAttemptedRef.current = false;
+      toast.error('Failed to create rematch room');
+    }
+  }
+
+  // Save match stats to database for both players
+  async function saveMatchStats(
+    roomId: string, 
+    winnerId: string, 
+    loserId: string, 
+    winnerLegs: number, 
+    loserLegs: number,
+    gameMode: number
+  ) {
+    console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs, gameMode });
+    
+    try {
+      // Save winner stats
+      const { data: winnerResult, error: winnerError } = await supabase.rpc('fn_update_player_match_stats', {
+        p_room_id: roomId,
+        p_user_id: winnerId,
+        p_opponent_id: loserId,
+        p_result: 'win',
+        p_legs_won: winnerLegs,
+        p_legs_lost: loserLegs,
+        p_game_mode: gameMode
+      });
+      
+      if (winnerError) {
+        console.error('[STATS] Error saving winner stats:', winnerError);
+        throw winnerError;
+      }
+      console.log('[STATS] Winner stats saved:', winnerResult);
+      
+      // Save loser stats
+      const { data: loserResult, error: loserError } = await supabase.rpc('fn_update_player_match_stats', {
+        p_room_id: roomId,
+        p_user_id: loserId,
+        p_opponent_id: winnerId,
+        p_result: 'loss',
+        p_legs_won: loserLegs,
+        p_legs_lost: winnerLegs,
+        p_game_mode: gameMode
+      });
+      
+      if (loserError) {
+        console.error('[STATS] Error saving loser stats:', loserError);
+        throw loserError;
+      }
+      console.log('[STATS] Loser stats saved:', loserResult);
+      
+      toast.success('Match stats saved!');
+      console.log('[STATS] Match stats saved successfully');
+    } catch (error: any) {
+      console.error('[STATS] Failed to save match stats:', error);
+      toast.error('Failed to save match stats');
+    }
+  }
+
+  const handleReturn = () => {
+    cleanupMatchRef.current?.();
+    router.push('/app/play');
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -1607,41 +2543,33 @@ export default function QuickMatchRoomPage() {
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Player Cards */}
+          {/* Player Cards - Stats reset per leg */}
           <div className="grid grid-cols-2 gap-4">
             <QuickMatchPlayerCard
               name={myPlayer.name}
               remaining={myPlayer.remaining}
               legs={myPlayer.legsWon}
               legsToWin={matchState.legsToWin}
-              isActive={isMyTurn}
+              isActive={isMyTurn && room.status === 'active'}
               color="text-emerald-400"
               position="left"
-              stats={{ 
-                average: myPlayer.threeDartAvg, 
-                lastScore: visits.filter(v => v.player_id === currentUserId).pop()?.score || 0,
-                dartsThrown: visits.filter(v => v.player_id === currentUserId).length * 3 
-              }}
+              stats={calculateMatchStats(currentUserId || '')}
             />
             <QuickMatchPlayerCard
               name={opponentPlayer.name}
               remaining={opponentPlayer.remaining}
               legs={opponentPlayer.legsWon}
               legsToWin={matchState.legsToWin}
-              isActive={!isMyTurn}
+              isActive={!isMyTurn && room.status === 'active'}
               color="text-blue-400"
               position="right"
-              stats={{ 
-                average: opponentPlayer.threeDartAvg,
-                lastScore: visits.filter(v => v.player_id !== currentUserId).pop()?.score || 0,
-                dartsThrown: visits.filter(v => v.player_id !== currentUserId).length * 3
-              }}
+              stats={calculateMatchStats(opponentId || '')}
             />
           </div>
 
-          {/* CONDITIONAL: Show Scoring Panel when my turn, Visit History when not */}
+          {/* CONDITIONAL: Show Scoring Panel when my turn AND game active, Visit History when not */}
           <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
-            {isMyTurn ? (
+            {isMyTurn && room.status === 'active' ? (
               <ScoringPanel
                 scoreInput={scoreInput}
                 onScoreInputChange={setScoreInput}
@@ -1666,6 +2594,7 @@ export default function QuickMatchRoomPage() {
                 opponentName={opponentPlayer.name}
                 myColor="text-emerald-400"
                 opponentColor="text-blue-400"
+                currentLeg={room.current_leg}
                 onEditVisit={handleEditVisit}
                 onDeleteVisit={handleDeleteVisit}
               />
@@ -1710,6 +2639,42 @@ export default function QuickMatchRoomPage() {
         onOpenChange={setShowChatDrawer}
         onUnreadChange={setHasUnreadMessages}
       />
+
+      {/* Edit Notification Popup */}
+      {editNotification?.show && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-amber-500 text-white px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
+            <div className="flex items-center gap-2">
+              <Edit2 className="w-5 h-5" />
+              <span className="font-bold">{editNotification.playerName} edited their visit</span>
+            </div>
+            <div className="text-center mt-1 text-lg">
+              <span className="line-through opacity-70">{editNotification.oldScore}</span>
+              <span className="mx-2">→</span>
+              <span className="font-bold">{editNotification.newScore}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Winner Popup - shows when match is finished */}
+      {matchEndStats && room?.status === 'finished' && (
+        <WinnerPopup
+          player1={matchEndStats.player1}
+          player2={matchEndStats.player2}
+          player1Stats={matchEndStats.player1FullStats}
+          player2Stats={matchEndStats.player2FullStats}
+          winnerId={matchEndStats.winnerId}
+          gameMode={room?.game_mode?.toString() || '501'}
+          bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
+          onRematch={handleRematch}
+          onReturn={handleReturn}
+          rematchStatus={rematchStatus}
+          opponentRematchReady={opponentRematchReady}
+          youReady={rematchStatus === 'waiting' || rematchStatus === 'ready'}
+          currentUserId={currentUserId || ''}
+        />
+      )}
     </div>
   );
 }

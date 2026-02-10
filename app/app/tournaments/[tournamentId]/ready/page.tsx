@@ -126,6 +126,11 @@ export default function TournamentReadyUpPage() {
   useEffect(() => {
     if (!match?.ready_deadline) return;
 
+    // Stop countdown if both players are ready
+    if (isReady && opponentReady) {
+      return;
+    }
+
     const deadline = new Date(match.ready_deadline).getTime();
     const interval = setInterval(() => {
       const now = Date.now();
@@ -139,7 +144,7 @@ export default function TournamentReadyUpPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [match?.ready_deadline, isReady, autoReadyTriggered]);
+  }, [match?.ready_deadline, isReady, opponentReady, autoReadyTriggered]);
 
   const loadData = async () => {
     try {
@@ -459,7 +464,7 @@ export default function TournamentReadyUpPage() {
         </div>
 
         <div className="bg-slate-100 rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-center gap-2 mb-2">
+          <div className="flex items-center justify-center gap-2 mb-3">
             <Clock className="h-5 w-5 text-slate-600" />
             <span className="text-slate-600 font-medium">Time Remaining</span>
           </div>
@@ -473,6 +478,17 @@ export default function TournamentReadyUpPage() {
           {isExpired && !isReady && (
             <p className="text-center text-red-600 text-sm mt-2">Auto-readying up...</p>
           )}
+
+          <div className="mt-4 pt-4 border-t border-slate-300">
+            <div className="text-center">
+              <p className="text-sm text-slate-600 mb-1">Players Ready</p>
+              <p className={`text-3xl font-bold ${
+                bothReady ? 'text-green-600' : 'text-slate-700'
+              }`}>
+                {(isReady ? 1 : 0) + (opponentReady ? 1 : 0)}/2
+              </p>
+            </div>
+          </div>
         </div>
 
         {bothReady ? (

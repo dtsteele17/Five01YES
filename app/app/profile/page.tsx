@@ -1,284 +1,134 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import {
-  Trophy,
-  Target,
-  TrendingUp,
-  Award,
-  Edit,
-  Share2,
-  Calendar,
-  MapPin,
-  Shield,
-} from 'lucide-react';
-import { ProfileProvider, useProfile } from '@/lib/context/ProfileContext';
-import { EditProfileModal } from '@/components/app/EditProfileModal';
-import { RankCard } from '@/components/app/RankCard';
-import { RankedStatsCard } from '@/components/app/RankedStatsCard';
-import { ProfileRankBadge } from '@/components/app/ProfileRankBadge';
-import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
-import { createClient } from '@/lib/supabase/client';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
+import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
+import { Trophy, Gamepad2, User, Mail, ArrowLeft, BarChart3, History } from 'lucide-react';
+import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
+import Link from 'next/link';
 
-interface RankedPlayerState {
-  season_id: string;
-  player_id: string;
-  rp: number;
-  mmr: number;
-  games_played: number;
-  wins: number;
-  losses: number;
-  provisional_games_remaining: number;
-  division_name: string;
-}
-
-interface Season {
-  id: string;
-  name: string;
-}
-
-function ProfileContent() {
-  const { profile, loading } = useProfile();
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
-  const [season, setSeason] = useState<Season | null>(null);
-  const supabase = createClient();
-
-  useEffect(() => {
-    async function fetchRankedState() {
-      try {
-        const { data, error } = await supabase.rpc('rpc_ranked_get_my_state');
-        if (error) {
-          console.error('Error fetching ranked state:', error);
-        } else if (data) {
-          setSeason(data.season);
-          setRankedState(data.player_state);
-        }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-      }
-    }
-
-    if (!loading) {
-      fetchRankedState();
-    }
-  }, [loading]);
-
-  const getInitials = () => {
-    if (!profile?.display_name) return 'JD';
-    const names = profile.display_name.split(' ');
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
-    }
-    return profile.display_name.substring(0, 2).toUpperCase();
-  };
-
-  const formatJoinDate = () => {
-    if (!profile?.created_at) return 'Joined Jan 2026';
-    const date = new Date(profile.created_at);
-    return `Joined ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-400">Loading profile...</div>
-      </div>
-    );
-  }
-  return (
-    <>
-      <div className="space-y-8">
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-8">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="flex items-center space-x-6">
-              <Avatar className="w-24 h-24">
-                <AvatarImage src={profile?.avatar_url || ''} />
-                <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-3xl">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-2">
-                  <h1 className="text-3xl font-bold text-white">
-                    {profile?.display_name || 'Anonymous Player'}
-                  </h1>
-                  <TrustRatingBadge letter={profile?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={profile?.trust_rating_count || 0} size="md" />
-                </div>
-                <p className="text-gray-400 mb-3">@{profile?.username || 'user'}</p>
-                <div className="flex items-center space-x-4 text-sm text-gray-400 mb-4">
-                  {profile?.location && (
-                    <div className="flex items-center">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      {profile.location}
-                    </div>
-                  )}
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    {formatJoinDate()}
-                  </div>
-                </div>
-                <ProfileRankBadge />
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <Button variant="outline" className="border-white/10 text-white hover:bg-white/5">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-              <Button
-                onClick={() => setEditModalOpen(true)}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Shield className="w-6 h-6 text-teal-400" />
-              <div>
-                <h2 className="text-lg font-semibold text-white">Trust Rating</h2>
-                <p className="text-sm text-gray-400">Community reputation score</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <TrustRatingBadge letter={profile?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={profile?.trust_rating_count || 0} size="md" />
-              <div className="text-right">
-                {profile?.trust_rating_avg !== null && profile?.trust_rating_avg !== undefined && profile.trust_rating_count && profile.trust_rating_count > 0 ? (
-                  <p className="text-white font-semibold">
-                    {profile.trust_rating_avg.toFixed(1)} avg
-                  </p>
-                ) : (
-                  <p className="text-gray-400 text-sm">No ratings yet</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <RankCard rankedState={rankedState} season={season} loading={loading} />
-
-        <RankedStatsCard />
-
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-            <h2 className="text-xl font-bold text-white mb-6">About</h2>
-            <p className="text-gray-300 mb-6">
-              {profile?.about || 'No bio added yet. Click Edit Profile to add information about yourself.'}
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <span className="text-gray-400">Favorite Format</span>
-                <span className="text-white font-medium">{profile?.favorite_format || 'Not set'}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <span className="text-gray-400">Playing Since</span>
-                <span className="text-white font-medium">{profile?.playing_since || 'Not set'}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <span className="text-gray-400">Preferred Hand</span>
-                <span className="text-white font-medium">{profile?.preferred_hand || 'Not set'}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white">Achievements</h2>
-              <Link href="/app/achievements">
-                <span className="text-sm text-teal-400 hover:text-teal-300 hover:underline transition-all cursor-pointer">
-                  View All
-                </span>
-              </Link>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                { title: '7-Game Win Streak', desc: 'Won 7 consecutive matches', color: 'from-orange-500 to-red-500' },
-                { title: 'Century Club', desc: 'Achieved 100+ average score', color: 'from-emerald-500 to-teal-500' },
-                { title: 'Tournament Victor', desc: 'Won weekly tournament', color: 'from-yellow-500 to-orange-500' },
-                { title: 'Perfect Game', desc: 'Won without opponent scoring', color: 'from-blue-500 to-cyan-500' },
-              ].map((achievement, index) => (
-                <div
-                  key={index}
-                  className="flex items-center space-x-3 p-3 bg-white/5 rounded-xl border border-white/5"
-                >
-                  <div className={`w-10 h-10 bg-gradient-to-br ${achievement.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <Award className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-white font-medium text-sm">{achievement.title}</p>
-                    <p className="text-gray-400 text-xs">{achievement.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-          <h2 className="text-xl font-bold text-white mb-6">Match History</h2>
-
-          <div className="py-8 text-center">
-            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-8 h-8 text-gray-500" />
-            </div>
-            <p className="text-gray-400 mb-2">No match history yet</p>
-            <p className="text-gray-500 text-sm">Play matches to build your history</p>
-          </div>
-
-          <div className="space-y-3 hidden">
-            {[].map((match: any, index: number) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5"
-              >
-                <div className="flex items-center space-x-4">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${
-                      match.result === 'W'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {match.result}
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">{match.opponent}</p>
-                    <p className="text-gray-400 text-sm">{match.date}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-medium">{match.score}</p>
-                  <p className={`text-sm ${match.result === 'W' ? 'text-green-400' : 'text-red-400'}`}>
-                    {match.rating}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <EditProfileModal open={editModalOpen} onClose={() => setEditModalOpen(false)} />
-    </>
-  );
+interface Profile {
+  user_id: string;
+  username: string;
+  email?: string;
+  display_name?: string;
+  avatar_url?: string;
+  created_at?: string;
 }
 
 export default function ProfilePage() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { overallStats, quickMatchStats } = usePlayerStats();
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        setProfile(profileData);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-white text-center">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <ProfileProvider>
-      <ProfileContent />
-    </ProfileProvider>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/app">
+            <Button variant="outline" size="icon" className="border-slate-600">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <User className="w-8 h-8 text-emerald-400" />
+            Profile
+          </h1>
+        </div>
+
+        {/* Profile Card */}
+        <Card className="bg-slate-900/50 border-slate-700 p-6 mb-8">
+          <div className="flex items-center gap-6">
+            <Avatar className="w-20 h-20">
+              <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-2xl">
+                {profile?.username?.substring(0, 2).toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-white">
+                {profile?.display_name || profile?.username || 'User'}
+              </h2>
+              <p className="text-slate-400">@{profile?.username}</p>
+              {profile?.email && (
+                <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
+                  <Mail className="w-4 h-4" />
+                  {profile.email}
+                </p>
+              )}
+            </div>
+            <Link href="/app/stats">
+              <Button className="bg-emerald-600 hover:bg-emerald-700">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                View Full Stats
+              </Button>
+            </Link>
+          </div>
+        </Card>
+
+        {/* Quick Stats */}
+        <h2 className="text-xl font-bold text-white mb-4">Quick Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <PlayerStatsCard
+            stats={overallStats}
+            title="Overall Stats"
+            icon={<Trophy className="w-6 h-6 text-yellow-400" />}
+          />
+          
+          <PlayerStatsCard
+            stats={quickMatchStats}
+            title="Quick Match Stats"
+            icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
+          />
+        </div>
+
+        {/* Recent Matches */}
+        <div className="mt-8">
+          <div className="flex items-center gap-3 mb-4">
+            <History className="w-6 h-6 text-emerald-400" />
+            <h2 className="text-xl font-bold text-white">Recent Matches</h2>
+          </div>
+          <MatchHistoryList limit={10} />
+        </div>
+      </div>
+    </div>
   );
 }
