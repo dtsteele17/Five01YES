@@ -576,9 +576,23 @@ export default function DartbotMatchPage() {
     const myTurnId = ++botTurnIdRef.current;
     botTimerRef.current = window.setTimeout(async () => {
       if (myTurnId !== botTurnIdRef.current) return;
-      try { await Promise.race([botTakeTurn(), new Promise((_, reject) => setTimeout(() => reject(new Error("BOT_TIMEOUT")), 5000)]); }
-      catch (err) { console.error("BOT_ERROR", err); setIsBotThinking(false); clearBotTimer(); botTimerRef.current = window.setTimeout(() => { if (currentPlayer === 'player2') scheduleBotTurn("recover"); }, 150); return; }
-      finally { setIsBotThinking(false); clearBotTimer(); }
+      try {
+        await Promise.race([
+          botTakeTurn(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("BOT_TIMEOUT")), 5000))
+        ]);
+      } catch (err) {
+        console.error("BOT_ERROR", err);
+        setIsBotThinking(false);
+        clearBotTimer();
+        botTimerRef.current = window.setTimeout(() => {
+          if (currentPlayer === 'player2') scheduleBotTurn("recover");
+        }, 150);
+        return;
+      } finally {
+        setIsBotThinking(false);
+        clearBotTimer();
+      }
     }, 1500);
   }, [currentPlayer, isLegTransitioning, clearBotTimer, botTakeTurn]);
 
