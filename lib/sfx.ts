@@ -1,8 +1,9 @@
 let inviteAudio: HTMLAudioElement | null = null;
 let gameOnAudio: HTMLAudioElement | null = null;
 
-const INVITE_SOUND_URL = 'https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/Invite%20Noti.mp3';
-const GAMEON_SOUND_URL = 'https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/gameon-darts.mp3';
+const getSupabaseUrl = () => process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://azrmgtukcgqslnilodky.supabase.co';
+const INVITE_SOUND_URL = `${getSupabaseUrl()}/storage/v1/object/public/public-assets/Invite%20Noti.mp3`;
+const GAMEON_SOUND_URL = `${getSupabaseUrl()}/storage/v1/object/public/public-assets/gameon-darts.mp3`;
 const PLAYED_IDS_KEY = 'invite_sfx_played_ids';
 const SOUND_ENABLED_KEY = 'invite_sound_enabled';
 const GAMEON_ENABLED_KEY = 'sfx_gameon_enabled';

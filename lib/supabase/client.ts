@@ -11,8 +11,8 @@ export function createClient() {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    const supabaseHost = new URL(url).host
-    console.log('[Supabase Client] Connected to:', supabaseHost)
+    console.log('[Supabase Client] SUPABASE URL:', url)
+    console.log('[Supabase Client] Project ID:', url.split('.')[0].split('//')[1])
   }
 
   return createBrowserClient(url, anonKey, {

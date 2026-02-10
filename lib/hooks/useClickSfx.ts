@@ -8,7 +8,8 @@ export function useClickSfx() {
   const isEnabledRef = useRef(false);
 
   useEffect(() => {
-    const audio = new Audio('https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/Click.mp3');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://azrmgtukcgqslnilodky.supabase.co';
+    const audio = new Audio(`${supabaseUrl}/storage/v1/object/public/public-assets/Click.mp3`);
     audio.volume = 0.2;
     audio.preload = 'auto';
     audioRef.current = audio;

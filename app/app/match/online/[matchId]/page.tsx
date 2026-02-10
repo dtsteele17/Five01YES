@@ -77,7 +77,8 @@ export default function OnlineMatchPage() {
 
     // Initialize audio once
     if (!audioRef.current) {
-      audioRef.current = new Audio('https://azrmgtukcgqslnilodky.supabase.co/storage/v1/object/public/public-assets/gameon-darts.mp3');
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://azrmgtukcgqslnilodky.supabase.co';
+      audioRef.current = new Audio(`${supabaseUrl}/storage/v1/object/public/public-assets/gameon-darts.mp3`);
       audioRef.current.volume = 0.6;
     }
 
