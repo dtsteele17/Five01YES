@@ -39,7 +39,7 @@ interface WinnerPopupProps {
   bestOf: number;
   onRematch: () => void;
   onReturn: () => void;
-  rematchStatus?: 'none' | 'waiting' | 'ready';
+  rematchStatus?: 'none' | 'waiting' | 'ready' | 'creating';
   opponentRematchReady?: boolean;
   youReady?: boolean;
   currentUserId?: string;
@@ -76,19 +76,27 @@ export function WinnerPopup({
 
   // Get rematch button content
   const getRematchButtonContent = () => {
-    if (youReady && opponentRematchReady) {
-      return (
-        <>
-          <Check className="w-4 h-4 mr-1" />
-          Starting
-        </>
-      );
-    }
-    if (youReady) {
+    if (rematchStatus === 'creating') {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Waiting
+          Creating...
+        </>
+      );
+    }
+    if (rematchStatus === 'waiting') {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          Waiting for opponent...
+        </>
+      );
+    }
+    if (rematchStatus === 'ready') {
+      return (
+        <>
+          <Check className="w-4 h-4 mr-1" />
+          Starting...
         </>
       );
     }
@@ -96,7 +104,7 @@ export function WinnerPopup({
       return (
         <>
           <RotateCcw className="w-4 h-4 mr-1" />
-          Rematch (1/2)
+          Join Rematch
         </>
       );
     }
@@ -281,7 +289,7 @@ export function WinnerPopup({
           <div className="flex gap-3">
             <Button
               onClick={onRematch}
-              disabled={youReady}
+              disabled={rematchStatus === 'waiting' || rematchStatus === 'creating' || rematchStatus === 'ready'}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold disabled:opacity-70"
             >
               {getRematchButtonContent()}
