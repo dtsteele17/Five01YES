@@ -97,6 +97,24 @@ interface QuickMatchVisit {
   created_at: string;
 }
 
+// Debug helper to trace visit data
+function logVisitsDebug(context: string, visits: QuickMatchVisit[], p1Id: string, p2Id: string) {
+  console.log(`[${context}] VISITS DEBUG:`, {
+    totalVisits: visits.length,
+    p1Visits: visits.filter(v => v.player_id === p1Id).length,
+    p2Visits: visits.filter(v => v.player_id === p2Id).length,
+    p1Checkouts: visits.filter(v => v.player_id === p1Id && v.is_checkout).length,
+    p2Checkouts: visits.filter(v => v.player_id === p2Id && v.is_checkout).length,
+  });
+  
+  // Log all visits with player info
+  visits.forEach((v, i) => {
+    const isP1 = v.player_id === p1Id;
+    const isP2 = v.player_id === p2Id;
+    console.log(`[${context}] Visit ${i}: player=${isP1 ? 'P1' : isP2 ? 'P2' : 'UNKNOWN'}, leg=${v.leg}, score=${v.score}, checkout=${v.is_checkout}`);
+  });
+}
+
 // Checkout routes for common scores
 const CHECKOUT_ROUTES: Record<number, string[]> = {
   170: ['T20', 'T20', 'DB'],
@@ -1543,13 +1561,19 @@ export default function QuickMatchRoomPage() {
               
               console.log('[MATCH END] Legs calculated:', { p1Legs, p2Legs, p1LegsFromVisits, p2LegsFromVisits, roomP1Legs: updatedRoom.player1_legs, roomP2Legs: updatedRoom.player2_legs });
               
-              // Calculate stats for both players using complete visits
+              // Debug: Log all visits before calculating stats
+              logVisitsDebug('MATCH_END_STATS', completeVisits, updatedRoom.player1_id, updatedRoom.player2_id);
+              
+              // Calculate stats for BOTH players - pass ALL visits and let the function filter
+              console.log('[MATCH_END] Calculating winner stats:', { winnerId, name: winnerProfile?.username });
               const wStats = calculatePlayerStatsFromVisits(
                 completeVisits,
                 winnerId,
                 winnerProfile?.username || 'Winner',
                 isPlayer1Winner ? p1Legs : p2Legs
               );
+              
+              console.log('[MATCH_END] Calculating loser stats:', { loserId, name: loserProfile?.username });
               const lStats = calculatePlayerStatsFromVisits(
                 completeVisits,
                 loserId,
@@ -2078,6 +2102,9 @@ export default function QuickMatchRoomPage() {
           
           const completeVisits = [...((allVisits as QuickMatchVisit[]) || visits), finalVisit];
           
+          // Debug: Log all visits
+          logVisitsDebug('SUBMIT_MATCH_END', completeVisits, room.player1_id, room.player2_id);
+          
           // Verify legs from visits (count checkouts per player) - more accurate than state
           const p1LegsFromVisits = completeVisits.filter(v => v.player_id === room.player1_id && v.is_checkout).length;
           const p2LegsFromVisits = completeVisits.filter(v => v.player_id === room.player2_id && v.is_checkout).length;
@@ -2088,14 +2115,17 @@ export default function QuickMatchRoomPage() {
           
           console.log('[MATCH END] Legs from visits:', { finalP1Legs, finalP2Legs, p1LegsFromVisits, p2LegsFromVisits });
           
-          // Calculate stats for both players using complete visits
-          const wStats = calculatePlayerStatsFromVisits(
+          // Calculate stats for BOTH players - pass ALL visits and let the function filter
+          console.log('[MATCH_END_SUBMIT] Calculating winner stats:', { winnerId, name: winnerProfile?.username });
+          let wStats = calculatePlayerStatsFromVisits(
             completeVisits,
             winnerId,
             winnerProfile?.username || 'Winner',
             isPlayer1Winner ? finalP1Legs : finalP2Legs
           );
-          const lStats = calculatePlayerStatsFromVisits(
+          
+          console.log('[MATCH_END_SUBMIT] Calculating loser stats:', { loserId, name: loserProfile?.username });
+          let lStats = calculatePlayerStatsFromVisits(
             completeVisits,
             loserId,
             loserProfile?.username || 'Loser',
@@ -2104,6 +2134,57 @@ export default function QuickMatchRoomPage() {
           
           // Update visits state
           setVisits(completeVisits);
+          
+          // IMPORTANT: Re-fetch ALL visits from DB to ensure we have complete data for BOTH players
+          // The completeVisits above includes the final visit we just added, but let's verify
+          console.log('[MATCH_END_SUBMIT] Re-fetching visits to verify data...');
+          const { data: verifyVisits } = await supabase
+            .from('quick_match_visits')
+            .select('*')
+            .eq('room_id', matchId)
+            .order('leg', { ascending: true })
+            .order('turn_no', { ascending: true });
+          
+          if (verifyVisits) {
+            console.log('[MATCH_END_SUBMIT] Verified visits from DB:', {
+              count: verifyVisits.length,
+              p1Visits: verifyVisits.filter(v => v.player_id === room.player1_id).length,
+              p2Visits: verifyVisits.filter(v => v.player_id === room.player2_id).length,
+              p1Checkouts: verifyVisits.filter(v => v.player_id === room.player1_id && v.is_checkout).length,
+              p2Checkouts: verifyVisits.filter(v => v.player_id === room.player2_id && v.is_checkout).length,
+            });
+            
+            // Use verified visits for stats calculation
+            const verifiedVisits = verifyVisits as QuickMatchVisit[];
+            
+            // Re-calculate stats with verified data
+            console.log('[MATCH_END_SUBMIT] Re-calculating with verified visits...');
+            const wStatsVerified = calculatePlayerStatsFromVisits(
+              verifiedVisits,
+              winnerId,
+              winnerProfile?.username || 'Winner',
+              isPlayer1Winner ? finalP1Legs : finalP2Legs
+            );
+            const lStatsVerified = calculatePlayerStatsFromVisits(
+              verifiedVisits,
+              loserId,
+              loserProfile?.username || 'Loser',
+              isPlayer1Winner ? finalP2Legs : finalP1Legs
+            );
+            
+            // Update stats with verified data
+            console.log('[MATCH_END_SUBMIT] Verified stats:', {
+              winner: { checkout: wStatsVerified.highestCheckout, checkoutPct: wStatsVerified.checkoutPercentage },
+              loser: { checkout: lStatsVerified.highestCheckout, checkoutPct: lStatsVerified.checkoutPercentage }
+            });
+            
+            // Use verified stats by reassigning
+            wStats = wStatsVerified;
+            lStats = lStatsVerified;
+            
+            // Update visits state with verified data
+            setVisits(verifiedVisits);
+          }
           
           // Show winner popup immediately for the winner
           // Determine player1 and player2 based on room data
