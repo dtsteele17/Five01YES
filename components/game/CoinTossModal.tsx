@@ -87,19 +87,19 @@ export function CoinTossModal({
               className="w-full h-full relative"
               style={{ transformStyle: 'preserve-3d' }}
               animate={isSpinning ? {
-                rotateY: [0, 720, 1440, 2160, 2880, 3600, 4320, 5040],
-                y: [0, -30, 0, -20, 0, -10, 0, 0],
+                rotateY: [0, 1800, 3600, 5400, 6300, 6840, 7020, 7200],
+                y: [0, -80, -60, -40, -20, -10, -5, 0],
               } : {
-                rotateY: result === 'heads' ? 0 : 180,
+                rotateY: result === 'heads' ? 7200 : (7200 + 180),
                 y: 0,
               }}
               transition={isSpinning ? {
-                duration: 4.5,
-                ease: [0.25, 0.1, 0.25, 1],
-                times: [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.8, 1],
+                duration: 5,
+                ease: [0.15, 0.6, 0.4, 1],
+                times: [0, 0.15, 0.3, 0.45, 0.65, 0.8, 0.92, 1],
               } : {
-                duration: 0.5,
-                ease: "easeOut",
+                duration: 0.8,
+                ease: [0.2, 0.8, 0.2, 1],
               }}
             >
               {/* Heads side */}
