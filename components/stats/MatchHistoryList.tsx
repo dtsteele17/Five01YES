@@ -31,9 +31,11 @@ interface MatchHistoryItem {
 interface MatchHistoryListProps {
   userId?: string;
   limit?: number;
+  gameMode?: number | null;  // Filter by game mode (301, 501)
+  matchType?: string | null; // Filter by match type
 }
 
-export function MatchHistoryList({ userId, limit = 20 }: MatchHistoryListProps) {
+export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchType = null }: MatchHistoryListProps) {
   const [matches, setMatches] = useState<MatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
@@ -51,16 +53,30 @@ export function MatchHistoryList({ userId, limit = 20 }: MatchHistoryListProps) 
 
         if (!targetUserId) return;
 
-        // Fetch match history with opponent profiles
-        const { data: historyData, error } = await supabase
+        // Build query with filters
+        let query = supabase
           .from('match_history')
           .select(`
             *,
             opponent:opponent_id (username)
           `)
           .eq('user_id', targetUserId)
-          .order('played_at', { ascending: false })
-          .limit(limit);
+          .order('played_at', { ascending: false });
+
+        // Apply game mode filter
+        if (gameMode !== null) {
+          query = query.eq('game_mode', gameMode);
+        }
+
+        // Apply match type filter
+        if (matchType !== null) {
+          query = query.eq('match_format', matchType);
+        }
+
+        // Apply limit
+        query = query.limit(limit);
+
+        const { data: historyData, error } = await query;
 
         if (error) throw error;
 
@@ -79,7 +95,7 @@ export function MatchHistoryList({ userId, limit = 20 }: MatchHistoryListProps) 
     }
 
     loadMatchHistory();
-  }, [userId, limit]);
+  }, [userId, limit, gameMode, matchType]);
 
   if (loading) {
     return (
@@ -94,8 +110,8 @@ export function MatchHistoryList({ userId, limit = 20 }: MatchHistoryListProps) 
       <Card className="bg-slate-900/50 border-slate-700 p-8">
         <div className="text-center">
           <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-400">No matches played yet</p>
-          <p className="text-slate-500 text-sm mt-1">Play some games to see your history here!</p>
+          <p className="text-slate-400">No matches found for selected filters</p>
+          <p className="text-slate-500 text-sm mt-1">Try changing your filter options</p>
         </div>
       </Card>
     );
@@ -140,6 +156,8 @@ export function MatchHistoryList({ userId, limit = 20 }: MatchHistoryListProps) 
                 </span>
                 <span className="text-slate-500">•</span>
                 <span className="text-slate-400 text-sm">{match.game_mode}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-slate-400 text-sm capitalize">{match.match_format || 'Quick'}</span>
               </div>
               
               <div className="flex items-center gap-4 text-sm text-slate-500">
