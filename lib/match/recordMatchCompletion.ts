@@ -220,7 +220,44 @@ export async function recordMatchCompletion(input: RecordMatchInput): Promise<Re
 
     console.log('✅ Opponent player stats saved');
 
-    // D) Update user aggregate stats
+    // D) Insert into match_history for stats filtering
+    const matchHistoryData = {
+      room_id: match.id, // Use match.id as room_id reference
+      user_id: user.id,
+      opponent_id: input.opponent.userId || null,
+      game_mode: parseInt(input.game),
+      match_format: input.matchType === 'dartbot' ? 'dartbot' : (input.matchType || 'quick'),
+      result: input.winner === 'user' ? 'win' : 'loss',
+      legs_won: input.userStats.legsWon,
+      legs_lost: input.userStats.legsLost,
+      three_dart_avg: input.userStats.threeDartAvg,
+      first9_avg: input.userStats.first9Avg,
+      highest_checkout: input.userStats.highestCheckout,
+      checkout_percentage: input.userStats.checkoutPercent ||
+        (input.userStats.checkoutDartsAttempted > 0
+          ? (input.userStats.checkoutsMade / input.userStats.checkoutDartsAttempted) * 100
+          : 0),
+      darts_thrown: input.userStats.dartsThrown || 0,
+      total_score: input.userStats.pointsScored || 0,
+      total_checkouts: input.userStats.checkoutsMade,
+      checkout_attempts: input.userStats.checkoutDartsAttempted,
+      visits_100_plus: input.userStats.count100Plus,
+      visits_140_plus: input.userStats.count140Plus,
+      visits_180: input.userStats.count180,
+      played_at: input.endedAt,
+    };
+
+    const { error: matchHistoryError } = await supabase
+      .from('match_history')
+      .insert(matchHistoryData);
+
+    if (matchHistoryError) {
+      console.warn('⚠️ Failed to insert match_history (non-critical):', matchHistoryError.message);
+    } else {
+      console.log('✅ Match history recorded');
+    }
+
+    // F) Update user aggregate stats
     const { data: userStatsData } = await supabase
       .from('user_stats')
       .select('*')
@@ -270,7 +307,7 @@ export async function recordMatchCompletion(input: RecordMatchInput): Promise<Re
       console.log('✅ User aggregate stats updated');
     }
 
-    // E) Update player_stats (for dashboard)
+    // G) Update player_stats (for dashboard)
     const { data: playerStatsData } = await supabase
       .from('player_stats')
       .select('*')
