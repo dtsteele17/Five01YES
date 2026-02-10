@@ -31,7 +31,7 @@ const MATCH_TYPES = [
   { value: 'ranked', label: 'Ranked Match' },
   { value: 'private', label: 'Private Match' },
   { value: 'local', label: 'Local Match' },
-  { value: 'training', label: 'Training' },
+  { value: 'dartbot', label: 'Training (vs Bot)' },
 ];
 
 export default function StatsPage() {
