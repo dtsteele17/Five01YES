@@ -96,26 +96,70 @@ export function CoinTossModal({
         </DialogHeader>
 
         <div className="flex flex-col items-center py-8">
-          {/* Player names on either side */}
+          {/* Player names on either side - Winner is HIGHLIGHTED */}
           <div className="flex items-center justify-between w-full mb-8 px-2">
             <motion.div 
-              className="text-center flex-1"
-              animate={{ opacity: result === 'heads' ? 1 : 0.5, scale: result === 'heads' ? 1.1 : 1 }}
+              className={`text-center flex-1 p-4 rounded-xl transition-all duration-500 ${
+                result === 'heads' 
+                  ? 'bg-emerald-500/20 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20' 
+                  : 'opacity-40'
+              }`}
+              animate={{ 
+                scale: result === 'heads' ? 1.05 : 1,
+                opacity: result === 'heads' ? 1 : 0.4
+              }}
               transition={{ duration: 0.5 }}
             >
-              <div className="text-lg font-bold text-emerald-400">{player1Name}</div>
-              <div className="text-sm text-gray-500">Heads</div>
+              <motion.div 
+                className="text-xl font-black text-emerald-400"
+                animate={{ scale: result === 'heads' ? [1, 1.2, 1] : 1 }}
+                transition={{ duration: 0.5, repeat: result === 'heads' ? 2 : 0 }}
+              >
+                {player1Name}
+              </motion.div>
+              <div className="text-sm font-bold text-emerald-300 mt-1">HEADS</div>
+              {result === 'heads' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-xs text-emerald-400 mt-2 font-bold"
+                >
+                  ✓ WINS TOSS
+                </motion.div>
+              )}
             </motion.div>
             
-            <div className="text-gray-600 font-bold px-4">VS</div>
+            <div className="text-gray-600 font-bold px-4 text-2xl">VS</div>
             
             <motion.div 
-              className="text-center flex-1"
-              animate={{ opacity: result === 'tails' ? 1 : 0.5, scale: result === 'tails' ? 1.1 : 1 }}
+              className={`text-center flex-1 p-4 rounded-xl transition-all duration-500 ${
+                result === 'tails' 
+                  ? 'bg-emerald-500/20 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20' 
+                  : 'opacity-40'
+              }`}
+              animate={{ 
+                scale: result === 'tails' ? 1.05 : 1,
+                opacity: result === 'tails' ? 1 : 0.4
+              }}
               transition={{ duration: 0.5 }}
             >
-              <div className="text-lg font-bold text-emerald-400">{player2Name}</div>
-              <div className="text-sm text-gray-500">Tails</div>
+              <motion.div 
+                className="text-xl font-black text-emerald-400"
+                animate={{ scale: result === 'tails' ? [1, 1.2, 1] : 1 }}
+                transition={{ duration: 0.5, repeat: result === 'tails' ? 2 : 0 }}
+              >
+                {player2Name}
+              </motion.div>
+              <div className="text-sm font-bold text-emerald-300 mt-1">TAILS</div>
+              {result === 'tails' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-xs text-emerald-400 mt-2 font-bold"
+                >
+                  ✓ WINS TOSS
+                </motion.div>
+              )}
             </motion.div>
           </div>
 

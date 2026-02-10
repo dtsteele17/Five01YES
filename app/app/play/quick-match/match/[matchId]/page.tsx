@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
+import { LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -2910,25 +2910,84 @@ export default function QuickMatchRoomPage() {
         </Button>
       </div>
 
-      {/* Main Content - LAYOUT CHANGE: Camera on left full height, Player cards and scoring/visit history on right */}
+      {/* Main Content - Two cameras side by side + game panel */}
       <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
-        {/* LEFT: Camera - Full height like in screenshot 2 */}
-        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between p-2 border-b border-white/5">
-            <span className="text-xs text-gray-400">Camera</span>
-            <div className="flex gap-1">
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
-                {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
-              </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleMic}>
-                {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-              </Button>
+        {/* LEFT: Both Cameras Stacked */}
+        <div className="flex flex-col gap-2">
+          {/* My Camera (Large) */}
+          <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col">
+            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-slate-800/80">
+              <span className="text-xs text-emerald-400 font-semibold">You ({myPlayer.name})</span>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
+                  {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
+                </Button>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleMic}>
+                  {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                </Button>
+              </div>
             </div>
-          </div>
-          <div className="flex-1 relative">
-            <video ref={liveVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          </div>
-        </Card>
+            <div className="flex-1 relative bg-slate-900">
+              {isCameraOn ? (
+                <video 
+                  ref={liveVideoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                  <div className="text-center">
+                    <CameraOff className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <span className="text-sm">Camera Off</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+          
+          {/* Opponent Camera (Small) */}
+          <Card className="bg-slate-800/50 border-white/10 overflow-hidden h-48 flex flex-col">
+            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-slate-800/80">
+              <span className="text-xs text-blue-400 font-semibold">Opponent ({opponentPlayer.name})</span>
+              <div className="flex gap-1">
+                {callStatus === 'connected' ? (
+                  <span className="text-xs text-emerald-400 flex items-center gap-1">
+                    <Wifi className="w-3 h-3" /> Live
+                  </span>
+                ) : callStatus === 'connecting' ? (
+                  <span className="text-xs text-amber-400 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Connecting...
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-500">Not connected</span>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 relative bg-slate-900">
+              {webrtc.remoteStream ? (
+                <video 
+                  ref={(el) => {
+                    if (el && webrtc.remoteStream) {
+                      el.srcObject = webrtc.remoteStream;
+                    }
+                  }}
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                  <div className="text-center">
+                    <UserPlus className="w-10 h-10 mx-auto mb-1 opacity-50" />
+                    <span className="text-xs">Waiting for opponent...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">

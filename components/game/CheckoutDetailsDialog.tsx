@@ -24,22 +24,29 @@ export function CheckoutDetailsDialog({
   const [dartsAtDouble, setDartsAtDouble] = useState<number>(1);
 
   // Calculate reasonable options based on score
+  // 141+ can only be done with 3 darts (max 60+60+21=141, or T20 T19 D12 = 141)
+  // 110-140 can be done with 2 or 3 darts
+  // Under 110 can be done with 1, 2, or 3 darts
   const getDartsOptions = () => {
-    // High checkouts (100+) - usually 3 darts, sometimes 2
-    if (score >= 100) return [2, 3];
-    // Medium checkouts (50-99) - could be 2 or 3 darts
-    if (score >= 50) return [1, 2, 3];
-    // Lower checkouts - could be 1, 2, or 3 darts
-    return [1, 2, 3];
+    if (score >= 141) return [3]; // Must use 3 darts
+    if (score >= 110) return [2, 3]; // 2 or 3 darts possible
+    if (score >= 50) return [2, 3]; // 2 or 3 darts (can't be done with 1)
+    return [1, 2, 3]; // Lower scores can be any
   };
 
   const getDoubleOptions = () => {
-    const options = [];
-    // Can't have more darts at double than total darts thrown
-    for (let i = 1; i <= dartsThrown; i++) {
-      options.push(i);
+    // If checkout is above 110, they only used 1 dart at the double
+    // (The first two darts were trebles to get to a finish)
+    if (score > 110) {
+      return [1];
     }
-    return options;
+    // For 100-110, could be 1 or 2 darts at double (e.g., T20 D20 = 100 uses 1, T19 D21.5... no, still 1)
+    // Actually for most checkouts, only 1 dart is at double (the last one)
+    // But for lower checkouts like 40, could be S20 D10 (2 at double) or D20 (1 at double)
+    if (score <= 40) {
+      return [1, 2];
+    }
+    return [1];
   };
 
   const handleDartsSelected = (darts: number) => {
