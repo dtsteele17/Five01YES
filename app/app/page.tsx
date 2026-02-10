@@ -13,7 +13,7 @@ import {
   Play,
 } from 'lucide-react';
 import { UpcomingMatchesModal } from '@/components/app/UpcomingMatchesModal';
-import { RecentMatchesList } from '@/components/stats/RecentMatchesList';
+import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { usePresence } from '@/lib/hooks/usePresence';
@@ -300,7 +300,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <RecentMatchesList limit={5} />
+          <MatchHistoryList limit={5} />
         </Card>
 
         <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">

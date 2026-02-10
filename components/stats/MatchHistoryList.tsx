@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Trophy, Calendar, Target, TrendingUp, User, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
-import { MatchStatsModal } from './MatchStatsModal';
+import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 
 interface MatchHistoryItem {
   id: string;
@@ -221,13 +221,9 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
 
     {/* Match Stats Modal */}
     <MatchStatsModal
-      match={selectedMatch ? {
-        ...selectedMatch,
-        opponent_avatar_url: selectedMatch.opponent_avatar_url || null,
-        total_score: 0
-      } : null}
-      open={!!selectedMatch}
-      onOpenChange={(open) => !open && setSelectedMatch(null)}
+      isOpen={!!selectedMatch}
+      onClose={() => setSelectedMatch(null)}
+      matchId={selectedMatch?.room_id || ''}
     />
     </>
   );
