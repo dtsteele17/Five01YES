@@ -73,6 +73,32 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           loadData();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tournament_participants',
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        () => {
+          console.log('[TOURNAMENT] Participant added, reloading data');
+          loadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tournament_participants',
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        () => {
+          console.log('[TOURNAMENT] Participant removed, reloading data');
+          loadData();
+        }
+      )
       .subscribe();
 
     // Watch for match updates - auto-redirect when match starts
@@ -164,6 +190,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           )
         `)
         .eq('tournament_id', tournamentId)
+        .in('status_type', ['registered', 'checked-in'])  // Only count registered/checked-in participants
         .order('joined_at', { ascending: true });
 
       if (participantsError) throw participantsError;
@@ -186,6 +213,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           .select('id')
           .eq('tournament_id', tournamentId)
           .eq('user_id', user.id)
+          .in('status_type', ['registered', 'checked-in'])  // Only check registered/checked-in status
           .maybeSingle();
 
         setIsRegistered(!!existing);

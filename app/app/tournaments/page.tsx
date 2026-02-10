@@ -97,7 +97,8 @@ export default function TournamentsPage() {
     try {
       const { data, error } = await supabase
         .from('tournament_participants')
-        .select('tournament_id, user_id');
+        .select('tournament_id, user_id, status_type')
+        .in('status_type', ['registered', 'checked-in']);  // Only count registered/checked-in participants
 
       if (error) throw error;
 
