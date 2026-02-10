@@ -146,7 +146,7 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = displayStats?.total_matches > 0 
+  const winPercentage = displayStats && displayStats.total_matches > 0
     ? ((displayStats.wins / displayStats.total_matches) * 100).toFixed(1)
     : '0.0';
 
