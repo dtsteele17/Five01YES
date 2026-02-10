@@ -38,6 +38,7 @@ import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { CoinTossModal } from '@/components/game/CoinTossModal';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -67,6 +68,9 @@ interface MatchRoom {
   player1_legs: number;
   player2_legs: number;
   source: string;
+  coin_toss_winner_id?: string | null;
+  coin_toss_completed?: boolean;
+  leg_starter_id?: string | null;
 }
 
 interface Profile {
@@ -1041,6 +1045,10 @@ export default function QuickMatchRoomPage() {
   const [newRematchRoomId, setNewRematchRoomId] = useState<string | null>(null);
   const rematchAttemptedRef = useRef(false);
 
+  // Coin toss state
+  const [showCoinToss, setShowCoinToss] = useState(false);
+  const [coinTossCompleted, setCoinTossCompleted] = useState(false);
+
   const cleanupMatchRef = useRef<() => void>();
   
   // Navigate to rematch room when set
@@ -1364,6 +1372,44 @@ export default function QuickMatchRoomPage() {
     setProfiles((profilesData as Profile[]) || []);
     return true;
   }
+
+  // Handle coin toss completion
+  async function handleCoinTossComplete(winnerId: string) {
+    console.log('[COIN TOSS] Winner determined:', winnerId);
+    
+    const { data, error } = await supabase.rpc('rpc_complete_coin_toss', {
+      p_room_id: matchId,
+      p_winner_id: winnerId
+    });
+
+    if (error) {
+      console.error('[COIN TOSS] Error completing coin toss:', error);
+      toast.error('Failed to set starting player');
+      return;
+    }
+
+    console.log('[COIN TOSS] Completed:', data);
+    setCoinTossCompleted(true);
+    setShowCoinToss(false);
+    
+    // Reload room data to get updated state
+    await loadMatchData();
+    
+    const winnerProfile = profiles.find(p => p.user_id === winnerId);
+    toast.success(`${winnerProfile?.username || 'Player'} will throw first!`);
+  }
+
+  // Trigger coin toss when both players are present and it's the first leg
+  useEffect(() => {
+    if (room && profiles.length === 2 && room.current_leg === 1 && !room.coin_toss_completed && !coinTossCompleted) {
+      // Check if any visits have been made (if so, don't show coin toss)
+      const hasVisits = visits.length > 0;
+      if (!hasVisits && room.status === 'active') {
+        console.log('[COIN TOSS] Showing coin toss modal');
+        setShowCoinToss(true);
+      }
+    }
+  }, [room, profiles, visits, coinTossCompleted]);
 
   useEffect(() => {
     if (room && profiles.length > 0) {
@@ -2715,6 +2761,18 @@ export default function QuickMatchRoomPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Coin Toss Modal - shows at the start of the match */}
+      {showCoinToss && room && profiles.length === 2 && (
+        <CoinTossModal
+          isOpen={showCoinToss}
+          player1Name={profiles.find(p => p.user_id === room.player1_id)?.username || 'Player 1'}
+          player2Name={profiles.find(p => p.user_id === room.player2_id)?.username || 'Player 2'}
+          player1Id={room.player1_id}
+          player2Id={room.player2_id}
+          onComplete={handleCoinTossComplete}
+        />
       )}
 
       {/* Winner Popup - shows when match is finished */}
