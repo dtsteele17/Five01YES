@@ -12,10 +12,13 @@ interface PlayerStats {
   overall_first9_avg: number;
   highest_checkout: number;
   checkout_percentage: number;
+  total_checkouts?: number;
+  checkout_attempts?: number;
   visits_100_plus: number;
   visits_140_plus: number;
   visits_180: number;
   total_darts_thrown: number;
+  total_score?: number;
 }
 
 interface PlayerStatsCardProps {
@@ -130,9 +133,16 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
         </div>
       </div>
 
-      {/* Total Darts */}
-      <div className="text-center text-sm text-slate-400">
-        Total Darts Thrown: <span className="text-white font-bold">{stats.total_darts_thrown || 0}</span>
+      {/* Total Darts & Score */}
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+          <div className="text-xs text-slate-400 mb-1">Total Darts</div>
+          <div className="text-xl font-bold text-orange-400">{stats.total_darts_thrown || 0}</div>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+          <div className="text-xs text-slate-400 mb-1">Total Score</div>
+          <div className="text-xl font-bold text-cyan-400">{stats.total_score?.toLocaleString() || 0}</div>
+        </div>
       </div>
     </Card>
   );
