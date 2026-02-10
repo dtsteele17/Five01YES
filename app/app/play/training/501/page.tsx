@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Home, X, Check, Bot, Pencil, BarChart3 } from 'lucide-react';
-import { isBust, isValidCheckout, getLegsToWin } from '@/lib/match-logic';
+import { getCheckoutOptions, isBust, isValidCheckout, getLegsToWin, resetBotLegState } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
@@ -35,6 +35,7 @@ import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } 
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
+import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { recordMatchCompletion, type PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
@@ -49,6 +50,7 @@ interface Visit {
   timestamp: number;
   lastDartType?: 'S' | 'D' | 'T' | 'BULL' | 'SBULL';
   bustReason?: string;
+  dartsThrown?: number;
 }
 
 interface LegData {
@@ -151,6 +153,15 @@ export default function DartbotMatchPage() {
   // Stats display (like QuickMatch)
   const [showStatsPanel, setShowStatsPanel] = useState(true);
 
+  // Match end stats for WinnerPopup
+  const [matchEndStats, setMatchEndStats] = useState<{
+    player1: { id: string; name: string; legs: number };
+    player2: { id: string; name: string; legs: number };
+    player1FullStats: any;
+    player2FullStats: any;
+    winnerId: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!config || (config.mode !== '301' && config.mode !== '501')) {
       router.push('/app/play');
@@ -170,11 +181,13 @@ export default function DartbotMatchPage() {
   useEffect(() => {
     matchOverRef.current = !!matchWinner || showMatchCompleteModal;
     
-    // Save stats when match completes
+    // Save stats and show winner popup when match completes
     if (matchWinner && showMatchCompleteModal && !hasSavedStats.current) {
       hasSavedStats.current = true;
+      calculateAndSetMatchEndStats();
       saveMatchStats();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchWinner, showMatchCompleteModal]);
 
   // Play Game On sound when training session starts
@@ -426,6 +439,8 @@ export default function DartbotMatchPage() {
       setBotLastVisitTotal(visualVisit.visitTotal);
       await animateBotThrows(visualVisit.darts);
 
+      const dartsThrown = visualVisit.darts.length;
+
       const visit: Visit = {
         player: 'player2',
         score: visualVisit.bust ? 0 : visualVisit.visitTotal,
@@ -433,9 +448,8 @@ export default function DartbotMatchPage() {
         isBust: visualVisit.bust,
         isCheckout: visualVisit.finished,
         timestamp: Date.now(),
+        dartsThrown,
       };
-
-      const dartsThrown = visualVisit.darts.length;
 
       setCurrentLeg(prev => {
         const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player2First9DartsThrown));
@@ -589,6 +603,7 @@ export default function DartbotMatchPage() {
         isBust: true,
         isCheckout: false,
         timestamp: Date.now(),
+        dartsThrown,
       };
 
       setCurrentLeg(prev => {
@@ -619,6 +634,7 @@ export default function DartbotMatchPage() {
       isCheckout,
       timestamp: Date.now(),
       lastDartType,
+      dartsThrown,
     };
 
     setCurrentLeg(prev => {
@@ -742,6 +758,7 @@ export default function DartbotMatchPage() {
   const handleRematch = () => {
     matchOverRef.current = false;
     hasSavedStats.current = false;
+    setMatchEndStats(null);
     clearBotTimer();
     setShowMatchCompleteModal(false);
     setIsLegTransitioning(false);
@@ -927,31 +944,143 @@ export default function DartbotMatchPage() {
 
   // Calculate stats for display (like QuickMatch)
   const calculatePlayerStats = () => {
-    const player1Visits = currentLeg.visits.filter(v => v.player === 'player1');
-    const player2Visits = currentLeg.visits.filter(v => v.player === 'player2');
+    // Get all visits from all legs + current leg
+    const allVisits = [...allLegs.flatMap(leg => leg.visits), ...currentLeg.visits];
+    const player1Visits = allVisits.filter(v => v.player === 'player1');
+    const player2Visits = allVisits.filter(v => v.player === 'player2');
     
     const player1ValidVisits = player1Visits.filter(v => !v.isBust);
     const player2ValidVisits = player2Visits.filter(v => !v.isBust);
     
-    const player1Avg = player1ValidVisits.length > 0 
-      ? (player1ValidVisits.reduce((sum, v) => sum + v.score, 0) / player1ValidVisits.length).toFixed(1)
+    const player1TotalDarts = player1ValidVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const player2TotalDarts = player2ValidVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    
+    const player1TotalScore = player1ValidVisits.reduce((sum, v) => sum + v.score, 0);
+    const player2TotalScore = player2ValidVisits.reduce((sum, v) => sum + v.score, 0);
+    
+    const player1Avg = player1TotalDarts > 0 
+      ? ((player1TotalScore / player1TotalDarts) * 3).toFixed(1)
       : '0.0';
     
-    const player2Avg = player2ValidVisits.length > 0 
-      ? (player2ValidVisits.reduce((sum, v) => sum + v.score, 0) / player2ValidVisits.length).toFixed(1)
+    const player2Avg = player2TotalDarts > 0 
+      ? ((player2TotalScore / player2TotalDarts) * 3).toFixed(1)
       : '0.0';
 
-    // Calculate first 9 average
-    const player1First9Score = currentLeg.player1First9PointsScored;
-    const player1First9Darts = currentLeg.player1First9DartsThrown;
-    const player1First9Avg = player1First9Darts > 0 
-      ? ((player1First9Score / player1First9Darts) * 3).toFixed(1)
+    // Calculate first 9 average across all legs
+    const allLegsData = [...allLegs, currentLeg];
+    let totalFirst9Score = 0;
+    let totalFirst9Darts = 0;
+    for (const leg of allLegsData) {
+      totalFirst9Score += leg.player1First9PointsScored;
+      totalFirst9Darts += leg.player1First9DartsThrown;
+    }
+    const player1First9Avg = totalFirst9Darts > 0 
+      ? ((totalFirst9Score / totalFirst9Darts) * 3).toFixed(1)
       : '0.0';
 
     return {
       player1Avg,
       player2Avg,
       player1First9Avg,
+    };
+  };
+
+  // Calculate match end stats for WinnerPopup
+  const calculateAndSetMatchEndStats = () => {
+    if (!matchWinner || !config) return;
+
+    const botName = BOT_DIFFICULTY_CONFIG[config.botDifficulty]?.name || 'DartBot';
+    const allLegsData = [...allLegs, currentLeg].filter(leg => leg.winner);
+    const allVisits = allLegsData.flatMap(leg => leg.visits);
+
+    // Calculate stats for player 1 (user)
+    const p1Stats = calculateDetailedStats(allVisits, 'player1', 'You', player1LegsWon);
+    
+    // Calculate stats for player 2 (bot)
+    const p2Stats = calculateDetailedStats(allVisits, 'player2', botName, player2LegsWon);
+
+    const winnerId = matchWinner === 'player1' ? 'player1' : 'player2';
+
+    setMatchEndStats({
+      player1: { id: 'player1', name: 'You', legs: player1LegsWon },
+      player2: { id: 'player2', name: botName, legs: player2LegsWon },
+      player1FullStats: p1Stats,
+      player2FullStats: p2Stats,
+      winnerId,
+    });
+  };
+
+  // Calculate detailed stats for a player
+  const calculateDetailedStats = (visits: Visit[], player: 'player1' | 'player2', name: string, legsWon: number) => {
+    const playerVisits = visits.filter(v => v.player === player && !v.isBust);
+    
+    // Basic stats
+    const totalDarts = playerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+
+    // First 9 average
+    let first9Score = 0;
+    let first9Darts = 0;
+    for (const visit of playerVisits.slice(0, 3)) {
+      first9Score += visit.score;
+      first9Darts += visit.dartsThrown || 3;
+      if (first9Darts >= 9) break;
+    }
+    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+
+    // Checkouts
+    const checkouts = playerVisits.filter(v => v.isCheckout);
+    const highestCheckout = checkouts.length > 0 
+      ? Math.max(...checkouts.map(v => v.score)) 
+      : 0;
+    
+    // Checkout percentage (visits at double / successful checkouts)
+    const checkoutAttempts = player === 'player1' 
+      ? player1TotalDartsAtDouble 
+      : player2TotalDartsAtDouble;
+    const successfulCheckouts = checkouts.length;
+    const checkoutPercentage = checkoutAttempts > 0 
+      ? (successfulCheckouts / checkoutAttempts) * 100 
+      : 0;
+
+    // Best leg (fewest darts to win)
+    let bestLegDarts = Infinity;
+    let bestLegNum = 0;
+    for (let i = 0; i < allLegs.length; i++) {
+      const leg = allLegs[i];
+      if (leg.winner === player) {
+        const legVisits = leg.visits.filter(v => v.player === player);
+        const legDarts = legVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+        if (legDarts < bestLegDarts) {
+          bestLegDarts = legDarts;
+          bestLegNum = i + 1;
+        }
+      }
+    }
+
+    // Count 100+, 140+, 180s
+    const count100Plus = playerVisits.filter(v => v.score >= 100 && v.score < 140).length;
+    const count140Plus = playerVisits.filter(v => v.score >= 140 && v.score < 180).length;
+    const oneEighties = playerVisits.filter(v => v.score === 180).length;
+
+    return {
+      id: player,
+      name,
+      legsWon,
+      threeDartAverage,
+      first9Average,
+      highestCheckout,
+      checkoutPercentage,
+      totalDartsThrown: totalDarts,
+      bestLegDarts: bestLegDarts === Infinity ? 0 : bestLegDarts,
+      bestLegNum,
+      totalScore: totalScored,
+      checkouts: successfulCheckouts,
+      checkoutAttempts,
+      count100Plus,
+      count140Plus,
+      oneEighties,
     };
   };
 
@@ -1080,7 +1209,9 @@ export default function DartbotMatchPage() {
             <div className="relative aspect-square max-w-md mx-auto">
               <DartboardOverlay
                 hits={dartboardHits}
-                showDebugRings={debugMode}
+                onSegmentClick={handleDartClick}
+                lastVisitTotal={botLastVisitTotal}
+                showDebug={debugMode}
               />
             </div>
 
@@ -1315,56 +1446,41 @@ export default function DartbotMatchPage() {
       </AlertDialog>
 
       {/* Match Complete Modal */}
-      <Dialog open={showMatchCompleteModal} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-yellow-500" />
-              {matchWinner === 'player1' ? 'You Win!' : `${botName} Wins!`}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-3 border-b border-slate-700">
-              <span className="text-slate-300">Final Score</span>
-              <span className="text-lg font-bold">
-                {player1LegsWon} - {player2LegsWon}
-              </span>
-            </div>
-            <div className="flex gap-3">
-              <Button onClick={handleRematch} className="flex-1">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Rematch
-              </Button>
-              <Button onClick={handleReturnToPlay} variant="outline" className="flex-1">
-                <Home className="w-4 h-4 mr-2" />
-                Return
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {matchEndStats && showMatchCompleteModal && (
+        <WinnerPopup
+          player1={matchEndStats.player1}
+          player2={matchEndStats.player2}
+          player1Stats={matchEndStats.player1FullStats}
+          player2Stats={matchEndStats.player2FullStats}
+          winnerId={matchEndStats.winnerId}
+          gameMode={config?.mode || '501'}
+          bestOf={parseInt(config?.bestOf.replace('best-of-', '') || '1')}
+          onRematch={handleRematch}
+          onReturn={handleReturnToPlay}
+          rematchStatus='none'
+          opponentRematchReady={false}
+          youReady={false}
+          currentUserId='player1'
+        />
+      )}
 
       {/* Edit Visit Modal */}
       {showEditVisitModal && (
         <EditVisitModal
-          open={showEditVisitModal}
-          onOpenChange={setShowEditVisitModal}
-          visitNumber={(editingVisitIndex ?? 0) + 1}
-          originalScore={editingVisitScore}
+          isOpen={showEditVisitModal}
+          onClose={() => setShowEditVisitModal(false)}
+          currentScore={editingVisitScore}
           onSave={handleSaveEditedVisit}
         />
       )}
 
       {/* Darts At Double Modal */}
-      {pendingVisitData && (
-        <DartsAtDoubleModal
-          isOpen={showDartsAtDoubleModal}
-          minDarts={pendingVisitData.minDarts}
-          isCheckout={pendingVisitData.isCheckout}
-          onConfirm={handleDartsAtDoubleConfirm}
-          onCancel={() => setShowDartsAtDoubleModal(false)}
-        />
-      )}
+      <DartsAtDoubleModal
+        isOpen={showDartsAtDoubleModal}
+        onClose={() => setShowDartsAtDoubleModal(false)}
+        onConfirm={handleDartsAtDoubleConfirm}
+        remainingScore={player1Score}
+      />
     </div>
   );
 }
