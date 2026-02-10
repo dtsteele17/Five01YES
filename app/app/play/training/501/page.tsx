@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Home, X, Check, Bot, Pencil, BarChart3 } from 'lucide-react';
-import { getCheckoutOptions, isBust, isValidCheckout, getLegsToWin, resetBotLegState } from '@/lib/match-logic';
+import { isBust, isValidCheckout, getLegsToWin } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
@@ -35,7 +35,6 @@ import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } 
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
-import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { recordMatchCompletion, type PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
@@ -1081,9 +1080,7 @@ export default function DartbotMatchPage() {
             <div className="relative aspect-square max-w-md mx-auto">
               <DartboardOverlay
                 hits={dartboardHits}
-                onSegmentClick={handleDartClick}
-                lastVisitTotal={botLastVisitTotal}
-                showDebug={debugMode}
+                showDebugRings={debugMode}
               />
             </div>
 
@@ -1318,34 +1315,56 @@ export default function DartbotMatchPage() {
       </AlertDialog>
 
       {/* Match Complete Modal */}
-      <WinnerPopup
-        isOpen={showMatchCompleteModal}
-        onClose={() => {}}
-        winner={matchWinner === 'player1' ? 'You' : botName}
-        isUserWinner={matchWinner === 'player1'}
-        playerLegs={player1LegsWon}
-        opponentLegs={player2LegsWon}
-        onRematch={handleRematch}
-        onReturn={handleReturnToPlay}
-      />
+      <Dialog open={showMatchCompleteModal} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              {matchWinner === 'player1' ? 'You Win!' : `${botName} Wins!`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center py-3 border-b border-slate-700">
+              <span className="text-slate-300">Final Score</span>
+              <span className="text-lg font-bold">
+                {player1LegsWon} - {player2LegsWon}
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleRematch} className="flex-1">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Rematch
+              </Button>
+              <Button onClick={handleReturnToPlay} variant="outline" className="flex-1">
+                <Home className="w-4 h-4 mr-2" />
+                Return
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Visit Modal */}
       {showEditVisitModal && (
         <EditVisitModal
-          isOpen={showEditVisitModal}
-          onClose={() => setShowEditVisitModal(false)}
-          currentScore={editingVisitScore}
+          open={showEditVisitModal}
+          onOpenChange={setShowEditVisitModal}
+          visitNumber={(editingVisitIndex ?? 0) + 1}
+          originalScore={editingVisitScore}
           onSave={handleSaveEditedVisit}
         />
       )}
 
       {/* Darts At Double Modal */}
-      <DartsAtDoubleModal
-        isOpen={showDartsAtDoubleModal}
-        onClose={() => setShowDartsAtDoubleModal(false)}
-        onConfirm={handleDartsAtDoubleConfirm}
-        remainingScore={player1Score}
-      />
+      {pendingVisitData && (
+        <DartsAtDoubleModal
+          isOpen={showDartsAtDoubleModal}
+          minDarts={pendingVisitData.minDarts}
+          isCheckout={pendingVisitData.isCheckout}
+          onConfirm={handleDartsAtDoubleConfirm}
+          onCancel={() => setShowDartsAtDoubleModal(false)}
+        />
+      )}
     </div>
   );
 }
