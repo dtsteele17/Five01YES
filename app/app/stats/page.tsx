@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
-import { Trophy, BarChart3, ArrowLeft, History, Target, TrendingUp, Disc, Filter } from 'lucide-react';
+import { Trophy, BarChart3, ArrowLeft, History, Target, TrendingUp, Disc, Filter, Gamepad2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   Select,
@@ -36,17 +36,40 @@ interface FilteredStats {
 }
 
 export default function StatsPage() {
-  const { overallStats, loading, error } = usePlayerStats();
+  const { overallStats, loading: statsLoading, error, refetch } = usePlayerStats();
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
   const [filteredStats, setFilteredStats] = useState<FilteredStats | null>(null);
   const [filteredLoading, setFilteredLoading] = useState(false);
+  const [totalMatchesFromHistory, setTotalMatchesFromHistory] = useState<number>(0);
   const supabase = createClient();
 
   // Fetch filtered stats when filters change
   useEffect(() => {
     fetchFilteredStats();
+    fetchTotalMatchesCount();
   }, [gameModeFilter, matchTypeFilter]);
+
+  async function fetchTotalMatchesCount() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('match_history')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error counting matches:', error);
+        return;
+      }
+
+      setTotalMatchesFromHistory(count || 0);
+    } catch (err) {
+      console.error('Error:', err);
+    }
+  }
 
   async function fetchFilteredStats() {
     try {
@@ -55,7 +78,7 @@ export default function StatsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // If both filters are 'all', use overall stats from hook (no need to query)
+      // If both filters are 'all', use overall stats from hook
       if (gameModeFilter === 'all' && matchTypeFilter === 'all') {
         setFilteredStats(null); // Will fall back to overallStats
         return;
@@ -97,21 +120,11 @@ export default function StatsPage() {
       } else {
         // No matches found for filters - show zeros
         setFilteredStats({
-          total_matches: 0,
-          wins: 0,
-          losses: 0,
-          draws: 0,
-          overall_3dart_avg: 0,
-          overall_first9_avg: 0,
-          highest_checkout: 0,
-          checkout_percentage: 0,
-          total_checkouts: 0,
-          checkout_attempts: 0,
-          visits_100_plus: 0,
-          visits_140_plus: 0,
-          visits_180: 0,
-          total_darts_thrown: 0,
-          total_score: 0
+          total_matches: 0, wins: 0, losses: 0, draws: 0,
+          overall_3dart_avg: 0, overall_first9_avg: 0, highest_checkout: 0,
+          checkout_percentage: 0, total_checkouts: 0, checkout_attempts: 0,
+          visits_100_plus: 0, visits_140_plus: 0, visits_180: 0,
+          total_darts_thrown: 0, total_score: 0
         });
       }
     } catch (err) {
@@ -124,7 +137,15 @@ export default function StatsPage() {
 
   // Use filtered stats if available, otherwise fall back to overall
   const displayStats = filteredStats || overallStats;
-  const isLoading = loading || filteredLoading;
+  const isLoading = statsLoading || filteredLoading;
+
+  // Debug info
+  useEffect(() => {
+    console.log('[STATS PAGE] overallStats:', overallStats);
+    console.log('[STATS PAGE] filteredStats:', filteredStats);
+    console.log('[STATS PAGE] displayStats:', displayStats);
+    console.log('[STATS PAGE] totalMatchesFromHistory:', totalMatchesFromHistory);
+  }, [overallStats, filteredStats, displayStats, totalMatchesFromHistory]);
 
   if (isLoading) {
     return (
@@ -146,11 +167,10 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = displayStats && displayStats.total_matches > 0
+  const winPercentage = displayStats?.total_matches > 0 
     ? ((displayStats.wins / displayStats.total_matches) * 100).toFixed(1)
     : '0.0';
 
-  // Get filter display names
   const getGameModeLabel = (mode: string) => {
     switch (mode) {
       case '301': return '301';
@@ -165,9 +185,6 @@ export default function StatsPage() {
       case 'ranked': return 'Ranked Match';
       case 'private': return 'Private Match';
       case 'local': return 'Local Match';
-      case 'training': return 'Training';
-      case 'league': return 'League Match';
-      case 'tournament': return 'Tournament';
       default: return 'All Types';
     }
   };
@@ -188,7 +205,20 @@ export default function StatsPage() {
               Your Statistics
             </h1>
           </div>
+          <Button onClick={refetch} variant="outline" className="border-slate-600 text-slate-300">
+            Refresh
+          </Button>
         </div>
+
+        {/* Debug Info (remove in production) */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="bg-slate-900/50 border-slate-700 p-4 mb-4">
+            <p className="text-xs text-slate-500">
+              Debug: Total matches in history: {totalMatchesFromHistory} | 
+              Overall stats matches: {overallStats?.total_matches || 0}
+            </p>
+          </Card>
+        )}
 
         {/* Filters */}
         <Card className="bg-slate-900/50 border-slate-700 p-4 mb-6">
@@ -197,7 +227,6 @@ export default function StatsPage() {
             <span className="text-white font-semibold">Filter Stats</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Game Mode Filter */}
             <div>
               <label className="text-slate-400 text-sm mb-2 block">Game Mode</label>
               <Select value={gameModeFilter} onValueChange={setGameModeFilter}>
@@ -212,7 +241,6 @@ export default function StatsPage() {
               </Select>
             </div>
 
-            {/* Match Type Filter */}
             <div>
               <label className="text-slate-400 text-sm mb-2 block">Match Type</label>
               <Select value={matchTypeFilter} onValueChange={setMatchTypeFilter}>
@@ -225,15 +253,11 @@ export default function StatsPage() {
                   <SelectItem value="ranked" className="text-white hover:bg-slate-700">Ranked Match</SelectItem>
                   <SelectItem value="private" className="text-white hover:bg-slate-700">Private Match</SelectItem>
                   <SelectItem value="local" className="text-white hover:bg-slate-700">Local Match</SelectItem>
-                  <SelectItem value="training" className="text-white hover:bg-slate-700">Training</SelectItem>
-                  <SelectItem value="league" className="text-white hover:bg-slate-700">League</SelectItem>
-                  <SelectItem value="tournament" className="text-white hover:bg-slate-700">Tournament</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           
-          {/* Active Filters Display */}
           <div className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-slate-400">Showing:</span>
             <span className="text-emerald-400 font-medium">{getGameModeLabel(gameModeFilter)}</span>
@@ -242,7 +266,7 @@ export default function StatsPage() {
           </div>
         </Card>
 
-        {/* Quick Overview Cards */}
+        {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <Card className="bg-slate-900/50 border-slate-700 p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -297,14 +321,26 @@ export default function StatsPage() {
 
         {/* Detailed Stats */}
         <div className="grid grid-cols-1 gap-6 mb-8">
-          <PlayerStatsCard
-            stats={displayStats}
-            title={`${getGameModeLabel(gameModeFilter)} - ${getMatchTypeLabel(matchTypeFilter)}`}
-            icon={<Trophy className="w-6 h-6 text-yellow-400" />}
-          />
+          {displayStats && displayStats.total_matches > 0 ? (
+            <PlayerStatsCard
+              stats={displayStats}
+              title={`${getGameModeLabel(gameModeFilter)} - ${getMatchTypeLabel(matchTypeFilter)}`}
+              icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
+            />
+          ) : (
+            <Card className="bg-slate-900/50 border-slate-700 p-8 text-center">
+              <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+              <p className="text-white text-lg font-semibold mb-2">No Stats Available</p>
+              <p className="text-slate-400">
+                {gameModeFilter !== 'all' || matchTypeFilter !== 'all' 
+                  ? 'No matches found for the selected filters.' 
+                  : 'Play some games to see your stats here!'}
+              </p>
+            </Card>
+          )}
         </div>
 
-        {/* Match History - With Filters */}
+        {/* Match History */}
         <div className="mt-8">
           <div className="flex items-center gap-3 mb-4">
             <History className="w-6 h-6 text-emerald-400" />
