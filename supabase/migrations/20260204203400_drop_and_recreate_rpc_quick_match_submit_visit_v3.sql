@@ -215,6 +215,7 @@ BEGIN
       -- Match complete
       UPDATE match_rooms
       SET status = 'finished', winner_id = v_winner_id,
+          player1_legs = v_player1_legs, player2_legs = v_player2_legs,
           summary = jsonb_build_object('player1_legs', v_player1_legs, 'player2_legs', v_player2_legs)
       WHERE id = p_room_id;
     ELSE
@@ -234,6 +235,7 @@ BEGIN
           current_turn = CASE WHEN v_next_leg_starter = player1_id THEN 'player1' ELSE 'player2' END,
           player1_remaining = v_room.game_mode,
           player2_remaining = v_room.game_mode,
+          player1_legs = v_player1_legs, player2_legs = v_player2_legs,
           summary = jsonb_build_object('player1_legs', v_player1_legs, 'player2_legs', v_player2_legs)
       WHERE id = p_room_id;
     END IF;
