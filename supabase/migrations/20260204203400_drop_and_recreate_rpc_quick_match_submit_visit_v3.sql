@@ -122,36 +122,30 @@ BEGIN
     ELSIF v_new_remaining = 0 THEN
       -- Potential checkout - validate double-out if required
       IF v_room.double_out THEN
-        -- Only enforce double-out when remaining_before <= 50
-        IF v_current_remaining <= 50 THEN
-          -- Get the last dart
-          IF jsonb_array_length(p_darts) > 0 THEN
-            v_last_dart := p_darts -> (jsonb_array_length(p_darts) - 1);
+        -- ALWAYS enforce double-out for any checkout (regardless of score)
+        IF jsonb_array_length(p_darts) > 0 THEN
+          v_last_dart := p_darts -> (jsonb_array_length(p_darts) - 1);
 
-            -- Check if last dart is a double
-            IF (v_last_dart->>'mult' = 'D') OR (v_last_dart->>'mult' = 'DB') THEN
-              v_is_double_finish := TRUE;
-            END IF;
+          -- Check if last dart is a double
+          IF (v_last_dart->>'mult' = 'D') OR (v_last_dart->>'mult' = 'DB') THEN
+            v_is_double_finish := TRUE;
+          END IF;
 
-            -- If double-out required but last dart wasn't double, it's a bust
-            IF NOT v_is_double_finish THEN
-              v_is_bust := TRUE;
-              v_bust_reason := 'double_out_required';
-              v_new_remaining := v_current_remaining;
-              v_score_applied := 0;
-            ELSE
-              v_score_applied := p_score;
-            END IF;
-          ELSE
-            -- No darts provided but claiming checkout - treat as bust
+          -- If double-out required but last dart wasn't double, it's a bust
+          IF NOT v_is_double_finish THEN
             v_is_bust := TRUE;
             v_bust_reason := 'double_out_required';
             v_new_remaining := v_current_remaining;
             v_score_applied := 0;
+          ELSE
+            v_score_applied := p_score;
           END IF;
         ELSE
-          -- Remaining > 50, no double-out enforcement yet, valid checkout
-          v_score_applied := p_score;
+          -- No darts provided but claiming checkout - treat as bust
+          v_is_bust := TRUE;
+          v_bust_reason := 'double_out_required';
+          v_new_remaining := v_current_remaining;
+          v_score_applied := 0;
         END IF;
       ELSE
         -- No double-out required, valid checkout
