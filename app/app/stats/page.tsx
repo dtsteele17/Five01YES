@@ -55,6 +55,12 @@ export default function StatsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // If both filters are 'all', use overall stats from hook (no need to query)
+      if (gameModeFilter === 'all' && matchTypeFilter === 'all') {
+        setFilteredStats(null); // Will fall back to overallStats
+        return;
+      }
+
       // Call RPC function to get filtered stats
       const { data, error } = await supabase.rpc('fn_get_filtered_player_stats', {
         p_user_id: user.id,
@@ -64,17 +70,53 @@ export default function StatsPage() {
 
       if (error) {
         console.error('Error fetching filtered stats:', error);
-        // Fall back to overall stats
-        setFilteredStats(overallStats as FilteredStats);
+        setFilteredStats(null);
         return;
       }
 
-      if (data) {
-        setFilteredStats(data as FilteredStats);
+      // The function returns an array with one row
+      if (data && Array.isArray(data) && data.length > 0) {
+        const row = data[0];
+        setFilteredStats({
+          total_matches: row.total_matches || 0,
+          wins: row.wins || 0,
+          losses: row.losses || 0,
+          draws: row.draws || 0,
+          overall_3dart_avg: parseFloat(row.overall_3dart_avg) || 0,
+          overall_first9_avg: parseFloat(row.overall_first9_avg) || 0,
+          highest_checkout: row.highest_checkout || 0,
+          checkout_percentage: parseFloat(row.checkout_percentage) || 0,
+          total_checkouts: row.total_checkouts || 0,
+          checkout_attempts: row.checkout_attempts || 0,
+          visits_100_plus: row.visits_100_plus || 0,
+          visits_140_plus: row.visits_140_plus || 0,
+          visits_180: row.visits_180 || 0,
+          total_darts_thrown: row.total_darts_thrown || 0,
+          total_score: row.total_score || 0
+        });
+      } else {
+        // No matches found for filters - show zeros
+        setFilteredStats({
+          total_matches: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          overall_3dart_avg: 0,
+          overall_first9_avg: 0,
+          highest_checkout: 0,
+          checkout_percentage: 0,
+          total_checkouts: 0,
+          checkout_attempts: 0,
+          visits_100_plus: 0,
+          visits_140_plus: 0,
+          visits_180: 0,
+          total_darts_thrown: 0,
+          total_score: 0
+        });
       }
     } catch (err) {
       console.error('Error:', err);
-      setFilteredStats(overallStats as FilteredStats);
+      setFilteredStats(null);
     } finally {
       setFilteredLoading(false);
     }
@@ -104,7 +146,7 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = displayStats && displayStats.total_matches > 0
+  const winPercentage = displayStats?.total_matches > 0 
     ? ((displayStats.wins / displayStats.total_matches) * 100).toFixed(1)
     : '0.0';
 
@@ -120,9 +162,12 @@ export default function StatsPage() {
   const getMatchTypeLabel = (type: string) => {
     switch (type) {
       case 'quick': return 'Quick Match';
-      case 'ranked': return 'Ranked';
-      case 'private': return 'Private';
-      case 'dartbot': return 'vs Dartbot';
+      case 'ranked': return 'Ranked Match';
+      case 'private': return 'Private Match';
+      case 'local': return 'Local Match';
+      case 'training': return 'Training';
+      case 'league': return 'League Match';
+      case 'tournament': return 'Tournament';
       default: return 'All Types';
     }
   };
@@ -179,7 +224,10 @@ export default function StatsPage() {
                   <SelectItem value="quick" className="text-white hover:bg-slate-700">Quick Match</SelectItem>
                   <SelectItem value="ranked" className="text-white hover:bg-slate-700">Ranked Match</SelectItem>
                   <SelectItem value="private" className="text-white hover:bg-slate-700">Private Match</SelectItem>
-                  <SelectItem value="dartbot" className="text-white hover:bg-slate-700">vs Dartbot</SelectItem>
+                  <SelectItem value="local" className="text-white hover:bg-slate-700">Local Match</SelectItem>
+                  <SelectItem value="training" className="text-white hover:bg-slate-700">Training</SelectItem>
+                  <SelectItem value="league" className="text-white hover:bg-slate-700">League</SelectItem>
+                  <SelectItem value="tournament" className="text-white hover:bg-slate-700">Tournament</SelectItem>
                 </SelectContent>
               </Select>
             </div>
