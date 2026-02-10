@@ -23,22 +23,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Chrome as Home, X, Check, Bot, Pencil } from 'lucide-react';
-import { getCheckoutOptions, isBust, isValidCheckout, calculateStats, getLegsToWin, resolveTurn, calculateFirst9Average, LegFirst9Data, validateEditedVisit, getMinDartsToCheckout, isOneDartFinish } from '@/lib/match-logic';
+import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Home, X, Check, Bot, Pencil, BarChart3 } from 'lucide-react';
+import { getCheckoutOptions, isBust, isValidCheckout, getLegsToWin, resetBotLegState } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
-import { generateBotDarts, getBotThinkingDelay, BotMatchState, resetBotLegState } from '@/lib/dartbot';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
 import EditVisitModal from '@/components/app/EditVisitModal';
 import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
 import { toast } from 'sonner';
-import { useMatchPersistence } from '@/lib/hooks/useMatchPersistence';
-import { MatchErrorBoundary } from '@/components/match/MatchErrorBoundary';
-import { MatchSaveDebugStrip } from '@/components/app/MatchSaveDebugStrip';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
-import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, debugDartboardAlignment, evaluateDartFromXY } from '@/lib/botThrowEngine';
-import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled, setDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
+import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
+import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
+import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { recordMatchCompletion, type PlayerStats } from '@/lib/match/recordMatchCompletion';
+import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
+import { computeMatchStats } from '@/lib/stats/computeMatchStats';
+import Link from 'next/link';
 
 interface Visit {
   player: 'player1' | 'player2';
@@ -69,7 +70,17 @@ interface Dart {
   value: number;
 }
 
-export default function Training501Page() {
+// Bot throw simulation result
+interface BotTurnResult {
+  visitTotal: number;
+  newRemaining: number;
+  isBust: boolean;
+  isCheckout: boolean;
+  dartsThrown: number;
+  darts: DartResult[];
+}
+
+export default function DartbotMatchPage() {
   const router = useRouter();
   const { config } = useTraining();
 
@@ -97,7 +108,6 @@ export default function Training501Page() {
   const [matchWinner, setMatchWinner] = useState<'player1' | 'player2' | null>(null);
 
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
-  const [dartboardGroup, setDartboardGroup] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
 
   const [player1MatchTotalScored, setPlayer1MatchTotalScored] = useState(0);
   const [player2MatchTotalScored, setPlayer2MatchTotalScored] = useState(0);
@@ -106,12 +116,6 @@ export default function Training501Page() {
   const [inputModeError, setInputModeError] = useState<string>('');
   const [isBotThinking, setIsBotThinking] = useState(false);
   const [isLegTransitioning, setIsLegTransitioning] = useState(false);
-  const [botMatchState, setBotMatchState] = useState<BotMatchState>({
-    checkoutAttemptsThisLeg: 0,
-    totalScoredThisMatch: 0,
-    totalDartsThisMatch: 0,
-    stallCount: 0,
-  });
 
   const [showEditVisitModal, setShowEditVisitModal] = useState(false);
   const [editingVisitIndex, setEditingVisitIndex] = useState<number | null>(null);
@@ -133,42 +137,20 @@ export default function Training501Page() {
   const botTurnIdRef = useRef(0);
   const matchOverRef = useRef(false);
   const [matchStartTime] = useState(Date.now());
+  const hasSavedStats = useRef(false);
 
+  // Dartboard visualization state
   const [dartboardHits, setDartboardHits] = useState<DartHit[]>([]);
   const [botLastVisitTotal, setBotLastVisitTotal] = useState<number | null>(null);
   const [showVisualization, setShowVisualization] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
-  const [showDebugRings, setShowDebugRings] = useState(false);
   const [lastThreeDarts, setLastThreeDarts] = useState<DartResult[]>([]);
   const [botFormMultiplier] = useState(() => 0.85 + Math.random() * 0.3);
   const [botPerformanceTracker, setBotPerformanceTracker] = useState<BotPerformanceTracker | null>(null);
   const dartboardAnimationTimerRef = useRef<number | null>(null);
 
-  const { saveStatus, savedMatchId, saveError } = useMatchPersistence({
-    matchWinner,
-    showMatchCompleteModal,
-    matchConfig: config ? {
-      mode: config.mode as '301' | '501',
-      bestOf: config.bestOf,
-      doubleOut: config.doubleOut,
-      straightIn: false,
-      botAverage: config.botAverage,
-    } : { mode: '501', bestOf: 'best-of-1', doubleOut: true, straightIn: false },
-    matchType: 'training',
-    opponentType: 'dartbot',
-    opponentName: config ? `DartBot (${config.botAverage})` : 'DartBot',
-    dartbotLevel: config ? parseInt(config.botAverage.toString()) : 65,
-    player1LegsWon,
-    player2LegsWon,
-    allLegs,
-    currentLeg,
-    player1Name: 'You',
-    matchStartTime,
-    player1TotalDartsAtDouble,
-    player1CheckoutsMade,
-    player2TotalDartsAtDouble,
-    player2CheckoutsMade,
-  });
+  // Stats display (like QuickMatch)
+  const [showStatsPanel, setShowStatsPanel] = useState(true);
 
   useEffect(() => {
     if (!config || (config.mode !== '301' && config.mode !== '501')) {
@@ -184,14 +166,16 @@ export default function Training501Page() {
   useEffect(() => {
     setShowVisualization(isDartbotVisualizationEnabled());
     setDebugMode(isDartbotDebugModeEnabled());
-    // Debug: Verify dartboard coordinate alignment
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-      debugDartboardAlignment();
-    }
   }, []);
 
   useEffect(() => {
     matchOverRef.current = !!matchWinner || showMatchCompleteModal;
+    
+    // Save stats when match completes
+    if (matchWinner && showMatchCompleteModal && !hasSavedStats.current) {
+      hasSavedStats.current = true;
+      saveMatchStats();
+    }
   }, [matchWinner, showMatchCompleteModal]);
 
   // Play Game On sound when training session starts
@@ -223,27 +207,144 @@ export default function Training501Page() {
     };
   }, [clearBotTimer, clearDartboardAnimationTimer]);
 
+  // Save match stats to database
+  const saveMatchStats = async () => {
+    if (!config) return;
+
+    try {
+      const normalizedConfig = normalizeMatchConfig({
+        mode: config.mode as '301' | '501',
+        bestOf: config.bestOf,
+        doubleOut: config.doubleOut,
+      });
+
+      const allLegsData = [...allLegs, currentLeg].filter(leg => leg.winner);
+
+      // Format visits for stats computation
+      const allVisitsFormatted: Array<{
+        player: 'user' | 'opponent';
+        legNumber: number;
+        visitNumber: number;
+        score: number;
+        remainingScore: number;
+        isBust: boolean;
+        isCheckout: boolean;
+        wasCheckoutAttempt: boolean;
+      }> = [];
+
+      for (const leg of allLegsData) {
+        const player1VisitsInLeg = leg.visits.filter(v => v.player === 'player1');
+        const player2VisitsInLeg = leg.visits.filter(v => v.player === 'player2');
+
+        player1VisitsInLeg.forEach((visit, idx) => {
+          allVisitsFormatted.push({
+            player: 'user',
+            legNumber: leg.legNumber,
+            visitNumber: idx + 1,
+            score: visit.score,
+            remainingScore: visit.remainingScore,
+            isBust: visit.isBust,
+            isCheckout: visit.isCheckout,
+            wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust,
+          });
+        });
+
+        player2VisitsInLeg.forEach((visit, idx) => {
+          allVisitsFormatted.push({
+            player: 'opponent',
+            legNumber: leg.legNumber,
+            visitNumber: idx + 1,
+            score: visit.score,
+            remainingScore: visit.remainingScore,
+            isBust: visit.isBust,
+            isCheckout: visit.isCheckout,
+            wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust,
+          });
+        });
+      }
+
+      const userStats = computeMatchStats(
+        allVisitsFormatted.filter(v => v.player === 'user'),
+        'user',
+        normalizedConfig.mode,
+        player1TotalDartsAtDouble,
+        player1CheckoutsMade
+      );
+
+      const opponentStats = computeMatchStats(
+        allVisitsFormatted.filter(v => v.player === 'opponent'),
+        'opponent',
+        normalizedConfig.mode,
+        player2TotalDartsAtDouble,
+        player2CheckoutsMade
+      );
+
+      const userPlayerStats: PlayerStats = {
+        threeDartAvg: userStats.threeDartAverage,
+        first9Avg: userStats.first9Average,
+        checkoutDartsAttempted: userStats.checkoutDartsAttempted,
+        checkoutsMade: userStats.checkoutsMade,
+        checkoutPercent: userStats.checkoutPercent,
+        highestCheckout: userStats.highestCheckout,
+        count100Plus: userStats.count100Plus,
+        count140Plus: userStats.count140Plus,
+        count180: userStats.oneEighties,
+        highestScore: userStats.highestVisit,
+        legsWon: player1LegsWon,
+        legsLost: player2LegsWon,
+        dartsThrown: userStats.totalDartsThrown,
+        pointsScored: userStats.totalPointsScored,
+      };
+
+      const opponentPlayerStats: PlayerStats = {
+        threeDartAvg: opponentStats.threeDartAverage,
+        first9Avg: opponentStats.first9Average,
+        checkoutDartsAttempted: opponentStats.checkoutDartsAttempted,
+        checkoutsMade: opponentStats.checkoutsMade,
+        checkoutPercent: opponentStats.checkoutPercent,
+        highestCheckout: opponentStats.highestCheckout,
+        count100Plus: opponentStats.count100Plus,
+        count140Plus: opponentStats.count140Plus,
+        count180: opponentStats.oneEighties,
+        highestScore: opponentStats.highestVisit,
+        legsWon: player2LegsWon,
+        legsLost: player1LegsWon,
+        dartsThrown: opponentStats.totalDartsThrown,
+        pointsScored: opponentStats.totalPointsScored,
+      };
+
+      const result = await recordMatchCompletion({
+        matchType: 'dartbot',
+        game: normalizedConfig.mode,
+        startedAt: new Date(matchStartTime).toISOString(),
+        endedAt: new Date().toISOString(),
+        opponent: {
+          name: `DartBot (${config.botAverage})`,
+          isBot: true,
+        },
+        winner: matchWinner === 'player1' ? 'user' : 'opponent',
+        userStats: userPlayerStats,
+        opponentStats: opponentPlayerStats,
+        matchFormat: config.bestOf,
+      });
+
+      console.log('📊 DARTBOT MATCH SAVED:', result);
+
+      if (result.ok) {
+        toast.success('Match stats saved!');
+      } else {
+        console.error('Failed to save match stats:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving match stats:', error);
+    }
+  };
+
   const animateBotThrows = useCallback(async (darts: DartResult[]): Promise<void> => {
     clearDartboardAnimationTimer();
     setDartboardHits([]);
     setBotLastVisitTotal(null);
-
-    // Track last 3 darts for debug display
     setLastThreeDarts([]);
-
-    // Log debug info if debug mode is enabled
-    if (debugMode) {
-      console.log('=== Bot Visit Debug ===');
-      darts.forEach((dart, index) => {
-        const evaluation = evaluateDartFromXY(dart.x, dart.y);
-        console.log(
-          `Dart ${index + 1}: (${dart.x.toFixed(3)}, ${dart.y.toFixed(3)}) => ${evaluation.label} [Score: ${evaluation.score}]${
-            evaluation.isDouble ? ' [DOUBLE]' : ''
-          }${evaluation.isTreble ? ' [TREBLE]' : ''}${evaluation.offboard ? ' [OFFBOARD]' : ''}`
-        );
-      });
-      console.log('======================');
-    }
 
     // Sequential throw animation: throw → dot appears → score updates
     for (let i = 0; i < darts.length; i++) {
@@ -253,7 +354,7 @@ export default function Training501Page() {
       await new Promise<void>((resolve) => {
         dartboardAnimationTimerRef.current = window.setTimeout(() => {
           resolve();
-        }, i === 0 ? 300 : 1000); // First dart shorter delay, subsequent darts 1 second
+        }, i === 0 ? 300 : 1000);
       });
 
       // 2. Dot appears on board
@@ -277,7 +378,7 @@ export default function Training501Page() {
       // 4. Update "Last Visit" text to show this dart
       setLastThreeDarts(prev => [...prev, dart]);
 
-      // Short pause before next dart (unless it's the last dart)
+      // Short pause before next dart
       if (i < darts.length - 1) {
         await new Promise<void>((resolve) => {
           dartboardAnimationTimerRef.current = window.setTimeout(() => {
@@ -298,38 +399,7 @@ export default function Training501Page() {
         resolve();
       }, 1800);
     });
-  }, [clearDartboardAnimationTimer, debugMode]);
-
-  const executeBotTurnWithFallback = useCallback((currentScore: number, isRecovery: boolean = false) => {
-    try {
-      if (!config) return null;
-
-      const botDarts = generateBotDarts(config.botAverage, currentScore, config.doubleOut, botMatchState);
-      const turnResult = resolveTurn(currentScore, botDarts, config.doubleOut);
-      return turnResult;
-    } catch (error) {
-      console.error('BOT_TURN_ERROR', error);
-
-      const fallbackDarts = [
-        { miss: true },
-        { miss: true },
-        { miss: true }
-      ] as any[];
-
-      try {
-        return resolveTurn(currentScore, fallbackDarts, config?.doubleOut || false);
-      } catch (fallbackError) {
-        console.error('BOT_FALLBACK_ERROR', fallbackError);
-        return {
-          visitTotal: 0,
-          isBust: false,
-          isCheckout: false,
-          newRemaining: currentScore,
-          dartsThrown: 3,
-        };
-      }
-    }
-  }, [config, botMatchState]);
+  }, [clearDartboardAnimationTimer]);
 
   const botTakeTurn = useCallback(async () => {
     if (matchOverRef.current || isLegTransitioning) {
@@ -339,7 +409,6 @@ export default function Training501Page() {
     const currentScore = player2Score;
 
     if (currentScore <= 0) {
-      console.warn('BOT_VISIT_BLOCKED_FROM_SCORE', currentScore);
       setCurrentPlayer('player1');
       return;
     }
@@ -355,7 +424,6 @@ export default function Training501Page() {
       });
 
       setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
-
       setBotLastVisitTotal(visualVisit.visitTotal);
       await animateBotThrows(visualVisit.darts);
 
@@ -387,17 +455,6 @@ export default function Training501Page() {
         setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
       }
       setPlayer2MatchDartsThrown(prev => prev + dartsThrown);
-
-      const wasCheckoutAttempt = currentScore <= 170;
-
-      setBotMatchState(prev => ({
-        totalScoredThisMatch: prev.totalScoredThisMatch + (visualVisit.bust ? 0 : visualVisit.visitTotal),
-        totalDartsThisMatch: prev.totalDartsThisMatch + dartsThrown,
-        checkoutAttemptsThisLeg: visualVisit.finished ? 0 : prev.checkoutAttemptsThisLeg + (wasCheckoutAttempt ? 1 : 0),
-        lastRemaining: visualVisit.newRemaining,
-        stallCount: prev.lastRemaining === visualVisit.newRemaining ? prev.stallCount + 1 : 0,
-      }));
-
       setPlayer2Score(visualVisit.newRemaining);
 
       if (visualVisit.finished) {
@@ -409,65 +466,8 @@ export default function Training501Page() {
       }
 
       setCurrentPlayer('player1');
-    } else {
-      const turnResult = executeBotTurnWithFallback(currentScore, false);
-      if (!turnResult) {
-        setCurrentPlayer('player1');
-        return;
-      }
-
-      console.log('BOT_TAKE_TURN_COMPLETE', { currentScore, turnResult });
-
-      const visit: Visit = {
-        player: 'player2',
-        score: turnResult.isBust ? 0 : turnResult.visitTotal,
-        remainingScore: turnResult.newRemaining,
-        isBust: turnResult.isBust,
-        isCheckout: turnResult.isCheckout,
-        timestamp: Date.now(),
-      };
-
-      setCurrentLeg(prev => {
-        const dartsUsedInFirst9 = Math.min(turnResult.dartsThrown, Math.max(0, 9 - prev.player2First9DartsThrown));
-        const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (turnResult.isBust ? 0 : (turnResult.visitTotal * dartsUsedInFirst9) / turnResult.dartsThrown) : 0;
-
-        return {
-          ...prev,
-          visits: [...prev.visits, visit],
-          player2DartsThrown: prev.player2DartsThrown + turnResult.dartsThrown,
-          player2First9DartsThrown: prev.player2First9DartsThrown + dartsUsedInFirst9,
-          player2First9PointsScored: prev.player2First9PointsScored + pointsForFirst9,
-        };
-      });
-
-      if (!turnResult.isBust) {
-        setPlayer2MatchTotalScored(prev => prev + turnResult.visitTotal);
-      }
-      setPlayer2MatchDartsThrown(prev => prev + turnResult.dartsThrown);
-
-      const wasCheckoutAttempt = currentScore <= 170;
-
-      setBotMatchState(prev => ({
-        totalScoredThisMatch: prev.totalScoredThisMatch + (turnResult.isBust ? 0 : turnResult.visitTotal),
-        totalDartsThisMatch: prev.totalDartsThisMatch + turnResult.dartsThrown,
-        checkoutAttemptsThisLeg: turnResult.isCheckout ? 0 : prev.checkoutAttemptsThisLeg + (wasCheckoutAttempt ? 1 : 0),
-        lastRemaining: turnResult.newRemaining,
-        stallCount: prev.lastRemaining === turnResult.newRemaining ? prev.stallCount + 1 : 0,
-      }));
-
-      setPlayer2Score(turnResult.newRemaining);
-
-      if (turnResult.isCheckout) {
-        setTimeout(() => {
-          if (matchOverRef.current) return;
-          handleLegComplete('player2');
-        }, 500);
-        return;
-      }
-
-      setCurrentPlayer('player1');
     }
-  }, [isLegTransitioning, player2Score, executeBotTurnWithFallback, showVisualization, config, botFormMultiplier, animateBotThrows]);
+  }, [isLegTransitioning, player2Score, showVisualization, config, botFormMultiplier, debugMode, botPerformanceTracker, animateBotThrows]);
 
   const scheduleBotTurn = useCallback((reason: string) => {
     if (currentPlayer !== 'player2') return;
@@ -484,28 +484,21 @@ export default function Training501Page() {
     setIsBotThinking(true);
 
     const myTurnId = ++botTurnIdRef.current;
-    console.log("BOT_SCHEDULED", { myTurnId, reason });
 
-    const BOT_THINK_DELAY_MS = getBotThinkingDelay();
+    const BOT_THINK_DELAY_MS = 1500;
 
     botTimerRef.current = window.setTimeout(async () => {
       if (myTurnId !== botTurnIdRef.current) {
-        console.log("BOT_SCHEDULE_IGNORED", { myTurnId });
         return;
       }
 
       try {
-        console.log("BOT_START", { myTurnId });
-
         await Promise.race([
           botTakeTurn(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("BOT_TIMEOUT")), 2000)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("BOT_TIMEOUT")), 5000)),
         ]);
-
-        console.log("BOT_DONE", { myTurnId });
       } catch (err) {
         console.error("BOT_ERROR", err);
-
         setIsBotThinking(false);
         clearBotTimer();
         botTimerRef.current = window.setTimeout(() => {
@@ -535,13 +528,11 @@ export default function Training501Page() {
   const handleInputScoreSubmit = (score: number) => {
     if (!config) return;
 
-    // Validate score is an integer
     if (!Number.isInteger(score)) {
       setInputModeError('Score must be a whole number');
       return;
     }
 
-    // Validate score is within range
     if (score < 0 || score > 180) {
       setInputModeError('Score must be between 0 and 180');
       return;
@@ -549,12 +540,14 @@ export default function Training501Page() {
 
     const currentScore = player1Score;
     const doubleOut = config.doubleOut;
-    const minDarts = getMinDartsToCheckout(currentScore, doubleOut);
     const newScore = currentScore - score;
     const isCheckout = newScore === 0;
 
-    if (minDarts !== null && doubleOut) {
-      setPendingVisitData({ score, minDarts, isCheckout });
+    // Check if we need to ask for darts at double
+    const isCheckoutAttempt = currentScore <= 170 && currentScore > 0;
+    
+    if (isCheckoutAttempt && doubleOut) {
+      setPendingVisitData({ score, minDarts: 3, isCheckout });
       setShowDartsAtDoubleModal(true);
     } else {
       handleScoreSubmit(score, 3, undefined, true, 0);
@@ -601,46 +594,11 @@ export default function Training501Page() {
 
       setCurrentLeg(prev => {
         const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown));
-        const pointsForFirst9 = dartsUsedInFirst9 > 0 ? 0 : 0;
-
         return {
           ...prev,
           visits: [...prev.visits, visit],
           player1DartsThrown: prev.player1DartsThrown + dartsThrown,
           player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9,
-          player1First9PointsScored: prev.player1First9PointsScored + pointsForFirst9,
-        };
-      });
-
-      setPlayer1MatchDartsThrown(prev => prev + dartsThrown);
-      setCurrentPlayer('player2');
-      setScoreInput('');
-      setCurrentVisit([]);
-      setInputModeError('');
-      return;
-    }
-
-    if (newScore === 0 && doubleOut && !isTypedInput && lastDartType && lastDartType !== 'D' && lastDartType !== 'BULL') {
-      const visit: Visit = {
-        player: 'player1',
-        score: 0,
-        remainingScore: currentScore,
-        isBust: true,
-        isCheckout: false,
-        timestamp: Date.now(),
-        bustReason: 'No double-out',
-      };
-
-      setCurrentLeg(prev => {
-        const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown));
-        const pointsForFirst9 = dartsUsedInFirst9 > 0 ? 0 : 0;
-
-        return {
-          ...prev,
-          visits: [...prev.visits, visit],
-          player1DartsThrown: prev.player1DartsThrown + dartsThrown,
-          player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9,
-          player1First9PointsScored: prev.player1First9PointsScored + pointsForFirst9,
         };
       });
 
@@ -703,8 +661,6 @@ export default function Training501Page() {
     setIsBotThinking(false);
     setIsLegTransitioning(false);
 
-    console.log('LEG_WON_BY', winner, { player1Score, player2Score });
-
     const completedLeg = {
       ...currentLeg,
       winner,
@@ -718,30 +674,24 @@ export default function Training501Page() {
     if (winner === 'player1') {
       setPlayer1LegsWon(prev => {
         const newLegs = prev + 1;
-        console.log('LEG_WIN', 'player1', 'next legs:', newLegs, 'legsToWin:', legsToWin);
-
         if (newLegs >= legsToWin) {
           matchOverRef.current = true;
           setMatchWinner('player1');
           setShowMatchCompleteModal(true);
           return newLegs;
         }
-
         queueMicrotask(() => startNewLeg());
         return newLegs;
       });
     } else {
       setPlayer2LegsWon(prev => {
         const newLegs = prev + 1;
-        console.log('LEG_WIN', 'player2', 'next legs:', newLegs, 'legsToWin:', legsToWin);
-
         if (newLegs >= legsToWin) {
           matchOverRef.current = true;
           setMatchWinner('player2');
           setShowMatchCompleteModal(true);
           return newLegs;
         }
-
         queueMicrotask(() => startNewLeg());
         return newLegs;
       });
@@ -753,16 +703,13 @@ export default function Training501Page() {
       return;
     }
 
-    console.log("START_NEXT_LEG", { nextStarting: legStartingPlayer === 'player1' ? 'player2' : 'player1' });
-
     clearBotTimer();
     setIsBotThinking(false);
-
     setIsLegTransitioning(true);
 
     const nextStartingPlayer = legStartingPlayer === 'player1' ? 'player2' : 'player1';
-
     const startingScore = config ? getStartScore(config.mode) : 501;
+
     setPlayer1Score(startingScore);
     setPlayer2Score(startingScore);
     setLegStartingPlayer(nextStartingPlayer);
@@ -781,24 +728,21 @@ export default function Training501Page() {
     setCurrentVisit([]);
     setScoreInput('');
     setInputModeError('');
-
-    setBotMatchState(prev => resetBotLegState(prev));
     setBotPerformanceTracker(null);
 
     setTimeout(() => {
       setIsLegTransitioning(false);
-
       if (nextStartingPlayer === 'player2') {
         setCurrentPlayer('player2');
-        scheduleBotTurn("leg_reset_bot_starts");
       } else {
         setCurrentPlayer('player1');
       }
-    }, 0);
-  }, [matchWinner, showMatchCompleteModal, legStartingPlayer, currentLeg.legNumber, clearBotTimer, scheduleBotTurn]);
+    }, 500);
+  }, [matchWinner, showMatchCompleteModal, legStartingPlayer, currentLeg.legNumber, clearBotTimer]);
 
   const handleRematch = () => {
     matchOverRef.current = false;
+    hasSavedStats.current = false;
     clearBotTimer();
     setShowMatchCompleteModal(false);
     setIsLegTransitioning(false);
@@ -831,7 +775,6 @@ export default function Training501Page() {
     setInputModeError('');
     setIsBotThinking(false);
     botTurnIdRef.current = 0;
-    setBotMatchState(resetBotLegState());
     setPlayer1TotalDartsAtDouble(0);
     setPlayer1CheckoutsMade(0);
     setPlayer2TotalDartsAtDouble(0);
@@ -890,8 +833,6 @@ export default function Training501Page() {
       if (!doubleOut || isLastDartDouble) {
         shouldPadWithMisses = false;
       }
-    } else if (newRemaining > 0) {
-      shouldPadWithMisses = true;
     }
 
     if (shouldPadWithMisses) {
@@ -908,7 +849,7 @@ export default function Training501Page() {
     let checkoutMade = false;
 
     for (const dart of darts) {
-      if (doubleOut && isOneDartFinish(remainingBeforeDart)) {
+      if (doubleOut && remainingBeforeDart <= 170 && remainingBeforeDart > 0) {
         dartsAtDoubleCount++;
       }
 
@@ -956,24 +897,6 @@ export default function Training501Page() {
     setShowEditVisitModal(true);
   };
 
-  const handleValidateEditedVisit = (newScore: number) => {
-    if (editingVisitIndex === null || !config) {
-      return { valid: false, error: 'Invalid state' };
-    }
-
-    const visit = currentLeg.visits[editingVisitIndex];
-    const originalScore = visit.score;
-    const currentRemaining = player1Score;
-
-    const validation = validateEditedVisit(
-      currentRemaining,
-      originalScore,
-      newScore
-    );
-
-    return validation;
-  };
-
   const handleSaveEditedVisit = (newScore: number) => {
     if (editingVisitIndex === null || !config) return;
 
@@ -998,851 +921,459 @@ export default function Training501Page() {
       visits: updatedVisits,
     }));
 
-    setPlayer1MatchTotalScored(prev => prev + delta);
     setPlayer1Score(newRemaining);
-
-    const isWin = newRemaining === 0;
-
-    if (isWin) {
-      setShowEditVisitModal(false);
-      toast.success('Leg won!');
-      setTimeout(() => {
-        handleLegComplete('player1');
-      }, 500);
-    } else {
-      setShowEditVisitModal(false);
-      toast.success('Visit updated');
-    }
+    setShowEditVisitModal(false);
+    setEditingVisitIndex(null);
   };
 
-  const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
+  // Calculate stats for display (like QuickMatch)
+  const calculatePlayerStats = () => {
+    const player1Visits = currentLeg.visits.filter(v => v.player === 'player1');
+    const player2Visits = currentLeg.visits.filter(v => v.player === 'player2');
+    
+    const player1ValidVisits = player1Visits.filter(v => !v.isBust);
+    const player2ValidVisits = player2Visits.filter(v => !v.isBust);
+    
+    const player1Avg = player1ValidVisits.length > 0 
+      ? (player1ValidVisits.reduce((sum, v) => sum + v.score, 0) / player1ValidVisits.length).toFixed(1)
+      : '0.0';
+    
+    const player2Avg = player2ValidVisits.length > 0 
+      ? (player2ValidVisits.reduce((sum, v) => sum + v.score, 0) / player2ValidVisits.length).toFixed(1)
+      : '0.0';
 
-  const getDartLabel = (dart: Dart) => {
-    if (dart.number === 0 && dart.value === 0) {
-      return 'MISS';
-    }
-    if (dart.type === 'bull') {
-      return dart.number === 25 ? 'SB' : 'DB';
-    }
-    const prefix = dart.type === 'single' ? 'S' : dart.type === 'double' ? 'D' : 'T';
-    return `${prefix}${dart.number}`;
+    // Calculate first 9 average
+    const player1First9Score = currentLeg.player1First9PointsScored;
+    const player1First9Darts = currentLeg.player1First9DartsThrown;
+    const player1First9Avg = player1First9Darts > 0 
+      ? ((player1First9Score / player1First9Darts) * 3).toFixed(1)
+      : '0.0';
+
+    return {
+      player1Avg,
+      player2Avg,
+      player1First9Avg,
+    };
   };
+
+  const stats = calculatePlayerStats();
 
   if (!config) {
-    return <div className="text-white">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
   }
 
-  const currentScore = currentPlayer === 'player1' ? player1Score : player2Score;
-  const checkoutOptions = getCheckoutOptions(currentScore, config.doubleOut);
-
-  const getPlayerVisits = (player: 'player1' | 'player2') => {
-    return currentLeg.visits.filter(v => v.player === player);
-  };
-
-  const player1Stats = calculateStats(getPlayerVisits('player1').map(v => ({
-    score: v.score,
-    is_bust: v.isBust,
-    is_checkout: v.isCheckout,
-  })));
-
-  const player2Stats = calculateStats(getPlayerVisits('player2').map(v => ({
-    score: v.score,
-    is_bust: v.isBust,
-    is_checkout: v.isCheckout,
-  })));
-
-  const getAllVisitsForPlayer = (player: 'player1' | 'player2') => {
-    return allLegs.flatMap(leg =>
-      leg.visits.filter(v => v.player === player)
-    ).concat(currentLeg.visits.filter(v => v.player === player));
-  };
-
-  const player1AllVisits = getAllVisitsForPlayer('player1');
-  const player2AllVisits = getAllVisitsForPlayer('player2');
-
-  const player1AllStats = calculateStats(player1AllVisits.map(v => ({
-    score: v.score,
-    is_bust: v.isBust,
-    is_checkout: v.isCheckout,
-  })));
-
-  const player2AllStats = calculateStats(player2AllVisits.map(v => ({
-    score: v.score,
-    is_bust: v.isBust,
-    is_checkout: v.isCheckout,
-  })));
-
-  const getAllLegsFirst9Data = (player: 'player1' | 'player2'): LegFirst9Data[] => {
-    const allLegsData = [...allLegs, currentLeg];
-    return allLegsData.map(leg => ({
-      dartsThrown: player === 'player1' ? leg.player1First9DartsThrown : leg.player2First9DartsThrown,
-      pointsScored: player === 'player1' ? leg.player1First9PointsScored : leg.player2First9PointsScored,
-    }));
-  };
-
-  const player1First9Average = calculateFirst9Average(getAllLegsFirst9Data('player1'));
-  const player2First9Average = calculateFirst9Average(getAllLegsFirst9Data('player2'));
-
-  const getMatchAverage = (totalScored: number, dartsThrown: number) => {
-    if (dartsThrown === 0) return 0;
-    return Math.round((totalScored / dartsThrown) * 3 * 100) / 100;
-  };
-
-  const player1MatchAverage = getMatchAverage(player1MatchTotalScored, player1MatchDartsThrown);
-  const player2MatchAverage = getMatchAverage(player2MatchTotalScored, player2MatchDartsThrown);
-
-  const isOnCheckout = currentScore <= 170 && currentScore > 1;
-
-  const botName = `DartBot (${config.botAverage})`;
+  const startingScore = getStartScore(config.mode);
+  const botName = BOT_DIFFICULTY_CONFIG[config.botDifficulty]?.name || 'DartBot';
+  const legsToWin = getLegsToWin(config.bestOf);
 
   return (
-    <MatchErrorBoundary>
-      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
-      <div className="border-b border-white/10 bg-slate-900/80 backdrop-blur-sm flex-shrink-0">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <Target className="w-5 h-5 text-emerald-400" />
-                <span className="text-lg font-bold text-white">FIVE<span className="text-emerald-400">01</span></span>
-              </div>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">TRAINING</Badge>
-              <div className="flex items-center space-x-2 text-xs text-gray-400">
-                <span>{config.bestOf.replace('best-of-', 'Best of ')}</span>
-                {config.doubleOut && (
-                  <>
-                    <span>•</span>
-                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px] px-1 py-0">
-                      Double Out
-                    </Badge>
-                  </>
-                )}
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/app/play">
+              <Button variant="outline" size="icon" className="border-slate-600">
+                <Home className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Bot className="w-6 h-6 text-emerald-400" />
+                Training vs {botName}
+              </h1>
+              <p className="text-slate-400 text-sm">
+                {config.mode} • {config.bestOf.replace('best-of-', 'Best of ')} • Double Out: {config.doubleOut ? 'ON' : 'OFF'}
+              </p>
             </div>
-
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowStatsPanel(!showStatsPanel)}
+              className="border-slate-600"
+            >
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Stats
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowEndMatchDialog(true)}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs h-8"
+              className="border-red-500/30 text-red-400"
             >
-              End Training
+              <X className="w-4 h-4 mr-1" />
+              End
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="px-4 py-3 flex-shrink-0">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="bg-slate-900/50 border-white/10 p-4 lg:p-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white">Match Score</h3>
-                  <Badge variant="outline" className="text-xs">Leg {currentLeg.legNumber}</Badge>
-                </div>
-                <div className="flex items-center justify-center space-x-4">
-                  <div className="text-center">
-                    <p className="text-3xl lg:text-2xl font-bold text-white">{player1LegsWon}</p>
-                    <p className="text-xs text-gray-400">You</p>
-                  </div>
-                  <div className="text-3xl lg:text-2xl font-bold text-gray-600">-</div>
-                  <div className="text-center">
-                    <p className="text-3xl lg:text-2xl font-bold text-white">{player2LegsWon}</p>
-                    <p className="text-xs text-gray-400">Bot</p>
-                  </div>
-                </div>
-                <div className="text-center py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                  <p className="text-emerald-400 text-sm font-semibold">
-                    {currentPlayer === 'player1' ? 'Your' : 'Bot\'s'} Turn
-                  </p>
-                </div>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Player Card (You) */}
+          <Card className="bg-slate-900/50 border-slate-700 p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <Avatar className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500">
+                <AvatarFallback className="text-white text-xl">You</AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="text-xl font-bold text-white">You</h2>
+                <Badge className={currentPlayer === 'player1' ? 'bg-emerald-500' : 'bg-slate-600'}>
+                  {currentPlayer === 'player1' ? 'Your Turn' : 'Waiting'}
+                </Badge>
               </div>
-            </Card>
+            </div>
 
-            <Card className={`p-4 lg:p-3 transition-all ${currentPlayer === 'player1' ? 'bg-emerald-500/20 border-emerald-500/50 ring-2 ring-emerald-500/30' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <Avatar className="w-9 h-9">
-                    <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
-                      YOU
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-semibold text-white">You</p>
-                    <p className="text-xs text-gray-400">Legs: {player1LegsWon}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="text-center py-2">
-                <p className="text-6xl lg:text-5xl font-bold text-white tabular-nums">{player1Score}</p>
-                <p className="text-xs text-gray-400 mt-1">Remaining</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                <div className="text-center bg-white/5 rounded p-1.5">
-                  <p className="text-gray-400">Avg</p>
-                  <p className="text-white font-semibold">{player1MatchAverage}</p>
-                </div>
-                <div className="text-center bg-white/5 rounded p-1.5">
-                  <p className="text-gray-400">High</p>
-                  <p className="text-white font-semibold">{player1Stats.highestScore}</p>
-                </div>
-              </div>
-            </Card>
+            <div className="text-center mb-4">
+              <div className="text-6xl font-bold text-white mb-2">{player1Score}</div>
+              <div className="text-slate-400">Remaining</div>
+            </div>
 
-            <Card className={`p-4 lg:p-3 transition-all ${currentPlayer === 'player2' ? 'bg-blue-500/20 border-blue-500/50 ring-2 ring-blue-500/30' : 'bg-slate-900/50 border-white/10'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <Avatar className="w-9 h-9">
-                    <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-sm">
-                      <Bot className="w-5 h-5" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{botName}</p>
-                    <p className="text-xs text-gray-400">Legs: {player2LegsWon}</p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-emerald-400">{player1LegsWon}</div>
+                <div className="text-xs text-slate-400">Legs Won</div>
               </div>
-              <div className="text-center py-2">
-                <p className="text-6xl lg:text-5xl font-bold text-white tabular-nums">{player2Score}</p>
-                <p className="text-xs text-gray-400 mt-1">Remaining</p>
+              <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-blue-400">{stats.player1Avg}</div>
+                <div className="text-xs text-slate-400">Avg</div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                <div className="text-center bg-white/5 rounded p-1.5">
-                  <p className="text-gray-400">Avg</p>
-                  <p className="text-white font-semibold">{player2MatchAverage}</p>
-                </div>
-                <div className="text-center bg-white/5 rounded p-1.5">
-                  <p className="text-gray-400">High</p>
-                  <p className="text-white font-semibold">{player2Stats.highestScore}</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
+            </div>
 
-          <div className="px-4 flex-1 min-h-0 overflow-hidden">
-            <div className={`grid gap-3 h-full ${showVisualization ? 'lg:grid-cols-[0.6fr_0.6fr_1.4fr] grid-cols-1' : 'lg:grid-cols-[1fr_1.5fr] grid-cols-1'}`}>
-            {showVisualization && (
-              <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden h-full">
-                <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                  <h3 className="text-sm font-semibold text-white">Dartbot Board</h3>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant={showDebugRings ? "default" : "outline"}
-                      onClick={() => {
-                        setShowDebugRings(!showDebugRings);
-                      }}
-                      className="text-xs h-6 px-2"
-                      title="Show ring boundaries overlay"
-                    >
-                      Rings
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={debugMode ? "default" : "outline"}
-                      onClick={() => {
-                        const newDebugMode = !debugMode;
-                        setDebugMode(newDebugMode);
-                        setDartbotDebugModeEnabled(newDebugMode);
-                        if (newDebugMode) {
-                          toast.success('Debug mode enabled - check console');
-                        }
-                      }}
-                      className="text-xs h-6 px-2"
-                      title="Enable debug console logging"
-                    >
-                      Debug
-                    </Button>
-                    {isBotThinking && (
-                      <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
-                        Throwing...
-                      </Badge>
-                    )}
+            {showStatsPanel && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">First 9 Avg:</span>
+                  <span className="text-white font-medium">{stats.player1First9Avg}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Darts Thrown:</span>
+                  <span className="text-white font-medium">{player1MatchDartsThrown}</span>
+                </div>
+                {player1CheckoutsMade > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Checkouts:</span>
+                    <span className="text-emerald-400 font-medium">{player1CheckoutsMade}</span>
                   </div>
-                </div>
-                <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                  <DartboardOverlay hits={dartboardHits} showDebugRings={showDebugRings} className="max-w-full" />
-                  {botLastVisitTotal !== null && (
-                    <div className="mt-2 text-center">
-                      <p className="text-sm text-gray-400">Last Visit</p>
-                      <p className="text-2xl font-bold text-white">{botLastVisitTotal}</p>
-                    </div>
-                  )}
-                  {lastThreeDarts.length > 0 && (
-                    <div className="mt-2 text-center space-y-1">
-                      <p className="text-xs text-gray-400 font-semibold">Last Visit</p>
-                      <div className="flex flex-col gap-1 items-center">
-                        {lastThreeDarts.map((dart, index) => (
-                          <div key={index} className="text-xs text-gray-300">
-                            {dart.aimTarget && (
-                              <span className="text-gray-500">
-                                {dart.aimTarget}
-                                <span className="mx-1">→</span>
-                              </span>
-                            )}
-                            <span
-                              className={`font-semibold ${
-                                dart.isDouble
-                                  ? 'text-green-400'
-                                  : dart.isTreble
-                                  ? 'text-yellow-400'
-                                  : dart.offboard
-                                  ? 'text-red-400'
-                                  : 'text-white'
-                              }`}
-                            >
-                              {dart.label} ({dart.score})
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
+                )}
+              </div>
             )}
 
-            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden">
-              <h3 className="text-sm font-semibold text-white mb-2 flex-shrink-0">Visit History</h3>
-              <div className="flex-1 overflow-y-auto pr-2" style={{ minHeight: 0 }}>
-                <div className="space-y-2 pr-2">
-                  {currentLeg.visits.slice().reverse().map((visit, idx) => {
-                    const actualIndex = currentLeg.visits.length - idx - 1;
-                    return (
-                      <div
-                        key={actualIndex}
-                        className={`flex items-center justify-between text-sm p-2 rounded group ${
-                          visit.player === 'player1'
-                            ? 'bg-teal-500/5 border-l-2 border-l-teal-400/60'
-                            : 'bg-slate-700/20 border-l-2 border-l-slate-500/60'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] px-1 py-0 ${
-                              visit.player === 'player1'
-                                ? 'border-teal-400/40 text-teal-300'
-                                : 'border-slate-500/50 text-slate-300'
-                            }`}
-                          >
-                            {visit.player === 'player1' ? 'YOU' : 'BOT'}
-                          </Badge>
-                          <span className="text-gray-500 text-xs">
-                            #{currentLeg.visits.length - idx}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {visit.isBust && (
-                            <Badge variant="outline" className="border-red-500/30 text-red-400 text-xs">
-                              {visit.bustReason ? 'NO DOUBLE' : 'BUST'}
-                            </Badge>
-                          )}
-                          {visit.isCheckout && (
-                            <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-xs">
-                              CHECKOUT
-                            </Badge>
-                          )}
-                          <span className="text-white font-semibold">{visit.score}</span>
-                          <span className="text-gray-500">→</span>
-                          <span className="text-gray-400">{visit.remainingScore}</span>
-                          {visit.player === 'player1' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditVisit(actualIndex)}
-                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-500/20"
-                            >
-                              <Pencil className="w-3 h-3 text-teal-400" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {currentLeg.visits.length === 0 && (
-                    <p className="text-gray-500 text-center py-8 text-sm">No visits yet</p>
-                  )}
+            {/* Checkout suggestions */}
+            {player1Score <= 170 && player1Score > 0 && (
+              <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                <div className="text-xs text-emerald-400 mb-1">Checkout:</div>
+                <div className="text-sm text-white font-medium">
+                  {getCheckoutOptions(player1Score, config.doubleOut).slice(0, 2).join(' or ')}
                 </div>
               </div>
-            </Card>
+            )}
+          </Card>
 
-            <Card className="bg-slate-900/50 border-white/10 p-3 flex flex-col overflow-hidden h-full">
-              <h3 className="text-base font-semibold text-white mb-2 flex-shrink-0">Scoring</h3>
+          {/* Dartboard Center */}
+          <Card className="bg-slate-900/50 border-slate-700 p-6">
+            <div className="relative aspect-square max-w-md mx-auto">
+              <DartboardOverlay
+                hits={dartboardHits}
+                onSegmentClick={handleDartClick}
+                lastVisitTotal={botLastVisitTotal}
+                showDebug={debugMode}
+              />
+            </div>
 
-              {isBotThinking && (
-                <Card className="bg-blue-500/20 border-blue-500/30 p-1.5 mb-2 flex-shrink-0">
-                  <div className="flex items-center justify-center space-x-2">
-                    <Bot className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-                    <p className="text-xs text-blue-400 font-semibold">Bot thinking...</p>
-                  </div>
-                </Card>
-              )}
-
-              {isOnCheckout && currentPlayer === 'player1' && (
-                checkoutOptions.length > 0 ? (
-                  <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5 mb-2 flex-shrink-0">
-                    <div className="flex items-center space-x-2 mb-0.5">
-                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                      <h4 className="text-xs font-semibold text-white">CHECKOUT AVAILABLE</h4>
-                      <span className="text-amber-400 font-bold text-base ml-auto">{currentScore}</span>
-                    </div>
-                    <div className="text-amber-300 text-xs font-semibold">
-                      {checkoutOptions[0].description}
-                    </div>
-                  </Card>
-                ) : (
-                  <Card className="bg-gradient-to-br from-gray-500/20 to-slate-500/20 border-gray-500/30 p-1.5 mb-2 flex-shrink-0">
-                    <div className="flex items-center space-x-2">
-                      <Zap className="w-3.5 h-3.5 text-gray-400" />
-                      <h4 className="text-xs font-semibold text-white">CHECKOUT NOT POSSIBLE</h4>
-                      <span className="text-gray-400 font-bold text-base ml-auto">{currentScore}</span>
-                    </div>
-                  </Card>
-                )
-              )}
-
-              {inputModeError && (
-                <Card className="bg-red-500/20 border-red-500/30 p-2 mb-2 flex-shrink-0">
-                  <p className="text-red-400 text-xs text-center font-semibold">{inputModeError}</p>
-                </Card>
-              )}
-
-              <div className="flex space-x-2 mb-2 flex-shrink-0">
-                <Input
-                  type="number"
-                  min="0"
-                  max="180"
-                  value={scoreInput}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === '' || (parseInt(value) >= 0 && parseInt(value) <= 180)) {
-                      setScoreInput(value);
-                      setInputModeError('');
-                    } else {
-                      setInputModeError('Score must be between 0 and 180');
-                    }
-                  }}
-                  placeholder="Type score (0-180)"
-                  className="flex-1 bg-white/5 border-white/10 text-white text-xl h-12"
-                  disabled={currentPlayer !== 'player1'}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && scoreInput) {
-                      const score = parseInt(scoreInput);
-                      handleInputScoreSubmit(score);
-                    }
-                  }}
-                />
-                <Button
-                  onClick={() => {
-                    if (scoreInput) {
-                      const score = parseInt(scoreInput);
-                      handleInputScoreSubmit(score);
-                    }
-                  }}
-                  disabled={!scoreInput || isNaN(parseInt(scoreInput)) || currentPlayer !== 'player1'}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 h-12 text-base font-semibold"
-                >
-                  Submit
-                </Button>
+            {/* Bot Last Throw Display */}
+            {isBotThinking && (
+              <div className="mt-4 text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-lg">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                  <span className="text-slate-300">{botName} is throwing...</span>
+                </div>
               </div>
+            )}
 
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <Card className="bg-emerald-500/10 border-emerald-500/30 p-2.5 mb-2 flex-shrink-0">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <h4 className="text-sm font-semibold text-emerald-400">Quick Score</h4>
-                    <span className="text-emerald-400 font-bold text-lg">Total: {visitTotal}</span>
-                  </div>
-                  <div className="flex items-center space-x-2 mt-1">
-                    {currentVisit.map((dart, idx) => (
-                      <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-sm py-1 px-2">
-                        {getDartLabel(dart)} ({dart.value})
-                      </Badge>
-                    ))}
-                    {[...Array(3 - currentVisit.length)].map((_, idx) => (
-                      <div key={idx} className="flex-1 h-8 border-2 border-dashed border-gray-600 rounded"></div>
-                    ))}
-                  </div>
-                </Card>
+            {lastThreeDarts.length > 0 && currentPlayer === 'player1' && (
+              <div className="mt-4 p-3 bg-slate-800/50 rounded-lg">
+                <div className="text-xs text-slate-400 mb-2">{botName}&apos;s Last Throw:</div>
+                <div className="flex items-center gap-2">
+                  {lastThreeDarts.map((dart, i) => (
+                    <span key={i} className="text-white font-medium">
+                      {dart.label}
+                    </span>
+                  ))}
+                  <span className="text-emerald-400 font-bold ml-auto">
+                    = {lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}
+                  </span>
+                </div>
+              </div>
+            )}
 
-                <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
-                  <div className="flex space-x-2 mb-2 flex-shrink-0">
-                    <Button
-                      size="sm"
-                      variant={dartboardGroup === 'singles' ? 'default' : 'outline'}
-                      onClick={() => setDartboardGroup('singles')}
-                      className={`${dartboardGroup === 'singles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                      disabled={currentPlayer !== 'player1'}
-                    >
-                      Singles
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={dartboardGroup === 'doubles' ? 'default' : 'outline'}
-                      onClick={() => setDartboardGroup('doubles')}
-                      className={`${dartboardGroup === 'doubles' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                      disabled={currentPlayer !== 'player1'}
-                    >
-                      Doubles
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={dartboardGroup === 'triples' ? 'default' : 'outline'}
-                      onClick={() => setDartboardGroup('triples')}
-                      className={`${dartboardGroup === 'triples' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                      disabled={currentPlayer !== 'player1'}
-                    >
-                      Triples
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={dartboardGroup === 'bulls' ? 'default' : 'outline'}
-                      onClick={() => setDartboardGroup('bulls')}
-                      className={`${dartboardGroup === 'bulls' ? 'bg-emerald-500' : 'border-white/10 text-white'} h-9 text-sm flex-1`}
-                      disabled={currentPlayer !== 'player1'}
-                    >
-                      Bulls
-                    </Button>
-                  </div>
-
-                  {dartboardGroup !== 'bulls' ? (
-                    <div className="grid grid-cols-5 gap-1.5 mb-2">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
-                        <Button
-                          key={num}
-                          onClick={() => handleDartClick(dartboardGroup, num)}
-                          disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                          className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
-                        >
-                          <span>{dartboardGroup === 'singles' ? `S${num}` : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}</span>
-                          <span className="text-[10px] text-gray-400">
-                            ({dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? num * 2 : num * 3})
-                          </span>
-                        </Button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3 mb-2">
-                      <Button
-                        onClick={() => handleDartClick('bulls', 25)}
-                        disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                        className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
-                      >
-                        <span>Single Bull</span>
-                        <span className="text-sm text-gray-400">(25)</span>
-                      </Button>
-                      <Button
-                        onClick={() => handleDartClick('bulls', 50)}
-                        disabled={currentVisit.length >= 3 || currentPlayer !== 'player1'}
-                        className="h-16 text-base font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50 flex flex-col items-center justify-center"
-                      >
-                        <span>Double Bull</span>
-                        <span className="text-sm text-gray-400">(50)</span>
-                      </Button>
-                    </div>
-                  )}
-
+            {/* Score Input */}
+            {currentPlayer === 'player1' && (
+              <div className="mt-6 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={scoreInput}
+                    onChange={(e) => setScoreInput(e.target.value)}
+                    placeholder="Enter score"
+                    className="bg-slate-800/50 border-slate-600 text-white text-center text-2xl h-14"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const score = parseInt(scoreInput);
+                        if (!isNaN(score)) {
+                          handleInputScoreSubmit(score);
+                        }
+                      }
+                    }}
+                    disabled={isBotThinking}
+                  />
                   <Button
-                    onClick={() => handleDartClick('singles', 0)}
-                    variant="outline"
-                    className="w-full h-10 mb-2 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
-                    disabled={currentPlayer !== 'player1'}
+                    onClick={() => {
+                      const score = parseInt(scoreInput);
+                      if (!isNaN(score)) {
+                        handleInputScoreSubmit(score);
+                      }
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-600 h-14 px-6"
+                    disabled={isBotThinking}
                   >
-                    Miss (0)
+                    <Check className="w-5 h-5" />
                   </Button>
-
-                  <div className="grid grid-cols-3 gap-2 flex-shrink-0">
-                    <Button
-                      onClick={handleClearVisit}
-                      disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
-                      variant="outline"
-                      className="border-white/10 text-white hover:bg-white/5 h-11 text-sm"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Clear
-                    </Button>
-                    <Button
-                      onClick={handleSubmitVisit}
-                      disabled={currentVisit.length === 0 || currentPlayer !== 'player1'}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-11 text-sm font-semibold"
-                    >
-                      <Check className="w-4 h-4 mr-1" />
-                      Submit
-                    </Button>
-                    <Button
-                      onClick={handleBust}
-                      variant="outline"
-                      className="border-red-500/30 text-red-400 hover:bg-red-500/10 h-11 text-sm"
-                      disabled={currentPlayer !== 'player1'}
-                    >
-                      Bust
-                    </Button>
-                  </div>
+                </div>
+                {inputModeError && (
+                  <p className="text-red-400 text-sm text-center">{inputModeError}</p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleBust}
+                    className="flex-1 border-red-500/30 text-red-400"
+                    disabled={isBotThinking}
+                  >
+                    Bust
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setScoreInput('')}
+                    className="flex-1 border-slate-600"
+                    disabled={isBotThinking}
+                  >
+                    Clear
+                  </Button>
                 </div>
               </div>
-            </Card>
-          </div>
+            )}
+          </Card>
+
+          {/* Bot Card */}
+          <Card className="bg-slate-900/50 border-slate-700 p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <Avatar className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500">
+                <AvatarFallback className="text-white text-xl">
+                  <Bot className="w-8 h-8" />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="text-xl font-bold text-white">{botName}</h2>
+                <Badge className={currentPlayer === 'player2' ? 'bg-purple-500' : 'bg-slate-600'}>
+                  {currentPlayer === 'player2' ? 'Throwing...' : 'Waiting'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="text-center mb-4">
+              <div className="text-6xl font-bold text-white mb-2">{player2Score}</div>
+              <div className="text-slate-400">Remaining</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-purple-400">{player2LegsWon}</div>
+                <div className="text-xs text-slate-400">Legs Won</div>
+              </div>
+              <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-blue-400">{stats.player2Avg}</div>
+                <div className="text-xs text-slate-400">Avg</div>
+              </div>
+            </div>
+
+            {showStatsPanel && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target Avg:</span>
+                  <span className="text-white font-medium">{config.botAverage}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Darts Thrown:</span>
+                  <span className="text-white font-medium">{player2MatchDartsThrown}</span>
+                </div>
+                {player2CheckoutsMade > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Checkouts:</span>
+                    <span className="text-purple-400 font-medium">{player2CheckoutsMade}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Leg progress */}
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-slate-400">First to {legsToWin} legs</span>
+                <span className="text-white">{player1LegsWon} - {player2LegsWon}</span>
+              </div>
+              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-emerald-500 to-purple-500 transition-all"
+                  style={{ width: `${((player1LegsWon + player2LegsWon) / (legsToWin * 2 - 1)) * 100}%` }}
+                />
+              </div>
+            </div>
+          </Card>
         </div>
-      </div>
+
+        {/* Recent Visits */}
+        <Card className="bg-slate-900/50 border-slate-700 p-4 mt-6">
+          <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Current Leg - Visit History
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
+                  <th className="pb-2">#</th>
+                  <th className="pb-2">Player</th>
+                  <th className="pb-2">Score</th>
+                  <th className="pb-2">Remaining</th>
+                  <th className="pb-2">Type</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {currentLeg.visits.slice(-10).map((visit, idx) => (
+                  <tr key={idx} className="border-b border-slate-800/50">
+                    <td className="py-2 text-slate-500">{idx + 1}</td>
+                    <td className="py-2">
+                      <span className={visit.player === 'player1' ? 'text-emerald-400' : 'text-purple-400'}>
+                        {visit.player === 'player1' ? 'You' : botName}
+                      </span>
+                    </td>
+                    <td className="py-2 text-white font-medium">
+                      {visit.isBust ? (
+                        <span className="text-red-400">Bust ({visit.score})</span>
+                      ) : (
+                        visit.score
+                      )}
+                    </td>
+                    <td className="py-2 text-slate-300">{visit.remainingScore}</td>
+                    <td className="py-2">
+                      {visit.isCheckout && (
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                          Checkout
+                        </Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {currentLeg.visits.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-slate-500">
+                      No visits yet. Start throwing!
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
 
+      {/* End Match Dialog */}
       <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
-        <AlertDialogContent className="bg-slate-900 border-white/10">
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">End Training?</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              Are you sure you want to end this training session? All progress will be lost.
+            <AlertDialogTitle className="text-white">End Match?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Are you sure you want to end this match? Your progress will not be saved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+            <AlertDialogCancel className="bg-slate-800 text-white border-slate-600">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReturnToPlay}
-              className="bg-red-500 hover:bg-red-600 text-white"
+              className="bg-red-500 hover:bg-red-600"
             >
-              End Training
+              End Match
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={showMatchCompleteModal} onOpenChange={() => {}}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="text-center space-y-4 py-6">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full mb-4">
-                <Trophy className="w-10 h-10 text-white" />
-              </div>
-              <DialogTitle className="text-4xl font-bold text-white">
-                Training Complete!
-              </DialogTitle>
-              <p className="text-2xl text-gray-300">
-                {matchWinner === 'player1' ? 'You' : 'Bot'} win{matchWinner === 'player1' ? '' : 's'} {matchWinner === 'player1' ? player1LegsWon : player2LegsWon}-{matchWinner === 'player1' ? player2LegsWon : player1LegsWon}
-              </p>
-            </div>
-          </DialogHeader>
-
-          <div className="grid md:grid-cols-2 gap-6 my-6">
-            <Card className="bg-slate-800/50 border-white/10 p-6">
-              <div className="flex items-center space-x-3 mb-6">
-                <Avatar className="w-12 h-12">
-                  <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
-                    YOU
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white">You</h3>
-                  <p className="text-sm text-gray-400">
-                    {matchWinner === 'player1' ? 'Winner' : 'Runner-up'}
-                  </p>
-                </div>
-                {matchWinner === 'player1' && (
-                  <Trophy className="w-6 h-6 text-amber-400" />
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <span className="text-gray-300 text-sm">3-Dart Average</span>
-                  </div>
-                  <span className="text-white font-bold">{player1AllStats.threeDartAverage}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    <span className="text-gray-300 text-sm">First 9 Dart Avg</span>
-                  </div>
-                  <span className="text-white font-bold">{player1First9Average}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Zap className="w-4 h-4 text-blue-400" />
-                    <span className="text-gray-300 text-sm">Highest Score</span>
-                  </div>
-                  <span className="text-white font-bold">{player1AllStats.highestScore}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Target className="w-4 h-4 text-amber-400" />
-                    <span className="text-gray-300 text-sm">Checkout %</span>
-                  </div>
-                  <span className="text-white font-bold">
-                    {player1TotalDartsAtDouble > 0
-                      ? Math.round((player1CheckoutsMade / player1TotalDartsAtDouble) * 100 * 100) / 100
-                      : 0}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-gray-300 text-sm">Doubles</span>
-                  <span className="text-white font-bold">{player1CheckoutsMade} / {player1TotalDartsAtDouble}</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center pt-2">
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <p className="text-xl font-bold text-white">{player1AllStats.count100Plus}</p>
-                    <p className="text-xs text-gray-400">100+</p>
-                  </div>
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <p className="text-xl font-bold text-white">{player1AllStats.count140Plus}</p>
-                    <p className="text-xs text-gray-400">140+</p>
-                  </div>
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <p className="text-xl font-bold text-white">{player1AllStats.count180}</p>
-                    <p className="text-xs text-gray-400">180s</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-gray-300 text-sm">Legs Won</span>
-                  <span className="text-white font-bold">{player1LegsWon}</span>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-white/10 p-6">
-              <div className="flex items-center space-x-3 mb-6">
-                <Avatar className="w-12 h-12">
-                  <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white">
-                    <Bot className="w-6 h-6" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white">{botName}</h3>
-                  <p className="text-sm text-gray-400">
-                    {matchWinner === 'player2' ? 'Winner' : 'Runner-up'}
-                  </p>
-                </div>
-                {matchWinner === 'player2' && (
-                  <Trophy className="w-6 h-6 text-amber-400" />
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <span className="text-gray-300 text-sm">3-Dart Average</span>
-                  </div>
-                  <span className="text-white font-bold">{player2AllStats.threeDartAverage}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    <span className="text-gray-300 text-sm">First 9 Dart Avg</span>
-                  </div>
-                  <span className="text-white font-bold">{player2First9Average}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Zap className="w-4 h-4 text-blue-400" />
-                    <span className="text-gray-300 text-sm">Highest Score</span>
-                  </div>
-                  <span className="text-white font-bold">{player2AllStats.highestScore}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <Target className="w-4 h-4 text-amber-400" />
-                    <span className="text-gray-300 text-sm">Checkout %</span>
-                  </div>
-                  <span className="text-white font-bold">
-                    {player2TotalDartsAtDouble > 0
-                      ? Math.round((player2CheckoutsMade / player2TotalDartsAtDouble) * 100 * 100) / 100
-                      : 0}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-gray-300 text-sm">Doubles</span>
-                  <span className="text-white font-bold">{player2CheckoutsMade} / {player2TotalDartsAtDouble}</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center pt-2">
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <p className="text-xl font-bold text-white">{player2AllStats.count100Plus}</p>
-                    <p className="text-xs text-gray-400">100+</p>
-                  </div>
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <p className="text-xl font-bold text-white">{player2AllStats.count140Plus}</p>
-                    <p className="text-xs text-gray-400">140+</p>
-                  </div>
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <p className="text-xl font-bold text-white">{player2AllStats.count180}</p>
-                    <p className="text-xs text-gray-400">180s</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-gray-300 text-sm">Legs Won</span>
-                  <span className="text-white font-bold">{player2LegsWon}</span>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div className="flex justify-center space-x-4 pt-4">
-            <Button
-              size="lg"
-              onClick={handleRematch}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
-            >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Try Again
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={handleReturnToPlay}
-              className="border-white/10 text-white hover:bg-white/5 px-8"
-            >
-              <Home className="w-5 h-5 mr-2" />
-              Back to Play
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <EditVisitModal
-        open={showEditVisitModal}
-        onOpenChange={setShowEditVisitModal}
-        visitNumber={editingVisitIndex !== null ? editingVisitIndex + 1 : 0}
-        originalScore={editingVisitScore}
-        onSave={handleSaveEditedVisit}
-        onValidate={handleValidateEditedVisit}
+      {/* Match Complete Modal */}
+      <WinnerPopup
+        isOpen={showMatchCompleteModal}
+        onClose={() => {}}
+        winner={matchWinner === 'player1' ? 'You' : botName}
+        isUserWinner={matchWinner === 'player1'}
+        playerLegs={player1LegsWon}
+        opponentLegs={player2LegsWon}
+        onRematch={handleRematch}
+        onReturn={handleReturnToPlay}
       />
 
-      {pendingVisitData && (
-        <DartsAtDoubleModal
-          isOpen={showDartsAtDoubleModal}
-          minDarts={pendingVisitData.minDarts}
-          isCheckout={pendingVisitData.isCheckout}
-          onConfirm={handleDartsAtDoubleConfirm}
-          onCancel={() => {
-            setShowDartsAtDoubleModal(false);
-            setPendingVisitData(null);
-            setScoreInput('');
-          }}
+      {/* Edit Visit Modal */}
+      {showEditVisitModal && (
+        <EditVisitModal
+          isOpen={showEditVisitModal}
+          onClose={() => setShowEditVisitModal(false)}
+          currentScore={editingVisitScore}
+          onSave={handleSaveEditedVisit}
         />
       )}
 
-      <MatchSaveDebugStrip
-        saveStatus={saveStatus}
-        savedMatchId={savedMatchId}
-        saveError={saveError}
+      {/* Darts At Double Modal */}
+      <DartsAtDoubleModal
+        isOpen={showDartsAtDoubleModal}
+        onClose={() => setShowDartsAtDoubleModal(false)}
+        onConfirm={handleDartsAtDoubleConfirm}
+        remainingScore={player1Score}
       />
-    </MatchErrorBoundary>
+    </div>
   );
+}
+
+// Helper function for checkout options
+function getCheckoutOptions(score: number, doubleOut: boolean): string[] {
+  if (!doubleOut) return [`${score}`];
+  
+  // Simple checkout routes
+  const routes: Record<number, string[]> = {
+    170: ['T20 T20 DB'],
+    167: ['T20 T19 DB'],
+    164: ['T20 T18 DB'],
+    161: ['T20 T17 DB'],
+    160: ['T20 T20 D20'],
+    136: ['T20 T20 D8'],
+    120: ['T20 20 D20'],
+    100: ['T20 D20'],
+    80: ['T20 D10'],
+    60: ['20 D20'],
+    40: ['D20'],
+    32: ['D16'],
+    24: ['D12'],
+    16: ['D8'],
+    8: ['D4'],
+    4: ['D2'],
+    2: ['D1'],
+  };
+  
+  return routes[score] || [`Finish ${score}`];
 }
