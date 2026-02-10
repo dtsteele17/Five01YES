@@ -20,7 +20,7 @@ export interface PlayerStats {
 }
 
 export interface RecordMatchInput {
-  matchType: 'ranked' | 'quick' | 'private' | 'local' | 'training' | 'league' | 'tournament' | 'online_private';
+  matchType: 'ranked' | 'quick' | 'private' | 'local' | 'training' | 'league' | 'tournament' | 'online_private' | 'dartbot';
   game: '301' | '501';
   startedAt: string;
   endedAt: string;
