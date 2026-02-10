@@ -1417,10 +1417,17 @@ export default function QuickMatchRoomPage() {
               
               const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
-              const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
+
+              // Safety check - should not happen due to outer condition, but TypeScript needs this
+              if (!winnerId || !loserId) {
+                console.error('[MATCH END] Missing winner or loser ID');
+                return;
+              }
+
+              const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserProfile = profiles.find(p => p.user_id === loserId);
-              
+
               // Fetch ALL visits from database to ensure we have complete data for both players
               const { data: allVisits } = await supabase
                 .from('quick_match_visits')
@@ -1529,7 +1536,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1947,6 +1954,7 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
+            bust_reason: null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
