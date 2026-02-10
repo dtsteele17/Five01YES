@@ -13,6 +13,7 @@ import {
   Play,
 } from 'lucide-react';
 import { UpcomingMatchesModal } from '@/components/app/UpcomingMatchesModal';
+import { RecentMatchesList } from '@/components/stats/RecentMatchesList';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { usePresence } from '@/lib/hooks/usePresence';
@@ -78,7 +79,7 @@ export default function DashboardPage() {
 
       try {
         const { data: playerStats, error: statsError } = await supabase
-          .from('user_stats')
+          .from('player_stats')
           .select('*')
           .eq('user_id', profile.id)
           .maybeSingle();
@@ -288,23 +289,18 @@ export default function DashboardPage() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Upcoming Matches</h2>
-            <Button
-              variant="ghost"
-              className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-              onClick={() => setShowUpcomingMatches(true)}
-            >
-              View All
-            </Button>
+            <h2 className="text-xl font-bold text-white">Recent Matches</h2>
+            <Link href="/app/stats">
+              <Button
+                variant="ghost"
+                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+              >
+                View All
+              </Button>
+            </Link>
           </div>
 
-          <div className="py-8 text-center">
-            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-              <TrendingUp className="w-8 h-8 text-gray-500" />
-            </div>
-            <p className="text-gray-400 mb-2">No upcoming matches</p>
-            <p className="text-gray-500 text-sm">Join a league or tournament to schedule matches</p>
-          </div>
+          <RecentMatchesList limit={5} />
         </Card>
 
         <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
