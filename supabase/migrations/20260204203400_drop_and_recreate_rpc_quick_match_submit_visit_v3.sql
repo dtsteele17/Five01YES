@@ -25,7 +25,8 @@ CREATE FUNCTION public.rpc_quick_match_submit_visit_v3(
   p_darts JSONB DEFAULT '[]'::JSONB,
   p_is_bust BOOLEAN DEFAULT FALSE,
   p_darts_thrown INTEGER DEFAULT 3,
-  p_darts_at_double INTEGER DEFAULT 0
+  p_darts_at_double INTEGER DEFAULT 0,
+  p_is_typed_score BOOLEAN DEFAULT FALSE
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -121,8 +122,9 @@ BEGIN
       v_score_applied := 0;
     ELSIF v_new_remaining = 0 THEN
       -- Potential checkout - validate double-out if required
-      IF v_room.double_out THEN
-        -- ALWAYS enforce double-out for any checkout (regardless of score)
+      -- SKIP double validation for typed scores (user enters total score manually)
+      IF v_room.double_out AND NOT p_is_typed_score THEN
+        -- Enforce double-out for button inputs (not typed scores)
         IF jsonb_array_length(p_darts) > 0 THEN
           v_last_dart := p_darts -> (jsonb_array_length(p_darts) - 1);
 
@@ -148,7 +150,7 @@ BEGIN
           v_score_applied := 0;
         END IF;
       ELSE
-        -- No double-out required, valid checkout
+        -- No double-out required OR typed score (valid checkout)
         v_score_applied := p_score;
       END IF;
     ELSE

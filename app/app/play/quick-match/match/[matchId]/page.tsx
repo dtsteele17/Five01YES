@@ -1803,11 +1803,11 @@ export default function QuickMatchRoomPage() {
     const isCheckout = newRemaining === 0;
     
     console.log('[TYPED SCORE] Submitting - remaining:', newRemaining, 'isCheckout:', isCheckout);
-    await submitScore(score, false, genericDarts, isCheckout);
+    await submitScore(score, false, genericDarts, isCheckout, true); // true = isTypedScore
   };
 
-  async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false) {
-    console.log('[SUBMIT] submitScore called', { score, isBust, dartsCount: darts.length, isCheckout });
+  async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false, isTypedScore: boolean = false) {
+    console.log('[SUBMIT] submitScore called', { score, isBust, dartsCount: darts.length, isCheckout, isTypedScore });
 
     if (!room) {
       console.error('[SUBMIT] No room data');
@@ -1874,7 +1874,8 @@ export default function QuickMatchRoomPage() {
         p_room_id: matchId,
         p_score: score,
         p_darts: dartsArray,
-        p_is_bust: isBust
+        p_is_bust: isBust,
+        p_is_typed_score: isTypedScore
       });
 
       console.log('[SUBMIT] RPC returned', { data, error });
