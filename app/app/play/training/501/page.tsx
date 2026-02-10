@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Home, X, Check, Bot, Pencil, BarChart3 } from 'lucide-react';
-import { getCheckoutOptions, isBust, isValidCheckout, getLegsToWin, resetBotLegState } from '@/lib/match-logic';
+import { isBust, isValidCheckout, getLegsToWin } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
@@ -35,7 +35,6 @@ import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } 
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
-import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { recordMatchCompletion, type PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
@@ -50,7 +49,6 @@ interface Visit {
   timestamp: number;
   lastDartType?: 'S' | 'D' | 'T' | 'BULL' | 'SBULL';
   bustReason?: string;
-  dartsThrown?: number;
 }
 
 interface LegData {
@@ -153,15 +151,6 @@ export default function DartbotMatchPage() {
   // Stats display (like QuickMatch)
   const [showStatsPanel, setShowStatsPanel] = useState(true);
 
-  // Match end stats for WinnerPopup
-  const [matchEndStats, setMatchEndStats] = useState<{
-    player1: { id: string; name: string; legs: number };
-    player2: { id: string; name: string; legs: number };
-    player1FullStats: any;
-    player2FullStats: any;
-    winnerId: string;
-  } | null>(null);
-
   useEffect(() => {
     if (!config || (config.mode !== '301' && config.mode !== '501')) {
       router.push('/app/play');
@@ -181,13 +170,11 @@ export default function DartbotMatchPage() {
   useEffect(() => {
     matchOverRef.current = !!matchWinner || showMatchCompleteModal;
     
-    // Save stats and show winner popup when match completes
+    // Save stats when match completes
     if (matchWinner && showMatchCompleteModal && !hasSavedStats.current) {
       hasSavedStats.current = true;
-      calculateAndSetMatchEndStats();
       saveMatchStats();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchWinner, showMatchCompleteModal]);
 
   // Play Game On sound when training session starts
@@ -199,51 +186,245 @@ export default function DartbotMatchPage() {
   }, [config, matchStartTime]);
 
   const clearBotTimer = useCallback(() => {
-    if (botTimerRef.current) {
-      clearTimeout(botTimerRef.current);
+    if (botTimerRef.current !== null) {
+      window.clearTimeout(botTimerRef.current);
       botTimerRef.current = null;
     }
-    if (dartboardAnimationTimerRef.current) {
-      clearTimeout(dartboardAnimationTimerRef.current);
+  }, []);
+
+  const clearDartboardAnimationTimer = useCallback(() => {
+    if (dartboardAnimationTimerRef.current !== null) {
+      window.clearTimeout(dartboardAnimationTimerRef.current);
       dartboardAnimationTimerRef.current = null;
     }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       clearBotTimer();
+      clearDartboardAnimationTimer();
     };
-  }, [clearBotTimer]);
+  }, [clearBotTimer, clearDartboardAnimationTimer]);
 
-  const handleBotTurn = useCallback(async () => {
-    if (!config || matchOverRef.current) return;
+  // Save match stats to database
+  const saveMatchStats = async () => {
+    if (!config) return;
 
-    const turnId = ++botTurnIdRef.current;
+    try {
+      const normalizedConfig = normalizeMatchConfig({
+        mode: config.mode as '301' | '501',
+        bestOf: config.bestOf,
+        doubleOut: config.doubleOut,
+      });
 
-    // Wait 1.5 seconds before bot throws (reduced from 2.5s)
-    botTimerRef.current = window.setTimeout(async () => {
-      // Check if match ended or turn was cancelled
-      if (matchOverRef.current || currentPlayer !== 'player2' || turnId !== botTurnIdRef.current) {
-        return;
+      const allLegsData = [...allLegs, currentLeg].filter(leg => leg.winner);
+
+      // Format visits for stats computation
+      const allVisitsFormatted: Array<{
+        player: 'user' | 'opponent';
+        legNumber: number;
+        visitNumber: number;
+        score: number;
+        remainingScore: number;
+        isBust: boolean;
+        isCheckout: boolean;
+        wasCheckoutAttempt: boolean;
+      }> = [];
+
+      for (const leg of allLegsData) {
+        const player1VisitsInLeg = leg.visits.filter(v => v.player === 'player1');
+        const player2VisitsInLeg = leg.visits.filter(v => v.player === 'player2');
+
+        player1VisitsInLeg.forEach((visit, idx) => {
+          allVisitsFormatted.push({
+            player: 'user',
+            legNumber: leg.legNumber,
+            visitNumber: idx + 1,
+            score: visit.score,
+            remainingScore: visit.remainingScore,
+            isBust: visit.isBust,
+            isCheckout: visit.isCheckout,
+            wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust,
+          });
+        });
+
+        player2VisitsInLeg.forEach((visit, idx) => {
+          allVisitsFormatted.push({
+            player: 'opponent',
+            legNumber: leg.legNumber,
+            visitNumber: idx + 1,
+            score: visit.score,
+            remainingScore: visit.remainingScore,
+            isBust: visit.isBust,
+            isCheckout: visit.isCheckout,
+            wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust,
+          });
+        });
       }
 
-      setIsBotThinking(true);
-
-      // Simulate bot throw with visualization data
-      const { visit: visualVisit, tracker } = simulateVisit(
-        player2Score,
-        config.botAverage,
-        config.botDifficulty,
-        config.doubleOut,
-        botPerformanceTracker
+      const userStats = computeMatchStats(
+        allVisitsFormatted.filter(v => v.player === 'user'),
+        'user',
+        normalizedConfig.mode,
+        player1TotalDartsAtDouble,
+        player1CheckoutsMade
       );
+
+      const opponentStats = computeMatchStats(
+        allVisitsFormatted.filter(v => v.player === 'opponent'),
+        'opponent',
+        normalizedConfig.mode,
+        player2TotalDartsAtDouble,
+        player2CheckoutsMade
+      );
+
+      const userPlayerStats: PlayerStats = {
+        threeDartAvg: userStats.threeDartAverage,
+        first9Avg: userStats.first9Average,
+        checkoutDartsAttempted: userStats.checkoutDartsAttempted,
+        checkoutsMade: userStats.checkoutsMade,
+        checkoutPercent: userStats.checkoutPercent,
+        highestCheckout: userStats.highestCheckout,
+        count100Plus: userStats.count100Plus,
+        count140Plus: userStats.count140Plus,
+        count180: userStats.oneEighties,
+        highestScore: userStats.highestVisit,
+        legsWon: player1LegsWon,
+        legsLost: player2LegsWon,
+        dartsThrown: userStats.totalDartsThrown,
+        pointsScored: userStats.totalPointsScored,
+      };
+
+      const opponentPlayerStats: PlayerStats = {
+        threeDartAvg: opponentStats.threeDartAverage,
+        first9Avg: opponentStats.first9Average,
+        checkoutDartsAttempted: opponentStats.checkoutDartsAttempted,
+        checkoutsMade: opponentStats.checkoutsMade,
+        checkoutPercent: opponentStats.checkoutPercent,
+        highestCheckout: opponentStats.highestCheckout,
+        count100Plus: opponentStats.count100Plus,
+        count140Plus: opponentStats.count140Plus,
+        count180: opponentStats.oneEighties,
+        highestScore: opponentStats.highestVisit,
+        legsWon: player2LegsWon,
+        legsLost: player1LegsWon,
+        dartsThrown: opponentStats.totalDartsThrown,
+        pointsScored: opponentStats.totalPointsScored,
+      };
+
+      const result = await recordMatchCompletion({
+        matchType: 'dartbot',
+        game: normalizedConfig.mode,
+        startedAt: new Date(matchStartTime).toISOString(),
+        endedAt: new Date().toISOString(),
+        opponent: {
+          name: `DartBot (${config.botAverage})`,
+          isBot: true,
+        },
+        winner: matchWinner === 'player1' ? 'user' : 'opponent',
+        userStats: userPlayerStats,
+        opponentStats: opponentPlayerStats,
+        matchFormat: config.bestOf,
+      });
+
+      console.log('📊 DARTBOT MATCH SAVED:', result);
+
+      if (result.ok) {
+        toast.success('Match stats saved!');
+      } else {
+        console.error('Failed to save match stats:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving match stats:', error);
+    }
+  };
+
+  const animateBotThrows = useCallback(async (darts: DartResult[]): Promise<void> => {
+    clearDartboardAnimationTimer();
+    setDartboardHits([]);
+    setBotLastVisitTotal(null);
+    setLastThreeDarts([]);
+
+    // Sequential throw animation: throw → dot appears → score updates
+    for (let i = 0; i < darts.length; i++) {
+      const dart = darts[i];
+
+      // 1. Dart "throws" (thinking time)
+      await new Promise<void>((resolve) => {
+        dartboardAnimationTimerRef.current = window.setTimeout(() => {
+          resolve();
+        }, i === 0 ? 300 : 1000);
+      });
+
+      // 2. Dot appears on board
+      setDartboardHits(prev => [
+        ...prev,
+        {
+          x: dart.x,
+          y: dart.y,
+          label: dart.label,
+          offboard: dart.offboard,
+        },
+      ]);
+
+      // 3. Small delay before showing score text
+      await new Promise<void>((resolve) => {
+        dartboardAnimationTimerRef.current = window.setTimeout(() => {
+          resolve();
+        }, 400);
+      });
+
+      // 4. Update "Last Visit" text to show this dart
+      setLastThreeDarts(prev => [...prev, dart]);
+
+      // Short pause before next dart
+      if (i < darts.length - 1) {
+        await new Promise<void>((resolve) => {
+          dartboardAnimationTimerRef.current = window.setTimeout(() => {
+            resolve();
+          }, 300);
+        });
+      }
+    }
+
+    // Show total after all darts
+    const visitTotal = darts.reduce((sum, dart) => sum + dart.score, 0);
+    setBotLastVisitTotal(visitTotal);
+
+    // Keep dots visible for a moment, then clear
+    await new Promise<void>((resolve) => {
+      dartboardAnimationTimerRef.current = window.setTimeout(() => {
+        setDartboardHits([]);
+        resolve();
+      }, 1800);
+    });
+  }, [clearDartboardAnimationTimer]);
+
+  const botTakeTurn = useCallback(async () => {
+    if (matchOverRef.current || isLegTransitioning) {
+      return;
+    }
+
+    const currentScore = player2Score;
+
+    if (currentScore <= 0) {
+      setCurrentPlayer('player1');
+      return;
+    }
+
+    if (showVisualization && config) {
+      const visualVisit = simulateVisit({
+        level: config.botAverage,
+        remaining: currentScore,
+        doubleOut: config.doubleOut,
+        formMultiplier: botFormMultiplier,
+        tracker: botPerformanceTracker,
+        debug: debugMode,
+      });
 
       setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
       setBotLastVisitTotal(visualVisit.visitTotal);
       await animateBotThrows(visualVisit.darts);
-
-      const dartsThrown = visualVisit.darts.length;
 
       const visit: Visit = {
         player: 'player2',
@@ -252,8 +433,9 @@ export default function DartbotMatchPage() {
         isBust: visualVisit.bust,
         isCheckout: visualVisit.finished,
         timestamp: Date.now(),
-        dartsThrown,
       };
+
+      const dartsThrown = visualVisit.darts.length;
 
       setCurrentLeg(prev => {
         const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player2First9DartsThrown));
@@ -268,60 +450,132 @@ export default function DartbotMatchPage() {
         };
       });
 
-      setPlayer2MatchTotalScored(prev => prev + (visualVisit.bust ? 0 : visualVisit.visitTotal));
+      if (!visualVisit.bust) {
+        setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
+      }
       setPlayer2MatchDartsThrown(prev => prev + dartsThrown);
       setPlayer2Score(visualVisit.newRemaining);
-      setLastThreeDarts(visualVisit.darts);
-
-      setIsBotThinking(false);
 
       if (visualVisit.finished) {
-        handleLegComplete('player2');
-      } else {
-        setCurrentPlayer('player1');
+        setTimeout(() => {
+          if (matchOverRef.current) return;
+          handleLegComplete('player2');
+        }, 500);
+        return;
       }
-    }, 1500);
-  }, [config, player2Score, currentPlayer, botPerformanceTracker]);
 
-  // Trigger bot turn when it's player2's turn
-  useEffect(() => {
-    if (currentPlayer === 'player2' && !matchOverRef.current && !isBotThinking) {
-      handleBotTurn();
+      setCurrentPlayer('player1');
     }
-  }, [currentPlayer, handleBotTurn, isBotThinking]);
+  }, [isLegTransitioning, player2Score, showVisualization, config, botFormMultiplier, debugMode, botPerformanceTracker, animateBotThrows]);
 
-  const animateBotThrows = async (darts: DartResult[]): Promise<void> => {
-    return new Promise((resolve) => {
-      const hits: DartHit[] = [];
-      
-      // Add each dart with delay for visualization
-      darts.forEach((dart, index) => {
-        dartboardAnimationTimerRef.current = window.setTimeout(() => {
-          hits.push({
-            segment: dart.label,
-            score: dart.score,
-            type: dart.label.includes('D') ? 'double' : dart.label.includes('T') ? 'triple' : 'single',
-            number: dart.number,
-          });
-          setDartboardHits([...hits]);
-        }, index * 600); // 600ms between each dart (reduced from 1000ms)
-      });
+  const scheduleBotTurn = useCallback((reason: string) => {
+    if (currentPlayer !== 'player2') return;
 
-      // Resolve after all darts shown
-      dartboardAnimationTimerRef.current = window.setTimeout(() => {
-        resolve();
-      }, darts.length * 600 + 200);
-    });
-  };
+    if (isLegTransitioning) {
+      clearBotTimer();
+      botTimerRef.current = window.setTimeout(() => {
+        scheduleBotTurn("retry_after_transition");
+      }, 50);
+      return;
+    }
 
-  const handleInputScoreSubmit = (score: number, dartsThrown: number = 3, lastDartType?: 'S' | 'D' | 'T' | 'BULL' | 'SBULL') => {
-    if (!config || currentPlayer !== 'player1' || matchOverRef.current) return;
+    clearBotTimer();
+    setIsBotThinking(true);
 
-    // Validate score
+    const myTurnId = ++botTurnIdRef.current;
+
+    const BOT_THINK_DELAY_MS = 1500;
+
+    botTimerRef.current = window.setTimeout(async () => {
+      if (myTurnId !== botTurnIdRef.current) {
+        return;
+      }
+
+      try {
+        await Promise.race([
+          botTakeTurn(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("BOT_TIMEOUT")), 5000)),
+        ]);
+      } catch (err) {
+        console.error("BOT_ERROR", err);
+        setIsBotThinking(false);
+        clearBotTimer();
+        botTimerRef.current = window.setTimeout(() => {
+          if (currentPlayer === 'player2') scheduleBotTurn("recover_after_error");
+        }, 150);
+        return;
+      } finally {
+        setIsBotThinking(false);
+        clearBotTimer();
+      }
+    }, BOT_THINK_DELAY_MS);
+  }, [currentPlayer, isLegTransitioning, clearBotTimer, botTakeTurn]);
+
+  useEffect(() => {
+    if (currentPlayer === 'player2') {
+      scheduleBotTurn("turn_changed_to_bot");
+    } else {
+      setIsBotThinking(false);
+      clearBotTimer();
+    }
+
+    return () => {
+      clearBotTimer();
+    };
+  }, [currentPlayer, isLegTransitioning, scheduleBotTurn, clearBotTimer]);
+
+  const handleInputScoreSubmit = (score: number) => {
+    if (!config) return;
+
+    if (!Number.isInteger(score)) {
+      setInputModeError('Score must be a whole number');
+      return;
+    }
+
     if (score < 0 || score > 180) {
       setInputModeError('Score must be between 0 and 180');
       return;
     }
+
+    const currentScore = player1Score;
+    const doubleOut = config.doubleOut;
+    const newScore = currentScore - score;
+    const isCheckout = newScore === 0;
+
+    // Check if we need to ask for darts at double
+    const isCheckoutAttempt = currentScore <= 170 && currentScore > 0;
+    
+    if (isCheckoutAttempt && doubleOut) {
+      setPendingVisitData({ score, minDarts: 3, isCheckout });
+      setShowDartsAtDoubleModal(true);
+    } else {
+      handleScoreSubmit(score, 3, undefined, true, 0);
+      setScoreInput('');
+    }
+  };
+
+  const handleDartsAtDoubleConfirm = (dartsAtDouble: number) => {
+    if (!pendingVisitData) return;
+
+    setPlayer1TotalDartsAtDouble(prev => prev + dartsAtDouble);
+    if (pendingVisitData.isCheckout) {
+      setPlayer1CheckoutsMade(prev => prev + 1);
+    }
+
+    handleScoreSubmit(pendingVisitData.score, 3, undefined, true, dartsAtDouble);
+    setShowDartsAtDoubleModal(false);
+    setPendingVisitData(null);
+    setScoreInput('');
+  };
+
+  const handleScoreSubmit = (
+    score: number,
+    dartsThrown: number = 3,
+    lastDartType?: 'S' | 'D' | 'T' | 'BULL' | 'SBULL',
+    isTypedInput: boolean = false,
+    dartsAtDoubleForInput: number = 0
+  ) => {
+    if (!config || currentPlayer !== 'player1') return;
 
     const currentScore = player1Score;
     const doubleOut = config.doubleOut;
@@ -335,7 +589,6 @@ export default function DartbotMatchPage() {
         isBust: true,
         isCheckout: false,
         timestamp: Date.now(),
-        dartsThrown,
       };
 
       setCurrentLeg(prev => {
@@ -366,7 +619,6 @@ export default function DartbotMatchPage() {
       isCheckout,
       timestamp: Date.now(),
       lastDartType,
-      dartsThrown,
     };
 
     setCurrentLeg(prev => {
@@ -490,7 +742,6 @@ export default function DartbotMatchPage() {
   const handleRematch = () => {
     matchOverRef.current = false;
     hasSavedStats.current = false;
-    setMatchEndStats(null);
     clearBotTimer();
     setShowMatchCompleteModal(false);
     setIsLegTransitioning(false);
@@ -676,143 +927,31 @@ export default function DartbotMatchPage() {
 
   // Calculate stats for display (like QuickMatch)
   const calculatePlayerStats = () => {
-    // Get all visits from all legs + current leg
-    const allVisits = [...allLegs.flatMap(leg => leg.visits), ...currentLeg.visits];
-    const player1Visits = allVisits.filter(v => v.player === 'player1');
-    const player2Visits = allVisits.filter(v => v.player === 'player2');
+    const player1Visits = currentLeg.visits.filter(v => v.player === 'player1');
+    const player2Visits = currentLeg.visits.filter(v => v.player === 'player2');
     
     const player1ValidVisits = player1Visits.filter(v => !v.isBust);
     const player2ValidVisits = player2Visits.filter(v => !v.isBust);
     
-    const player1TotalDarts = player1ValidVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    const player2TotalDarts = player2ValidVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    
-    const player1TotalScore = player1ValidVisits.reduce((sum, v) => sum + v.score, 0);
-    const player2TotalScore = player2ValidVisits.reduce((sum, v) => sum + v.score, 0);
-    
-    const player1Avg = player1TotalDarts > 0 
-      ? ((player1TotalScore / player1TotalDarts) * 3).toFixed(1)
+    const player1Avg = player1ValidVisits.length > 0 
+      ? (player1ValidVisits.reduce((sum, v) => sum + v.score, 0) / player1ValidVisits.length).toFixed(1)
       : '0.0';
     
-    const player2Avg = player2TotalDarts > 0 
-      ? ((player2TotalScore / player2TotalDarts) * 3).toFixed(1)
+    const player2Avg = player2ValidVisits.length > 0 
+      ? (player2ValidVisits.reduce((sum, v) => sum + v.score, 0) / player2ValidVisits.length).toFixed(1)
       : '0.0';
 
-    // Calculate first 9 average across all legs
-    const allLegsData = [...allLegs, currentLeg];
-    let totalFirst9Score = 0;
-    let totalFirst9Darts = 0;
-    for (const leg of allLegsData) {
-      totalFirst9Score += leg.player1First9PointsScored;
-      totalFirst9Darts += leg.player1First9DartsThrown;
-    }
-    const player1First9Avg = totalFirst9Darts > 0 
-      ? ((totalFirst9Score / totalFirst9Darts) * 3).toFixed(1)
+    // Calculate first 9 average
+    const player1First9Score = currentLeg.player1First9PointsScored;
+    const player1First9Darts = currentLeg.player1First9DartsThrown;
+    const player1First9Avg = player1First9Darts > 0 
+      ? ((player1First9Score / player1First9Darts) * 3).toFixed(1)
       : '0.0';
 
     return {
       player1Avg,
       player2Avg,
       player1First9Avg,
-    };
-  };
-
-  // Calculate match end stats for WinnerPopup
-  const calculateAndSetMatchEndStats = () => {
-    if (!matchWinner || !config) return;
-
-    const botName = BOT_DIFFICULTY_CONFIG[config.botDifficulty]?.name || 'DartBot';
-    const allLegsData = [...allLegs, currentLeg].filter(leg => leg.winner);
-    const allVisits = allLegsData.flatMap(leg => leg.visits);
-
-    // Calculate stats for player 1 (user)
-    const p1Stats = calculateDetailedStats(allVisits, 'player1', 'You', player1LegsWon);
-    
-    // Calculate stats for player 2 (bot)
-    const p2Stats = calculateDetailedStats(allVisits, 'player2', botName, player2LegsWon);
-
-    const winnerId = matchWinner === 'player1' ? 'player1' : 'player2';
-
-    setMatchEndStats({
-      player1: { id: 'player1', name: 'You', legs: player1LegsWon },
-      player2: { id: 'player2', name: botName, legs: player2LegsWon },
-      player1FullStats: p1Stats,
-      player2FullStats: p2Stats,
-      winnerId,
-    });
-  };
-
-  // Calculate detailed stats for a player
-  const calculateDetailedStats = (visits: Visit[], player: 'player1' | 'player2', name: string, legsWon: number) => {
-    const playerVisits = visits.filter(v => v.player === player && !v.isBust);
-    
-    // Basic stats
-    const totalDarts = playerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
-    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
-
-    // First 9 average
-    let first9Score = 0;
-    let first9Darts = 0;
-    for (const visit of playerVisits.slice(0, 3)) {
-      first9Score += visit.score;
-      first9Darts += visit.dartsThrown || 3;
-      if (first9Darts >= 9) break;
-    }
-    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
-
-    // Checkouts
-    const checkouts = playerVisits.filter(v => v.isCheckout);
-    const highestCheckout = checkouts.length > 0 
-      ? Math.max(...checkouts.map(v => v.score)) 
-      : 0;
-    
-    // Checkout percentage (visits at double / successful checkouts)
-    const checkoutAttempts = player === 'player1' 
-      ? player1TotalDartsAtDouble 
-      : player2TotalDartsAtDouble;
-    const successfulCheckouts = checkouts.length;
-    const checkoutPercentage = checkoutAttempts > 0 
-      ? (successfulCheckouts / checkoutAttempts) * 100 
-      : 0;
-
-    // Best leg (fewest darts to win)
-    let bestLegDarts = Infinity;
-    let bestLegNum = 0;
-    for (let i = 0; i < allLegs.length; i++) {
-      const leg = allLegs[i];
-      if (leg.winner === player) {
-        const legVisits = leg.visits.filter(v => v.player === player);
-        const legDarts = legVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-        if (legDarts < bestLegDarts) {
-          bestLegDarts = legDarts;
-          bestLegNum = i + 1;
-        }
-      }
-    }
-
-    // Count 100+, 140+, 180s
-    const count100Plus = playerVisits.filter(v => v.score >= 100 && v.score < 140).length;
-    const count140Plus = playerVisits.filter(v => v.score >= 140 && v.score < 180).length;
-    const oneEighties = playerVisits.filter(v => v.score === 180).length;
-
-    return {
-      id: player,
-      name,
-      legsWon,
-      threeDartAverage,
-      first9Average,
-      highestCheckout,
-      checkoutPercentage,
-      totalDartsThrown: totalDarts,
-      bestLegDarts: bestLegDarts === Infinity ? 0 : bestLegDarts,
-      bestLegNum,
-      totalScore: totalScored,
-      checkouts: successfulCheckouts,
-      checkoutAttempts,
-      count100Plus,
-      count140Plus,
-      oneEighties,
     };
   };
 
@@ -941,9 +1080,7 @@ export default function DartbotMatchPage() {
             <div className="relative aspect-square max-w-md mx-auto">
               <DartboardOverlay
                 hits={dartboardHits}
-                onSegmentClick={handleDartClick}
-                lastVisitTotal={botLastVisitTotal}
-                showDebug={debugMode}
+                showDebugRings={debugMode}
               />
             </div>
 
@@ -1178,41 +1315,56 @@ export default function DartbotMatchPage() {
       </AlertDialog>
 
       {/* Match Complete Modal */}
-      {matchEndStats && showMatchCompleteModal && (
-        <WinnerPopup
-          player1={matchEndStats.player1}
-          player2={matchEndStats.player2}
-          player1Stats={matchEndStats.player1FullStats}
-          player2Stats={matchEndStats.player2FullStats}
-          winnerId={matchEndStats.winnerId}
-          gameMode={config?.mode || '501'}
-          bestOf={parseInt(config?.bestOf.replace('best-of-', '') || '1')}
-          onRematch={handleRematch}
-          onReturn={handleReturnToPlay}
-          rematchStatus='none'
-          opponentRematchReady={false}
-          youReady={false}
-          currentUserId='player1'
-        />
-      )}
+      <Dialog open={showMatchCompleteModal} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              {matchWinner === 'player1' ? 'You Win!' : `${botName} Wins!`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center py-3 border-b border-slate-700">
+              <span className="text-slate-300">Final Score</span>
+              <span className="text-lg font-bold">
+                {player1LegsWon} - {player2LegsWon}
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleRematch} className="flex-1">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Rematch
+              </Button>
+              <Button onClick={handleReturnToPlay} variant="outline" className="flex-1">
+                <Home className="w-4 h-4 mr-2" />
+                Return
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Visit Modal */}
       {showEditVisitModal && (
         <EditVisitModal
-          isOpen={showEditVisitModal}
-          onClose={() => setShowEditVisitModal(false)}
-          currentScore={editingVisitScore}
+          open={showEditVisitModal}
+          onOpenChange={setShowEditVisitModal}
+          visitNumber={(editingVisitIndex ?? 0) + 1}
+          originalScore={editingVisitScore}
           onSave={handleSaveEditedVisit}
         />
       )}
 
       {/* Darts At Double Modal */}
-      <DartsAtDoubleModal
-        isOpen={showDartsAtDoubleModal}
-        onClose={() => setShowDartsAtDoubleModal(false)}
-        onConfirm={handleDartsAtDoubleConfirm}
-        remainingScore={player1Score}
-      />
+      {pendingVisitData && (
+        <DartsAtDoubleModal
+          isOpen={showDartsAtDoubleModal}
+          minDarts={pendingVisitData.minDarts}
+          isCheckout={pendingVisitData.isCheckout}
+          onConfirm={handleDartsAtDoubleConfirm}
+          onCancel={() => setShowDartsAtDoubleModal(false)}
+        />
+      )}
     </div>
   );
 }
