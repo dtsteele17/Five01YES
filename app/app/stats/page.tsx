@@ -7,13 +7,84 @@ import { Button } from '@/components/ui/button';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
-import { Trophy, Gamepad2, BarChart3, ArrowLeft, History, Target, TrendingUp, Award, Disc } from 'lucide-react';
+import { Trophy, Gamepad2, BarChart3, ArrowLeft, History, Target, TrendingUp, Disc, Filter } from 'lucide-react';
 import Link from 'next/link';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+interface FilteredStats {
+  total_matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  overall_3dart_avg: number;
+  overall_first9_avg: number;
+  highest_checkout: number;
+  checkout_percentage: number;
+  total_checkouts: number;
+  checkout_attempts: number;
+  visits_100_plus: number;
+  visits_140_plus: number;
+  visits_180: number;
+  total_darts_thrown: number;
+  total_score: number;
+}
 
 export default function StatsPage() {
   const { overallStats, quickMatchStats, loading, error } = usePlayerStats();
+  const [gameModeFilter, setGameModeFilter] = useState<string>('all');
+  const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
+  const [filteredStats, setFilteredStats] = useState<FilteredStats | null>(null);
+  const [filteredLoading, setFilteredLoading] = useState(false);
+  const supabase = createClient();
 
-  if (loading) {
+  // Fetch filtered stats when filters change
+  useEffect(() => {
+    fetchFilteredStats();
+  }, [gameModeFilter, matchTypeFilter]);
+
+  async function fetchFilteredStats() {
+    try {
+      setFilteredLoading(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Call RPC function to get filtered stats
+      const { data, error } = await supabase.rpc('fn_get_filtered_player_stats', {
+        p_user_id: user.id,
+        p_game_mode: gameModeFilter === 'all' ? null : parseInt(gameModeFilter),
+        p_match_type: matchTypeFilter === 'all' ? null : matchTypeFilter
+      });
+
+      if (error) {
+        console.error('Error fetching filtered stats:', error);
+        // Fall back to overall stats
+        setFilteredStats(overallStats as FilteredStats);
+        return;
+      }
+
+      if (data) {
+        setFilteredStats(data as FilteredStats);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      setFilteredStats(overallStats as FilteredStats);
+    } finally {
+      setFilteredLoading(false);
+    }
+  }
+
+  // Use filtered stats if available, otherwise fall back to overall
+  const displayStats = filteredStats || overallStats;
+  const isLoading = loading || filteredLoading;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
         <div className="max-w-6xl mx-auto">
@@ -33,9 +104,28 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = (overallStats?.total_matches ?? 0) > 0
-    ? (((overallStats?.wins ?? 0) / (overallStats?.total_matches ?? 1)) * 100).toFixed(1)
+  const winPercentage = displayStats?.total_matches > 0 
+    ? ((displayStats.wins / displayStats.total_matches) * 100).toFixed(1)
     : '0.0';
+
+  // Get filter display names
+  const getGameModeLabel = (mode: string) => {
+    switch (mode) {
+      case '301': return '301';
+      case '501': return '501';
+      default: return 'All Games';
+    }
+  };
+
+  const getMatchTypeLabel = (type: string) => {
+    switch (type) {
+      case 'quick': return 'Quick Match';
+      case 'ranked': return 'Ranked';
+      case 'private': return 'Private';
+      case 'dartbot': return 'vs Dartbot';
+      default: return 'All Types';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
@@ -55,6 +145,55 @@ export default function StatsPage() {
           </div>
         </div>
 
+        {/* Filters */}
+        <Card className="bg-slate-900/50 border-slate-700 p-4 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <Filter className="w-5 h-5 text-emerald-400" />
+            <span className="text-white font-semibold">Filter Stats</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Game Mode Filter */}
+            <div>
+              <label className="text-slate-400 text-sm mb-2 block">Game Mode</label>
+              <Select value={gameModeFilter} onValueChange={setGameModeFilter}>
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                  <SelectValue placeholder="Select game mode" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all" className="text-white hover:bg-slate-700">All Games</SelectItem>
+                  <SelectItem value="301" className="text-white hover:bg-slate-700">301</SelectItem>
+                  <SelectItem value="501" className="text-white hover:bg-slate-700">501</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Match Type Filter */}
+            <div>
+              <label className="text-slate-400 text-sm mb-2 block">Match Type</label>
+              <Select value={matchTypeFilter} onValueChange={setMatchTypeFilter}>
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                  <SelectValue placeholder="Select match type" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="all" className="text-white hover:bg-slate-700">All Types</SelectItem>
+                  <SelectItem value="quick" className="text-white hover:bg-slate-700">Quick Match</SelectItem>
+                  <SelectItem value="ranked" className="text-white hover:bg-slate-700">Ranked Match</SelectItem>
+                  <SelectItem value="private" className="text-white hover:bg-slate-700">Private Match</SelectItem>
+                  <SelectItem value="dartbot" className="text-white hover:bg-slate-700">vs Dartbot</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {/* Active Filters Display */}
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            <span className="text-slate-400">Showing:</span>
+            <span className="text-emerald-400 font-medium">{getGameModeLabel(gameModeFilter)}</span>
+            <span className="text-slate-500">•</span>
+            <span className="text-emerald-400 font-medium">{getMatchTypeLabel(matchTypeFilter)}</span>
+          </div>
+        </Card>
+
         {/* Quick Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <Card className="bg-slate-900/50 border-slate-700 p-4">
@@ -63,7 +202,7 @@ export default function StatsPage() {
               <span className="text-slate-400 text-sm">Matches</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {overallStats?.total_matches || 0}
+              {displayStats?.total_matches || 0}
             </div>
           </Card>
           
@@ -83,7 +222,7 @@ export default function StatsPage() {
               <span className="text-slate-400 text-sm">Average</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {overallStats?.overall_3dart_avg?.toFixed(1) || '0.0'}
+              {displayStats?.overall_3dart_avg?.toFixed(1) || '0.0'}
             </div>
           </Card>
           
@@ -93,7 +232,7 @@ export default function StatsPage() {
               <span className="text-slate-400 text-sm">Best Checkout</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {overallStats?.highest_checkout || '-'}
+              {displayStats?.highest_checkout || '-'}
             </div>
           </Card>
           
@@ -103,7 +242,7 @@ export default function StatsPage() {
               <span className="text-slate-400 text-sm">Darts Thrown</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {overallStats?.total_darts_thrown || 0}
+              {displayStats?.total_darts_thrown || 0}
             </div>
           </Card>
         </div>
@@ -111,25 +250,29 @@ export default function StatsPage() {
         {/* Detailed Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <PlayerStatsCard
-            stats={overallStats}
-            title="Overall Stats"
+            stats={displayStats}
+            title={`${getGameModeLabel(gameModeFilter)} - ${getMatchTypeLabel(matchTypeFilter)}`}
             icon={<Trophy className="w-6 h-6 text-yellow-400" />}
           />
           
           <PlayerStatsCard
             stats={quickMatchStats}
-            title="Quick Match Stats"
+            title="Quick Match Stats (All Time)"
             icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
           />
         </div>
 
-        {/* Match History - Like DartCounter */}
+        {/* Match History - With Filters */}
         <div className="mt-8">
           <div className="flex items-center gap-3 mb-4">
             <History className="w-6 h-6 text-emerald-400" />
             <h2 className="text-xl font-bold text-white">Recent Matches</h2>
           </div>
-          <MatchHistoryList limit={20} />
+          <MatchHistoryList 
+            limit={20} 
+            gameMode={gameModeFilter === 'all' ? null : parseInt(gameModeFilter)}
+            matchType={matchTypeFilter === 'all' ? null : matchTypeFilter}
+          />
         </div>
       </div>
     </div>
