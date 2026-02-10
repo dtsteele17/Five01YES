@@ -82,8 +82,7 @@ BEGIN
   v_is_player1 := (v_room.player1_id = v_user_id);
 
   -- Verify it's their turn
-  IF (v_is_player1 AND v_room.current_turn != 'player1') OR
-     (NOT v_is_player1 AND v_room.current_turn != 'player2') THEN
+  IF v_room.current_turn != v_user_id THEN
     RAISE EXCEPTION 'Not your turn';
   END IF;
 
@@ -232,7 +231,7 @@ BEGIN
       UPDATE match_rooms
       SET current_leg = v_next_leg,
           leg_starter_id = v_next_leg_starter,
-          current_turn = CASE WHEN v_next_leg_starter = player1_id THEN 'player1' ELSE 'player2' END,
+          current_turn = v_next_leg_starter,
           player1_remaining = v_room.game_mode,
           player2_remaining = v_room.game_mode,
           player1_legs = v_player1_legs, player2_legs = v_player2_legs,
@@ -242,7 +241,10 @@ BEGIN
   ELSE
     -- Switch turn
     UPDATE match_rooms
-    SET current_turn = CASE WHEN current_turn = 'player1' THEN 'player2' ELSE 'player1' END
+    SET current_turn = CASE 
+      WHEN current_turn = player1_id THEN player2_id 
+      ELSE player1_id 
+    END
     WHERE id = p_room_id;
   END IF;
 
