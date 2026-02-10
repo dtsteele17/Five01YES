@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Trophy, Calendar, Target, TrendingUp, User, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { MatchStatsModal } from './MatchStatsModal';
 
 interface MatchHistoryItem {
   id: string;
   room_id: string;
   opponent_id: string;
   opponent_username?: string;
+  opponent_avatar_url?: string | null;
   game_mode: number;
   match_format: string;
   result: 'win' | 'loss' | 'draw';
@@ -38,6 +40,7 @@ interface MatchHistoryListProps {
 export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchType = null }: MatchHistoryListProps) {
   const [matches, setMatches] = useState<MatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -80,10 +83,11 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
 
         if (error) throw error;
 
-        // Transform data to include opponent username
+        // Transform data to include opponent username and avatar
         const transformedData = (historyData || []).map((match: any) => ({
           ...match,
-          opponent_username: match.opponent?.username || 'Unknown'
+          opponent_username: match.opponent?.username || 'Unknown',
+          opponent_avatar_url: match.opponent?.avatar_url || null
         }));
 
         setMatches(transformedData);
@@ -136,11 +140,13 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
   };
 
   return (
+    <>
     <div className="space-y-3">
       {matches.map((match) => (
         <Card 
           key={match.id} 
-          className="bg-slate-900/50 border-slate-700 p-4 hover:bg-slate-800/50 transition-colors"
+          onClick={() => setSelectedMatch(match)}
+          className="bg-slate-900/50 border-slate-700 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-4">
             {/* Result Badge */}
@@ -212,5 +218,17 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
         </Card>
       ))}
     </div>
+
+    {/* Match Stats Modal */}
+    <MatchStatsModal
+      match={selectedMatch ? {
+        ...selectedMatch,
+        opponent_avatar_url: selectedMatch.opponent_avatar_url || null,
+        total_score: 0
+      } : null}
+      open={!!selectedMatch}
+      onOpenChange={(open) => !open && setSelectedMatch(null)}
+    />
+    </>
   );
 }
