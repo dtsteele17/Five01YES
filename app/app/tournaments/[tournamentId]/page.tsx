@@ -24,7 +24,7 @@ interface Tournament {
   entry_type: string;
   game_mode: number;
   best_of_legs: number;
-  created_by: string;
+  owner_id: string;
   created_at: string;
   bracket_generated_at: string | null;
   started_at: string | null;
@@ -317,7 +317,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     return null;
   }
 
-  const isCreator = tournament.created_by === currentUserId;
+  const isCreator = tournament.owner_id === currentUserId;
   const canJoin =
     tournament.entry_type === 'open' &&
     tournament.status === 'scheduled' &&
@@ -569,12 +569,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            {participant.user_id === tournament.created_by && (
+                            {participant.user_id === tournament.owner_id && (
                               <Badge className="bg-yellow-600/20 text-yellow-400 border-yellow-600/30">
                                 Organizer
                               </Badge>
                             )}
-                            {participant.user_id === currentUserId && participant.user_id !== tournament.created_by && (
+                            {participant.user_id === currentUserId && participant.user_id !== tournament.owner_id && (
                               <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/30">
                                 You
                               </Badge>

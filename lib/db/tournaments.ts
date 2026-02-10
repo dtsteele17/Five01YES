@@ -32,7 +32,7 @@ export interface TournamentRow {
   best_of_legs: number;
   description: string | null;
   status: string;
-  created_by: string;
+  owner_id: string;
   created_at: string;
   game_mode: number;
   double_out: boolean;
@@ -60,7 +60,7 @@ export async function createTournament(input: CreateTournamentInput) {
     game_mode: input.startingScore || 501,
     best_of_legs: input.legsPerMatch,
     status: 'scheduled',
-    created_by: user.id,
+    owner_id: user.id,
   };
 
   const { data: tournament, error: tournamentError } = await supabase
@@ -129,7 +129,7 @@ export async function listTournaments(filters?: TournamentFilters) {
   }
 
   if (filters?.createdBy) {
-    query = query.eq('created_by', filters.createdBy);
+    query = query.eq('owner_id', filters.createdBy);
   }
 
   const { data, error } = await query;
