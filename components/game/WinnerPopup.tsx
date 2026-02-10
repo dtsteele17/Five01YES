@@ -350,15 +350,19 @@ export function WinnerPopup({
               </div>
             </div>
 
-            {/* Best Checkout */}
+            {/* Best Checkout - only show if player has checkouts */}
             <div className="bg-slate-800/50 rounded px-3 py-2 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2 text-slate-400">
                 <Target className="w-4 h-4" />
                 <span>Best Checkout</span>
               </div>
               <div className="flex gap-4">
-                <span className={`font-bold ${p1Color} w-20 text-right`}>{fmtInt(player1Stats?.highestCheckout)}</span>
-                <span className={`font-bold ${p2Color} w-20 text-right`}>{fmtInt(player2Stats?.highestCheckout)}</span>
+                <span className={`font-bold ${p1Color} w-20 text-right`}>
+                  {(player1Stats?.checkouts || 0) > 0 ? fmtInt(player1Stats?.highestCheckout) : '-'}
+                </span>
+                <span className={`font-bold ${p2Color} w-20 text-right`}>
+                  {(player2Stats?.checkouts || 0) > 0 ? fmtInt(player2Stats?.highestCheckout) : '-'}
+                </span>
               </div>
             </div>
 

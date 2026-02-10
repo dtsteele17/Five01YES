@@ -1133,7 +1133,17 @@ export default function QuickMatchRoomPage() {
 
   // Calculate player stats from provided visits array (for accurate calculation)
   const calculatePlayerStatsFromVisits = (visitData: QuickMatchVisit[], playerId: string, playerName: string, legsWon: number) => {
+    console.log(`[STATS CALC] Calculating for ${playerName} (${playerId.substring(0, 8)})`, {
+      totalVisits: visitData.length,
+      playerVisits: visitData.filter(v => v.player_id === playerId).length
+    });
+    
     const playerVisits = visitData.filter(v => v.player_id === playerId && !v.is_bust);
+    
+    console.log(`[STATS CALC] ${playerName}:`, {
+      nonBustVisits: playerVisits.length,
+      visits: playerVisits.map(v => ({ leg: v.leg, score: v.score, is_checkout: v.is_checkout, darts: v.darts_thrown }))
+    });
     
     const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
@@ -1151,6 +1161,8 @@ export default function QuickMatchRoomPage() {
     
     // Find highest checkout (even for losing players - they might have won some legs)
     const checkouts = playerVisits.filter(v => v.is_checkout);
+    console.log(`[STATS CALC] ${playerName} checkouts:`, checkouts.map(v => ({ leg: v.leg, score: v.score })));
+    
     const highestCheckout = checkouts.length > 0 
       ? Math.max(...checkouts.map(v => v.score))
       : 0;
@@ -1164,13 +1176,14 @@ export default function QuickMatchRoomPage() {
     
     // Calculate BEST LEG (fewest darts to win a leg)
     const bestLeg = calculateBestLeg(playerId, visitData);
+    console.log(`[STATS CALC] ${playerName} bestLeg:`, bestLeg);
     
     // Count 100+, 140+, and 180s
     const count100Plus = playerVisits.filter(v => v.score >= 100 && v.score < 140).length;
     const count140Plus = playerVisits.filter(v => v.score >= 140 && v.score < 180).length;
     const oneEighties = playerVisits.filter(v => v.score === 180).length;
     
-    return {
+    const result = {
       id: playerId,
       name: playerName,
       legsWon,
@@ -1188,6 +1201,16 @@ export default function QuickMatchRoomPage() {
       count140Plus,
       oneEighties,
     };
+    
+    console.log(`[STATS CALC] ${playerName} FINAL:`, {
+      highestCheckout,
+      checkoutPercentage: checkoutPercentage.toFixed(1) + '%',
+      bestLegDarts: bestLeg.darts,
+      checkouts: successfulCheckouts,
+      checkoutAttempts
+    });
+    
+    return result;
   };
 
   // Calculate player stats from visits - for FINISHED match (all legs)
@@ -1489,12 +1512,23 @@ export default function QuickMatchRoomPage() {
               const loserProfile = currentProfiles.find(p => p.user_id === loserId);
 
               // Fetch ALL visits from database to ensure we have complete data for both players
-              const { data: allVisits } = await supabase
+              console.log('[MATCH END] Fetching all visits for room:', matchId);
+              const { data: allVisits, error: visitsError } = await supabase
                 .from('quick_match_visits')
                 .select('*')
                 .eq('room_id', matchId)
                 .order('leg', { ascending: true })
                 .order('turn_no', { ascending: true });
+              
+              if (visitsError) {
+                console.error('[MATCH END] Error fetching visits:', visitsError);
+              }
+              
+              console.log('[MATCH END] Fetched visits:', { 
+                count: allVisits?.length || 0, 
+                p1Visits: allVisits?.filter(v => v.player_id === updatedRoom.player1_id).length || 0,
+                p2Visits: allVisits?.filter(v => v.player_id === updatedRoom.player2_id).length || 0
+              });
               
               // Temporarily update visits state for accurate calculation
               const completeVisits = (allVisits as QuickMatchVisit[]) || visits;
@@ -1908,6 +1942,7 @@ export default function QuickMatchRoomPage() {
       score,
       isBust,
       darts: dartsArray,
+      dartsThrown: dartsToSubmit.length,
       isCheckout
     });
 
@@ -1916,11 +1951,14 @@ export default function QuickMatchRoomPage() {
     try {
       console.log('[SUBMIT] Calling rpc_quick_match_submit_visit_v3...');
 
+      const dartsThrown = dartsToSubmit.length;
+      
       const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
         p_room_id: matchId,
         p_score: score,
         p_darts: dartsArray,
         p_is_bust: isBust,
+        p_darts_thrown: dartsThrown,
         p_is_typed_score: isTypedScore
       });
 
@@ -2001,12 +2039,23 @@ export default function QuickMatchRoomPage() {
           const loserLegs = isPlayer1Winner ? newP2Legs : newP1Legs;
           
           // Fetch ALL visits from database to ensure accurate stats for both players
-          const { data: allVisits } = await supabase
+          console.log('[MATCH END - SUBMIT] Fetching all visits for room:', matchId);
+          const { data: allVisits, error: visitsError } = await supabase
             .from('quick_match_visits')
             .select('*')
             .eq('room_id', matchId)
             .order('leg', { ascending: true })
             .order('turn_no', { ascending: true });
+          
+          if (visitsError) {
+            console.error('[MATCH END - SUBMIT] Error fetching visits:', visitsError);
+          }
+          
+          console.log('[MATCH END - SUBMIT] Fetched visits:', { 
+            count: allVisits?.length || 0, 
+            p1Visits: allVisits?.filter(v => v.player_id === room.player1_id).length || 0,
+            p2Visits: allVisits?.filter(v => v.player_id === room.player2_id).length || 0
+          });
           
           // Add the final winning visit to the data
           const finalVisit: QuickMatchVisit = {
