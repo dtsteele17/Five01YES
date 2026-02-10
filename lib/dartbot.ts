@@ -403,14 +403,14 @@ export function subscribeToDartbotMatch(
   return supabase
     .channel(`dartbot_match_${roomId}`)
     .on(
-      'postgres_changes',
+      'postgres_changes' as any,
       {
         event: '*',
         schema: 'public',
         table: 'dartbot_match_rooms',
         filter: `id=eq.${roomId}`,
       },
-      callback
+      callback as any
     )
     .subscribe();
 }
@@ -425,14 +425,14 @@ export function subscribeToDartbotVisits(
   return supabase
     .channel(`dartbot_visits_${roomId}`)
     .on(
-      'postgres_changes',
+      'postgres_changes' as any,
       {
         event: 'INSERT',
         schema: 'public',
         table: 'dartbot_visits',
         filter: `room_id=eq.${roomId}`,
       },
-      callback
+      callback as any
     )
     .subscribe();
 }
@@ -515,7 +515,7 @@ export function getDartbotName(level: DartbotLevel): string {
  */
 export function isValidCheckout(score: number, doubleOut: boolean): boolean {
   if (!doubleOut) return score >= 2 && score <= 180;
-  
+
   // Valid double-out checkouts (2-170, excluding 159, 162, 163, 165, 166, 168, 169)
   const validCheckouts = [
     2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -528,6 +528,71 @@ export function isValidCheckout(score: number, doubleOut: boolean): boolean {
     141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 160,
     161, 164, 167, 170
   ];
-  
+
   return validCheckouts.includes(score);
+}
+
+// ============================================================
+// LEGACY BOT FUNCTIONS (for training mode compatibility)
+// ============================================================
+
+export interface BotMatchState {
+  checkoutAttemptsThisLeg: number;
+  totalScoredThisMatch: number;
+  totalDartsThisMatch: number;
+  stallCount: number;
+  lastRemaining?: number;
+}
+
+/**
+ * Generate bot darts for legacy training mode
+ */
+export function generateBotDarts(
+  botAverage: number,
+  currentScore: number,
+  doubleOut: boolean,
+  state: BotMatchState
+): any[] {
+  const darts: any[] = [];
+  let remaining = currentScore;
+
+  for (let i = 0; i < 3; i++) {
+    if (remaining === 0) break;
+
+    const variance = Math.random() * 20 - 10;
+    const targetAvg = Math.max(20, Math.min(80, botAverage + variance));
+    const dartScore = Math.floor(Math.random() * targetAvg);
+
+    if (doubleOut && remaining <= 40 && remaining % 2 === 0) {
+      if (Math.random() < 0.3) {
+        darts.push({ double: remaining / 2 });
+        remaining = 0;
+        break;
+      }
+    }
+
+    darts.push({ single: Math.min(20, dartScore) });
+    remaining -= Math.min(20, dartScore);
+  }
+
+  return darts;
+}
+
+/**
+ * Get bot thinking delay
+ */
+export function getBotThinkingDelay(): number {
+  return 1000 + Math.random() * 500;
+}
+
+/**
+ * Reset bot leg state
+ */
+export function resetBotLegState(state?: BotMatchState): BotMatchState {
+  return {
+    checkoutAttemptsThisLeg: 0,
+    totalScoredThisMatch: state?.totalScoredThisMatch || 0,
+    totalDartsThisMatch: state?.totalDartsThisMatch || 0,
+    stallCount: 0,
+  };
 }
