@@ -1040,6 +1040,9 @@ export default function QuickMatchRoomPage() {
   const [opponentRematchReady, setOpponentRematchReady] = useState(false);
   const [newRematchRoomId, setNewRematchRoomId] = useState<string | null>(null);
   const rematchAttemptedRef = useRef(false);
+  
+  // Track if stats have been saved to prevent duplicates
+  const statsSavedRef = useRef(false);
 
   const cleanupMatchRef = useRef<() => void>();
   
@@ -1418,16 +1421,22 @@ export default function QuickMatchRoomPage() {
               const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
-
-              // Safety check - should not happen due to outer condition, but TypeScript needs this
-              if (!winnerId || !loserId) {
-                console.error('[MATCH END] Missing winner or loser ID');
-                return;
+              
+              // Ensure profiles are loaded - fetch if needed
+              let currentProfiles = profiles;
+              if (currentProfiles.length === 0) {
+                const playerIds = [updatedRoom.player1_id, updatedRoom.player2_id].filter(Boolean);
+                const { data: profilesData } = await supabase
+                  .from('profiles')
+                  .select('user_id, username, trust_rating_letter')
+                  .in('user_id', playerIds);
+                currentProfiles = (profilesData as Profile[]) || [];
+                setProfiles(currentProfiles);
               }
-
-              const winnerProfile = profiles.find(p => p.user_id === winnerId);
-              const loserProfile = profiles.find(p => p.user_id === loserId);
-
+              
+              const winnerProfile = currentProfiles.find(p => p.user_id === winnerId);
+              const loserProfile = currentProfiles.find(p => p.user_id === loserId);
+              
               // Fetch ALL visits from database to ensure we have complete data for both players
               const { data: allVisits } = await supabase
                 .from('quick_match_visits')
@@ -1443,9 +1452,10 @@ export default function QuickMatchRoomPage() {
               const p1LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player1_id && v.is_checkout).length;
               const p2LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player2_id && v.is_checkout).length;
               
-              // Use room data as fallback, but visits count is more accurate
-              const p1Legs = p1LegsFromVisits || updatedRoom.player1_legs || 0;
-              const p2Legs = p2LegsFromVisits || updatedRoom.player2_legs || 0;
+              // Use visit count if available (more accurate), otherwise fall back to room data
+              // Note: Use !== undefined check because 0 is a valid leg count
+              const p1Legs = p1LegsFromVisits > 0 ? p1LegsFromVisits : (updatedRoom.player1_legs || 0);
+              const p2Legs = p2LegsFromVisits > 0 ? p2LegsFromVisits : (updatedRoom.player2_legs || 0);
               
               console.log('[MATCH END] Legs calculated:', { p1Legs, p2Legs, p1LegsFromVisits, p2LegsFromVisits, roomP1Legs: updatedRoom.player1_legs, roomP2Legs: updatedRoom.player2_legs });
               
@@ -1469,8 +1479,8 @@ export default function QuickMatchRoomPage() {
               // Determine player1 and player2 based on room data
               const p1Id = updatedRoom.player1_id;
               const p2Id = updatedRoom.player2_id;
-              const p1Profile = profiles.find(p => p.user_id === p1Id);
-              const p2Profile = profiles.find(p => p.user_id === p2Id);
+              const p1Profile = currentProfiles.find(p => p.user_id === p1Id);
+              const p2Profile = currentProfiles.find(p => p.user_id === p2Id);
               
               console.log('[MATCH END] Setting match end stats:', { p1Legs, p2Legs, winnerId });
               
@@ -1482,8 +1492,10 @@ export default function QuickMatchRoomPage() {
                 winnerId: winnerId,
               });
               
-              // Save stats to database (for opponent who detected via realtime)
-              await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, updatedRoom.game_mode);
+              // Only save stats if this is the current user (prevents double saving from realtime)
+              if (currentUserId === winnerId && !statsSavedRef.current) {
+                await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, updatedRoom.game_mode);
+              }
             })();
           }
         }
@@ -1536,7 +1548,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1954,7 +1966,6 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
-            bust_reason: null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
@@ -1965,9 +1976,10 @@ export default function QuickMatchRoomPage() {
           const p1LegsFromVisits = completeVisits.filter(v => v.player_id === room.player1_id && v.is_checkout).length;
           const p2LegsFromVisits = completeVisits.filter(v => v.player_id === room.player2_id && v.is_checkout).length;
           
-          // Use calculated legs from visits as they're more accurate
-          const finalP1Legs = p1LegsFromVisits || newP1Legs;
-          const finalP2Legs = p2LegsFromVisits || newP2Legs;
+          // Use visit count if available (more accurate), otherwise fall back to calculated legs
+          // Note: Use > 0 check because 0 is a valid leg count for the loser
+          const finalP1Legs = p1LegsFromVisits > 0 ? p1LegsFromVisits : newP1Legs;
+          const finalP2Legs = p2LegsFromVisits > 0 ? p2LegsFromVisits : newP2Legs;
           
           console.log('[MATCH END] Legs from visits:', { finalP1Legs, finalP2Legs, p1LegsFromVisits, p2LegsFromVisits });
           
@@ -2433,6 +2445,13 @@ export default function QuickMatchRoomPage() {
     loserLegs: number,
     gameMode: number
   ) {
+    // Prevent duplicate saves
+    if (statsSavedRef.current) {
+      console.log('[STATS] Already saved, skipping duplicate');
+      return;
+    }
+    statsSavedRef.current = true;
+    
     console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs, gameMode });
     
     try {
@@ -2475,6 +2494,8 @@ export default function QuickMatchRoomPage() {
     } catch (error: any) {
       console.error('[STATS] Failed to save match stats:', error);
       toast.error('Failed to save match stats');
+      // Reset flag on error so we can retry
+      statsSavedRef.current = false;
     }
   }
 
