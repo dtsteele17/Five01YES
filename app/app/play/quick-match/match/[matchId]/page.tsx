@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Card } from '@/components/ui/card';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,13 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-
 import { LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
@@ -36,18 +34,12 @@ import { getTrustRatingDescription, getUnratedLabel } from '@/lib/utils/trust-ra
 import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
-import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
-
-interface Dart {
-  type: 'single' | 'double' | 'triple' | 'bull';
-  number: number;
-  value: number;
-  multiplier: number;
-  label: string;
-  score: number;
-  is_double: boolean;
-}
+import { createClient } from '@/lib/supabase/client';
+import { useMatchAcceptance } from '@/lib/hooks/useMatchAcceptance';
+import { RematchModal } from '@/components/match/RematchModal';
+import { MatchBottomBar } from '@/components/match/MatchBottomBar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface MatchRoom {
   id: string;
@@ -84,7 +76,7 @@ interface QuickMatchVisit {
   score: number;
   remaining_before: number;
   remaining_after: number;
-  darts: any[];
+  darts: { n: number; mult: string }[];
   darts_thrown: number;
   darts_at_double: number;
   is_bust: boolean;
@@ -93,891 +85,30 @@ interface QuickMatchVisit {
   created_at: string;
 }
 
-// Checkout routes for common scores
-const CHECKOUT_ROUTES: Record<number, string[]> = {
-  170: ['T20', 'T20', 'DB'],
-  167: ['T20', 'T19', 'DB'],
-  164: ['T20', 'T18', 'DB'],
-  161: ['T20', 'T17', 'DB'],
-  160: ['T20', 'T20', 'D20'],
-  158: ['T20', 'T20', 'D19'],
-  157: ['T20', 'T19', 'D20'],
-  156: ['T20', 'T20', 'D18'],
-  155: ['T20', 'T19', 'D19'],
-  154: ['T20', 'T18', 'D20'],
-  153: ['T20', 'T19', 'D18'],
-  152: ['T20', 'T20', 'D16'],
-  151: ['T20', 'T17', 'D20'],
-  150: ['T20', 'T18', 'D18'],
-  149: ['T20', 'T19', 'D16'],
-  148: ['T20', 'T20', 'D14'],
-  147: ['T20', 'T17', 'D18'],
-  146: ['T20', 'T18', 'D16'],
-  145: ['T20', 'T19', 'D14'],
-  144: ['T20', 'T20', 'D12'],
-  143: ['T20', 'T17', 'D16'],
-  142: ['T20', 'T14', 'D20'],
-  141: ['T20', 'T19', 'D12'],
-  140: ['T20', 'T20', 'D10'],
-  139: ['T20', 'T13', 'D20'],
-  138: ['T20', 'T18', 'D12'],
-  137: ['T20', 'T19', 'D10'],
-  136: ['T20', 'T20', 'D8'],
-  135: ['T20', 'T17', 'D12'],
-  134: ['T20', 'T14', 'D16'],
-  133: ['T20', 'T19', 'D8'],
-  132: ['T20', 'T16', 'D12'],
-  131: ['T20', 'T13', 'D16'],
-  130: ['T20', 'T20', 'D5'],
-  129: ['T20', 'T19', 'D6'],
-  128: ['T20', 'T18', 'D7'],
-  127: ['T20', 'T17', 'D8'],
-  126: ['T20', 'T16', 'D9'],
-  125: ['T20', 'T19', 'D4'],
-  124: ['T20', 'T16', 'D8'],
-  123: ['T20', 'T13', 'D12'],
-  122: ['T20', 'T18', 'D4'],
-  121: ['T20', 'T15', 'D8'],
-  120: ['T20', 'T20', 'D10'],
-  119: ['T19', 'T20', 'D10'],
-  118: ['T20', 'T18', 'D8'],
-  117: ['T20', 'T17', 'D8'],
-  116: ['T20', 'T16', 'D8'],
-  115: ['T20', 'T15', 'D10'],
-  114: ['T20', 'T14', 'D12'],
-  113: ['T20', 'T13', 'D12'],
-  112: ['T20', 'T20', 'D6'],
-  111: ['T20', 'T17', 'D10'],
-  110: ['T20', 'T18', 'D8'],
-  109: ['T20', 'T19', 'D6'],
-  108: ['T20', 'T16', 'D10'],
-  107: ['T20', 'T15', 'D8'],
-  106: ['T20', 'T14', 'D10'],
-  105: ['T20', 'T13', 'D12'],
-  104: ['T20', 'T12', 'D10'],
-  103: ['T20', 'T11', 'D10'],
-  102: ['T20', 'T10', 'D11'],
-  101: ['T20', 'T17', 'D4'],
-  100: ['T20', 'T20', 'D10'],
-  99: ['T20', 'T19', 'D1'],
-  98: ['T20', 'T18', 'D1'],
-  97: ['T20', 'T17', 'D2'],
-  96: ['T20', 'T20', 'D3'],
-  95: ['T20', 'T15', 'D5'],
-  94: ['T20', 'T14', 'D4'],
-  93: ['T20', 'T19', 'D1'],
-  92: ['T20', 'T20', 'D1'],
-  91: ['T20', 'T17', 'D1'],
-  90: ['T20', 'T10', 'D10'],
-  89: ['T19', 'T20', 'D1'],
-  88: ['T20', 'T16', 'D2'],
-  87: ['T20', 'T17', 'D2'],
-  86: ['T20', 'T18', 'D1'],
-  85: ['T20', 'T15', 'D5'],
-  84: ['T20', 'T14', 'D4'],
-  83: ['T20', 'T13', 'D5'],
-  82: ['T20', 'T14', 'D5'],
-  81: ['T20', 'T15', 'D3'],
-  80: ['T20', 'D20'],
-  79: ['T19', 'D20'],
-  78: ['T18', 'D20'],
-  77: ['T19', 'D19'],
-  76: ['T20', 'D18'],
-  75: ['T17', 'D20'],
-  74: ['T14', 'D20'],
-  73: ['T19', 'D18'],
-  72: ['T20', 'D16'],
-  71: ['T13', 'D20'],
-  70: ['T20', 'D5'],
-  69: ['T19', 'D6'],
-  68: ['T20', 'D4'],
-  67: ['T17', 'D8'],
-  66: ['T10', 'D18'],
-  65: ['T19', 'D4'],
-  64: ['T16', 'D8'],
-  63: ['T13', 'D12'],
-  62: ['T10', 'D16'],
-  61: ['T15', 'D8'],
-  60: ['20', 'D20'],
-  59: ['19', 'D20'],
-  58: ['18', 'D20'],
-  57: ['17', 'D20'],
-  56: ['16', 'D20'],
-  55: ['15', 'D20'],
-  54: ['14', 'D20'],
-  53: ['13', 'D20'],
-  52: ['12', 'D20'],
-  51: ['11', 'D20'],
-  50: ['10', 'D20'],
-  49: ['9', 'D20'],
-  48: ['8', 'D20'],
-  47: ['15', 'D16'],
-  46: ['6', 'D20'],
-  45: ['13', 'D16'],
-  44: ['12', 'D16'],
-  43: ['11', 'D16'],
-  42: ['10', 'D16'],
-  41: ['9', 'D16'],
-  40: ['D20'],
-  39: ['7', 'D16'],
-  38: ['D19'],
-  37: ['5', 'D16'],
-  36: ['D18'],
-  35: ['3', 'D16'],
-  34: ['D17'],
-  33: ['1', 'D16'],
-  32: ['D16'],
-  31: ['7', 'D12'],
-  30: ['D15'],
-  29: ['13', 'D8'],
-  28: ['D14'],
-  27: ['11', 'D8'],
-  26: ['D13'],
-  25: ['9', 'D8'],
-  24: ['D12'],
-  23: ['7', 'D8'],
-  22: ['D11'],
-  21: ['5', 'D8'],
-  20: ['D10'],
-  19: ['3', 'D8'],
-  18: ['D9'],
-  17: ['1', 'D8'],
-  16: ['D8'],
-  15: ['7', 'D4'],
-  14: ['D7'],
-  13: ['5', 'D4'],
-  12: ['D6'],
-  11: ['3', 'D4'],
-  10: ['D5'],
-  9: ['1', 'D4'],
-  8: ['D4'],
-  7: ['3', 'D2'],
-  6: ['D3'],
-  5: ['1', 'D2'],
-  4: ['D2'],
-  3: ['1', 'D1'],
-  2: ['D1'],
-};
-
-// 2-dart checkout routes (for when 1 dart already thrown)
-const CHECKOUT_ROUTES_2_DARTS: Record<number, string[]> = {
-  110: ['T20', 'DB'],
-  107: ['T19', 'DB'],
-  104: ['T18', 'DB'],
-  101: ['T17', 'DB'],
-  100: ['T20', 'D20'],
-  98: ['T20', 'D19'],
-  97: ['T19', 'D20'],
-  96: ['T20', 'D18'],
-  95: ['T19', 'D19'],
-  94: ['T18', 'D20'],
-  93: ['T19', 'D18'],
-  92: ['T20', 'D16'],
-  91: ['T17', 'D20'],
-  90: ['T20', 'D15'],
-  89: ['T19', 'D16'],
-  88: ['T20', 'D14'],
-  87: ['T17', 'D18'],
-  86: ['T18', 'D16'],
-  85: ['T19', 'D14'],
-  84: ['T20', 'D12'],
-  83: ['T17', 'D16'],
-  82: ['T14', 'D20'],
-  81: ['T19', 'D12'],
-  80: ['T20', 'D10'],
-  79: ['T13', 'D20'],
-  78: ['T18', 'D12'],
-  77: ['T19', 'D10'],
-  76: ['T20', 'D8'],
-  75: ['T17', 'D12'],
-  74: ['T14', 'D16'],
-  73: ['T19', 'D8'],
-  72: ['T16', 'D12'],
-  71: ['T13', 'D16'],
-  70: ['T20', 'D5'],
-  69: ['T19', 'D6'],
-  68: ['T20', 'D4'],
-  67: ['T17', 'D8'],
-  66: ['T10', 'D18'],
-  65: ['T19', 'D4'],
-  64: ['T16', 'D8'],
-  63: ['T13', 'D12'],
-  62: ['T10', 'D16'],
-  61: ['T15', 'D8'],
-  60: ['20', 'D20'],
-  59: ['19', 'D20'],
-  58: ['18', 'D20'],
-  57: ['17', 'D20'],
-  56: ['16', 'D20'],
-  55: ['15', 'D20'],
-  54: ['14', 'D20'],
-  53: ['13', 'D20'],
-  52: ['12', 'D20'],
-  51: ['11', 'D20'],
-  50: ['10', 'D20'],
-  49: ['9', 'D20'],
-  48: ['8', 'D20'],
-  47: ['15', 'D16'],
-  46: ['6', 'D20'],
-  45: ['13', 'D16'],
-  44: ['12', 'D16'],
-  43: ['11', 'D16'],
-  42: ['10', 'D16'],
-  41: ['9', 'D16'],
-  40: ['D20'],
-  39: ['7', 'D16'],
-  38: ['D19'],
-  37: ['5', 'D16'],
-  36: ['D18'],
-  35: ['3', 'D16'],
-  34: ['D17'],
-  33: ['1', 'D16'],
-  32: ['D16'],
-  31: ['7', 'D12'],
-  30: ['D15'],
-  29: ['13', 'D8'],
-  28: ['D14'],
-  27: ['11', 'D8'],
-  26: ['D13'],
-  25: ['9', 'D8'],
-  24: ['D12'],
-  23: ['7', 'D8'],
-  22: ['D11'],
-  21: ['5', 'D8'],
-  20: ['D10'],
-  19: ['3', 'D8'],
-  18: ['D9'],
-  17: ['1', 'D8'],
-  16: ['D8'],
-  15: ['7', 'D4'],
-  14: ['D7'],
-  13: ['5', 'D4'],
-  12: ['D6'],
-  11: ['3', 'D4'],
-  10: ['D5'],
-  9: ['1', 'D4'],
-  8: ['D4'],
-  7: ['3', 'D2'],
-  6: ['D3'],
-  5: ['1', 'D2'],
-  4: ['D2'],
-  3: ['1', 'D1'],
-  2: ['D1'],
-};
-
-// 1-dart checkout routes (for when 2 darts already thrown)
-const CHECKOUT_ROUTES_1_DART: Record<number, string[]> = {
-  40: ['D20'],
-  38: ['D19'],
-  36: ['D18'],
-  34: ['D17'],
-  32: ['D16'],
-  30: ['D15'],
-  28: ['D14'],
-  26: ['D13'],
-  24: ['D12'],
-  22: ['D11'],
-  20: ['D10'],
-  18: ['D9'],
-  16: ['D8'],
-  14: ['D7'],
-  12: ['D6'],
-  10: ['D5'],
-  8: ['D4'],
-  6: ['D3'],
-  4: ['D2'],
-  2: ['D1'],
-  50: ['DB'],
-};
-
-// ============================================================
-// VISIT HISTORY COMPONENT - SHOWN WHEN NOT YOUR TURN
-// ============================================================
-function VisitHistoryPanel({
-  visits,
-  myUserId,
-  opponentUserId,
-  myName,
-  opponentName,
-  myColor,
-  opponentColor,
-  currentLeg,
-  onEditVisit,
-  onDeleteVisit,
-}: {
-  visits: QuickMatchVisit[];
-  myUserId: string;
-  opponentUserId: string;
-  myName: string;
-  opponentName: string;
-  myColor: string;
-  opponentColor: string;
-  currentLeg: number;
-  onEditVisit: (visit: QuickMatchVisit) => void;
-  onDeleteVisit: (visitId: string) => void;
-}) {
-  // Show visits from CURRENT LEG ONLY - resets when new leg starts
-  const currentLegVisits = useMemo(() => {
-    return visits.filter(v => v.leg === currentLeg);
-  }, [visits, currentLeg]);
-  
-  // Derive opponent ID from visits data if not provided or mismatch
-  // This is more reliable than passing opponentUserId from parent
-  const actualOpponentId = useMemo(() => {
-    // Find a visit that doesn't belong to me - that's the opponent
-    const opponentVisit = currentLegVisits.find(v => v.player_id !== myUserId);
-    return opponentVisit?.player_id || opponentUserId;
-  }, [currentLegVisits, myUserId, opponentUserId]);
-  
-  // Sort visits with newest first (descending turn_no) so most recent is at top
-  const myVisits = currentLegVisits.filter(v => v.player_id === myUserId).sort((a, b) => b.turn_no - a.turn_no);
-  const opponentVisits = currentLegVisits.filter(v => v.player_id === actualOpponentId).sort((a, b) => b.turn_no - a.turn_no);
-  
-  const maxVisits = Math.max(myVisits.length, opponentVisits.length);
-
-  const formatDart = (d: any) => {
-    if (!d) return '';
-    if (d.mult === 'DB') return 'DB';
-    if (d.mult === 'SB') return 'SB';
-    if (d.mult === 'D') return `D${d.n}`;
-    if (d.mult === 'T') return `T${d.n}`;
-    return d.n.toString();
-  };
-
-  const formatDarts = (darts: any[]) => {
-    if (!darts || darts.length === 0) return '-';
-    return darts.map(formatDart).join(' ');
-  };
-
-  return (
-    <div className="h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-3">Visit History - Leg {currentLeg}</h3>
-      
-      <div className="flex-1 overflow-auto space-y-2">
-        {/* Headers */}
-        <div className="grid grid-cols-2 gap-4 text-xs text-gray-400 border-b border-white/10 pb-2">
-          <div className={`text-center font-bold ${myColor}`}>{myName}</div>
-          <div className={`text-center font-bold ${opponentColor}`}>{opponentName}</div>
-        </div>
-
-        {/* Visit Rows - Newest first */}
-        {maxVisits === 0 ? (
-          <div className="text-center text-gray-500 py-8">No visits yet</div>
-        ) : (
-          Array.from({ length: maxVisits }, (_, i) => {
-            const myVisit = myVisits[i];
-            const opponentVisit = opponentVisits[i];
-            // Since we reversed the order, index 0 is the latest visit
-            const isLatestMyVisit = myVisit && i === 0;
-            
-            return (
-              <div key={i} className="grid grid-cols-2 gap-4 py-2 border-b border-white/5">
-                {/* My Visit */}
-                <div className="relative group">
-                  {myVisit ? (
-                    <div className="bg-slate-800/50 rounded-lg p-2 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">L{myVisit.leg} #{myVisit.turn_no}</span>
-                        {isLatestMyVisit && (
-                          <button
-                            onClick={() => onEditVisit(myVisit)}
-                            className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 rounded text-emerald-400 text-xs font-medium transition-colors flex items-center gap-1"
-                            title="Edit this visit"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className={`text-lg font-bold ${myColor}`}>{myVisit.score}</span>
-                        <span className="text-xs text-gray-500">→ {myVisit.remaining_after}</span>
-                      </div>
-                      {myVisit.is_bust && <span className="text-xs text-red-400 font-bold">BUST</span>}
-                      {myVisit.is_checkout && <span className="text-xs text-emerald-400 font-bold">CHECKOUT!</span>}
-                    </div>
-                  ) : (
-                    <div className="h-20 bg-slate-800/20 rounded-lg flex items-center justify-center text-gray-600">-</div>
-                  )}
-                </div>
-
-                {/* Opponent Visit */}
-                <div>
-                  {opponentVisit ? (
-                    <div className="bg-slate-800/50 rounded-lg p-2 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">L{opponentVisit.leg} #{opponentVisit.turn_no}</span>
-                      </div>
-                      <div className="flex items-center justify-between flex-row-reverse mt-1">
-                        <span className={`text-lg font-bold ${opponentColor}`}>{opponentVisit.score}</span>
-                        <span className="text-xs text-gray-500">{opponentVisit.remaining_after} ←</span>
-                      </div>
-                      {opponentVisit.is_bust && <span className="text-xs text-red-400 font-bold">BUST</span>}
-                      {opponentVisit.is_checkout && <span className="text-xs text-emerald-400 font-bold">CHECKOUT!</span>}
-                    </div>
-                  ) : (
-                    <div className="h-20 bg-slate-800/20 rounded-lg flex items-center justify-center text-gray-600">-</div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
+interface Dart {
+  type: 'single' | 'double' | 'triple' | 'bull';
+  number: number;
+  value: number;
+  is_double?: boolean;
 }
 
-// ============================================================
-// EDIT VISIT MODAL
-// ============================================================
-function EditVisitModal({ 
-  open, 
-  onOpenChange, 
-  visit, 
-  onSave, 
-  onDelete,
-  doubleOutEnabled,
-  remainingBefore
-}: { 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void; 
-  visit: QuickMatchVisit | null;
-  onSave: (visit: QuickMatchVisit, newScore: number, newDarts: any[]) => void;
-  onDelete: (visitId: string) => void;
-  doubleOutEnabled: boolean;
-  remainingBefore: number;
-}) {
-  const [scoreInput, setScoreInput] = useState('');
-  const [darts, setDarts] = useState<Dart[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (visit) {
-      setScoreInput(visit.score.toString());
-      // Convert stored darts to Dart format
-      const convertedDarts = visit.darts?.map((d: any) => {
-        const mult = d.mult || 'S';
-        const number = d.n || 0;
-        let type: 'single' | 'double' | 'triple' | 'bull' = 'single';
-        let multiplier = 1;
-        let value = number;
-        let is_double = false;
-        let label = `${mult}${number}`;
-
-        if (mult === 'DB') {
-          type = 'bull';
-          multiplier = 2;
-          value = 50;
-          is_double = true;
-          label = 'DB';
-        } else if (mult === 'SB') {
-          type = 'bull';
-          multiplier = 1;
-          value = 25;
-          label = 'SB';
-        } else if (mult === 'D') {
-          type = 'double';
-          multiplier = 2;
-          value = number * 2;
-          is_double = true;
-          label = `D${number}`;
-        } else if (mult === 'T') {
-          type = 'triple';
-          multiplier = 3;
-          value = number * 3;
-          label = `T${number}`;
-        }
-
-        return { type, number, value, multiplier, label, score: value, is_double };
-      }) || [];
-      setDarts(convertedDarts);
-    }
-  }, [visit]);
-
-  const handleScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '' || /^\d+$/.test(value)) {
-      const num = parseInt(value);
-      if (value === '' || (num >= 0 && num <= 180)) {
-        setScoreInput(value);
-      }
-    }
+interface LegEvent {
+  id: string;
+  player_id: string;
+  seq: number;
+  event_type: 'visit' | 'leg_start' | 'leg_end';
+  payload: {
+    score?: number;
+    remaining?: number;
+    is_bust?: boolean;
+    is_checkout?: boolean;
+    leg?: number;
+    winner_id?: string;
   };
-
-  const validateCheckout = (score: number): { valid: boolean; error?: string } => {
-    if (!doubleOutEnabled) return { valid: true };
-    const newRemaining = remainingBefore - score;
-    if (newRemaining === 0) {
-      // For typed score, we can't validate double without darts, so warn but allow
-      return { valid: true, error: 'Warning: Must finish on double (ensure last dart is D or DB)' };
-    }
-    return { valid: true };
-  };
-
-  const handleSave = async () => {
-    const newScore = parseInt(scoreInput);
-    if (isNaN(newScore) || newScore < 0 || newScore > 180) {
-      toast.error('Invalid score (0-180)');
-      return;
-    }
-
-    const validation = validateCheckout(newScore);
-    if (!validation.valid) {
-      toast.error(validation.error);
-      return;
-    }
-
-    // Convert darts back to storage format
-    const newDarts = darts.map(d => {
-      let mult = 'S';
-      if (d.type === 'bull') mult = d.value === 50 ? 'DB' : 'SB';
-      else if (d.type === 'double') mult = 'D';
-      else if (d.type === 'triple') mult = 'T';
-      return { n: d.number, mult };
-    });
-
-    setIsSubmitting(true);
-    try {
-      await onSave(visit!, newScore, newDarts);
-      onOpenChange(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!visit) return;
-    if (!confirm('Are you sure you want to delete this visit?')) return;
-    
-    setIsSubmitting(true);
-    try {
-      await onDelete(visit.id);
-      onOpenChange(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (!visit) return null;
-
-  const newRemaining = remainingBefore - (parseInt(scoreInput) || 0);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit Visit #{visit.turn_no}</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          {/* Quick Score Input */}
-          <div className="space-y-2">
-            <Label className="text-gray-400">New Score (0-180)</Label>
-            <Input
-              type="number"
-              value={scoreInput}
-              onChange={handleScoreChange}
-              className="bg-slate-800 border-white/10 text-white text-2xl text-center h-16"
-              placeholder="0"
-              min={0}
-              max={180}
-            />
-            <div className="text-center text-sm text-gray-400">
-              Remaining: {remainingBefore} → <span className={newRemaining < 0 ? 'text-red-400' : 'text-emerald-400'}>{newRemaining}</span>
-            </div>
-          </div>
-
-          {/* Current Darts Display */}
-          {darts.length > 0 && (
-            <div className="flex justify-center gap-2">
-              {darts.map((dart, idx) => (
-                <div key={idx} className={`px-3 py-2 rounded-lg text-sm font-bold ${
-                  dart.is_double ? 'bg-red-500/20 text-red-400' :
-                  dart.type === 'triple' ? 'bg-amber-500/20 text-amber-400' :
-                  'bg-slate-700 text-gray-300'
-                }`}>
-                  {dart.label}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-4">
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isSubmitting}
-              className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isSubmitting || !scoreInput}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-600"
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+  created_at: string;
 }
 
-// ============================================================
-// SCORING PANEL WITH CHECKOUT HELP
-// ============================================================
-function ScoringPanel({
-  scoreInput,
-  onScoreInputChange,
-  onTypeScoreSubmit,
-  onSubmitVisit,
-  onMiss,
-  onBust,
-  currentDarts,
-  onDartClick,
-  onUndoDart,
-  onClearVisit,
-  submitting,
-  currentRemaining,
-  doubleOut,
-}: {
-  scoreInput: string;
-  onScoreInputChange: (value: string) => void;
-  onTypeScoreSubmit: () => void;
-  onSubmitVisit: () => void;
-  onMiss: () => void;
-  onBust: () => void;
-  currentDarts: Dart[];
-  onDartClick: (type: 'single' | 'double' | 'triple' | 'bull', number: number) => void;
-  onUndoDart: () => void;
-  onClearVisit: () => void;
-  submitting: boolean;
-  currentRemaining: number;
-  doubleOut: boolean;
-}) {
-  const [activeTab, setActiveTab] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
-
-  const visitTotal = currentDarts.reduce((sum, d) => sum + d.value, 0);
-  const previewRemaining = currentRemaining - visitTotal;
-  const dartsThrown = currentDarts.length;
-  const dartsRemaining = 3 - dartsThrown;
-
-  // Get checkout suggestion based on darts thrown
-  const getCheckoutSuggestion = () => {
-    if (previewRemaining <= 0 || previewRemaining > 170) return null;
-    
-    // Based on darts remaining, show appropriate checkout route
-    if (dartsRemaining === 3) {
-      // 3 darts available - show 3-dart checkout
-      return CHECKOUT_ROUTES[previewRemaining] || null;
-    } else if (dartsRemaining === 2) {
-      // 2 darts available - show 2-dart checkout
-      return CHECKOUT_ROUTES_2_DARTS[previewRemaining] || null;
-    } else if (dartsRemaining === 1) {
-      // 1 dart available - show 1-dart checkout (must be a double)
-      return CHECKOUT_ROUTES_1_DART[previewRemaining] || null;
-    }
-    return null;
-  };
-
-  const checkoutSuggestion = getCheckoutSuggestion();
-
-  return (
-    <div className="h-full flex flex-col">
-      {/* Checkout Help - DYNAMIC BASED ON DARTS THROWN */}
-      {previewRemaining > 0 && previewRemaining <= 170 && (
-        <div className="mb-4 p-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
-          <div className="text-center">
-            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">
-              Checkout {previewRemaining} ({dartsRemaining} dart{dartsRemaining !== 1 ? 's' : ''} left)
-            </p>
-            {checkoutSuggestion ? (
-              <div className="flex items-center justify-center gap-3 text-2xl font-bold">
-                {checkoutSuggestion.map((dart, idx) => (
-                  <span key={idx} className={`
-                    px-3 py-1 rounded-lg
-                    ${dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
-                      dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
-                      dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
-                      'bg-slate-700 text-white'}
-                  `}>
-                    {dart}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-amber-400 font-bold">No checkout possible</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Type Score Input */}
-      <div className="mb-4">
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            placeholder="Type score (0-180)"
-            value={scoreInput}
-            onChange={(e) => onScoreInputChange(e.target.value)}
-            className="flex-1 bg-slate-800 border-white/10 text-white"
-            onKeyDown={(e) => e.key === 'Enter' && onTypeScoreSubmit()}
-          />
-          <Button 
-            onClick={() => {
-              console.log('[BUTTON] Typed score submit clicked');
-              onTypeScoreSubmit();
-            }}
-            disabled={!scoreInput || submitting}
-            className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
-          >
-            {submitting ? '...' : 'Submit'}
-          </Button>
-        </div>
-      </div>
-
-      <div className="text-center mb-2">
-        <span className="text-sm text-gray-400">Current Visit: </span>
-        <span className="text-xl font-bold text-white">{visitTotal}</span>
-        <span className="text-sm text-gray-400 ml-2">→ {previewRemaining}</span>
-      </div>
-
-      {/* Current Darts */}
-      <div className="flex justify-center gap-2 mb-4">
-        {currentDarts.map((dart, idx) => (
-          <div key={idx} className={`w-12 h-12 rounded-lg flex items-center justify-center text-sm font-bold ${
-            dart.is_double ? 'bg-red-500/20 text-red-400 border border-red-500/50' :
-            dart.type === 'triple' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' :
-            'bg-slate-700 text-white border border-white/20'
-          }`}>
-            {dart.label}
-          </div>
-        ))}
-        {Array.from({ length: 3 - currentDarts.length }).map((_, idx) => (
-          <div key={`empty-${idx}`} className="w-12 h-12 rounded-lg border-2 border-dashed border-white/20" />
-        ))}
-      </div>
-
-      {/* Dart Controls */}
-      <div className="flex gap-2 mb-2">
-        <Button
-          size="sm"
-          variant={activeTab === 'singles' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('singles')}
-          className="flex-1"
-        >
-          Singles
-        </Button>
-        <Button
-          size="sm"
-          variant={activeTab === 'doubles' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('doubles')}
-          className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30"
-        >
-          Doubles
-        </Button>
-        <Button
-          size="sm"
-          variant={activeTab === 'triples' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('triples')}
-          className="flex-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-        >
-          Triples
-        </Button>
-        <Button
-          size="sm"
-          variant={activeTab === 'bulls' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('bulls')}
-          className="flex-1 bg-green-500/20 text-green-400 hover:bg-green-500/30"
-        >
-          Bulls
-        </Button>
-      </div>
-
-      {/* Number Pad */}
-      <div className="flex-1 grid grid-cols-5 gap-1 mb-4">
-        {activeTab === 'bulls' ? (
-          <>
-            <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">
-              25
-            </Button>
-            <Button onClick={() => onDartClick('bull', 50)} className="h-full bg-red-500/20 text-red-400 hover:bg-red-500/30 text-lg font-bold">
-              50
-            </Button>
-          </>
-        ) : (
-          Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-            <Button
-              key={num}
-              onClick={() => onDartClick(activeTab === 'singles' ? 'single' : activeTab === 'doubles' ? 'double' : 'triple', num)}
-              disabled={currentDarts.length >= 3}
-              className={`h-full text-lg font-bold ${
-                activeTab === 'doubles' ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' :
-                activeTab === 'triples' ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' :
-                'bg-slate-700 text-white hover:bg-slate-600'
-              }`}
-            >
-              {activeTab === 'doubles' ? 'D' : activeTab === 'triples' ? 'T' : ''}{num}
-            </Button>
-          ))
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          onClick={onUndoDart}
-          disabled={currentDarts.length === 0}
-          className="flex-1 border-white/10 text-white hover:bg-white/5"
-        >
-          Undo
-        </Button>
-        <Button
-          variant="outline"
-          onClick={onClearVisit}
-          disabled={currentDarts.length === 0}
-          className="flex-1 border-white/10 text-white hover:bg-white/5"
-        >
-          Clear
-        </Button>
-        <Button
-          onClick={onMiss}
-          disabled={currentDarts.length >= 3}
-          className="flex-1 bg-slate-700 hover:bg-slate-600"
-        >
-          Miss
-        </Button>
-        <Button
-          onClick={onBust}
-          disabled={submitting}
-          className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50"
-        >
-          Bust
-        </Button>
-        <Button
-          onClick={onSubmitVisit}
-          disabled={currentDarts.length === 0 || submitting}
-          className="flex-1 bg-emerald-500 hover:bg-emerald-600"
-        >
-          {submitting ? '...' : 'Submit'}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Label component
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
-}
-
-export default function QuickMatchRoomPage() {
+export default function QuickMatchPage() {
   const router = useRouter();
   const params = useParams();
   const matchId = params.matchId as string;
@@ -990,41 +121,6 @@ export default function QuickMatchRoomPage() {
   const [matchState, setMatchState] = useState<MappedMatchState | null>(null);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
-
-  // Scoring state
-  const [scoreInput, setScoreInput] = useState('');
-  const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Modals
-  const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
-  const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
-  const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
-  const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
-  const [didIForfeit, setDidIForfeit] = useState(false);
-  const [forfeitLoading, setForfeitLoading] = useState(false);
-
-  // Visit editing
-  const [editingVisit, setEditingVisit] = useState<QuickMatchVisit | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-
-  // Trust rating
-  const [opponentTrustRating, setOpponentTrustRating] = useState<any>(null);
-  const [hasSubmittedRating, setHasSubmittedRating] = useState(false);
-  const [selectedRating, setSelectedRating] = useState<string | null>(null);
-  const [ratingLoading, setRatingLoading] = useState(false);
-
-  // Chat
-  const [showChatDrawer, setShowChatDrawer] = useState(false);
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-
-  // Edit notification popup
-  const [editNotification, setEditNotification] = useState<{
-    show: boolean;
-    playerName: string;
-    oldScore: number;
-    newScore: number;
-  } | null>(null);
 
   // Match end stats state - stores player1 and player2 data with winner info
   const [matchEndStats, setMatchEndStats] = useState<{
@@ -1063,10 +159,11 @@ export default function QuickMatchRoomPage() {
   });
   const {
     localStream,
-    callStatus,
+    remoteStream,
     isCameraOn,
     isMicMuted,
     isVideoDisabled,
+    callStatus,
     toggleCamera,
     toggleMic,
     toggleVideo,
@@ -1082,15 +179,69 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Calculate leg wins from visits (fallback if DB columns don't exist)
-  const calculateLegWinsFromVisits = () => {
-    const p1Checkouts = visits.filter(v => v.player_id === room?.player1_id && v.is_checkout);
-    const p2Checkouts = visits.filter(v => v.player_id === room?.player2_id && v.is_checkout);
-    return {
-      p1: p1Checkouts.length,
-      p2: p2Checkouts.length
+  // State for UI
+  const [gameMode, setGameMode] = useState<'scoring' | 'darts'>('scoring');
+  const [scoreInput, setScoreInput] = useState('');
+  const [currentDarts, setCurrentDarts] = useState<Dart[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [forfeitLoading, setForfeitLoading] = useState(false);
+  const [didIForfeit, setDidIForfeit] = useState(false);
+  const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
+  const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
+  const [currentLeg, setCurrentLeg] = useState(1);
+  
+  // Edit state
+  const [editingVisit, setEditingVisit] = useState<QuickMatchVisit | null>(null);
+  const [editScore, setEditScore] = useState('');
+  const [editDarts, setEditDarts] = useState<Dart[]>([]);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  
+  // Notification state for opponent editing
+  const [editNotification, setEditNotification] = useState<{
+    show: boolean;
+    playerName: string;
+    oldScore: number;
+    newScore: number;
+  } | null>(null);
+  
+  // Chat drawer
+  const [chatOpen, setChatOpen] = useState(false);
+
+  // Get current user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
     };
-  };
+    getUser();
+  }, [supabase]);
+
+  // Load room data
+  useEffect(() => {
+    if (!matchId) return;
+
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const success = await fetchRoomData();
+        if (success) {
+          setupRealtimeSubscriptions();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    // Cleanup
+    return () => {
+      cleanupMatchRef.current?.();
+    };
+  }, [matchId]);
 
   // Calculate BEST LEG (fewest darts thrown in a winning leg)
   const calculateBestLeg = (playerId: string, visitData: QuickMatchVisit[]) => {
@@ -1256,86 +407,56 @@ export default function QuickMatchRoomPage() {
     return calculatePlayerStats(playerId, playerName, legsWon, extraVisit);
   };
 
-  // Calculate WHOLE MATCH stats (across all legs) for the display
-  // 3-dart average is calculated across ALL legs (entire game) as per dart rules
-  const calculateMatchStats = useCallback((playerId: string) => {
-    // ALL visits for average calculation (whole match)
-    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
-    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
-    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
-    // 3-dart average across the ENTIRE game (all legs)
-    const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
-    
-    // CURRENT LEG visits for last score and darts thrown display (resets each leg)
-    const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
-    const dartsThisLeg = currentLegVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
-    
+  // Calculate leg wins from visits (fallback if DB columns don't exist)
+  const calculateLegWinsFromVisits = () => {
+    const p1Checkouts = visits.filter(v => v.player_id === room?.player1_id && v.is_checkout);
+    const p2Checkouts = visits.filter(v => v.player_id === room?.player2_id && v.is_checkout);
     return {
-      average: threeDartAverage, // 3-dart average across WHOLE game
-      lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0,
-      dartsThrown: dartsThisLeg, // Darts thrown in CURRENT leg only
-      totalDartsThrown: totalDarts, // Total darts across all legs
-      totalScore: totalScored, // Total score across all legs
+      p1: p1Checkouts.length,
+      p2: p2Checkouts.length
     };
-  }, [visits, room?.current_leg]);
+  };
 
+  // Update match state when room/visits/profiles change
   useEffect(() => {
-    let cleanupFn: (() => void) | undefined;
-
-    initializeMatch().then((cleanup) => {
-      if (cleanup && typeof cleanup === 'function') {
-        cleanupFn = cleanup;
-      }
-    });
-
-    return () => {
-      if (cleanupMatchRef.current) cleanupMatchRef.current();
-      if (cleanupFn) cleanupFn();
-    };
-  }, [matchId]);
-
-  async function initializeMatch() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      setCurrentUserId(user.id);
-      const matchLoaded = await loadMatchData();
-
-      if (!matchLoaded) {
-        toast.error('Match no longer available');
-        await clearMatchState(matchId);
-        router.push('/app/play/quick-match');
-        return;
-      }
-
-      return setupRealtimeSubscriptions();
-    } catch (error: any) {
-      toast.error(`Error: ${error.message}`);
-      await clearMatchState(matchId);
-      router.push('/app/play/quick-match');
-    } finally {
-      setLoading(false);
+    if (room && profiles.length > 0) {
+      const eventsFromVisits = visits.map(v => ({
+        id: v.id,
+        player_id: v.player_id,
+        seq: v.turn_no,
+        event_type: 'visit' as const,
+        payload: {
+          score: v.score,
+          remaining: v.remaining_after,
+          is_bust: v.is_bust,
+          is_checkout: v.is_checkout,
+          leg: v.leg
+        },
+        created_at: v.created_at
+      }));
+      const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
+      setMatchState(mapped);
     }
-  }
+  }, [room, visits, profiles, currentUserId]);
 
-  async function loadMatchData(): Promise<boolean> {
+  async function fetchRoomData() {
+    // Get room data
     const { data: roomData, error: roomError } = await supabase
       .from('match_rooms')
       .select('*')
       .eq('id', matchId)
-      .maybeSingle();
+      .single();
 
     if (roomError || !roomData) {
-      console.error('[LOAD] Room not found:', roomError);
+      console.error('[LOAD] Error loading room:', roomError);
+      toast.error('Failed to load match');
       return false;
     }
 
-    console.log('[LOAD] Room data loaded:', {
+    console.log('[LOAD] Room loaded:', {
       id: roomData.id,
+      p1: roomData.player1_id,
+      p2: roomData.player2_id,
       status: roomData.status,
       p1_legs: roomData.player1_legs,
       p2_legs: roomData.player2_legs,
@@ -1368,27 +489,6 @@ export default function QuickMatchRoomPage() {
     return true;
   }
 
-  useEffect(() => {
-    if (room && profiles.length > 0) {
-      const eventsFromVisits = visits.map(v => ({
-        id: v.id,
-        player_id: v.player_id,
-        seq: v.turn_no,
-        event_type: 'visit',
-        payload: {
-          score: v.score,
-          remaining: v.remaining_after,
-          is_bust: v.is_bust,
-          is_checkout: v.is_checkout,
-          leg: v.leg
-        },
-        created_at: v.created_at
-      }));
-      const mapped = mapRoomToMatchState(room, eventsFromVisits, profiles, currentUserId || '');
-      setMatchState(mapped);
-    }
-  }, [room, visits, profiles, currentUserId]);
-
   function setupRealtimeSubscriptions() {
     const roomChannel = supabase
       .channel(`room_${matchId}`)
@@ -1397,21 +497,9 @@ export default function QuickMatchRoomPage() {
         { event: 'UPDATE', schema: 'public', table: 'match_rooms', filter: `id=eq.${matchId}` },
         (payload) => {
           const updatedRoom = payload.new as MatchRoom;
-          const oldRoom = payload.old as MatchRoom;
+          console.log('[ROOM] Realtime update:', updatedRoom);
           
-          // Update room state
-          setRoom(updatedRoom);
-          
-          // Handle leg change - reload visits
-          if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
-            console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
-            loadMatchData();
-          }
-          
-          // Handle forfeit
-          if (updatedRoom.status === 'forfeited' && !didIForfeit) {
-            setShowOpponentForfeitModal(true);
-          }
+          setRoom(prev => prev ? { ...prev, ...updatedRoom } : updatedRoom);
           
           // Handle match finished - show winner popup
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
@@ -1453,7 +541,7 @@ export default function QuickMatchRoomPage() {
               const p2LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player2_id && v.is_checkout).length;
               
               // Use visit count if available (more accurate), otherwise fall back to room data
-              // Note: Use !== undefined check because 0 is a valid leg count
+              // Note: Use > 0 check because 0 is a valid leg count
               const p1Legs = p1LegsFromVisits > 0 ? p1LegsFromVisits : (updatedRoom.player1_legs || 0);
               const p2Legs = p2LegsFromVisits > 0 ? p2LegsFromVisits : (updatedRoom.player2_legs || 0);
               
@@ -1561,307 +649,72 @@ export default function QuickMatchRoomPage() {
             setShowOpponentForfeitSignalModal(true);
             setTimeout(() => cleanupMatchRef.current?.(), 100);
           }
-          // Handle rematch ready signals
-          if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
-            console.log('[REMATCH] Opponent is ready for rematch');
-            setOpponentRematchReady(true);
-          }
-          // Handle rematch room created - both players get this and navigate
-          if (signal.type === 'rematch_room_created') {
-            const newRoomId = signal.payload?.new_room_id;
-            if (newRoomId && newRoomId !== matchId) {
-              console.log('[REMATCH] Navigating to new room:', newRoomId);
-              // Small delay to ensure DB commit
-              setTimeout(() => {
-                window.location.href = `/app/play/quick-match/match/${newRoomId}`;
-              }, 300);
-            }
-          }
-          // Note: Match won detection is done via room status change
         }
       )
       .subscribe();
 
     return () => {
-      roomChannel.unsubscribe();
-      signalsChannel.unsubscribe();
+      supabase.removeChannel(roomChannel);
+      supabase.removeChannel(signalsChannel);
     };
   }
 
-  const handleDartClick = (dartType: 'single' | 'double' | 'triple' | 'bull', number: number) => {
-    if (currentVisit.length >= 3) return;
-
-    let value = 0;
-    let multiplier = 1;
-    let label = '';
-    let isDouble = false;
-
-    if (dartType === 'bull') {
-      value = number;
-      multiplier = number === 50 ? 2 : 1;
-      label = number === 50 ? 'DB' : 'SB';
-      isDouble = number === 50;
-      number = 25;
-    } else if (dartType === 'single') {
-      value = number;
-      multiplier = 1;
-      label = number.toString();
-    } else if (dartType === 'double') {
-      value = number * 2;
-      multiplier = 2;
-      label = `D${number}`;
-      isDouble = true;
-    } else if (dartType === 'triple') {
-      value = number * 3;
-      multiplier = 3;
-      label = `T${number}`;
-    }
-
-    setCurrentVisit([...currentVisit, { type: dartType, number, value, multiplier, label, score: value, is_double: isDouble }]);
-  };
-
-  const handleClearVisit = () => setCurrentVisit([]);
-  const handleUndoDart = () => setCurrentVisit((prev) => prev.slice(0, -1));
-  
-  const handleMiss = () => {
-    if (currentVisit.length >= 3) return;
-    setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
-  };
-
-  const validateCheckout = (score: number, darts: Dart[], isTypedScore: boolean = false): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
-    if (!room) return { valid: false, error: 'No room', isCheckout: false, isBust: false };
-    
-    const isPlayer1 = room.player1_id === currentUserId;
-    const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
-    const newRemaining = currentRemaining - score;
-    
-    console.log('[VALIDATE] Checkout validation:', {
-      score,
-      currentRemaining,
-      newRemaining,
-      dartsCount: darts.length,
-      lastDart: darts[darts.length - 1],
-      doubleOut: room.double_out,
-      isTypedScore
-    });
-    
-    // Bust if score goes below 0
-    if (newRemaining < 0) {
-      console.log('[VALIDATE] Bust - below zero');
-      return { valid: true, isCheckout: false, isBust: true };
-    }
-    
-    // Bust if score is exactly 1 (can't finish on 1)
-    if (newRemaining === 1) {
-      console.log('[VALIDATE] Bust - left on 1');
-      return { valid: true, isCheckout: false, isBust: true };
-    }
-    
-    // Checkout - check if we reached exactly 0
-    if (newRemaining === 0) {
-      // Default to true for double_out if undefined (standard darts rules)
-      const requireDouble = room.double_out !== false;
-      
-      if (requireDouble) {
-        const lastDart = darts[darts.length - 1];
-        console.log('[VALIDATE] Checking double requirement:', { lastDartIsDouble: lastDart?.is_double, lastDart });
-        if (!lastDart?.is_double) {
-          console.log('[VALIDATE] Bust - must finish on double');
-          return { valid: true, isCheckout: false, isBust: true };
-        }
-      }
-      console.log('[VALIDATE] Valid checkout!');
-      return { valid: true, isCheckout: true, isBust: false };
-    }
-    
-    return { valid: true, isCheckout: false, isBust: false };
-  };
-
-  const handleBust = async () => {
+  // Submit visit
+  async function submitVisit() {
     if (!room || !currentUserId || submitting) return;
-    if (matchState?.currentTurnPlayer !== matchState?.youArePlayer) {
-      toast.error('Not your turn');
-      return;
-    }
-    // Bust always counts as 3 darts thrown
-    // If no darts entered, create 3 miss darts
-    let bustDarts = [...currentVisit];
-    while (bustDarts.length < 3) {
-      bustDarts.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
-    }
-    await submitScore(0, true, bustDarts);
-  };
-
-  const handleSubmitVisit = async () => {
-    console.log('[SUBMIT] CLICKED');
-
-    if (!matchId) {
-      console.error('[SUBMIT] Missing roomId');
-      toast.error('Missing room ID');
+    if (room.status !== 'active') {
+      toast.error('Match is not active');
       return;
     }
 
-    if (!currentUserId) {
-      console.error('[SUBMIT] Missing user id');
-      toast.error('User not authenticated');
-      return;
-    }
-
-    if (submitting) {
-      console.warn('[SUBMIT] Already submitting - blocked');
-      return;
-    }
-
-    if (!room) {
-      console.error('[SUBMIT] Missing room data');
-      toast.error('Room data not loaded');
-      return;
-    }
-
-    if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer) {
-      console.warn('[SUBMIT] Not your turn – blocked');
-      toast.error('Not your turn');
-      return;
-    }
-
-    if (currentVisit.length === 0) {
-      console.warn('[SUBMIT] No darts entered');
-      toast.error('Please enter darts');
-      return;
-    }
-
-    const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
-    const validation = validateCheckout(visitTotal, currentVisit, false);  // false = button input
-
-    console.log('[SUBMIT] Validation result:', validation);
-
-    // If bust, submit with score 0
-    if (validation.isBust) {
-      console.log('[SUBMIT] Bust detected, submitting with score 0');
-      await submitScore(0, true, currentVisit, false);
-      return;
-    }
-
-    console.log('[SUBMIT] All checks passed, proceeding to submitScore');
-    await submitScore(visitTotal, false, currentVisit, validation.isCheckout);
-  };
-
-  const handleInputScoreSubmit = async () => {
-    console.log('[TYPED SCORE] Submit clicked, scoreInput:', scoreInput);
-    
-    if (!scoreInput || scoreInput.trim() === '') {
-      toast.error('Please enter a score');
-      return;
-    }
-    
-    const score = parseInt(scoreInput.trim());
-    console.log('[TYPED SCORE] Parsed score:', score);
-    
+    const score = parseInt(scoreInput);
     if (isNaN(score) || score < 0 || score > 180) {
-      toast.error('Invalid score (0-180)');
+      toast.error('Enter a valid score (0-180)');
       return;
     }
-    
-    if (!room || !matchState) {
-      toast.error('Game not ready');
-      return;
-    }
-    
-    if (matchState.currentTurnPlayer !== matchState.youArePlayer) {
-      toast.error('Not your turn');
-      return;
-    }
-    
-    // For typed scores, create generic darts (not a double)
-    // Typed scores can checkout (win leg) - double only required for button inputs
-    const genericDarts: Dart[] = [
-      { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false }
-    ];
-    
-    // IMPORTANT: For typed scores, we check if it would be a checkout (remaining = 0)
-    // Typed scores can checkout WITHOUT requiring a double
-    const isPlayer1 = room.player1_id === currentUserId;
+
+    // Determine if this would be a bust
+    const isPlayer1 = currentUserId === room.player1_id;
     const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
     const newRemaining = currentRemaining - score;
     
     // Check for bust conditions
+    let isBust = false;
+    let bustReason: string | undefined;
+    
     if (newRemaining < 0) {
-      console.log('[TYPED SCORE] Bust - below zero');
-      await submitScore(0, true, genericDarts, false);
-      return;
+      isBust = true;
+      bustReason = 'below_zero';
+    } else if (newRemaining === 1 && room.double_out) {
+      isBust = true;
+      bustReason = 'left_on_one';
     }
+
+    // Build darts array for the RPC
+    const darts: Dart[] = [];
+    let remaining = score;
     
-    if (newRemaining === 1) {
-      console.log('[TYPED SCORE] Bust - left on 1');
-      await submitScore(0, true, genericDarts, false);
-      return;
-    }
-    
-    // Checkout - typed scores can win without double
-    const isCheckout = newRemaining === 0;
-    
-    console.log('[TYPED SCORE] Submitting - remaining:', newRemaining, 'isCheckout:', isCheckout);
-    await submitScore(score, false, genericDarts, isCheckout);
-  };
-
-  async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false) {
-    console.log('[SUBMIT] submitScore called', { score, isBust, dartsCount: darts.length, isCheckout });
-
-    if (!room) {
-      console.error('[SUBMIT] No room data');
-      toast.error('Room data missing');
-      return;
-    }
-
-    if (!matchState) {
-      console.error('[SUBMIT] No match state');
-      toast.error('Match state missing');
-      return;
-    }
-
-    if (!currentUserId) {
-      console.error('[SUBMIT] No current user ID');
-      toast.error('User not authenticated');
-      return;
-    }
-
-    if (matchState.currentTurnPlayer !== matchState.youArePlayer) {
-      console.warn('[SUBMIT] Not your turn in submitScore');
-      toast.error('Not your turn');
-      return;
-    }
-
-    // DART COUNTING FIX:
-    // - If bust, count as 3 darts thrown (per dart rules)
-    // - If not checkout and fewer than 3 darts, pad to 3 darts (all darts count)
-    let dartsToSubmit = [...darts];
-    if (isBust) {
-      // Bust always counts as 3 darts (or however many were entered, minimum 3)
-      while (dartsToSubmit.length < 3) {
-        dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
-      }
-    } else if (!isCheckout && dartsToSubmit.length > 0 && dartsToSubmit.length < 3) {
-      // Non-checkout visit with partial darts - pad to 3 darts
-      while (dartsToSubmit.length < 3) {
-        dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false });
+    // Simple dart breakdown for the RPC
+    while (remaining > 0 && darts.length < 3) {
+      if (remaining >= 60) {
+        darts.push({ type: 'triple', number: 20, value: 60 });
+        remaining -= 60;
+      } else if (remaining >= 40) {
+        darts.push({ type: 'double', number: 20, value: 40 });
+        remaining -= 40;
+      } else if (remaining >= 20) {
+        darts.push({ type: 'single', number: 20, value: 20 });
+        remaining -= 20;
+      } else {
+        darts.push({ type: 'single', number: remaining, value: remaining });
+        remaining = 0;
       }
     }
 
-    const dartsArray = dartsToSubmit.map(dart => {
-      let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
-      if (dart.type === 'bull') mult = dart.value === 50 ? 'DB' : 'SB';
-      else if (dart.type === 'double') mult = 'D';
-      else if (dart.type === 'triple') mult = 'T';
-      return { n: dart.number, mult };
-    });
-
-    console.log('[SUBMIT] Submitting payload:', {
-      roomId: matchId,
-      score,
-      isBust,
-      darts: dartsArray,
-      isCheckout
-    });
+    // Pad to 3 darts if needed
+    while (darts.length < 3) {
+      darts.push({ type: 'single', number: 0, value: 0 });
+    }
 
     setSubmitting(true);
 
@@ -1871,7 +724,7 @@ export default function QuickMatchRoomPage() {
       const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
         p_room_id: matchId,
         p_score: score,
-        p_darts: dartsArray,
+        p_darts: darts.map(d => ({ n: d.number, mult: d.type === 'double' ? 'D' : d.type === 'triple' ? 'T' : 'S' })),
         p_is_bust: isBust
       });
 
@@ -1884,37 +737,30 @@ export default function QuickMatchRoomPage() {
       }
 
       if (!data?.ok) {
-        console.error('[SUBMIT] RPC returned not ok:', data);
+        console.error('[SUBMIT] RPC returned error:', data?.error);
         toast.error(data?.error || 'Failed to submit visit');
         return;
       }
 
-      console.log('[SUBMIT] RPC success:', data);
+      console.log('[SUBMIT] Success! is_checkout:', data.is_checkout, 'match_won:', data.match_won);
 
-      // Update local room state
-      if (room && data.remaining_after !== undefined) {
-        const isPlayer1 = room.player1_id === currentUserId;
-        console.log('[SUBMIT] Updating local room state', {
-          isPlayer1,
-          remainingAfter: data.remaining_after
-        });
-        setRoom({
-          ...room,
-          player1_remaining: isPlayer1 ? data.remaining_after : room.player1_remaining,
-          player2_remaining: !isPlayer1 ? data.remaining_after : room.player2_remaining,
-        });
-      }
-
-      // Clear local visit state for next turn
-      console.log('[SUBMIT] Clearing local visit state');
+      // Clear input
       setScoreInput('');
-      setCurrentVisit([]);
+      setCurrentDarts([]);
 
-      if (data.leg_won) {
-        console.log('[SUBMIT] Leg won!');
-        toast.success('🎯 CHECKOUT! Leg won!');
+      // Check if match was won
+      if (data.match_won) {
+        console.log('[SUBMIT] MATCH WON!');
+        toast.success('🏆 MATCH WON!');
         
-        // Check if match was also won - calculate from current legs + this new leg
+        const winnerId = currentUserId;
+        const isPlayer1Winner = winnerId === room.player1_id;
+        
+        const winnerProfile = profiles.find(p => p.user_id === winnerId);
+        const loserId = isPlayer1Winner ? room.player2_id : room.player1_id;
+        const loserProfile = profiles.find(p => p.user_id === loserId);
+        
+        // Get current leg counts
         const currentP1Legs = room.player1_legs || 0;
         const currentP2Legs = room.player2_legs || 0;
         const isPlayer1 = currentUserId === room.player1_id;
@@ -1941,6 +787,7 @@ export default function QuickMatchRoomPage() {
           const loserId = isPlayer1Winner ? room.player2_id : room.player1_id;
           const loserProfile = profiles.find(p => p.user_id === loserId);
           
+          // Calculate winner and loser legs
           const winnerLegs = isPlayer1Winner ? newP1Legs : newP2Legs;
           const loserLegs = isPlayer1Winner ? newP2Legs : newP1Legs;
           
@@ -1952,7 +799,7 @@ export default function QuickMatchRoomPage() {
             .order('leg', { ascending: true })
             .order('turn_no', { ascending: true });
           
-          // Add the final winning visit to the data
+          // Create the final winning visit
           const finalVisit: QuickMatchVisit = {
             id: 'temp-' + Date.now(),
             room_id: matchId,
@@ -2075,247 +922,23 @@ export default function QuickMatchRoomPage() {
         from_user_id: currentUserId,
         to_user_id: opponentId,
         type: 'forfeit',
-        payload: { message: 'Opponent forfeited' }
+        payload: { reason: 'user_forfeit' }
       });
 
       toast.success('You forfeited the match');
-      
-      // Save forfeit stats
-      const p1Legs = room.player1_legs || 0;
-      const p2Legs = room.player2_legs || 0;
-      await saveMatchStats(
-        matchId, 
-        opponentId, 
-        currentUserId, 
-        matchState.youArePlayer === 1 ? p2Legs : p1Legs,
-        matchState.youArePlayer === 1 ? p1Legs : p2Legs,
-        room.game_mode
-      );
-      
       cleanupMatchRef.current?.();
-      await clearMatchState(matchId);
-      router.push('/app/play');
-    } catch (error: any) {
-      toast.error("Couldn't forfeit—try again");
+      
+      setTimeout(() => {
+        router.push('/app/play');
+      }, 1500);
+    } catch (err: any) {
+      console.error('Forfeit error:', err);
+      toast.error(err.message || 'Failed to forfeit');
       setDidIForfeit(false);
     } finally {
       setForfeitLoading(false);
     }
   }
-
-  // ============================================================
-  // EDIT VISIT FUNCTIONS
-  // ============================================================
-  const handleEditVisit = (visit: QuickMatchVisit) => {
-    if (visit.player_id !== currentUserId) {
-      toast.error("You can only edit your own visits");
-      return;
-    }
-    setEditingVisit(visit);
-    setShowEditModal(true);
-  };
-
-  const handleSaveEditedVisit = async (updatedVisit: QuickMatchVisit, newScore: number, newDarts: any[]) => {
-    try {
-      console.log('[EDIT] Saving visit:', updatedVisit.id, 'New score:', newScore);
-
-      // Calculate new remaining
-      const newRemaining = updatedVisit.remaining_before - newScore;
-      
-      // Determine if this is now a checkout or bust
-      let isCheckout = false;
-      let isBust = false;
-      let bustReason = null;
-      let finalScore = newScore;  // If bust, score is 0
-
-      if (newRemaining < 0) {
-        // Bust: score goes below 0
-        isBust = true;
-        bustReason = 'Bust';
-        finalScore = 0;  // Score is 0 on bust
-      } else if (newRemaining === 1) {
-        // Bust: can't finish on 1
-        isBust = true;
-        bustReason = 'Cannot finish on 1';
-        finalScore = 0;
-      } else if (newRemaining === 0) {
-        // Edited score brings remaining to 0 - it's a checkout (win leg)!
-        // Edited scores can checkout without requiring a double
-        isCheckout = true;
-      }
-
-      // Calculate final remaining BEFORE using it
-      const finalRemaining = isBust ? updatedVisit.remaining_before : newRemaining;
-      const isPlayer1 = room?.player1_id === updatedVisit.player_id;
-
-      // Use UPDATE instead of DELETE/INSERT to avoid unique constraint violation
-      const { error: updateError } = await supabase
-        .from('quick_match_visits')
-        .update({
-          score: finalScore,
-          darts: newDarts,
-          darts_thrown: newDarts.length,
-          darts_at_double: newDarts.filter((d: any) => d.mult === 'D' || d.mult === 'DB').length,
-          remaining_after: isBust ? updatedVisit.remaining_before : newRemaining,
-          is_bust: isBust,
-          is_checkout: isCheckout,
-          bust_reason: bustReason,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', updatedVisit.id);
-
-      if (updateError) {
-        console.error('[EDIT] Update error:', updateError);
-        throw updateError;
-      }
-
-      toast.success('Visit updated');
-      
-      // Show checkout/bust message if applicable
-      if (isCheckout) {
-        toast.success('🎯 CHECKOUT! Leg won!');
-      } else if (isBust) {
-        toast.error('💥 BUST!');
-      }
-      
-      // Recalculate all subsequent visits for this player (pass new remaining for room update)
-      await recalculateSubsequentVisits(updatedVisit.player_id, updatedVisit.leg, updatedVisit.turn_no, finalRemaining);
-      
-      // Update local room state immediately for responsive UI
-      if (room) {
-        console.log('[EDIT] Updating room state:', { isPlayer1, finalRemaining });
-        const newRoom = {
-          ...room,
-          player1_remaining: isPlayer1 ? finalRemaining : room.player1_remaining,
-          player2_remaining: !isPlayer1 ? finalRemaining : room.player2_remaining,
-        };
-        console.log('[EDIT] New room state:', newRoom);
-        setRoom(newRoom);
-      }
-      
-      await loadMatchData();
-    } catch (error: any) {
-      console.error('[EDIT] Failed:', error);
-      toast.error(`Failed to update: ${error.message}`);
-      throw error;
-    }
-  };
-
-  async function recalculateSubsequentVisits(playerId: string, leg: number, fromTurnNo: number, editedVisitNewRemaining?: number) {
-    // Get all subsequent visits for this player in this leg
-    const { data: subsequentVisits } = await supabase
-      .from('quick_match_visits')
-      .select('*')
-      .eq('room_id', matchId)
-      .eq('leg', leg)
-      .eq('player_id', playerId)
-      .gt('turn_no', fromTurnNo)
-      .order('turn_no', { ascending: true });
-
-    // If no subsequent visits, update room with the edited visit's remaining
-    if (!subsequentVisits || subsequentVisits.length === 0) {
-      if (editedVisitNewRemaining !== undefined) {
-        const isPlayer1 = room?.player1_id === playerId;
-        await supabase
-          .from('match_rooms')
-          .update(isPlayer1 ? { player1_remaining: editedVisitNewRemaining } : { player2_remaining: editedVisitNewRemaining })
-          .eq('id', matchId);
-      }
-      return;
-    }
-
-    // Get the updated visit to find the new remaining_after
-    const { data: updatedVisit } = await supabase
-      .from('quick_match_visits')
-      .select('remaining_after')
-      .eq('room_id', matchId)
-      .eq('leg', leg)
-      .eq('player_id', playerId)
-      .eq('turn_no', fromTurnNo)
-      .single();
-
-    let runningRemaining = updatedVisit?.remaining_after || 0;
-
-    // Update each subsequent visit
-    for (const visit of subsequentVisits) {
-      const newRemaining = runningRemaining - visit.score;
-      
-      let isBust = false;
-      let isCheckout = false;
-      let bustReason = null;
-      let finalRemaining = newRemaining;
-
-      if (newRemaining < 0) {
-        isBust = true;
-        bustReason = 'Bust';
-        finalRemaining = runningRemaining;
-      } else if (newRemaining === 0) {
-        const lastDart = visit.darts[visit.darts.length - 1];
-        if (room?.double_out && lastDart?.mult !== 'D' && lastDart?.mult !== 'DB') {
-          isBust = true;
-          bustReason = 'Must finish on a double';
-          finalRemaining = runningRemaining;
-        } else {
-          isCheckout = true;
-        }
-      }
-
-      await supabase
-        .from('quick_match_visits')
-        .update({
-          remaining_before: runningRemaining,
-          remaining_after: finalRemaining,
-          is_bust: isBust,
-          is_checkout: isCheckout,
-          bust_reason: bustReason
-        })
-        .eq('id', visit.id);
-
-      if (!isBust) {
-        runningRemaining = finalRemaining;
-      }
-    }
-
-    // Update match_rooms with final remaining
-    const isPlayer1 = room?.player1_id === playerId;
-    await supabase
-      .from('match_rooms')
-      .update(isPlayer1 ? { player1_remaining: runningRemaining } : { player2_remaining: runningRemaining })
-      .eq('id', matchId);
-  }
-
-  const handleDeleteVisit = async (visitId: string) => {
-    try {
-      const { error } = await supabase.from('quick_match_visits').delete().eq('id', visitId);
-      if (error) throw error;
-      toast.success('Visit deleted');
-      await loadMatchData();
-    } catch (error: any) {
-      toast.error(`Failed to delete: ${error.message}`);
-    }
-  };
-
-  const handleTrustRating = async (rating: string) => {
-    if (!matchState || hasSubmittedRating || ratingLoading) return;
-    const opponentId = matchState.youArePlayer === 1 ? room?.player2_id : room?.player1_id;
-    if (!opponentId) return;
-
-    setRatingLoading(true);
-    try {
-      const { error } = await supabase.rpc('rpc_submit_trust_rating', {
-        p_rated_user_id: opponentId,
-        p_rating: rating,
-      });
-      if (error) throw error;
-      setSelectedRating(rating);
-      setHasSubmittedRating(true);
-      toast.success(`Rated ${rating}`);
-    } catch (error: any) {
-      toast.error(`Failed to submit rating: ${error.message}`);
-    } finally {
-      setRatingLoading(false);
-    }
-  };
 
   // Simple rematch - when both players click, create room and navigate both
   const handleRematch = async () => {
@@ -2354,105 +977,96 @@ export default function QuickMatchRoomPage() {
   };
   
   // Check if both players are ready and create room
-  async function checkAndCreateRematchRoom(opponentId: string) {
+  const checkAndCreateRematchRoom = async (opponentId: string) => {
     if (!room || !currentUserId) return;
     
-    // Wait a moment for the other player's signal to be recorded
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Query for rematch ready signals
+    const { data: signals } = await supabase
+      .from('match_signals')
+      .select('*')
+      .eq('room_id', matchId)
+      .eq('type', 'rematch_ready')
+      .order('created_at', { ascending: false })
+      .limit(10);
     
-    try {
-      // Check how many rematch_ready signals exist for this room
-      const { data: signals, error: sigError } = await supabase
-        .from('match_signals')
-        .select('*')
-        .eq('room_id', matchId)
-        .eq('type', 'rematch_ready');
+    const mySignal = signals?.find(s => s.from_user_id === currentUserId);
+    const opponentSignal = signals?.find(s => s.from_user_id === opponentId);
+    
+    if (mySignal && opponentSignal) {
+      // Both ready - create rematch room
+      console.log('[REMATCH] Both players ready, creating room');
+      setRematchStatus('creating');
       
-      if (sigError) throw sigError;
-      
-      const uniquePlayers = new Set(signals?.map(s => s.from_user_id));
-      console.log('[REMATCH] Ready players:', uniquePlayers.size);
-      
-      // If both players are ready (2 unique players)
-      if (uniquePlayers.size >= 2) {
-        setRematchStatus('creating');
+      try {
+        // Determine who creates the room (player1 from original match)
+        const isPlayer1 = room.player1_id === currentUserId;
         
-        // Create new room
-        const { data: newRoom, error } = await supabase
-          .from('match_rooms')
-          .insert({
-            player1_id: room.player1_id,
-            player2_id: room.player2_id,
-            game_mode: room.game_mode,
-            match_format: room.match_format,
-            match_type: room.match_type,
-            status: 'active',
-            current_leg: 1,
-            legs_to_win: room.legs_to_win,
-            player1_remaining: room.game_mode,
-            player2_remaining: room.game_mode,
-            current_turn: room.player1_id, // Player 1 starts
-            double_out: room.double_out,
-            source: room.source,
-          })
-          .select()
-          .single();
-        
-        if (error) throw error;
-        
-        console.log('[REMATCH] Room created:', newRoom.id);
-        
-        // Send room created signal to BOTH players (broadcast)
-        await supabase.from('match_signals').insert({
-          room_id: matchId,
-          from_user_id: currentUserId,
-          to_user_id: opponentId, // Signal to opponent
-          type: 'rematch_room_created',
-          payload: { new_room_id: newRoom.id }
-        });
-        
-        // Also send to self (via different signal) to ensure we navigate
-        setNewRematchRoomId(newRoom.id);
-        
-        // Navigate to new room
-        setTimeout(() => {
-          window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
-        }, 500);
-        
-      } else {
-        // Only one player ready, wait for the other
-        console.log('[REMATCH] Waiting for opponent...');
-        toast.info('Waiting for opponent to accept rematch...');
-        
-        // Poll for the other player
-        setTimeout(() => checkAndCreateRematchRoom(opponentId), 1500);
+        if (isPlayer1) {
+          // Create new room with same settings
+          const { data: newRoom, error } = await supabase
+            .from('match_rooms')
+            .insert({
+              player1_id: room.player1_id,
+              player2_id: room.player2_id,
+              game_mode: room.game_mode,
+              match_format: room.match_format,
+              match_type: room.match_type,
+              double_out: room.double_out,
+              legs_to_win: room.legs_to_win,
+              status: 'active',
+              current_leg: 1,
+              player1_remaining: room.game_mode,
+              player2_remaining: room.game_mode,
+              current_turn: 'player1',
+              player1_legs: 0,
+              player2_legs: 0
+            })
+            .select()
+            .single();
+          
+          if (error) throw error;
+          
+          console.log('[REMATCH] Room created:', newRoom.id);
+          
+          // Send room created signal
+          await supabase.from('match_signals').insert({
+            room_id: matchId,
+            from_user_id: currentUserId,
+            to_user_id: opponentId,
+            type: 'rematch_created',
+            payload: { new_room_id: newRoom.id }
+          });
+          
+          setNewRematchRoomId(newRoom.id);
+          setRematchStatus('ready');
+        }
+      } catch (error: any) {
+        console.error('[REMATCH] Error creating room:', error);
+        setRematchStatus('none');
+        rematchAttemptedRef.current = false;
+        toast.error('Failed to create rematch room');
       }
+    } else if (mySignal && !opponentSignal) {
+      // Only I'm ready, wait for opponent
+      console.log('[REMATCH] Waiting for opponent');
+      setOpponentRematchReady(false);
       
-    } catch (error: any) {
-      console.error('[REMATCH] Error:', error);
-      setRematchStatus('none');
-      rematchAttemptedRef.current = false;
-      toast.error('Failed to create rematch room');
+      // Poll for opponent signal
+      setTimeout(() => checkAndCreateRematchRoom(opponentId), 1000);
     }
-  }
+  };
 
-  // Save match stats to database for both players
-  async function saveMatchStats(
-    roomId: string, 
-    winnerId: string, 
-    loserId: string, 
-    winnerLegs: number, 
-    loserLegs: number,
-    gameMode: number
-  ) {
-    // Prevent duplicate saves
-    if (statsSavedRef.current) {
-      console.log('[STATS] Already saved, skipping duplicate');
-      return;
-    }
+  const handleReturn = () => {
+    cleanupMatchRef.current?.();
+    router.push('/app/play');
+  };
+
+  // Save match stats to database
+  async function saveMatchStats(roomId: string, winnerId: string, loserId: string, winnerLegs: number, loserLegs: number, gameMode: number) {
+    if (statsSavedRef.current) return;
     statsSavedRef.current = true;
     
-    console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs, gameMode });
+    console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs });
     
     try {
       // Save winner stats
@@ -2468,9 +1082,9 @@ export default function QuickMatchRoomPage() {
       
       if (winnerError) {
         console.error('[STATS] Error saving winner stats:', winnerError);
-        throw winnerError;
+      } else {
+        console.log('[STATS] Winner stats saved:', winnerResult);
       }
-      console.log('[STATS] Winner stats saved:', winnerResult);
       
       // Save loser stats
       const { data: loserResult, error: loserError } = await supabase.rpc('fn_update_player_match_stats', {
@@ -2485,89 +1099,75 @@ export default function QuickMatchRoomPage() {
       
       if (loserError) {
         console.error('[STATS] Error saving loser stats:', loserError);
-        throw loserError;
+      } else {
+        console.log('[STATS] Loser stats saved:', loserResult);
       }
-      console.log('[STATS] Loser stats saved:', loserResult);
-      
-      toast.success('Match stats saved!');
-      console.log('[STATS] Match stats saved successfully');
-    } catch (error: any) {
-      console.error('[STATS] Failed to save match stats:', error);
-      toast.error('Failed to save match stats');
-      // Reset flag on error so we can retry
-      statsSavedRef.current = false;
+    } catch (error) {
+      console.error('[STATS] Error saving match stats:', error);
     }
   }
 
-  const handleReturn = () => {
-    cleanupMatchRef.current?.();
-    router.push('/app/play');
-  };
-
+  // Render loading state
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="text-white">Loading match...</div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p>Loading match...</p>
+        </div>
       </div>
     );
   }
 
+  // Render match not found
   if (!room || !matchState) {
     return (
-      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <Card className="bg-slate-900/50 border-white/10 p-8 text-center">
-          <p className="text-white text-lg mb-4">Match not found</p>
-          <Button onClick={() => router.push('/app')} className="bg-emerald-500 hover:bg-emerald-600">
-            Back to Home
-          </Button>
-        </Card>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white text-center">
+          <p className="text-xl mb-4">Match not found</p>
+          <Button onClick={() => router.push('/app/play')}>Return to Play</Button>
+        </div>
       </div>
     );
   }
 
-  const myPlayer = matchState.youArePlayer === 1 ? matchState.players[0] : matchState.players[1];
-  const opponentPlayer = matchState.youArePlayer === 1 ? matchState.players[1] : matchState.players[0];
   const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
-  const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+  const currentRemaining = matchState.youArePlayer === 1 
+    ? matchState.player1.remaining 
+    : matchState.player2.remaining;
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => isMyTurn ? setShowEndMatchDialog(true) : toast.error("You can only forfeit on your turn")}
-                  disabled={forfeitLoading || !isMyTurn}
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Forfeit
-                </Button>
-              </TooltipTrigger>
-              {!isMyTurn && (
-                <TooltipContent><p>You can only forfeit on your turn</p></TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
-            {isConnected ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
-            {matchState.matchFormat.replace('best-of-', 'Best of ')}
-          </Badge>
+    <div className="min-h-screen bg-slate-950 flex flex-col">
+      {/* Header */}
+      <div className="bg-slate-900 border-b border-slate-800 p-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={() => setShowEndMatchDialog(true)}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave
+            </Button>
+            <div>
+              <h1 className="text-white font-bold">Quick Match</h1>
+              <p className="text-slate-400 text-sm">
+                {room.game_mode} • Best of {room.legs_to_win * 2 - 1} • {room.double_out ? 'Double Out' : 'Straight Out'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {isConnected ? (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                <Wifi className="w-3 h-3 mr-1" />
+                Live
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
+                <WifiOff className="w-3 h-3 mr-1" />
+                Offline
+              </Badge>
+            )}
+          </div>
         </div>
-
-        <h2 className="text-xl font-bold text-white">
-          Leg {room.current_leg} of {room.legs_to_win * 2 - 1}
-        </h2>
-
-        <Button variant="outline" size="sm" onClick={() => setShowChatDrawer(true)} className="border-white/10 text-white">
-          <MessageCircle className="w-4 h-4 mr-2" />
-          Chat
-        </Button>
       </div>
 
       {/* Main Content - LAYOUT CHANGE: Camera on left full height, Player cards and scoring/visit history on right */}
@@ -2592,119 +1192,124 @@ export default function QuickMatchRoomPage() {
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Player Cards - Stats reset per leg */}
-          <div className="grid grid-cols-2 gap-4">
+          
+          {/* Player Cards - Compact horizontal like in screenshot 1 */}
+          <div className="grid grid-cols-2 gap-2">
             <QuickMatchPlayerCard
-              name={myPlayer.name}
-              remaining={myPlayer.remaining}
-              legs={myPlayer.legsWon}
-              legsToWin={matchState.legsToWin}
-              isActive={isMyTurn && room.status === 'active'}
-              color="text-emerald-400"
-              position="left"
-              stats={calculateMatchStats(currentUserId || '')}
+              player={matchState.player1}
+              isCurrentPlayer={matchState.currentTurnPlayer === 1}
+              isYou={matchState.youArePlayer === 1}
+              legsWon={matchState.player1.legsWon}
+              gameMode={room.game_mode}
             />
             <QuickMatchPlayerCard
-              name={opponentPlayer.name}
-              remaining={opponentPlayer.remaining}
-              legs={opponentPlayer.legsWon}
-              legsToWin={matchState.legsToWin}
-              isActive={!isMyTurn && room.status === 'active'}
-              color="text-blue-400"
-              position="right"
-              stats={calculateMatchStats(opponentId || '')}
+              player={matchState.player2}
+              isCurrentPlayer={matchState.currentTurnPlayer === 2}
+              isYou={matchState.youArePlayer === 2}
+              legsWon={matchState.player2.legsWon}
+              gameMode={room.game_mode}
             />
           </div>
 
-          {/* CONDITIONAL: Show Scoring Panel when my turn AND game active, Visit History when not */}
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
-            {isMyTurn && room.status === 'active' ? (
-              <ScoringPanel
-                scoreInput={scoreInput}
-                onScoreInputChange={setScoreInput}
-                onTypeScoreSubmit={handleInputScoreSubmit}
-                onSubmitVisit={handleSubmitVisit}
-                onMiss={handleMiss}
-                onBust={handleBust}
-                currentDarts={currentVisit}
-                onDartClick={handleDartClick}
-                onUndoDart={handleUndoDart}
-                onClearVisit={handleClearVisit}
-                submitting={submitting}
-                currentRemaining={myPlayer.remaining}
-                doubleOut={room.double_out}
-              />
-            ) : (
-              <VisitHistoryPanel
-                visits={visits}
-                myUserId={currentUserId || ''}
-                opponentUserId={opponentId || ''}
-                myName={myPlayer.name}
-                opponentName={opponentPlayer.name}
-                myColor="text-emerald-400"
-                opponentColor="text-blue-400"
-                currentLeg={room.current_leg}
-                onEditVisit={handleEditVisit}
-                onDeleteVisit={handleDeleteVisit}
-              />
+          {/* Scoring Panel OR Visit History */}
+          <Card className="flex-1 bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+            {/* Scoring UI when it's my turn */}
+            {isMyTurn && room.status === 'active' && (
+              <div className="p-4 flex flex-col h-full">
+                <div className="text-center mb-4">
+                  <p className="text-gray-400 text-sm mb-1">Your Turn</p>
+                  <p className="text-4xl font-bold text-white">{currentRemaining}</p>
+                  <p className="text-gray-500 text-xs">remaining</p>
+                </div>
+
+                {/* Score Input */}
+                <div className="flex gap-2 mb-4">
+                  <Input
+                    type="number"
+                    value={scoreInput}
+                    onChange={(e) => setScoreInput(e.target.value)}
+                    placeholder="Enter score"
+                    className="flex-1 bg-slate-700 border-slate-600 text-white text-center text-2xl h-14"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        submitVisit();
+                      }
+                    }}
+                    disabled={submitting}
+                  />
+                  <Button 
+                    onClick={submitVisit} 
+                    disabled={submitting || !scoreInput}
+                    className="h-14 px-6 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {submitting ? '...' : <Check className="w-5 h-5" />}
+                  </Button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setScoreInput('')}
+                    className="flex-1 border-slate-600"
+                    disabled={submitting}
+                  >
+                    Clear
+                  </Button>
+                </div>
+
+                {/* Checkout suggestions */}
+                {currentRemaining <= 170 && currentRemaining > 0 && (
+                  <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                    <p className="text-emerald-400 text-xs mb-1">Checkout:</p>
+                    <p className="text-white text-sm">
+                      {currentRemaining === 170 ? 'T20 T20 DB' :
+                       currentRemaining === 167 ? 'T20 T19 DB' :
+                       currentRemaining === 164 ? 'T20 T18 DB' :
+                       currentRemaining === 161 ? 'T20 T17 DB' :
+                       currentRemaining === 160 ? 'T20 T20 D20' :
+                       currentRemaining === 136 ? 'T20 T20 D8' :
+                       currentRemaining === 120 ? 'T20 20 D20' :
+                       currentRemaining === 100 ? 'T20 D20' :
+                       currentRemaining === 80 ? 'T20 D10' :
+                       currentRemaining === 60 ? '20 D20' :
+                       currentRemaining === 40 ? 'D20' :
+                       currentRemaining === 32 ? 'D16' :
+                       currentRemaining === 24 ? 'D12' :
+                       currentRemaining === 16 ? 'D8' :
+                       currentRemaining === 8 ? 'D4' :
+                       currentRemaining === 4 ? 'D2' :
+                       currentRemaining === 2 ? 'D1' :
+                       `Finish ${currentRemaining}`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Waiting message when not my turn */}
+            {!isMyTurn && room.status === 'active' && (
+              <div className="p-4 flex flex-col items-center justify-center h-full">
+                <div className="animate-pulse text-center">
+                  <p className="text-gray-400 mb-2">Opponent&apos;s turn</p>
+                  <div className="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mx-auto">
+                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Match finished state */}
+            {room.status === 'finished' && (
+              <div className="p-4 flex flex-col items-center justify-center h-full">
+                <p className="text-2xl font-bold text-white mb-2">Match Finished</p>
+                <p className="text-gray-400">
+                  {room.winner_id === currentUserId ? '🏆 You won!' : 'Better luck next time!'}
+                </p>
+              </div>
             )}
           </Card>
         </div>
       </div>
-
-      {/* Modals */}
-      <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
-        <AlertDialogContent className="bg-slate-900 border-white/10">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Forfeit Match?</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              Are you sure you want to forfeit? This will end the match.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={forfeitMatch} disabled={forfeitLoading} className="bg-red-500 hover:bg-red-600">
-              {forfeitLoading ? 'Forfeiting...' : 'Forfeit'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <EditVisitModal
-        open={showEditModal}
-        onOpenChange={setShowEditModal}
-        visit={editingVisit}
-        onSave={handleSaveEditedVisit}
-        onDelete={handleDeleteVisit}
-        doubleOutEnabled={room?.double_out || false}
-        remainingBefore={editingVisit?.remaining_before || 0}
-      />
-
-      <MatchChatDrawer
-        roomId={matchId}
-        myUserId={currentUserId || ''}
-        opponentName={opponentPlayer.name}
-        isOpen={showChatDrawer}
-        onOpenChange={setShowChatDrawer}
-        onUnreadChange={setHasUnreadMessages}
-      />
-
-      {/* Edit Notification Popup */}
-      {editNotification?.show && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-amber-500 text-white px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
-            <div className="flex items-center gap-2">
-              <Edit2 className="w-5 h-5" />
-              <span className="font-bold">{editNotification.playerName} edited their visit</span>
-            </div>
-            <div className="text-center mt-1 text-lg">
-              <span className="line-through opacity-70">{editNotification.oldScore}</span>
-              <span className="mx-2">→</span>
-              <span className="font-bold">{editNotification.newScore}</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Winner Popup - shows when match is finished */}
       {matchEndStats && room?.status === 'finished' && (
