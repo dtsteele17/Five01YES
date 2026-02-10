@@ -8,16 +8,22 @@ interface PlayerStats {
   wins: number;
   losses: number;
   draws: number;
-  overall_3dart_avg: number;
-  overall_first9_avg: number;
+  // Overall stats use these names
+  overall_3dart_avg?: number;
+  overall_first9_avg?: number;
+  // Filtered stats use these names
+  avg_3dart?: number;
+  // Common fields
   highest_checkout: number;
-  checkout_percentage: number;
+  checkout_percentage?: number;
+  checkout_pct?: number;
   total_checkouts?: number;
   checkout_attempts?: number;
   visits_100_plus: number;
   visits_140_plus: number;
   visits_180: number;
-  total_darts_thrown: number;
+  total_darts_thrown?: number;
+  total_darts?: number;
   total_score?: number;
 }
 
@@ -78,10 +84,10 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
             <span className="text-sm">3-Dart Average</span>
           </div>
           <div className="text-2xl font-bold text-white">
-            {stats.overall_3dart_avg?.toFixed(1) || '0.0'}
+            {(stats.overall_3dart_avg ?? stats.avg_3dart ?? 0).toFixed(1)}
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            From {stats.total_darts_thrown || 0} darts
+            From {stats.total_darts_thrown ?? stats.total_darts ?? 0} darts
           </div>
         </div>
         <div className="bg-slate-800/50 rounded-lg p-4">
@@ -90,7 +96,7 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
             <span className="text-sm">First 9 Average</span>
           </div>
           <div className="text-2xl font-bold text-white">
-            {stats.overall_first9_avg?.toFixed(1) || '0.0'}
+            {(stats.overall_first9_avg ?? 0).toFixed(1)}
           </div>
         </div>
       </div>
@@ -112,7 +118,7 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
             <span className="text-sm">Checkout %</span>
           </div>
           <div className="text-2xl font-bold text-white">
-            {stats.checkout_percentage?.toFixed(1) || '0.0'}%
+            {(stats.checkout_percentage ?? stats.checkout_pct ?? 0).toFixed(1)}%
           </div>
           <div className="text-xs text-slate-500 mt-1">
             {stats.total_checkouts || 0} / {stats.checkout_attempts || 0}
@@ -142,19 +148,13 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
         </div>
       </div>
 
-      {/* Total Darts & Score */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-800/50 rounded-lg p-3 text-center">
-          <div className="flex items-center justify-center gap-2 text-slate-400 mb-1">
-            <Disc className="w-4 h-4" />
-            <span className="text-xs">Total Darts</span>
-          </div>
-          <div className="text-xl font-bold text-orange-400">{stats.total_darts_thrown || 0}</div>
+      {/* Total Darts */}
+      <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+        <div className="flex items-center justify-center gap-2 text-slate-400 mb-1">
+          <Disc className="w-4 h-4" />
+          <span className="text-xs">Total Darts Thrown</span>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-3 text-center">
-          <div className="text-xs text-slate-400 mb-1">Total Score</div>
-          <div className="text-xl font-bold text-cyan-400">{(stats.total_score || 0).toLocaleString()}</div>
-        </div>
+        <div className="text-xl font-bold text-orange-400">{stats.total_darts_thrown ?? stats.total_darts ?? 0}</div>
       </div>
     </Card>
   );
