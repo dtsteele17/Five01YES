@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Home, X, Check, Bot, Pencil, BarChart3 } from 'lucide-react';
-import { isBust, isValidCheckout, getLegsToWin } from '@/lib/match-logic';
+import { getCheckoutOptions, isBust, isValidCheckout, getLegsToWin, resetBotLegState } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
@@ -1209,7 +1209,9 @@ export default function DartbotMatchPage() {
             <div className="relative aspect-square max-w-md mx-auto">
               <DartboardOverlay
                 hits={dartboardHits}
-                showDebugRings={debugMode}
+                onSegmentClick={handleDartClick}
+                lastVisitTotal={botLastVisitTotal}
+                showDebug={debugMode}
               />
             </div>
 
@@ -1465,10 +1467,9 @@ export default function DartbotMatchPage() {
       {/* Edit Visit Modal */}
       {showEditVisitModal && (
         <EditVisitModal
-          open={showEditVisitModal}
-          onOpenChange={(open) => setShowEditVisitModal(open)}
-          visitNumber={editingVisitIndex !== null ? editingVisitIndex + 1 : 0}
-          originalScore={editingVisitScore}
+          isOpen={showEditVisitModal}
+          onClose={() => setShowEditVisitModal(false)}
+          currentScore={editingVisitScore}
           onSave={handleSaveEditedVisit}
         />
       )}
@@ -1476,13 +1477,9 @@ export default function DartbotMatchPage() {
       {/* Darts At Double Modal */}
       <DartsAtDoubleModal
         isOpen={showDartsAtDoubleModal}
-        minDarts={pendingVisitData?.minDarts || 1}
-        isCheckout={pendingVisitData?.isCheckout || false}
+        onClose={() => setShowDartsAtDoubleModal(false)}
         onConfirm={handleDartsAtDoubleConfirm}
-        onCancel={() => {
-          setShowDartsAtDoubleModal(false);
-          setPendingVisitData(null);
-        }}
+        remainingScore={player1Score}
       />
     </div>
   );
