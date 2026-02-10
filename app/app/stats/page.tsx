@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
-import { Trophy, Gamepad2, BarChart3, ArrowLeft, History, Target, TrendingUp, Disc, Filter } from 'lucide-react';
+import { Trophy, BarChart3, ArrowLeft, History, Target, TrendingUp, Disc, Filter } from 'lucide-react';
 import Link from 'next/link';
 import {
   Select,
@@ -36,7 +36,7 @@ interface FilteredStats {
 }
 
 export default function StatsPage() {
-  const { overallStats, quickMatchStats, loading, error } = usePlayerStats();
+  const { overallStats, loading, error } = usePlayerStats();
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
   const [filteredStats, setFilteredStats] = useState<FilteredStats | null>(null);
@@ -146,7 +146,7 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = displayStats && displayStats.total_matches > 0
+  const winPercentage = displayStats?.total_matches > 0 
     ? ((displayStats.wins / displayStats.total_matches) * 100).toFixed(1)
     : '0.0';
 
@@ -296,17 +296,11 @@ export default function StatsPage() {
         </div>
 
         {/* Detailed Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6 mb-8">
           <PlayerStatsCard
             stats={displayStats}
             title={`${getGameModeLabel(gameModeFilter)} - ${getMatchTypeLabel(matchTypeFilter)}`}
             icon={<Trophy className="w-6 h-6 text-yellow-400" />}
-          />
-          
-          <PlayerStatsCard
-            stats={quickMatchStats}
-            title="Quick Match Stats (All Time)"
-            icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
           />
         </div>
 
