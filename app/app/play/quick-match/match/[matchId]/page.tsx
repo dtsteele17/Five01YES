@@ -1035,44 +1035,21 @@ export default function QuickMatchRoomPage() {
     winnerId: string;
   } | null>(null);
 
-  // Rematch state
-  const [rematchStatus, setRematchStatus] = useState<'none' | 'waiting' | 'ready'>('none');
+  // Rematch state - simplified and more reliable
+  const [rematchStatus, setRematchStatus] = useState<'none' | 'waiting' | 'ready' | 'creating'>('none');
   const [opponentRematchReady, setOpponentRematchReady] = useState(false);
-  const [rematchOpponentId, setRematchOpponentId] = useState<string | null>(null);
-  const rematchRoomCreatedRef = useRef(false);
+  const [newRematchRoomId, setNewRematchRoomId] = useState<string | null>(null);
+  const rematchAttemptedRef = useRef(false);
 
   const cleanupMatchRef = useRef<() => void>();
-
-  // Track rematch ready status from both players using refs for immediate access
-  const myRematchReadyRef = useRef(false);
-  const opponentReadyRef = useRef(false);
-  const opponentIdRef = useRef<string | null>(null);
   
-  // Update refs when state changes
+  // Navigate to rematch room when set
   useEffect(() => {
-    myRematchReadyRef.current = rematchStatus === 'waiting' || rematchStatus === 'ready';
-  }, [rematchStatus]);
-  
-  useEffect(() => {
-    opponentReadyRef.current = opponentRematchReady;
-  }, [opponentRematchReady]);
-  
-  useEffect(() => {
-    if (rematchOpponentId) {
-      opponentIdRef.current = rematchOpponentId;
+    if (newRematchRoomId && newRematchRoomId !== matchId) {
+      console.log('[REMATCH] Auto-navigating to:', newRematchRoomId);
+      window.location.href = `/app/play/quick-match/match/${newRematchRoomId}`;
     }
-  }, [rematchOpponentId]);
-  
-  // Effect to handle when both players are ready for rematch
-  useEffect(() => {
-    // Only proceed if both players are ready and we haven't created the room yet
-    if (rematchStatus === 'waiting' && opponentRematchReady && rematchOpponentId && !rematchRoomCreatedRef.current) {
-      console.log('[REMATCH] Both players ready - creating rematch room from effect');
-      rematchRoomCreatedRef.current = true;
-      setRematchStatus('ready');
-      createRematchRoom(rematchOpponentId);
-    }
-  }, [rematchStatus, opponentRematchReady, rematchOpponentId]);
+  }, [newRematchRoomId, matchId]);
 
   // WebRTC
   const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
@@ -1437,8 +1414,8 @@ export default function QuickMatchRoomPage() {
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
             (async () => {
               console.log('[ROOM] Match finished detected, showing winner popup');
-
-              const winnerId = updatedRoom.winner_id!;
+              
+              const winnerId = updatedRoom.winner_id;
               const isPlayer1Winner = winnerId === updatedRoom.player1_id;
               const winnerProfile = profiles.find(p => p.user_id === winnerId);
               const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
@@ -1543,7 +1520,7 @@ export default function QuickMatchRoomPage() {
           setVisits((prev) => prev.filter((v) => v.id !== deletedId));
         }
       )
-      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
+      .subscribe((status) => setIsConnected(status === 'SUBSCRED'));
 
     const signalsChannel = supabase
       .channel(`signals_${matchId}`)
@@ -1560,24 +1537,16 @@ export default function QuickMatchRoomPage() {
           if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
             console.log('[REMATCH] Opponent is ready for rematch');
             setOpponentRematchReady(true);
-            setRematchOpponentId(signal.from_user_id);
-            opponentReadyRef.current = true;
-            opponentIdRef.current = signal.from_user_id;
-            
-            // If I'm also ready, create the room immediately (race condition protection)
-            if (myRematchReadyRef.current && !rematchRoomCreatedRef.current) {
-              console.log('[REMATCH] Both ready (detected by signal receiver) - creating room');
-              rematchRoomCreatedRef.current = true;
-              setRematchStatus('ready');
-              createRematchRoom(signal.from_user_id);
-            }
           }
-          // Handle rematch start - navigate to new room
-          if (signal.type === 'rematch_start' && signal.to_user_id === currentUserId) {
+          // Handle rematch room created - both players get this and navigate
+          if (signal.type === 'rematch_room_created') {
             const newRoomId = signal.payload?.new_room_id;
-            if (newRoomId) {
+            if (newRoomId && newRoomId !== matchId) {
               console.log('[REMATCH] Navigating to new room:', newRoomId);
-              window.location.href = `/app/play/quick-match/match/${newRoomId}`;
+              // Small delay to ensure DB commit
+              setTimeout(() => {
+                window.location.href = `/app/play/quick-match/match/${newRoomId}`;
+              }, 300);
             }
           }
           // Note: Match won detection is done via room status change
@@ -1969,7 +1938,6 @@ export default function QuickMatchRoomPage() {
             darts_thrown: darts.length,
             darts_at_double: darts.filter(d => d.is_double).length,
             is_bust: isBust,
-            bust_reason: isBust ? 'bust' : null,
             is_checkout: true,
             created_at: new Date().toISOString()
           };
@@ -2306,29 +2274,20 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Handle rematch with ready tracking (1/2, 2/2)
+  // Simple rematch - when both players click, create room and navigate both
   const handleRematch = async () => {
-    if (!room || !currentUserId || !matchEndStats) return;
+    if (!room || !currentUserId || !matchEndStats || rematchAttemptedRef.current) return;
     
     const opponentId = matchEndStats.player1.id === currentUserId 
       ? matchEndStats.player2.id 
       : matchEndStats.player1.id;
     
-    // Store opponent ID for use in the effect and refs
-    setRematchOpponentId(opponentId);
-    opponentIdRef.current = opponentId;
-    
-    // If already ready, do nothing
-    if (rematchStatus === 'waiting' || rematchStatus === 'ready') {
-      return;
-    }
-    
-    // Mark self as ready
+    // Prevent double-clicks
+    rematchAttemptedRef.current = true;
     setRematchStatus('waiting');
-    myRematchReadyRef.current = true;
     
     try {
-      // Send rematch ready signal to opponent
+      // Send ready signal
       await supabase.from('match_signals').insert({
         room_id: matchId,
         from_user_id: currentUserId,
@@ -2337,78 +2296,100 @@ export default function QuickMatchRoomPage() {
         payload: { ready: true, timestamp: Date.now() }
       });
       
-      console.log('[REMATCH] Sent ready signal to opponent');
+      console.log('[REMATCH] Ready signal sent');
       
-      // Check if opponent is already ready (we might have received their signal before clicking)
-      if (opponentReadyRef.current && !rematchRoomCreatedRef.current) {
-        console.log('[REMATCH] Opponent already ready - creating room now');
-        rematchRoomCreatedRef.current = true;
-        setRematchStatus('ready');
-        createRematchRoom(opponentId);
+      // Check if both ready - if so, create room
+      // Use a check function that queries the database
+      await checkAndCreateRematchRoom(opponentId);
+      
+    } catch (error: any) {
+      console.error('[REMATCH] Error:', error);
+      setRematchStatus('none');
+      rematchAttemptedRef.current = false;
+      toast.error('Failed to start rematch');
+    }
+  };
+  
+  // Check if both players are ready and create room
+  async function checkAndCreateRematchRoom(opponentId: string) {
+    if (!room || !currentUserId) return;
+    
+    // Wait a moment for the other player's signal to be recorded
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      // Check how many rematch_ready signals exist for this room
+      const { data: signals, error: sigError } = await supabase
+        .from('match_signals')
+        .select('*')
+        .eq('room_id', matchId)
+        .eq('type', 'rematch_ready');
+      
+      if (sigError) throw sigError;
+      
+      const uniquePlayers = new Set(signals?.map(s => s.from_user_id));
+      console.log('[REMATCH] Ready players:', uniquePlayers.size);
+      
+      // If both players are ready (2 unique players)
+      if (uniquePlayers.size >= 2) {
+        setRematchStatus('creating');
+        
+        // Create new room
+        const { data: newRoom, error } = await supabase
+          .from('match_rooms')
+          .insert({
+            player1_id: room.player1_id,
+            player2_id: room.player2_id,
+            game_mode: room.game_mode,
+            match_format: room.match_format,
+            match_type: room.match_type,
+            status: 'active',
+            current_leg: 1,
+            legs_to_win: room.legs_to_win,
+            player1_remaining: room.game_mode,
+            player2_remaining: room.game_mode,
+            current_turn: room.player1_id, // Player 1 starts
+            double_out: room.double_out,
+            source: room.source,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        console.log('[REMATCH] Room created:', newRoom.id);
+        
+        // Send room created signal to BOTH players (broadcast)
+        await supabase.from('match_signals').insert({
+          room_id: matchId,
+          from_user_id: currentUserId,
+          to_user_id: opponentId, // Signal to opponent
+          type: 'rematch_room_created',
+          payload: { new_room_id: newRoom.id }
+        });
+        
+        // Also send to self (via different signal) to ensure we navigate
+        setNewRematchRoomId(newRoom.id);
+        
+        // Navigate to new room
+        setTimeout(() => {
+          window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
+        }, 500);
+        
+      } else {
+        // Only one player ready, wait for the other
+        console.log('[REMATCH] Waiting for opponent...');
+        toast.info('Waiting for opponent to accept rematch...');
+        
+        // Poll for the other player
+        setTimeout(() => checkAndCreateRematchRoom(opponentId), 1500);
       }
       
     } catch (error: any) {
       console.error('[REMATCH] Error:', error);
       setRematchStatus('none');
-      myRematchReadyRef.current = false;
-      toast.error('Failed to ready up for rematch');
-    }
-  };
-  
-  // Create rematch room and notify opponent
-  async function createRematchRoom(opponentId: string) {
-    if (!room) return;
-    
-    try {
-      toast.loading('Creating rematch room...');
-      
-      const { data: newRoom, error } = await supabase
-        .from('match_rooms')
-        .insert({
-          player1_id: room.player1_id,
-          player2_id: room.player2_id,
-          game_mode: room.game_mode,
-          match_format: room.match_format,
-          match_type: room.match_type,
-          status: 'active',
-          current_leg: 1,
-          legs_to_win: room.legs_to_win,
-          player1_remaining: room.game_mode,
-          player2_remaining: room.game_mode,
-          current_turn: room.player1_id,
-          double_out: room.double_out,
-          source: room.source,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      console.log('[REMATCH] Created room:', newRoom.id);
-      
-      // Send rematch start signal to opponent with new room ID
-      const { error: signalError } = await supabase.from('match_signals').insert({
-        room_id: matchId,
-        from_user_id: currentUserId,
-        to_user_id: opponentId,
-        type: 'rematch_start',
-        payload: { new_room_id: newRoom.id, creator_id: currentUserId }
-      });
-      
-      if (signalError) {
-        console.error('[REMATCH] Error sending start signal:', signalError);
-      }
-      
-      // Small delay to ensure signal is sent before navigation
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log('[REMATCH] Navigating to new room:', newRoom.id);
-      window.location.href = `/app/play/quick-match/match/${newRoom.id}`;
-      
-    } catch (error: any) {
-      console.error('[REMATCH] Error creating room:', error);
-      toast.error('Failed to create rematch');
-      setRematchStatus('none');
+      rematchAttemptedRef.current = false;
+      toast.error('Failed to create rematch room');
     }
   }
 
