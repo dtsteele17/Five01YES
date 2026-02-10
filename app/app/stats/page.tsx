@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
-import { Trophy, BarChart3, ArrowLeft, History, Target, TrendingUp, Disc, Filter, Gamepad2 } from 'lucide-react';
+import { useFilteredPlayerStats } from '@/lib/hooks/useFilteredPlayerStats';
+import { Trophy, BarChart3, ArrowLeft, History, Target, TrendingUp, Filter, Gamepad2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   Select,
@@ -17,38 +18,44 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface FilteredStats {
-  total_matches: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  overall_3dart_avg: number;
-  overall_first9_avg: number;
-  highest_checkout: number;
-  checkout_percentage: number;
-  total_checkouts: number;
-  checkout_attempts: number;
-  visits_100_plus: number;
-  visits_140_plus: number;
-  visits_180: number;
-  total_darts_thrown: number;
-  total_score: number;
-}
+// Filter options
+const GAME_MODES = [
+  { value: 'all', label: 'All Games' },
+  { value: '301', label: '301' },
+  { value: '501', label: '501' },
+];
+
+const MATCH_TYPES = [
+  { value: 'all', label: 'All Types' },
+  { value: 'quick', label: 'Quick Match' },
+  { value: 'ranked', label: 'Ranked Match' },
+  { value: 'private', label: 'Private Match' },
+  { value: 'local', label: 'Local Match' },
+  { value: 'training', label: 'Training' },
+];
 
 export default function StatsPage() {
-  const { overallStats, loading: statsLoading, error, refetch } = usePlayerStats();
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
-  const [filteredStats, setFilteredStats] = useState<FilteredStats | null>(null);
-  const [filteredLoading, setFilteredLoading] = useState(false);
   const [totalMatchesFromHistory, setTotalMatchesFromHistory] = useState<number>(0);
+  
+  const { overallStats, loading: overallLoading, error: overallError, refetch: refetchOverall } = usePlayerStats();
+  
+  // Convert filter values to proper types for the hook
+  const gameModeParam = gameModeFilter === 'all' ? null : parseInt(gameModeFilter);
+  const matchTypeParam = matchTypeFilter === 'all' ? null : matchTypeFilter;
+  
+  const { stats: filteredStats, loading: filteredLoading, error: filteredError, refetch: refetchFiltered } = useFilteredPlayerStats(
+    gameModeParam,
+    matchTypeParam
+  );
+
   const supabase = createClient();
 
-  // Fetch filtered stats when filters change
+  // Fetch total matches count for debugging
   useEffect(() => {
-    fetchFilteredStats();
     fetchTotalMatchesCount();
-  }, [gameModeFilter, matchTypeFilter]);
+  }, []);
 
   async function fetchTotalMatchesCount() {
     try {
@@ -71,81 +78,30 @@ export default function StatsPage() {
     }
   }
 
-  async function fetchFilteredStats() {
-    try {
-      setFilteredLoading(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // Determine which stats to display
+  const isFiltered = gameModeFilter !== 'all' || matchTypeFilter !== 'all';
+  const displayStats = isFiltered ? filteredStats : overallStats;
+  const isLoading = overallLoading || (isFiltered && filteredLoading);
+  const error = overallError || filteredError;
 
-      // If both filters are 'all', use overall stats from hook
-      if (gameModeFilter === 'all' && matchTypeFilter === 'all') {
-        setFilteredStats(null); // Will fall back to overallStats
-        return;
-      }
+  const handleRefresh = () => {
+    refetchOverall();
+    refetchFiltered();
+    fetchTotalMatchesCount();
+  };
 
-      // Call RPC function to get filtered stats
-      const { data, error } = await supabase.rpc('fn_get_filtered_player_stats', {
-        p_user_id: user.id,
-        p_game_mode: gameModeFilter === 'all' ? null : parseInt(gameModeFilter),
-        p_match_type: matchTypeFilter === 'all' ? null : matchTypeFilter
-      });
+  const getGameModeLabel = (mode: string) => {
+    return GAME_MODES.find(m => m.value === mode)?.label || 'All Games';
+  };
 
-      if (error) {
-        console.error('Error fetching filtered stats:', error);
-        setFilteredStats(null);
-        return;
-      }
+  const getMatchTypeLabel = (type: string) => {
+    return MATCH_TYPES.find(t => t.value === type)?.label || 'All Types';
+  };
 
-      // The function returns an array with one row
-      if (data && Array.isArray(data) && data.length > 0) {
-        const row = data[0];
-        setFilteredStats({
-          total_matches: row.total_matches || 0,
-          wins: row.wins || 0,
-          losses: row.losses || 0,
-          draws: row.draws || 0,
-          overall_3dart_avg: parseFloat(row.overall_3dart_avg) || 0,
-          overall_first9_avg: parseFloat(row.overall_first9_avg) || 0,
-          highest_checkout: row.highest_checkout || 0,
-          checkout_percentage: parseFloat(row.checkout_percentage) || 0,
-          total_checkouts: row.total_checkouts || 0,
-          checkout_attempts: row.checkout_attempts || 0,
-          visits_100_plus: row.visits_100_plus || 0,
-          visits_140_plus: row.visits_140_plus || 0,
-          visits_180: row.visits_180 || 0,
-          total_darts_thrown: row.total_darts_thrown || 0,
-          total_score: row.total_score || 0
-        });
-      } else {
-        // No matches found for filters - show zeros
-        setFilteredStats({
-          total_matches: 0, wins: 0, losses: 0, draws: 0,
-          overall_3dart_avg: 0, overall_first9_avg: 0, highest_checkout: 0,
-          checkout_percentage: 0, total_checkouts: 0, checkout_attempts: 0,
-          visits_100_plus: 0, visits_140_plus: 0, visits_180: 0,
-          total_darts_thrown: 0, total_score: 0
-        });
-      }
-    } catch (err) {
-      console.error('Error:', err);
-      setFilteredStats(null);
-    } finally {
-      setFilteredLoading(false);
-    }
-  }
-
-  // Use filtered stats if available, otherwise fall back to overall
-  const displayStats = filteredStats || overallStats;
-  const isLoading = statsLoading || filteredLoading;
-
-  // Debug info
-  useEffect(() => {
-    console.log('[STATS PAGE] overallStats:', overallStats);
-    console.log('[STATS PAGE] filteredStats:', filteredStats);
-    console.log('[STATS PAGE] displayStats:', displayStats);
-    console.log('[STATS PAGE] totalMatchesFromHistory:', totalMatchesFromHistory);
-  }, [overallStats, filteredStats, displayStats, totalMatchesFromHistory]);
+  const calculateWinRate = (stats: typeof displayStats) => {
+    if (!stats || stats.total_matches === 0) return '0.0';
+    return ((stats.wins / stats.total_matches) * 100).toFixed(1);
+  };
 
   if (isLoading) {
     return (
@@ -167,28 +123,6 @@ export default function StatsPage() {
     );
   }
 
-  const winPercentage = displayStats?.total_matches && displayStats.total_matches > 0
-    ? ((displayStats.wins / displayStats.total_matches) * 100).toFixed(1)
-    : '0.0';
-
-  const getGameModeLabel = (mode: string) => {
-    switch (mode) {
-      case '301': return '301';
-      case '501': return '501';
-      default: return 'All Games';
-    }
-  };
-
-  const getMatchTypeLabel = (type: string) => {
-    switch (type) {
-      case 'quick': return 'Quick Match';
-      case 'ranked': return 'Ranked Match';
-      case 'private': return 'Private Match';
-      case 'local': return 'Local Match';
-      default: return 'All Types';
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
       <div className="max-w-6xl mx-auto">
@@ -205,7 +139,7 @@ export default function StatsPage() {
               Your Statistics
             </h1>
           </div>
-          <Button onClick={refetch} variant="outline" className="border-slate-600 text-slate-300">
+          <Button onClick={handleRefresh} variant="outline" className="border-slate-600 text-slate-300">
             Refresh
           </Button>
         </div>
@@ -234,9 +168,15 @@ export default function StatsPage() {
                   <SelectValue placeholder="Select game mode" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="all" className="text-white hover:bg-slate-700">All Games</SelectItem>
-                  <SelectItem value="301" className="text-white hover:bg-slate-700">301</SelectItem>
-                  <SelectItem value="501" className="text-white hover:bg-slate-700">501</SelectItem>
+                  {GAME_MODES.map((mode) => (
+                    <SelectItem 
+                      key={mode.value} 
+                      value={mode.value} 
+                      className="text-white hover:bg-slate-700"
+                    >
+                      {mode.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -248,11 +188,15 @@ export default function StatsPage() {
                   <SelectValue placeholder="Select match type" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="all" className="text-white hover:bg-slate-700">All Types</SelectItem>
-                  <SelectItem value="quick" className="text-white hover:bg-slate-700">Quick Match</SelectItem>
-                  <SelectItem value="ranked" className="text-white hover:bg-slate-700">Ranked Match</SelectItem>
-                  <SelectItem value="private" className="text-white hover:bg-slate-700">Private Match</SelectItem>
-                  <SelectItem value="local" className="text-white hover:bg-slate-700">Local Match</SelectItem>
+                  {MATCH_TYPES.map((type) => (
+                    <SelectItem 
+                      key={type.value} 
+                      value={type.value} 
+                      className="text-white hover:bg-slate-700"
+                    >
+                      {type.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -263,11 +207,16 @@ export default function StatsPage() {
             <span className="text-emerald-400 font-medium">{getGameModeLabel(gameModeFilter)}</span>
             <span className="text-slate-500">•</span>
             <span className="text-emerald-400 font-medium">{getMatchTypeLabel(matchTypeFilter)}</span>
+            {isFiltered && (
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
+                Filtered
+              </span>
+            )}
           </div>
         </Card>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-slate-900/50 border-slate-700 p-4">
             <div className="flex items-center gap-2 mb-2">
               <Trophy className="w-5 h-5 text-yellow-400" />
@@ -284,7 +233,7 @@ export default function StatsPage() {
               <span className="text-slate-400 text-sm">Win Rate</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {winPercentage}%
+              {calculateWinRate(displayStats)}%
             </div>
           </Card>
           
@@ -294,7 +243,11 @@ export default function StatsPage() {
               <span className="text-slate-400 text-sm">Average</span>
             </div>
             <div className="text-3xl font-bold text-white">
-              {displayStats?.overall_3dart_avg?.toFixed(1) || '0.0'}
+              {/* Use avg_3dart for filtered, overall_3dart_avg for overall */}
+              {isFiltered 
+                ? (displayStats as any)?.avg_3dart?.toFixed(1) || '0.0'
+                : (displayStats as any)?.overall_3dart_avg?.toFixed(1) || '0.0'
+              }
             </div>
           </Card>
           
@@ -305,16 +258,6 @@ export default function StatsPage() {
             </div>
             <div className="text-3xl font-bold text-white">
               {displayStats?.highest_checkout || '-'}
-            </div>
-          </Card>
-          
-          <Card className="bg-slate-900/50 border-slate-700 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Disc className="w-5 h-5 text-orange-400" />
-              <span className="text-slate-400 text-sm">Darts Thrown</span>
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {displayStats?.total_darts_thrown || 0}
             </div>
           </Card>
         </div>
@@ -332,7 +275,7 @@ export default function StatsPage() {
               <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
               <p className="text-white text-lg font-semibold mb-2">No Stats Available</p>
               <p className="text-slate-400">
-                {gameModeFilter !== 'all' || matchTypeFilter !== 'all' 
+                {isFiltered
                   ? 'No matches found for the selected filters.' 
                   : 'Play some games to see your stats here!'}
               </p>
