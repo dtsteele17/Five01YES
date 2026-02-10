@@ -1,7 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Trophy, Target, TrendingUp, Award, BarChart3 } from 'lucide-react';
+import { Trophy, Target, TrendingUp, Award, BarChart3, Disc } from 'lucide-react';
 
 interface PlayerStats {
   total_matches: number;
@@ -28,10 +28,10 @@ interface PlayerStatsCardProps {
 }
 
 export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
-  if (!stats) {
+  if (!stats || stats.total_matches === 0) {
     return (
       <Card className="bg-slate-900/50 border-slate-700 p-6">
-        <div className="text-center text-slate-400">No stats available</div>
+        <div className="text-center text-slate-400">No stats available for this filter</div>
       </Card>
     );
   }
@@ -45,6 +45,9 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
       <div className="flex items-center gap-3 mb-6">
         {icon}
         <h3 className="text-xl font-bold text-white">{title}</h3>
+        <span className="ml-auto text-sm text-slate-400">
+          {stats.total_matches} match{stats.total_matches !== 1 ? 'es' : ''}
+        </span>
       </div>
 
       {/* Win/Loss Record */}
@@ -77,6 +80,9 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
           <div className="text-2xl font-bold text-white">
             {stats.overall_3dart_avg?.toFixed(1) || '0.0'}
           </div>
+          <div className="text-xs text-slate-500 mt-1">
+            From {stats.total_darts_thrown || 0} darts
+          </div>
         </div>
         <div className="bg-slate-800/50 rounded-lg p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
@@ -108,6 +114,9 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
           <div className="text-2xl font-bold text-white">
             {stats.checkout_percentage?.toFixed(1) || '0.0'}%
           </div>
+          <div className="text-xs text-slate-500 mt-1">
+            {stats.total_checkouts || 0} / {stats.checkout_attempts || 0}
+          </div>
         </div>
       </div>
 
@@ -134,14 +143,17 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
       </div>
 
       {/* Total Darts & Score */}
-      <div className="grid grid-cols-2 gap-4 mt-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-slate-800/50 rounded-lg p-3 text-center">
-          <div className="text-xs text-slate-400 mb-1">Total Darts</div>
+          <div className="flex items-center justify-center gap-2 text-slate-400 mb-1">
+            <Disc className="w-4 h-4" />
+            <span className="text-xs">Total Darts</span>
+          </div>
           <div className="text-xl font-bold text-orange-400">{stats.total_darts_thrown || 0}</div>
         </div>
         <div className="bg-slate-800/50 rounded-lg p-3 text-center">
           <div className="text-xs text-slate-400 mb-1">Total Score</div>
-          <div className="text-xl font-bold text-cyan-400">{stats.total_score?.toLocaleString() || 0}</div>
+          <div className="text-xl font-bold text-cyan-400">{(stats.total_score || 0).toLocaleString()}</div>
         </div>
       </div>
     </Card>
