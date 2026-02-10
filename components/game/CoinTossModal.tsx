@@ -49,11 +49,11 @@ export function CoinTossModal({
       setIsSpinning(false);
       setShowResult(true);
 
-      // Auto-complete after showing result
+      // Auto-complete after showing result (longer to read the result)
       setTimeout(() => {
         onComplete(selectedWinnerId);
-      }, 2000);
-    }, 2000);
+      }, 3000);
+    }, 4500);
   };
 
   const winnerName = winnerId === player1Id ? player1Name : player2Name;
@@ -87,16 +87,18 @@ export function CoinTossModal({
               className="w-full h-full relative"
               style={{ transformStyle: 'preserve-3d' }}
               animate={isSpinning ? {
-                rotateY: [0, 360, 720, 1080, 1440, 1800, 2160, 2520],
+                rotateY: [0, 720, 1440, 2160, 2880, 3600, 4320, 5040],
+                y: [0, -30, 0, -20, 0, -10, 0, 0],
               } : {
                 rotateY: result === 'heads' ? 0 : 180,
+                y: 0,
               }}
               transition={isSpinning ? {
-                duration: 2,
-                ease: "easeInOut",
-                times: [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1],
+                duration: 4.5,
+                ease: [0.25, 0.1, 0.25, 1],
+                times: [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.8, 1],
               } : {
-                duration: 0.3,
+                duration: 0.5,
                 ease: "easeOut",
               }}
             >
@@ -124,28 +126,46 @@ export function CoinTossModal({
           {/* Status text */}
           <AnimatePresence mode="wait">
             {isSpinning ? (
-              <motion.p
+              <motion.div
                 key="spinning"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="text-gray-400 text-center"
+                className="text-center"
               >
-                Tossing coin...
-              </motion.p>
+                <motion.p 
+                  className="text-emerald-400 text-lg font-semibold"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                >
+                  Tossing coin...
+                </motion.p>
+                <p className="text-gray-500 text-sm mt-1">Heads or Tails?</p>
+              </motion.div>
             ) : showResult && winnerName ? (
               <motion.div
                 key="result"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
                 className="text-center"
               >
-                <p className="text-emerald-400 text-lg font-bold mb-1">
+                <motion.p 
+                  className="text-emerald-400 text-2xl font-bold mb-2"
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+                >
                   {result?.toUpperCase()}!
-                </p>
-                <p className="text-white">
-                  <span className="font-semibold">{winnerName}</span> throws first
-                </p>
+                </motion.p>
+                <motion.p 
+                  className="text-white text-lg"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <span className="font-semibold text-emerald-300">{winnerName}</span> throws first
+                </motion.p>
               </motion.div>
             ) : null}
           </AnimatePresence>
