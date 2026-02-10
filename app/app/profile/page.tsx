@@ -23,7 +23,7 @@ interface Profile {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const { overallStats, quickMatchStats } = usePlayerStats();
+  const { overallStats } = usePlayerStats();
   const supabase = createClient();
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function ProfilePage() {
           />
           
           <PlayerStatsCard
-            stats={quickMatchStats}
+            stats={overallStats}
             title="Quick Match Stats"
             icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
           />
