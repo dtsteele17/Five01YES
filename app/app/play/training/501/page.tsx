@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Target, Undo2, Trophy, TrendingUp, Zap, RotateCcw, Home, X, Check, Bot, Pencil, BarChart3 } from 'lucide-react';
-import { getCheckoutOptions, isBust, isValidCheckout, getLegsToWin, resetBotLegState } from '@/lib/match-logic';
+import { isBust, isValidCheckout, getLegsToWin } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
@@ -1209,9 +1209,7 @@ export default function DartbotMatchPage() {
             <div className="relative aspect-square max-w-md mx-auto">
               <DartboardOverlay
                 hits={dartboardHits}
-                onSegmentClick={handleDartClick}
-                lastVisitTotal={botLastVisitTotal}
-                showDebug={debugMode}
+                showDebugRings={debugMode}
               />
             </div>
 
@@ -1467,9 +1465,10 @@ export default function DartbotMatchPage() {
       {/* Edit Visit Modal */}
       {showEditVisitModal && (
         <EditVisitModal
-          isOpen={showEditVisitModal}
-          onClose={() => setShowEditVisitModal(false)}
-          currentScore={editingVisitScore}
+          open={showEditVisitModal}
+          onOpenChange={(open) => setShowEditVisitModal(open)}
+          visitNumber={editingVisitIndex !== null ? editingVisitIndex + 1 : 0}
+          originalScore={editingVisitScore}
           onSave={handleSaveEditedVisit}
         />
       )}
@@ -1477,9 +1476,13 @@ export default function DartbotMatchPage() {
       {/* Darts At Double Modal */}
       <DartsAtDoubleModal
         isOpen={showDartsAtDoubleModal}
-        onClose={() => setShowDartsAtDoubleModal(false)}
+        minDarts={pendingVisitData?.minDarts || 1}
+        isCheckout={pendingVisitData?.isCheckout || false}
         onConfirm={handleDartsAtDoubleConfirm}
-        remainingScore={player1Score}
+        onCancel={() => {
+          setShowDartsAtDoubleModal(false);
+          setPendingVisitData(null);
+        }}
       />
     </div>
   );
