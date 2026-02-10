@@ -55,7 +55,7 @@ export function useMatchWebRTC({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(true); // Always muted by default
   const [isVideoDisabled, setIsVideoDisabled] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);

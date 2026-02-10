@@ -1886,6 +1886,7 @@ export default function QuickMatchRoomPage() {
   const [pendingCheckoutInfo, setPendingCheckoutInfo] = useState<{
     score: number;
     remainingBefore: number;
+    isBust: boolean;
   } | null>(null);
 
   const handleInputScoreSubmit = async () => {
@@ -1927,65 +1928,92 @@ export default function QuickMatchRoomPage() {
     const newRemaining = currentRemaining - score;
     
     // Check for bust conditions
-    if (newRemaining < 0) {
-      console.log('[TYPED SCORE] Bust - below zero');
-      await submitScore(0, true, genericDarts, false);
-      return;
-    }
-    
-    if (newRemaining === 1) {
-      console.log('[TYPED SCORE] Bust - left on 1');
-      await submitScore(0, true, genericDarts, false);
-      return;
-    }
-    
-    // Checkout - typed scores can win without double
+    const isBust = newRemaining < 0 || newRemaining === 1;
     const isCheckout = newRemaining === 0;
     
-    // If it's a checkout, show the checkout details dialog first
-    if (isCheckout) {
-      console.log('[TYPED SCORE] Checkout detected, showing details dialog');
-      setPendingCheckoutInfo({ score, remainingBefore: currentRemaining });
+    // If it's a BUST or CHECKOUT, ask how many darts were thrown
+    // Otherwise (normal score), assume 3 darts
+    if (isBust || isCheckout) {
+      console.log('[TYPED SCORE] Bust or Checkout detected, showing darts dialog');
+      setPendingCheckoutInfo({ 
+        score: isBust ? 0 : score, // Busts record 0 score
+        remainingBefore: currentRemaining,
+        isBust 
+      });
       setShowCheckoutDialog(true);
       return;
     }
     
-    console.log('[TYPED SCORE] Submitting - remaining:', newRemaining, 'isCheckout:', isCheckout);
-    await submitScore(score, false, genericDarts, isCheckout, true); // true = isTypedScore
+    // Normal score - assume 3 darts thrown, submit immediately
+    console.log('[TYPED SCORE] Normal score - assuming 3 darts, remaining:', newRemaining);
+    
+    // Create 3 darts for normal score
+    const normalDarts: Dart[] = [
+      { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }
+    ];
+    
+    await submitScore(score, false, normalDarts, false, true); // 3 darts, not bust, not checkout
+    setScoreInput(''); // Clear input after submit
   };
 
-  // Handle checkout details submission from dialog
+  // Handle checkout/bust details submission from dialog
   const handleCheckoutDetailsSubmit = async (dartsThrown: number, dartsAtDouble: number) => {
     if (!pendingCheckoutInfo) return;
     
-    console.log('[TYPED SCORE] Checkout details submitted:', { dartsThrown, dartsAtDouble });
+    console.log('[TYPED SCORE] Details submitted:', { dartsThrown, dartsAtDouble, isBust: pendingCheckoutInfo.isBust });
     
-    const { score, remainingBefore } = pendingCheckoutInfo;
+    const { score, remainingBefore, isBust } = pendingCheckoutInfo;
     
-    // Create darts with proper checkout info
-    const checkoutDarts: Dart[] = [];
+    // Create darts array
+    const darts: Dart[] = [];
     
-    // Add darts based on dartsThrown (last one is the checkout dart)
-    for (let i = 0; i < dartsThrown; i++) {
-      const isLastDart = i === dartsThrown - 1;
-      checkoutDarts.push({
-        type: isLastDart ? 'double' : 'single',
-        number: isLastDart ? score : 0,
-        value: isLastDart ? score : 0,
-        multiplier: isLastDart ? 2 : 1,
-        label: isLastDart ? `D${score}` : 'Miss',
-        score: isLastDart ? score : 0,
-        is_double: isLastDart
-      });
+    if (isBust) {
+      // Bust: Add darts thrown (all misses that led to the bust)
+      // The last dart caused the bust
+      for (let i = 0; i < dartsThrown; i++) {
+        darts.push({
+          type: 'single',
+          number: 0,
+          value: 0,
+          multiplier: 1,
+          label: 'Miss',
+          score: 0,
+          is_double: false
+        });
+      }
+      
+      // Close dialog and clear pending state
+      setShowCheckoutDialog(false);
+      setPendingCheckoutInfo(null);
+      setScoreInput('');
+      
+      // Submit as bust (score = 0)
+      await submitScore(0, true, darts, false, true);
+    } else {
+      // Checkout: Add darts (last one is the checkout dart)
+      for (let i = 0; i < dartsThrown; i++) {
+        const isLastDart = i === dartsThrown - 1;
+        darts.push({
+          type: isLastDart ? 'double' : 'single',
+          number: isLastDart ? score : 0,
+          value: isLastDart ? score : 0,
+          multiplier: isLastDart ? 2 : 1,
+          label: isLastDart ? `D${score/2}` : 'Miss',
+          score: isLastDart ? score : 0,
+          is_double: isLastDart
+        });
+      }
+      
+      // Close dialog and clear pending state
+      setShowCheckoutDialog(false);
+      setPendingCheckoutInfo(null);
+      setScoreInput('');
+      
+      // Submit with checkout details
+      await submitScoreWithCheckoutDetails(score, darts, dartsThrown, dartsAtDouble);
     }
-    
-    // Close dialog and clear pending state
-    setShowCheckoutDialog(false);
-    setPendingCheckoutInfo(null);
-    setScoreInput('');
-    
-    // Submit with checkout details
-    await submitScoreWithCheckoutDetails(score, checkoutDarts, dartsThrown, dartsAtDouble);
   };
 
   // Submit score with checkout details (darts thrown and darts at double)
@@ -3117,12 +3145,13 @@ export default function QuickMatchRoomPage() {
         />
       )}
 
-      {/* Checkout Details Dialog - shows when typed score is a checkout */}
+      {/* Checkout Details Dialog - shows when typed score is a checkout or bust */}
       {showCheckoutDialog && pendingCheckoutInfo && (
         <CheckoutDetailsDialog
           isOpen={showCheckoutDialog}
           score={pendingCheckoutInfo.score}
           remainingBefore={pendingCheckoutInfo.remainingBefore}
+          isBust={pendingCheckoutInfo.isBust}
           onSubmit={handleCheckoutDetailsSubmit}
         />
       )}
