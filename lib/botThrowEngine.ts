@@ -231,6 +231,8 @@ export interface VisitResult {
   finished: boolean;
   newRemaining: number;
   bustReason?: string;
+  dartsAtDouble: number;  // Track darts thrown at double during checkout attempts
+  wasCheckoutAttempt: boolean;  // Whether this visit was a checkout attempt
 }
 
 export interface BotPerformanceTracker {
@@ -753,28 +755,78 @@ export interface SimulateVisitOptions {
   formMultiplier?: number;
   tracker?: BotPerformanceTracker | null;
   debug?: boolean;
+  trackCheckoutDarts?: boolean;  // Whether to track darts at double
 }
 
 /**
- * Simulate a complete 3-dart visit
+ * Check if a remaining score is a valid checkout in double-out
+ */
+function isValidCheckoutScore(score: number): boolean {
+  if (score <= 0 || score > 170) return false;
+  // Scores that cannot be checked out
+  const impossibleCheckouts = [159, 162, 163, 165, 166, 168, 169];
+  if (impossibleCheckouts.includes(score)) return false;
+  return true;
+}
+
+/**
+ * Get the preferred checkout route for a given score
+ * Returns the optimal dart sequence to checkout
+ */
+export function getCheckoutRoute(score: number): string[] | null {
+  return checkoutRoutes[score] || null;
+}
+
+/**
+ * Simulate a complete 3-dart visit with enhanced checkout tracking
  */
 export function simulateVisit(options: SimulateVisitOptions): VisitResult {
-  const { level, remaining, doubleOut, formMultiplier = 1.0, tracker, debug } = options;
+  const { level, remaining, doubleOut, formMultiplier = 1.0, tracker, debug, trackCheckoutDarts = true } = options;
   
   const darts: DartResult[] = [];
   let currentRemaining = remaining;
+  let dartsAtDouble = 0;
+  let wasCheckoutAttempt = false;
   
-  // Plan initial targets
-  let plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
+  // Check if we're on a checkout at the start
+  const isOnCheckout = doubleOut && isValidCheckoutScore(remaining);
+  
+  if (isOnCheckout && debug) {
+    console.log(`[DartBot] Checkout attempt from ${remaining}:`, checkoutRoutes[remaining]?.join(' → ') || 'No standard route');
+  }
+  
+  // Plan initial targets - use checkout route if available
+  let plannedTargets: string[];
+  if (isOnCheckout && checkoutRoutes[remaining]) {
+    plannedTargets = checkoutRoutes[remaining];
+    wasCheckoutAttempt = true;
+  } else {
+    plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
+  }
   
   for (let i = 0; i < 3; i++) {
     // Get target for this dart
     const aimTarget = plannedTargets[i] || 'T20';
     
+    // Check if we're aiming at a double (checkout situation)
+    const isAimingAtDouble = aimTarget.startsWith('D') || aimTarget === 'DB' || aimTarget === 'BULL';
+    const isCheckoutAttempt = doubleOut && currentRemaining <= 170 && isAimingAtDouble;
+    
+    if (isCheckoutAttempt && trackCheckoutDarts) {
+      wasCheckoutAttempt = true;
+      dartsAtDouble++;
+    }
+    
     // Calculate sigma for this throw
-    // Checkout attempts have slightly higher pressure/scatter
-    const isCheckoutAttempt = doubleOut && currentRemaining <= 170 && (aimTarget.startsWith('D') || aimTarget === 'DB');
-    const checkoutPressure = isCheckoutAttempt ? 1.1 : 1.0;
+    // Checkout attempts have higher pressure/scatter based on difficulty
+    let checkoutPressure = 1.0;
+    if (isCheckoutAttempt) {
+      // Higher pressure for lower checkouts (more nerve-wracking)
+      // Professional players handle pressure better
+      const basePressure = currentRemaining <= 40 ? 1.2 : 1.1;
+      const skillAdjustment = Math.max(0.7, 1 - (level / 200)); // Better players handle pressure better
+      checkoutPressure = 1 + (basePressure - 1) * skillAdjustment;
+    }
     const sigma = getBaseSigma(level) * formMultiplier * checkoutPressure;
     
     // Simulate the throw
@@ -787,13 +839,19 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     // Check for finish
     if (currentRemaining === 0) {
       if (!doubleOut || dart.isDouble) {
-        // Valid checkout
+        // Valid checkout - count this dart as at double
+        if (trackCheckoutDarts && !isAimingAtDouble) {
+          // If we hit a double but weren't aiming at it, still count it
+          dartsAtDouble = Math.max(1, dartsAtDouble);
+        }
         return {
           darts,
           visitTotal: remaining,
           bust: false,
           finished: true,
-          newRemaining: 0
+          newRemaining: 0,
+          dartsAtDouble,
+          wasCheckoutAttempt: true
         };
       }
       // Bust - didn't finish on double
@@ -803,7 +861,9 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
         bust: true,
         finished: false,
         newRemaining: remaining,
-        bustReason: 'Must finish on double'
+        bustReason: 'Must finish on double',
+        dartsAtDouble,
+        wasCheckoutAttempt: true
       };
     }
     
@@ -815,7 +875,9 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
         bust: true,
         finished: false,
         newRemaining: remaining,
-        bustReason: 'Overshot'
+        bustReason: 'Overshot',
+        dartsAtDouble,
+        wasCheckoutAttempt
       };
     }
     
@@ -827,19 +889,28 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
         bust: true,
         finished: false,
         newRemaining: remaining,
-        bustReason: 'Left on 1'
+        bustReason: 'Left on 1',
+        dartsAtDouble,
+        wasCheckoutAttempt
       };
     }
 
     // CRITICAL: Always replan after each dart, especially when on 40 or lower
     // This ensures the bot checks for doubles (even numbers) or setups (odd numbers) after every dart
-    plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, 2 - i);
+    // Use checkout route if now on a valid checkout
+    const canNowCheckout = doubleOut && isValidCheckoutScore(currentRemaining);
+    if (canNowCheckout && checkoutRoutes[currentRemaining]) {
+      plannedTargets = checkoutRoutes[currentRemaining];
+      wasCheckoutAttempt = true;
+    } else {
+      plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, 2 - i);
+    }
   }
   
   const visitTotal = remaining - currentRemaining;
   
   if (debug) {
-    console.log(`[DartBot] Visit: ${darts.map(d => d.label).join(', ')} = ${visitTotal}`);
+    console.log(`[DartBot] Visit: ${darts.map(d => d.label).join(', ')} = ${visitTotal}${wasCheckoutAttempt ? ` (${dartsAtDouble} darts at double)` : ''}`);
   }
   
   return {
@@ -847,7 +918,9 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     visitTotal,
     bust: false,
     finished: false,
-    newRemaining: currentRemaining
+    newRemaining: currentRemaining,
+    dartsAtDouble,
+    wasCheckoutAttempt
   };
 }
 

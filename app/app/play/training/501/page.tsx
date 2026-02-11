@@ -382,6 +382,7 @@ export default function DartbotMatchPage() {
   const [player1CheckoutsMade, setPlayer1CheckoutsMade] = useState(0);
   const [player2TotalDartsAtDouble, setPlayer2TotalDartsAtDouble] = useState(0);
   const [player2CheckoutsMade, setPlayer2CheckoutsMade] = useState(0);
+  const [player2CheckoutAttempts, setPlayer2CheckoutAttempts] = useState(0);
   const [showDartsAtDoubleModal, setShowDartsAtDoubleModal] = useState(false);
   const [pendingVisitData, setPendingVisitData] = useState<{ score: number; minDarts: 1 | 2 | 3; isCheckout: boolean } | null>(null);
   const botTimerRef = useRef<number | null>(null);
@@ -473,11 +474,16 @@ export default function DartbotMatchPage() {
     return { average: threeDartAverage, lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
   }, [allLegs, currentLeg]);
 
-  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number) => {
-    const playerVisits = visitData.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2') && !v.isBust);
-    const totalDarts = playerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, checkoutDartsAttempted: number = 0, checkoutsMade: number = 0) => {
+    const allPlayerVisits = visitData.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
+    const playerVisits = allPlayerVisits.filter(v => !v.isBust);
+    
+    // Count darts thrown including busts (for accurate 3-dart average)
+    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
+    
+    // First 9 calculation (only from valid visits)
     let first9Score = 0, first9Darts = 0;
     for (const visit of playerVisits.slice(0, 3)) {
       first9Score += visit.score;
@@ -485,11 +491,31 @@ export default function DartbotMatchPage() {
       if (first9Darts >= 9) break;
     }
     const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+    
+    // Checkout stats
     const checkouts = playerVisits.filter(v => v.isCheckout);
     const highestCheckout = checkouts.length > 0 ? Math.max(...checkouts.map(v => v.score)) : 0;
-    const checkoutAttempts = playerVisits.filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0).length;
-    const successfulCheckouts = checkouts.length;
-    const checkoutPercentage = checkoutAttempts > 0 ? (successfulCheckouts / checkoutAttempts) * 100 : 0;
+    
+    // For bot (player2), use tracked checkout stats if available, otherwise calculate from visits
+    let successfulCheckouts: number;
+    let dartsAtDouble: number;
+    
+    if (!isPlayer1 && checkoutsMade > 0) {
+      // Use tracked stats for bot
+      successfulCheckouts = checkoutsMade;
+      dartsAtDouble = checkoutDartsAttempted;
+    } else {
+      // Calculate from visits for player
+      successfulCheckouts = checkouts.length;
+      // Count visits where player was on a checkout (<=170, >0)
+      dartsAtDouble = allPlayerVisits
+        .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
+        .reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    }
+    
+    const checkoutPercentage = dartsAtDouble > 0 ? (successfulCheckouts / dartsAtDouble) * 100 : 0;
+    
+    // Best leg calculation
     const visitsByLeg = new Map<number, typeof playerVisits>();
     for (const visit of playerVisits) {
       const legNum = (visit as any).legNumber || (visit as any).leg || 1;
@@ -503,10 +529,30 @@ export default function DartbotMatchPage() {
         if (legDarts < bestLegDarts) { bestLegDarts = legDarts; bestLegNum = legNum; }
       }
     }
+    
+    // Count 100+, 140+, 180s (only from valid visits)
     const count100Plus = playerVisits.filter(v => v.score >= 100 && v.score < 140).length;
     const count140Plus = playerVisits.filter(v => v.score >= 140 && v.score < 180).length;
     const oneEighties = playerVisits.filter(v => v.score === 180).length;
-    return { id: isPlayer1 ? 'player1' : 'player2', name: playerName, legsWon, threeDartAverage, first9Average, highestCheckout, checkoutPercentage, totalDartsThrown: totalDarts, bestLegDarts: bestLegDarts === Infinity ? 0 : bestLegDarts, bestLegNum, totalScore: totalScored, checkouts: successfulCheckouts, checkoutAttempts, count100Plus, count140Plus, oneEighties };
+    
+    return { 
+      id: isPlayer1 ? 'player1' : 'player2', 
+      name: playerName, 
+      legsWon, 
+      threeDartAverage, 
+      first9Average, 
+      highestCheckout, 
+      checkoutPercentage, 
+      totalDartsThrown: totalDarts, 
+      bestLegDarts: bestLegDarts === Infinity ? 0 : bestLegDarts, 
+      bestLegNum, 
+      totalScore: totalScored, 
+      checkouts: successfulCheckouts, 
+      checkoutAttempts: dartsAtDouble,
+      count100Plus, 
+      count140Plus, 
+      oneEighties 
+    };
   };
 
   const saveMatchStats = async () => {
@@ -538,8 +584,14 @@ export default function DartbotMatchPage() {
       };
 
       // Set match end stats for WinnerPopup
-      const p1FullStats = calculatePlayerStatsFromVisits(allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), true, 'You', player1LegsWon);
-      const p2FullStats = calculatePlayerStatsFromVisits(allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), false, botName, player2LegsWon);
+      const p1FullStats = calculatePlayerStatsFromVisits(
+        allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
+        true, 'You', player1LegsWon, player1TotalDartsAtDouble, player1CheckoutsMade
+      );
+      const p2FullStats = calculatePlayerStatsFromVisits(
+        allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
+        false, botName, player2LegsWon, player2TotalDartsAtDouble, player2CheckoutsMade
+      );
       
       setMatchEndStats({
         player1: { id: 'player1', name: 'You', legs: player1LegsWon },
@@ -649,7 +701,8 @@ export default function DartbotMatchPage() {
         doubleOut: config.doubleOut, 
         formMultiplier: botFormMultiplier, 
         tracker: botPerformanceTracker, 
-        debug: debugMode 
+        debug: debugMode,
+        trackCheckoutDarts: true
       });
       
       // Update performance tracker for calibration
@@ -660,6 +713,16 @@ export default function DartbotMatchPage() {
       
       // Record the visit
       const dartsThrown = visualVisit.darts.length;
+      
+      // Track checkout stats for DartBot
+      if (visualVisit.wasCheckoutAttempt) {
+        setPlayer2CheckoutAttempts(prev => prev + 1);
+        setPlayer2TotalDartsAtDouble(prev => prev + (visualVisit.dartsAtDouble || 0));
+      }
+      if (visualVisit.finished) {
+        setPlayer2CheckoutsMade(prev => prev + 1);
+      }
+      
       const visit: Visit = { 
         player: 'player2', 
         score: visualVisit.bust ? 0 : visualVisit.visitTotal, 
@@ -895,6 +958,7 @@ export default function DartbotMatchPage() {
     setPlayer1CheckoutsMade(0);
     setPlayer2TotalDartsAtDouble(0);
     setPlayer2CheckoutsMade(0);
+    setPlayer2CheckoutAttempts(0);
     setBotPerformanceTracker(null);
   };
 
