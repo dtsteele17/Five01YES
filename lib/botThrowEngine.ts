@@ -112,9 +112,9 @@ export const R_BOARD = 0.57;        // Actual visible board edge in PNG (brought
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
 // Adjusted to match PNG dartboard dimensions more accurately
-export const R_TREBLE_IN = 0.2425;  // Inner edge of treble ring (slightly thinner)
-export const R_TREBLE_OUT = 0.2775; // Outer edge of treble ring (width: 0.035)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.26 (aim point)
+export const R_TREBLE_IN = 0.240;   // Inner edge of treble ring (thinner and tighter)
+export const R_TREBLE_OUT = 0.270;  // Outer edge of treble ring (width: 0.030)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.255 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
@@ -125,8 +125,8 @@ export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.445 (aim
 
 // === BULL ===
 // Adjusted to match PNG dartboard dimensions
-export const R_BULL_IN = 0.026;     // Inner bull radius (50 pts)
-export const R_BULL_OUT = 0.052;    // Outer bull radius (25 pts) - slightly thinner
+export const R_BULL_IN = 0.024;     // Inner bull radius (50 pts) - tighter
+export const R_BULL_OUT = 0.048;    // Outer bull radius (25 pts) - thinner
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
