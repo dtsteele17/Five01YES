@@ -8,6 +8,7 @@ export interface MatchVisit {
   legNumber: number;
   visitNumber: number;
   score: number;
+  dartsThrown?: number;  // Number of darts thrown (3 for normal, 1-3 for checkout)
   d1?: string;
   d2?: string;
   d3?: string;

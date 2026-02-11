@@ -805,8 +805,8 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   // Check if we're on a checkout at the start
   const isOnCheckout = doubleOut && isValidCheckoutScore(remaining);
   
-  if (isOnCheckout && debug) {
-    console.log(`[DartBot] Checkout attempt from ${remaining}:`, checkoutRoutes[remaining]?.join(' → ') || 'No standard route');
+  if (isOnCheckout) {
+    console.log(`[DartBot] ON CHECKOUT: ${remaining} - Route:`, checkoutRoutes[remaining]?.join(' → ') || 'No standard route');
   }
   
   // Plan initial targets - use checkout route if available
@@ -814,8 +814,10 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   if (isOnCheckout && checkoutRoutes[remaining]) {
     plannedTargets = checkoutRoutes[remaining];
     wasCheckoutAttempt = true;
+    console.log(`[DartBot] Using checkout route:`, plannedTargets);
   } else {
     plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
+    if (debug) console.log(`[DartBot] Planned targets for ${remaining}:`, plannedTargets);
   }
   
   for (let i = 0; i < 3; i++) {
@@ -901,6 +903,7 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   // If we busted, return bust result with all 3 darts thrown
   if (bustState) {
+    console.log(`[DartBot] BUST: ${remaining}→${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}${wasCheckoutAttempt ? ` | Doubles attempted: ${dartsAtDouble}` : ''}`);
     return {
       darts,
       visitTotal: 0,
@@ -915,9 +918,8 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   const visitTotal = remaining - currentRemaining;
   
-  if (debug) {
-    console.log(`[DartBot] Visit: ${darts.map(d => d.label).join(', ')} = ${visitTotal}${wasCheckoutAttempt ? ` (${dartsAtDouble} darts at double)` : ''}`);
-  }
+  // Always log important info
+  console.log(`[DartBot] ${remaining}→${currentRemaining} | Darts: ${darts.map(d => d.label).join(', ')} | Score: ${visitTotal}${wasCheckoutAttempt ? ` | Doubles: ${dartsAtDouble}` : ''}`);
   
   return {
     darts,

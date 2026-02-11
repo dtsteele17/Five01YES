@@ -474,13 +474,24 @@ export default function DartbotMatchPage() {
     return { average: threeDartAverage, lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
   }, [allLegs, currentLeg]);
 
-  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, checkoutDartsAttempted: number = 0, checkoutsMade: number = 0) => {
+  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, checkoutDartsAttempted: number = 0, checkoutsMade: number = 0, totalDartsTracked: number = 0, totalScoreTracked: number = 0) => {
     const allPlayerVisits = visitData.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
     const playerVisits = allPlayerVisits.filter(v => !v.isBust);
     
-    // Count darts thrown including busts (for accurate 3-dart average)
-    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    // Use tracked stats for bot if available, otherwise calculate from visits
+    let totalDarts: number;
+    let totalScored: number;
+    
+    if (!isPlayer1 && totalDartsTracked > 0) {
+      // Use tracked stats for bot (includes bust darts)
+      totalDarts = totalDartsTracked;
+      totalScored = totalScoreTracked;
+    } else {
+      // Calculate from visits for player
+      totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+      totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    }
+    
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
     // First 9 calculation (only from valid visits)
@@ -564,8 +575,8 @@ export default function DartbotMatchPage() {
       for (const leg of allLegsData) {
         const p1Visits = leg.visits.filter(v => v.player === 'player1');
         const p2Visits = leg.visits.filter(v => v.player === 'player2');
-        p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'user', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
-        p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'opponent', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
+        p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'user', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
+        p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'opponent', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
       }
       const userStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'user'), 'user', normalizedConfig.mode, player1TotalDartsAtDouble, player1CheckoutsMade);
       const opponentStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'opponent'), 'opponent', normalizedConfig.mode, player2TotalDartsAtDouble, player2CheckoutsMade);
@@ -586,11 +597,11 @@ export default function DartbotMatchPage() {
       // Set match end stats for WinnerPopup
       const p1FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        true, 'You', player1LegsWon, player1TotalDartsAtDouble, player1CheckoutsMade
+        true, 'You', player1LegsWon, player1TotalDartsAtDouble, player1CheckoutsMade, player1MatchDartsThrown, player1MatchTotalScored
       );
       const p2FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        false, botName, player2LegsWon, player2TotalDartsAtDouble, player2CheckoutsMade
+        false, botName, player2LegsWon, player2TotalDartsAtDouble, player2CheckoutsMade, player2MatchDartsThrown, player2MatchTotalScored
       );
       
       setMatchEndStats({

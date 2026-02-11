@@ -28,9 +28,12 @@ export function computeMatchStats(
   checkoutDartsAttemptedOverride?: number,
   checkoutsMadeOverride?: number
 ): PlayerMatchStats {
-  const playerVisits = visits.filter(v => v.player === player && !v.isBust);
+  // Get ALL visits including busts (for accurate dart count)
+  const allPlayerVisits = visits.filter(v => v.player === player);
+  // Get only valid visits (for scoring)
+  const playerVisits = allPlayerVisits.filter(v => !v.isBust);
 
-  if (playerVisits.length === 0) {
+  if (playerVisits.length === 0 && allPlayerVisits.length === 0) {
     return {
       threeDartAverage: 0,
       first9Average: 0,
@@ -54,7 +57,8 @@ export function computeMatchStats(
   }
 
   const totalPointsScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
-  const totalDartsThrown = playerVisits.length * 3;
+  // CRITICAL: Count ALL darts including busts for accurate 3-dart average
+  const totalDartsThrown = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
   const threeDartAverage = totalDartsThrown > 0 ? (totalPointsScored / totalDartsThrown) * 3 : 0;
 
   const legNumbers = Array.from(new Set(playerVisits.map(v => v.legNumber)));
