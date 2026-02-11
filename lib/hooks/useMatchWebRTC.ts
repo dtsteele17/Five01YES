@@ -63,6 +63,7 @@ export function useMatchWebRTC({
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [opponentCameraOn, setOpponentCameraOn] = useState(false);
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -75,6 +76,7 @@ export function useMatchWebRTC({
   const forceTurnRef = useRef(false); // Set to true to force TURN relay
   const connectionAttemptRef = useRef(0);
   const lastStreamRef = useRef<MediaStream | null>(null); // Keep last valid stream
+  const opponentCameraOnRef = useRef(false); // Track opponent camera state
 
   console.log('[WEBRTC QS] Render with:', {
     roomId,
@@ -472,6 +474,13 @@ export function useMatchWebRTC({
     const handleState = async (state: any) => {
       console.log('[WEBRTC QS] 📊 State update from opponent:', state);
       
+      // Track opponent camera state
+      if (state.camera !== undefined) {
+        opponentCameraOnRef.current = state.camera;
+        setOpponentCameraOn(state.camera);
+        console.log('[WEBRTC QS] Opponent camera state:', state.camera);
+      }
+      
       // If opponent camera is on but we have no remote stream, request reconnection
       if (state.camera === true && !remoteStream && !isPlayer1 && roomId && myUserId && opponentUserId) {
         console.log('[WEBRTC QS] 🔄 Opponent camera on but no remote stream - requesting reconnect');
@@ -535,7 +544,8 @@ export function useMatchWebRTC({
       hasPeerConnection: !!peerConnectionRef.current,
       hasLocalStream: !!localStream,
       isSubscribed,
-      offerCreated: offerCreatedRef.current
+      offerCreated: offerCreatedRef.current,
+      opponentCameraOn
     });
 
     if (!isPlayer1) {
@@ -612,7 +622,7 @@ export function useMatchWebRTC({
     const timer = setTimeout(createOffer, 1000);
     return () => clearTimeout(timer);
 
-  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId, isSubscribed]);
+  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId, isSubscribed, opponentCameraOn]);
 
   // ========== CAMERA CONTROLS ==========
   
