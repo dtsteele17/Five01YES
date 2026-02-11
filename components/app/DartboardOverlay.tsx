@@ -18,7 +18,7 @@ interface DartboardOverlayProps {
 
 export function DartboardOverlay({ hits = [], className = '', showDebugRings = false }: DartboardOverlayProps) {
   // PNG dartboard with black number ring on outside
-  // Board is 1.5x bigger on screen for better visibility
+  // Board is 1.8x bigger on screen for better visibility
   // Normalized coords (-1..1) map to pixels
   // NOTE: Y-axis flip - bot engine uses Y-up (math coords), CSS uses Y-down (screen coords)
   const normalizedToPixel = (coord: number, size: number): number => {
@@ -26,9 +26,9 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
   };
 
   // Convert normalized radius to SVG percentage
-  // Board is 1.5x bigger, so scale rings accordingly
+  // Board is 1.8x bigger, so scale rings accordingly
   const radiusToPercent = (radius: number): number => {
-    return radius * 50 * 1.5; // radius 1.0 = 75% of container (50% × 1.5)
+    return radius * 50 * 1.8; // radius 1.0 = 90% of container (50% × 1.8)
   };
 
   const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
@@ -36,15 +36,15 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
   return (
     <div className={`relative w-full ${className}`} style={{ aspectRatio: '1/1' }}>
       <div className="relative w-full h-full flex items-center justify-center overflow-visible">
-        {/* Dartboard PNG scaled to 1.5x for better visibility */}
+        {/* Dartboard PNG scaled to 1.8x for better visibility */}
         <img
           src={boardUrl}
           alt="Dartboard"
           className="absolute"
           style={{
             objectFit: 'contain',
-            width: '150%',
-            height: '150%',
+            width: '180%',
+            height: '180%',
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
@@ -59,8 +59,8 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
             style={{
               mixBlendMode: 'normal',
               opacity: 0.8,
-              width: '150%',
-              height: '150%',
+              width: '180%',
+              height: '180%',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
@@ -76,23 +76,23 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               strokeWidth="0.8"
               strokeDasharray="3,2"
             />
-            {/* Double ring outer - Bright Red */}
+            {/* Double ring outer - Bright Red (thinner) */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_DOUBLE_OUT)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.6"
+              strokeWidth="0.4"
             />
-            {/* Double ring inner - Bright Red */}
+            {/* Double ring inner - Bright Red (thinner) */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_DOUBLE_IN)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.6"
+              strokeWidth="0.4"
             />
             {/* Treble ring outer - Bright Yellow */}
             <circle
