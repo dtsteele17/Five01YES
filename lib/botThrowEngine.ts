@@ -93,9 +93,8 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 }
 
 // === CALIBRATION CONSTANTS ===
-// These values match ACTUAL DARTBOARD DIMENSIONS scaled to the visible calibration rings
-// CRITICAL: The PNG has SIGNIFICANT TRANSPARENT PADDING - the actual board is much smaller
-// R_DOUBLE_OUT = 0.4675 represents the full playable dartboard (170mm standard diameter)
+// CRITICAL: The PNG has a BLACK NUMBER RING (decorative) around the playable area
+// The playable dartboard occupies only 85% of the PNG radius (the rest is black ring)
 //
 // STANDARD DARTBOARD DIMENSIONS (Official):
 // Total radius: 170mm from center to outer edge of doubles
@@ -105,31 +104,33 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 // 4. TREBLE RING (inner red/green): 99-107mm = 3x multiplier (8mm wide)
 // 5. Outer singles (black/cream): 107-162mm
 // 6. DOUBLE RING (outer red/green): 162-170mm = 2x multiplier (8mm wide)
-// 7. Beyond doubles: MISS (0 points)
+// 7. BLACK NUMBER RING: 170mm+ (decorative, not scoring)
 //
-// SCORING BOUNDARY: R_BOARD = R_DOUBLE_OUT (outer edge of doubles is the playable limit)
-// SCALE FACTOR: 0.4675 / 170mm = 0.00275 per mm
+// PNG SCALE FACTOR: The playable area (170mm) appears at 85% of PNG radius
+// All constants are scaled to match PNG: real_value * (0.85 / 0.4675) = real_value * 1.818
+//
+// SCORING BOUNDARY: R_BOARD = outer edge of doubles (where black ring starts)
 
-export const R_BOARD = 0.4675;      // Playable area ends at outer edge of doubles ring (170mm)
+export const R_BOARD = 0.85;         // Playable area ends where black number ring starts (85% of PNG)
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring at 99-107mm from center
-// Properly scaled to match actual dartboard proportions
-export const R_TREBLE_IN = 0.2723;   // 99mm * 0.00275 = Inner edge of treble ring
-export const R_TREBLE_OUT = 0.2943;  // 107mm * 0.00275 = Outer edge of treble ring (8mm wide)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.2833 (aim point)
+// Scaled for PNG: 99mm → 0.4950, 107mm → 0.5350
+export const R_TREBLE_IN = 0.4950;   // Inner edge of treble ring (99mm scaled to PNG)
+export const R_TREBLE_OUT = 0.5350;  // Outer edge of treble ring (107mm scaled to PNG, 8mm wide)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.5150 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring at 162-170mm from center
-// Properly scaled to match actual dartboard proportions
-export const R_DOUBLE_IN = 0.4455;   // 162mm * 0.00275 = Inner edge of double ring
-export const R_DOUBLE_OUT = 0.4675;  // 170mm * 0.00275 = Outer edge of double ring (8mm wide)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.4565 (aim point)
+// Scaled for PNG: 162mm → 0.8100, 170mm → 0.8500
+export const R_DOUBLE_IN = 0.8100;   // Inner edge of double ring (162mm scaled to PNG)
+export const R_DOUBLE_OUT = 0.8500;  // Outer edge of double ring (170mm scaled to PNG, 8mm wide)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.8300 (aim point)
 
 // === BULL ===
-// Bull dimensions scaled to match actual dartboard proportions
-export const R_BULL_IN = 0.0175;     // 6.35mm * 0.00275 = Inner bull radius (50 pts)
-export const R_BULL_OUT = 0.0437;    // 15.9mm * 0.00275 = Outer bull radius (25 pts)
+// Bull dimensions scaled for PNG: 6.35mm → 0.0318, 15.9mm → 0.0794
+export const R_BULL_IN = 0.0318;     // Inner bull radius (6.35mm scaled to PNG, 50 pts)
+export const R_BULL_OUT = 0.0794;    // Outer bull radius (15.9mm scaled to PNG, 25 pts)
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
