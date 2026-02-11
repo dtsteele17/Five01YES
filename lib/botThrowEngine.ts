@@ -114,23 +114,23 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 export const R_BOARD = 0.85;         // Playable area ends where black number ring starts (85% of PNG)
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
-// The treble ring is the INNER red/green ring at 99-107mm from center
-// Scaled for PNG: 99mm → 0.4950, 107mm → 0.5350
-export const R_TREBLE_IN = 0.4950;   // Inner edge of treble ring (99mm scaled to PNG)
-export const R_TREBLE_OUT = 0.5350;  // Outer edge of treble ring (107mm scaled to PNG, 8mm wide)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.5150 (aim point)
+// The treble ring is the INNER red/green ring
+// Adjusted to match the visible calibration rings on PNG (narrower and closer to center)
+export const R_TREBLE_IN = 0.468;    // Inner edge of treble ring (matches visible yellow rings)
+export const R_TREBLE_OUT = 0.553;   // Outer edge of treble ring (matches visible yellow rings)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.5105 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
-// The double ring is the OUTER red/green ring at 162-170mm from center
-// Scaled for PNG: 162mm → 0.8100, 170mm → 0.8500
-export const R_DOUBLE_IN = 0.8100;   // Inner edge of double ring (162mm scaled to PNG)
-export const R_DOUBLE_OUT = 0.8500;  // Outer edge of double ring (170mm scaled to PNG, 8mm wide)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.8300 (aim point)
+// The double ring is the OUTER red/green ring
+// Adjusted to match the visible calibration rings on PNG (narrower and closer to center)
+export const R_DOUBLE_IN = 0.748;    // Inner edge of double ring (matches visible red rings)
+export const R_DOUBLE_OUT = 0.850;   // Outer edge of double ring (matches board edge)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.799 (aim point)
 
 // === BULL ===
-// Bull dimensions scaled for PNG: 6.35mm → 0.0318, 15.9mm → 0.0794
-export const R_BULL_IN = 0.0318;     // Inner bull radius (6.35mm scaled to PNG, 50 pts)
-export const R_BULL_OUT = 0.0794;    // Outer bull radius (15.9mm scaled to PNG, 25 pts)
+// Bull dimensions adjusted to match visible calibration rings on PNG
+export const R_BULL_IN = 0.054;      // Inner bull radius (50 pts, matches visible cyan rings)
+export const R_BULL_OUT = 0.108;     // Outer bull radius (25 pts, matches visible cyan rings)
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
