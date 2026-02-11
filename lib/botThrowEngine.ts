@@ -104,21 +104,10 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 // 4. TREBLE RING (inner red/green): ~32% to ~40% = 3x multiplier
 // 5. Outer singles (black/cream): ~40% to ~47%
 // 6. DOUBLE RING (outer red/green): ~47% to ~55% = 2x multiplier
-// 7. BLACK NUMBER RING (decorative): ~55% to ~60% - STILL SCORES as singles!
+// 7. BLACK NUMBER RING (decorative): ~55% to ~60%
 // 8. Transparent padding: ~60% to 100% (invisible space in PNG)
-//
-// ⚠️ IMPORTANT: These constants are used by BOTH:
-// 1. DartboardOverlay.tsx - Draws the visual calibration rings on screen
-// 2. DartBot Aiming System - Uses these exact values to aim at targets and score darts
-//
-// The visual calibration lines you see on screen ARE the dartbot's aiming reference.
-// When the bot aims at "T20", it uses R_TREBLE_CENTER to calculate the target coordinates.
-// When a dart lands, evaluateDartFromXY() uses these same rings to determine the score.
-//
-// ⚠️ SCORING AREA: Darts score all the way from center (0) to board edge (R_BOARD = 0.57)
-// This includes the area BEYOND the double ring - it scores as singles in the outer number area.
 
-export const R_BOARD = 0.57;        // Board edge - darts beyond this are off-board misses
+export const R_BOARD = 0.57;        // Actual visible board edge in PNG (brought in)
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
@@ -242,10 +231,6 @@ export function generateFormMultiplier(): number {
  * Get the base coordinates for aiming at a specific target
  * Returns normalized coordinates (-1 to 1) where center is (0,0)
  * Y-axis points UP toward 20
- *
- * ⚠️ CALIBRATION: This function uses R_TREBLE_IN, R_TREBLE_OUT, R_DOUBLE_IN, R_DOUBLE_OUT
- * which are the SAME constants used to draw the visual calibration rings on the dartboard.
- * The dartbot aims at these exact ring positions that you see on screen.
  */
 export function getAimPoint(target: string): { x: number; y: number; ringMultiplier: number } {
   // Parse target format: T20, D20, S20, 20, SBull, DBull, etc.
@@ -320,10 +305,6 @@ export function getAimPoint(target: string): { x: number; y: number; ringMultipl
 /**
  * Evaluate where a dart landed and return the score
  * Uses the calibrated ring constants for accurate scoring
- *
- * ⚠️ CALIBRATION: This function uses R_BULL_IN, R_BULL_OUT, R_TREBLE_IN, R_TREBLE_OUT,
- * R_DOUBLE_IN, R_DOUBLE_OUT - the SAME constants used to draw the visual calibration rings.
- * A dart that lands inside the visual treble ring will be scored as a treble.
  */
 export function evaluateDartFromXY(x: number, y: number): {
   label: string;
@@ -372,18 +353,16 @@ export function evaluateDartFromXY(x: number, y: number): {
 
   // === RING DETECTION ===
   // Check from OUTSIDE to INSIDE (correct priority order)
-  //
+  // 
   // DARTBOARD STRUCTURE (outer to inner):
-  // 1. DOUBLE ring (outer red/green) - R_DOUBLE_IN (0.4225) to R_DOUBLE_OUT (0.4675)
-  // 2. Outer singles (black/cream) - R_DOUBLE_OUT to R_BOARD
-  // 3. TREBLE ring (inner red/green) - R_TREBLE_IN (0.2425) to R_TREBLE_OUT (0.2775)
-  // 4. Inner singles (black/cream) - R_BULL_OUT to R_TREBLE_IN
-  // 5. Bull area - 0 to R_BULL_OUT (0.052)
-  //
-  // ⚠️ FULL SCORING AREA: Darts score anywhere from center (0) to board edge (R_BOARD = 0.57)
-  // This includes the area BEYOND the double ring - it scores as singles in the number ring area
-
+  // 1. DOUBLE ring (outer red/green) - at the EDGE of the board
+  // 2. Outer singles (black/cream)
+  // 3. TREBLE ring (inner red/green) - closer to the bull
+  // 4. Inner singles (black/cream)
+  // 5. Bull area
+  
   // DOUBLE ring - OUTER scoring ring (red/green at the edge)
+  // Radius: 0.88 to 1.0 (outer 12% of board)
   if (radius >= R_DOUBLE_IN && radius <= R_DOUBLE_OUT) {
     return { 
       label: `D${number}`, 
@@ -912,154 +891,16 @@ export function runCalibrationSimulation(level: number, numVisits: number = 100)
   };
 }
 
-/**
- * Verify that the dartbot calibration matches the visual calibration rings
- * This tests that:
- * 1. When bot aims at T20, it hits within the treble ring
- * 2. When bot aims at D20, it hits within the double ring
- * 3. Darts landing in visual rings are scored correctly
- *
- * Returns a report showing whether calibration is aligned.
- *
- * To test in browser console:
- * ```
- * import { verifyCalibration } from '@/lib/botThrowEngine';
- * const result = verifyCalibration();
- * console.log('Calibration aligned:', result.aligned);
- * result.tests.forEach(t => console.log(`${t.passed ? '✓' : '✗'} ${t.name}: ${t.details}`));
- * ```
- *
- * Or via DartBotDebug:
- * ```
- * import { DartBotDebug } from '@/lib/botThrowEngine';
- * DartBotDebug.verifyCalibration();
- * ```
- */
-export function verifyCalibration(): {
-  aligned: boolean;
-  tests: Array<{
-    name: string;
-    passed: boolean;
-    details: string;
-  }>;
-} {
-  const tests = [];
-  let allPassed = true;
-
-  // Test 1: T20 aim point should be in treble ring
-  const t20Aim = getAimPoint('T20');
-  const t20Radius = Math.sqrt(t20Aim.x ** 2 + t20Aim.y ** 2);
-  const t20InTrebleRing = t20Radius >= R_TREBLE_IN && t20Radius <= R_TREBLE_OUT;
-  tests.push({
-    name: 'T20 Aim Point',
-    passed: t20InTrebleRing,
-    details: `Aims at radius ${t20Radius.toFixed(4)}, treble ring is ${R_TREBLE_IN.toFixed(4)}-${R_TREBLE_OUT.toFixed(4)}`
-  });
-  if (!t20InTrebleRing) allPassed = false;
-
-  // Test 2: D20 aim point should be in double ring
-  const d20Aim = getAimPoint('D20');
-  const d20Radius = Math.sqrt(d20Aim.x ** 2 + d20Aim.y ** 2);
-  const d20InDoubleRing = d20Radius >= R_DOUBLE_IN && d20Radius <= R_DOUBLE_OUT;
-  tests.push({
-    name: 'D20 Aim Point',
-    passed: d20InDoubleRing,
-    details: `Aims at radius ${d20Radius.toFixed(4)}, double ring is ${R_DOUBLE_IN.toFixed(4)}-${R_DOUBLE_OUT.toFixed(4)}`
-  });
-  if (!d20InDoubleRing) allPassed = false;
-
-  // Test 3: Perfect throw at T20 should score T20
-  const t20Score = evaluateDartFromXY(t20Aim.x, t20Aim.y);
-  const t20ScoresCorrect = t20Score.label === 'T20' && t20Score.score === 60;
-  tests.push({
-    name: 'T20 Scoring',
-    passed: t20ScoresCorrect,
-    details: `Perfect T20 throw scores: ${t20Score.label} (${t20Score.score} pts)`
-  });
-  if (!t20ScoresCorrect) allPassed = false;
-
-  // Test 4: Perfect throw at D20 should score D20
-  const d20Score = evaluateDartFromXY(d20Aim.x, d20Aim.y);
-  const d20ScoresCorrect = d20Score.label === 'D20' && d20Score.score === 40;
-  tests.push({
-    name: 'D20 Scoring',
-    passed: d20ScoresCorrect,
-    details: `Perfect D20 throw scores: ${d20Score.label} (${d20Score.score} pts)`
-  });
-  if (!d20ScoresCorrect) allPassed = false;
-
-  // Test 5: Bull aim point should be at center
-  const bullAim = getAimPoint('DB');
-  const bullAtCenter = bullAim.x === 0 && bullAim.y === 0;
-  tests.push({
-    name: 'Bull Aim Point',
-    passed: bullAtCenter,
-    details: `Bull aims at (${bullAim.x}, ${bullAim.y}), should be (0, 0)`
-  });
-  if (!bullAtCenter) allPassed = false;
-
-  // Test 6: Dart at center should score DBull
-  const bullScore = evaluateDartFromXY(0, 0);
-  const bullScoresCorrect = bullScore.label === 'DBull' && bullScore.score === 50;
-  tests.push({
-    name: 'Bull Scoring',
-    passed: bullScoresCorrect,
-    details: `Center throw scores: ${bullScore.label} (${bullScore.score} pts)`
-  });
-  if (!bullScoresCorrect) allPassed = false;
-
-  // Test 7: Dart just beyond double ring should still score (as single)
-  // This verifies the bot knows the full scoring area extends beyond the double ring
-  const beyondDoubleRadius = (R_DOUBLE_OUT + R_BOARD) / 2; // Midpoint between double and board edge
-  const beyondDoubleScore = evaluateDartFromXY(0, beyondDoubleRadius);
-  const beyondDoubleScores = !beyondDoubleScore.offboard && beyondDoubleScore.score > 0;
-  tests.push({
-    name: 'Outer Scoring Area',
-    passed: beyondDoubleScores,
-    details: `Dart at radius ${beyondDoubleRadius.toFixed(4)} (beyond doubles, before edge) scores: ${beyondDoubleScore.label} (${beyondDoubleScore.score} pts)`
-  });
-  if (!beyondDoubleScores) allPassed = false;
-
-  // Test 8: Dart at board edge should still score
-  const edgeRadius = R_BOARD - 0.001; // Just inside board edge
-  const edgeScore = evaluateDartFromXY(0, edgeRadius);
-  const edgeScores = !edgeScore.offboard && edgeScore.score > 0;
-  tests.push({
-    name: 'Board Edge Scoring',
-    passed: edgeScores,
-    details: `Dart at radius ${edgeRadius.toFixed(4)} (near board edge ${R_BOARD}) scores: ${edgeScore.label} (${edgeScore.score} pts)`
-  });
-  if (!edgeScores) allPassed = false;
-
-  // Test 9: Dart beyond board edge should be a miss
-  const offBoardRadius = R_BOARD + 0.01;
-  const offBoardScore = evaluateDartFromXY(0, offBoardRadius);
-  const offBoardMisses = offBoardScore.offboard && offBoardScore.score === 0;
-  tests.push({
-    name: 'Off Board Detection',
-    passed: offBoardMisses,
-    details: `Dart at radius ${offBoardRadius.toFixed(4)} (beyond board ${R_BOARD}) correctly scores: ${offBoardScore.label} (${offBoardScore.score} pts)`
-  });
-  if (!offBoardMisses) allPassed = false;
-
-  return {
-    aligned: allPassed,
-    tests
-  };
-}
-
 // Export debug utilities
 export const DartBotDebug = {
   runCalibrationSimulation,
   getAimPoint,
   evaluateDartFromXY,
-  verifyCalibration,
   LEVEL_BASE_SIGMA,
   R_TREBLE_IN,
   R_TREBLE_OUT,
   R_DOUBLE_IN,
   R_DOUBLE_OUT,
   R_BULL_IN,
-  R_BULL_OUT,
-  R_BOARD
+  R_BULL_OUT
 };
