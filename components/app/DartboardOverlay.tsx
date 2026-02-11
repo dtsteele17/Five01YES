@@ -17,40 +17,54 @@ interface DartboardOverlayProps {
 }
 
 export function DartboardOverlay({ hits = [], className = '', showDebugRings = false }: DartboardOverlayProps) {
-  // Trimmed PNG: board circle diameter = container size, center = container center
-  // Normalized coords (-1..1) map directly to pixels
+  // PNG dartboard with black number ring on outside
+  // Board is 1.25x bigger on screen for better visibility
+  // Normalized coords (-1..1) map to pixels
+  // NOTE: Y-axis flip - bot engine uses Y-up (math coords), CSS uses Y-down (screen coords)
   const normalizedToPixel = (coord: number, size: number): number => {
     return (coord * 0.5 + 0.5) * size;
   };
 
   // Convert normalized radius to SVG percentage
+  // Board is 1.25x bigger, so scale rings accordingly
   const radiusToPercent = (radius: number): number => {
-    return radius * 50; // radius 1.0 = 50% of container
+    return radius * 50 * 1.25; // radius 1.0 = 62.5% of container (50% × 1.25)
   };
 
   const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
 
   return (
     <div className={`relative w-full ${className}`} style={{ aspectRatio: '1/1' }}>
-      <div className="relative w-full h-full">
-        {/* Trimmed dartboard PNG fills the square container */}
+      <div className="relative w-full h-full flex items-center justify-center overflow-visible">
+        {/* Dartboard PNG scaled to 1.25x for better visibility */}
         <img
           src={boardUrl}
           alt="Dartboard"
-          className="w-full h-full"
+          className="absolute"
           style={{
             objectFit: 'contain',
-            width: '100%',
-            height: '100%',
+            width: '125%',
+            height: '125%',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
           }}
         />
 
         {/* Debug rings overlay - Enhanced visibility */}
         {showDebugRings && (
           <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
+            className="absolute pointer-events-none"
             viewBox="0 0 100 100"
-            style={{ mixBlendMode: 'normal', opacity: 0.8 }}
+            style={{
+              mixBlendMode: 'normal',
+              opacity: 0.8,
+              width: '125%',
+              height: '125%',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
           >
             {/* Board edge (playable area) - Bright Green dashed */}
             <circle
@@ -117,8 +131,8 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               strokeWidth="0.6"
             />
             {/* Legend text */}
-            <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Board Edge</text>
-            <text x="2" y="14" fill="#ff0000" fontSize="4" fontWeight="bold">Doubles</text>
+            <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Playable Area</text>
+            <text x="2" y="14" fill="#ff0000" fontSize="4" fontWeight="bold">Doubles (inside black ring)</text>
             <text x="2" y="20" fill="#ffff00" fontSize="4" fontWeight="bold">Trebles</text>
             <text x="2" y="26" fill="#00ffff" fontSize="4" fontWeight="bold">Bulls</text>
           </svg>
@@ -131,7 +145,8 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
 
             if (hit.offboard) {
               // Offboard hits: project to edge with X marker
-              const angle = Math.atan2(hit.y, hit.x);
+              // FLIP Y-AXIS: bot uses Y-up (math), CSS uses Y-down (screen)
+              const angle = Math.atan2(-hit.y, hit.x);
               const edgeX = 1.15 * Math.cos(angle);
               const edgeY = 1.15 * Math.sin(angle);
 
@@ -178,8 +193,9 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
             }
 
             // On-board hits: map directly to dartboard position
+            // FLIP Y-AXIS: bot uses Y-up (math), CSS uses Y-down (screen)
             const pixelX = normalizedToPixel(hit.x, containerSize);
-            const pixelY = normalizedToPixel(hit.y, containerSize);
+            const pixelY = normalizedToPixel(-hit.y, containerSize);
 
             return (
               <div

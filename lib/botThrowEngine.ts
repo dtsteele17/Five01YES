@@ -94,38 +94,39 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 
 // === CALIBRATION CONSTANTS ===
 // These values are tuned to match the DARTBOARD.PNG asset in Supabase storage
-// and produce realistic averages for each skill level
-// 
+// The PNG has a BLACK NUMBER RING on the outside that is NOT part of the scoring area
+// The doubles are INSIDE the black ring
+//
 // DARTBOARD LAYOUT (from center to edge):
-// 1. Bullseye (inner red): 0 to ~6% of board radius = 50 points (double)
-// 2. Outer bull (green ring): ~6% to ~12% = 25 points (single)  
-// 3. Inner singles (black/cream): ~12% to ~55%
-// 4. TREBLE RING (inner red/green): ~55% to ~65% = 3x multiplier
-// 5. Outer singles (black/cream): ~65% to ~88%
-// 6. DOUBLE RING (outer red/green): ~88% to ~100% = 2x multiplier
-// 7. Number ring (outside scoring area)
+// 1. Bullseye (inner red): 0 to ~5.4% = 50 points (double bull)
+// 2. Outer bull (green ring): ~5.4% to ~10.8% = 25 points (single bull)
+// 3. Inner singles (black/cream): ~10.8% to ~46.8%
+// 4. TREBLE RING (inner red/green): ~46.8% to ~55.3% = 3x multiplier
+// 5. Outer singles (black/cream): ~55.3% to ~74.8%
+// 6. DOUBLE RING (outer red/green): ~74.8% to ~85% = 2x multiplier
+// 7. BLACK NUMBER RING (decorative, not scoring): ~85% to 100%
 
-export const R_BOARD = 1.0;        // Normalized board radius (scoring area)
+export const R_BOARD = 0.85;        // Playable board radius (doubles end here, black ring starts)
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
-// In the PNG: inner edge ~55% from center, outer edge ~65% from center
-export const R_TREBLE_IN = 0.55;    // Inner edge of treble ring
-export const R_TREBLE_OUT = 0.65;   // Outer edge of treble ring
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.60 (aim point)
+// Scaled to account for black ring: original × 0.85
+export const R_TREBLE_IN = 0.468;    // Inner edge of treble ring (was 0.55)
+export const R_TREBLE_OUT = 0.553;   // Outer edge of treble ring (was 0.65)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.51 (aim point)
 
-// === DOUBLE RING (OUTER scoring ring, at the edge) ===
-// The double ring is the OUTER red/green ring (at the edge of the board)
-// In the PNG: inner edge ~88% from center, outer edge ~100% from center  
-export const R_DOUBLE_IN = 0.88;    // Inner edge of double ring
-export const R_DOUBLE_OUT = 1.00;   // Outer edge of double ring (at scoring boundary)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.94 (aim point)
+// === DOUBLE RING (OUTER scoring ring, INSIDE black number ring) ===
+// The double ring is the OUTER red/green ring
+// CRITICAL: Doubles are INSIDE the black number ring, not at the edge
+// Scaled to account for black ring: original × 0.85
+export const R_DOUBLE_IN = 0.748;    // Inner edge of double ring (was 0.88)
+export const R_DOUBLE_OUT = 0.850;   // Outer edge of double ring (was 1.00)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.80 (aim point)
 
 // === BULL ===
-// Inner bull (red, double): ~0% to ~6.3%
-export const R_BULL_IN = 0.063;     // Inner bull radius (50 pts, counts as double)
-// Outer bull (green, single): ~6.3% to ~12.7%
-export const R_BULL_OUT = 0.127;    // Outer bull radius (25 pts, single)
+// Scaled to account for black ring: original × 0.85
+export const R_BULL_IN = 0.054;     // Inner bull radius (50 pts, was 0.063)
+export const R_BULL_OUT = 0.108;    // Outer bull radius (25 pts, was 0.127)
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
