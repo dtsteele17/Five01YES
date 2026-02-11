@@ -3212,6 +3212,62 @@ export default function QuickMatchRoomPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Opponent Forfeited Modal - Shows when opponent forfeits via database update */}
+      <AlertDialog open={showOpponentForfeitModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowOpponentForfeitModal(false);
+          router.push('/app/play');
+        }
+      }}>
+        <AlertDialogContent className="bg-slate-900 border-red-500/30">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-400 flex items-center gap-2">
+              <LogOut className="w-5 h-5" />
+              Opponent Forfeited
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              {opponentPlayer?.name || 'Your opponent'} has forfeited the match. You win!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => router.push('/app/play')} 
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              Return to Play
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Opponent Forfeited Signal Modal - Shows when opponent sends forfeit signal */}
+      <AlertDialog open={showOpponentForfeitSignalModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowOpponentForfeitSignalModal(false);
+          router.push('/app/play');
+        }
+      }}>
+        <AlertDialogContent className="bg-slate-900 border-red-500/30">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-400 flex items-center gap-2">
+              <LogOut className="w-5 h-5" />
+              Opponent Left
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              {opponentPlayer?.name || 'Your opponent'} has left the match. You win!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => router.push('/app/play')} 
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              Return to Play
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EditVisitModal
         open={showEditModal}
         onOpenChange={setShowEditModal}
@@ -3249,13 +3305,15 @@ export default function QuickMatchRoomPage() {
       )}
 
       {/* Coin Toss Modal - shows at the start of the match */}
-      {showCoinToss && room && profiles.length === 2 && (
+      {showCoinToss && room && profiles.length === 2 && currentUserId && (
         <CoinTossModal
           isOpen={showCoinToss}
           player1Name={profiles.find(p => p.user_id === room.player1_id)?.username || 'Player 1'}
           player2Name={profiles.find(p => p.user_id === room.player2_id)?.username || 'Player 2'}
           player1Id={room.player1_id}
           player2Id={room.player2_id}
+          currentUserId={currentUserId}
+          winnerId={room.coin_toss_winner_id}
           onComplete={handleCoinTossComplete}
         />
       )}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2 } from 'lucide-react';
 
 interface CoinTossModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface CoinTossModalProps {
   player2Name: string;
   player1Id: string;
   player2Id: string;
+  currentUserId: string;
+  winnerId?: string | null; // If provided, we're just showing the result (joiner view)
   onComplete: (winnerId: string) => void;
 }
 
@@ -19,19 +22,45 @@ export function CoinTossModal({
   player2Name,
   player1Id,
   player2Id,
+  currentUserId,
+  winnerId: predeterminedWinner,
   onComplete,
 }: CoinTossModalProps) {
+  const isPlayer1 = currentUserId === player1Id;
   const [isSpinning, setIsSpinning] = useState(false);
   const [result, setResult] = useState<'heads' | 'tails' | null>(null);
   const [winnerId, setWinnerId] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [rotation, setRotation] = useState(0);
 
+  // If winner is predetermined (from DB), we're the joiner - just show the result
+  const isShowingResultOnly = !!predeterminedWinner;
+
   useEffect(() => {
-    if (isOpen && !isSpinning && !showResult) {
+    if (!isOpen) return;
+    
+    if (isShowingResultOnly) {
+      // Joiner view - show the result that player1 determined
+      const isPlayer1Winner = predeterminedWinner === player1Id;
+      const selectedResult: 'heads' | 'tails' = isPlayer1Winner ? 'heads' : 'tails';
+      
+      setWinnerId(predeterminedWinner);
+      setResult(selectedResult);
+      setShowResult(true);
+      setRotation(360 * 5 + (isPlayer1Winner ? 0 : 180)); // Show final position
+      
+      // Auto-close after showing result
+      const timer = setTimeout(() => {
+        onComplete(predeterminedWinner!);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+    
+    // Player 1 view - run the coin toss
+    if (isPlayer1 && !isSpinning && !showResult) {
       startCoinToss();
     }
-  }, [isOpen]);
+  }, [isOpen, isShowingResultOnly, predeterminedWinner, isPlayer1]);
 
   const startCoinToss = () => {
     setIsSpinning(true);
@@ -46,26 +75,20 @@ export function CoinTossModal({
     const selectedResult: 'heads' | 'tails' = isPlayer1Winner ? 'heads' : 'tails';
     
     // Store result but DON'T set it in state yet - keep it hidden!
-    // We'll set these after animation completes
     const targetResult = selectedResult;
     const targetWinnerId = selectedWinnerId;
 
     // Start the spin animation
-    // One big spin that starts fast and slows down
-    const targetRotation = 360 * 5 + (isPlayer1Winner ? 0 : 180); // 5 full spins + land on correct side
+    const targetRotation = 360 * 5 + (isPlayer1Winner ? 0 : 180);
     
-    // Animate the rotation
-    const duration = 4000; // 4 seconds
+    const duration = 4000;
     const startTime = Date.now();
     const startRotation = 0;
     
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function: starts fast, slows down at the end (ease-out)
       const easeOut = 1 - Math.pow(1 - progress, 3);
-      
       const currentRotation = startRotation + (targetRotation * easeOut);
       setRotation(currentRotation);
       
@@ -210,7 +233,24 @@ export function CoinTossModal({
 
           {/* Status text - only shows winner AFTER spin stops */}
           <AnimatePresence mode="wait">
-            {isSpinning ? (
+            {isShowingResultOnly && !showResult ? (
+              // Joiner waiting for player 1 to complete toss
+              <motion.div
+                key="waiting"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center"
+              >
+                <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-3 animate-spin" />
+                <p className="text-emerald-400 text-xl font-bold">
+                  Waiting for {player1Name}...
+                </p>
+                <p className="text-slate-400 text-sm mt-2">
+                  They are tossing the coin
+                </p>
+              </motion.div>
+            ) : isSpinning ? (
               <motion.div
                 key="spinning"
                 initial={{ opacity: 0 }}
