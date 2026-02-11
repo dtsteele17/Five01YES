@@ -133,15 +133,35 @@ export const FORM_MIN = 0.85;
 export const FORM_MAX = 1.15;
 
 // Dartboard numbers in clockwise order starting from the top (20)
+// Standard dartboard layout: 20 is at 12 o'clock position
 export const DARTBOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
-// Segment angle (360 / 20 segments)
-const SEGMENT_ANGLE = (2 * Math.PI) / 20;
+// Segment angle (360 / 20 segments) = 18 degrees = π/10 radians
+const SEGMENT_ANGLE = (2 * Math.PI) / 20;  // 0.314 radians = 18°
 
-// Offset so that 20 is centered at top (90 degrees / π/2 radians)
-// The wedge for 20 spans from 81° to 99° (centered at 90°)
-const TWENTY_CENTER_ANGLE = Math.PI / 2;
-const ANGLE_OFFSET = TWENTY_CENTER_ANGLE - (SEGMENT_ANGLE / 2);
+// Angle offset to position 20 at the TOP (12 o'clock = 90° = π/2 radians in math coords with Y-up)
+// In the PNG/SVG visualizer:
+//   - 0° is at 3 o'clock (positive x)
+//   - Angles increase CLOCKWISE (standard SVG convention with Y-down)
+//   - 20 is centered at 12 o'clock (top)
+//   - The 20 wedge spans from 9° before top to 9° after top = 81° to 99°
+// 
+// In math coords with Y-up (used in this engine):
+//   - 0° is at 3 o'clock (positive x)  
+//   - Angles increase COUNTER-CLOCKWISE
+//   - Top (12 o'clock) is at 90° = π/2
+//
+// To get 20 at the top:
+//   - Index 0 (number 20) should map to angle π/2
+//   - Each subsequent index moves clockwise on the board
+//   - But in math coords (Y-up), clockwise means DECREASING angle
+//   - So angle = π/2 - (index * SEGMENT_ANGLE)
+//
+// This gives:
+//   - Index 0 (20): angle = π/2 = 90° (top) ✓
+//   - Index 1 (1): angle = 90° - 18° = 72° (top-right)
+//   - Index 5 (6): angle = 90° - 90° = 0° (right)
+const ANGLE_OFFSET = Math.PI / 2;  // 90° - puts 20 at top
 
 export interface DartResult {
   label: string;
@@ -226,8 +246,11 @@ export function getAimPoint(target: string): { x: number; y: number; ringMultipl
     return getAimPoint('T20'); // Default to T20
   }
 
-  // Calculate angle (counter-clockwise from positive x-axis, with 20 at top)
-  // 20 is at 90 degrees (π/2), subsequent numbers are clockwise
+  // Calculate angle for this number
+  // ANGLE_OFFSET = π/2 (90°) puts index 0 (number 20) at the top
+  // Numbers go clockwise around the board: 20, 1, 18, 4, ...
+  // In math coords with Y-up, clockwise = decreasing angle
+  // So we subtract (numberIndex * SEGMENT_ANGLE) from the offset
   const angle = ANGLE_OFFSET - (numberIndex * SEGMENT_ANGLE);
 
   // Determine radius based on ring
@@ -290,19 +313,26 @@ export function evaluateDartFromXY(x: number, y: number): {
     return { label: 'SBull', score: 25, isDouble: false, isTreble: false, offboard: false };
   }
 
-  // Calculate which wedge/segment
+  // Calculate which wedge/segment the dart landed in
+  // Math.atan2(y, x) returns angle in radians: 0 at positive x-axis, 
+  // positive values for counter-clockwise (with Y-up)
   const angle = Math.atan2(y, x);
   
-  // Normalize angle to 0-2π range
+  // Normalize angle to 0-2π range (0 to 360°)
   let normalizedAngle = angle;
   if (normalizedAngle < 0) normalizedAngle += 2 * Math.PI;
   
-  // Adjust angle so that 20 is centered at top
-  // 20 should be at π/2 (90 degrees)
-  let adjustedAngle = normalizedAngle - ANGLE_OFFSET;
-  if (adjustedAngle < 0) adjustedAngle += 2 * Math.PI;
+  // Adjust angle to find which dartboard segment
+  // ANGLE_OFFSET = π/2 (90°) is where number 20 is centered
+  // We add SEGMENT_ANGLE/2 to account for wedge width (each wedge is centered on its number)
+  // This puts the boundary between segments at the right offset
+  let adjustedAngle = ANGLE_OFFSET - normalizedAngle + (SEGMENT_ANGLE / 2);
   
-  // Find the segment index
+  // Normalize to 0-2π range
+  if (adjustedAngle < 0) adjustedAngle += 2 * Math.PI;
+  if (adjustedAngle >= 2 * Math.PI) adjustedAngle -= 2 * Math.PI;
+  
+  // Find the segment index (0-19)
   const segmentIndex = Math.floor(adjustedAngle / SEGMENT_ANGLE) % 20;
   const number = DARTBOARD_NUMBERS[segmentIndex];
 
@@ -336,6 +366,36 @@ export function evaluateDartFromXY(x: number, y: number): {
     isDouble: false, 
     isTreble: false, 
     offboard: false 
+  };
+}
+
+// === DARTBOARD VALIDATION ===
+
+/**
+ * Validate that the dartboard geometry is correct
+ * Returns diagnostic info for debugging
+ */
+export function validateDartboardGeometry(): {
+  number20: { aim: { x: number; y: number }; score: string };
+  number6: { aim: { x: number; y: number }; score: string };
+  number3: { aim: { x: number; y: number }; score: string };
+} {
+  // Test aiming at T20 (should be at top)
+  const t20Aim = getAimPoint('T20');
+  const t20Score = evaluateDartFromXY(t20Aim.x, t20Aim.y);
+  
+  // Test aiming at T6 (should be at right, 3 o'clock)
+  const t6Aim = getAimPoint('T6');
+  const t6Score = evaluateDartFromXY(t6Aim.x, t6Aim.y);
+  
+  // Test aiming at T3 (should be at bottom)
+  const t3Aim = getAimPoint('T3');
+  const t3Score = evaluateDartFromXY(t3Aim.x, t3Aim.y);
+  
+  return {
+    number20: { aim: t20Aim, score: t20Score.label },
+    number6: { aim: t6Aim, score: t6Score.label },
+    number3: { aim: t3Aim, score: t3Score.label },
   };
 }
 
