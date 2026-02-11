@@ -28,6 +28,7 @@ export interface RecordMatchInput {
     userId?: string;
     name: string;
     isBot: boolean;
+    botLevel?: number; // Bot target average (25, 35, 45, 55, 65, 75, 85, 95)
   };
   winner: 'user' | 'opponent';
   userStats: PlayerStats;
@@ -97,7 +98,7 @@ export async function recordMatchCompletion(input: RecordMatchInput): Promise<Re
       player2_legs_won: input.opponentStats.legsWon,
       opponent_id: input.opponent.userId || null,
       opponent_type: opponentType,
-      dartbot_level: input.opponent.isBot ? 3 : null,
+      dartbot_level: input.opponent.isBot ? (input.opponent.botLevel || 3) : null,
       user_avg: input.userStats.threeDartAvg,
       opponent_avg: input.opponentStats.threeDartAvg,
       user_first9_avg: input.userStats.first9Avg,
@@ -165,7 +166,7 @@ export async function recordMatchCompletion(input: RecordMatchInput): Promise<Re
       match_id: match.id,
       user_id: input.opponent.userId || null,
       is_bot: input.opponent.isBot,
-      bot_level: input.opponent.isBot ? 3 : null,
+      bot_level: input.opponent.isBot ? (input.opponent.botLevel || 3) : null,
       seat: 2,
       player_name: input.opponent.name,
       starting_score: parseInt(input.game),

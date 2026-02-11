@@ -28,6 +28,7 @@ interface MatchHistoryItem {
   visits_140_plus: number;
   visits_180: number;
   played_at: string;
+  bot_level?: number;
 }
 
 interface MatchHistoryListProps {
@@ -61,7 +62,7 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
           .from('match_history')
           .select(`
             *,
-            opponent:opponent_id (username)
+            opponent:opponent_id (username, avatar_url)
           `)
           .eq('user_id', targetUserId)
           .order('played_at', { ascending: false });
@@ -139,6 +140,14 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
     }
   };
 
+  const getMatchFormatLabel = (match: MatchHistoryItem) => {
+    if (match.match_format === 'dartbot') {
+      return match.bot_level ? `Bot (${match.bot_level})` : 'Bot';
+    }
+    // Capitalize first letter
+    return match.match_format ? match.match_format.charAt(0).toUpperCase() + match.match_format.slice(1) : 'Quick';
+  };
+
   return (
     <>
     <div className="space-y-3">
@@ -163,7 +172,7 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
                 <span className="text-slate-500">•</span>
                 <span className="text-slate-400 text-sm">{match.game_mode}</span>
                 <span className="text-slate-500">•</span>
-                <span className="text-slate-400 text-sm capitalize">{match.match_format || 'Quick'}</span>
+                <span className="text-slate-400 text-sm">{getMatchFormatLabel(match)}</span>
               </div>
               
               <div className="flex items-center gap-4 text-sm text-slate-500">

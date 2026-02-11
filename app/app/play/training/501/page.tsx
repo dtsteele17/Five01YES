@@ -550,7 +550,7 @@ export default function DartbotMatchPage() {
 
       const result = await recordMatchCompletion({
         matchType: 'dartbot', game: normalizedConfig.mode, startedAt: new Date(matchStartTime).toISOString(), endedAt: new Date().toISOString(),
-        opponent: { name: botName, isBot: true },
+        opponent: { name: botName, isBot: true, botLevel: config.botAverage },
         winner: matchWinner === 'player1' ? 'user' : 'opponent',
         userStats: userPlayerStats, opponentStats: opponentPlayerStats, matchFormat: config.bestOf,
       });
