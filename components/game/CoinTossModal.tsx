@@ -45,8 +45,10 @@ export function CoinTossModal({
     const selectedWinnerId = isPlayer1Winner ? player1Id : player2Id;
     const selectedResult: 'heads' | 'tails' = isPlayer1Winner ? 'heads' : 'tails';
     
-    setResult(selectedResult);
-    setWinnerId(selectedWinnerId);
+    // Store result but DON'T set it in state yet - keep it hidden!
+    // We'll set these after animation completes
+    const targetResult = selectedResult;
+    const targetWinnerId = selectedWinnerId;
 
     // Start the spin animation
     // One big spin that starts fast and slows down
@@ -70,13 +72,15 @@ export function CoinTossModal({
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Animation complete
+        // Animation complete - NOW reveal the result!
         setIsSpinning(false);
+        setResult(targetResult);
+        setWinnerId(targetWinnerId);
         setShowResult(true);
         
         // Auto-complete after showing result
         setTimeout(() => {
-          onComplete(selectedWinnerId);
+          onComplete(targetWinnerId);
         }, 3000);
       }
     };
@@ -96,29 +100,32 @@ export function CoinTossModal({
         </DialogHeader>
 
         <div className="flex flex-col items-center py-8">
-          {/* Player names on either side - Winner is HIGHLIGHTED */}
+          {/* Player names on either side - Winner is HIGHLIGHTED only after spin stops! */}
           <div className="flex items-center justify-between w-full mb-8 px-2">
             <motion.div 
               className={`text-center flex-1 p-4 rounded-xl transition-all duration-500 ${
-                result === 'heads' 
+                showResult && result === 'heads' 
                   ? 'bg-emerald-500/20 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20' 
-                  : 'opacity-40'
+                  : 'opacity-70'
               }`}
               animate={{ 
-                scale: result === 'heads' ? 1.05 : 1,
-                opacity: result === 'heads' ? 1 : 0.4
+                scale: showResult && result === 'heads' ? 1.05 : 1,
+                opacity: showResult && result === 'heads' ? 1 : 0.7
               }}
               transition={{ duration: 0.5 }}
             >
               <motion.div 
-                className="text-xl font-black text-emerald-400"
-                animate={{ scale: result === 'heads' ? [1, 1.2, 1] : 1 }}
-                transition={{ duration: 0.5, repeat: result === 'heads' ? 2 : 0 }}
+                className="text-xl font-black text-white"
+                animate={{ 
+                  scale: showResult && result === 'heads' ? [1, 1.2, 1] : 1,
+                  color: showResult && result === 'heads' ? '#34d399' : '#ffffff'
+                }}
+                transition={{ duration: 0.5, repeat: showResult && result === 'heads' ? 2 : 0 }}
               >
                 {player1Name}
               </motion.div>
-              <div className="text-sm font-bold text-emerald-300 mt-1">HEADS</div>
-              {result === 'heads' && (
+              <div className="text-sm font-bold text-slate-400 mt-1">HEADS</div>
+              {showResult && result === 'heads' && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -133,25 +140,28 @@ export function CoinTossModal({
             
             <motion.div 
               className={`text-center flex-1 p-4 rounded-xl transition-all duration-500 ${
-                result === 'tails' 
+                showResult && result === 'tails' 
                   ? 'bg-emerald-500/20 border-2 border-emerald-400 shadow-lg shadow-emerald-500/20' 
-                  : 'opacity-40'
+                  : 'opacity-70'
               }`}
               animate={{ 
-                scale: result === 'tails' ? 1.05 : 1,
-                opacity: result === 'tails' ? 1 : 0.4
+                scale: showResult && result === 'tails' ? 1.05 : 1,
+                opacity: showResult && result === 'tails' ? 1 : 0.7
               }}
               transition={{ duration: 0.5 }}
             >
               <motion.div 
-                className="text-xl font-black text-emerald-400"
-                animate={{ scale: result === 'tails' ? [1, 1.2, 1] : 1 }}
-                transition={{ duration: 0.5, repeat: result === 'tails' ? 2 : 0 }}
+                className="text-xl font-black text-white"
+                animate={{ 
+                  scale: showResult && result === 'tails' ? [1, 1.2, 1] : 1,
+                  color: showResult && result === 'tails' ? '#34d399' : '#ffffff'
+                }}
+                transition={{ duration: 0.5, repeat: showResult && result === 'tails' ? 2 : 0 }}
               >
                 {player2Name}
               </motion.div>
-              <div className="text-sm font-bold text-emerald-300 mt-1">TAILS</div>
-              {result === 'tails' && (
+              <div className="text-sm font-bold text-slate-400 mt-1">TAILS</div>
+              {showResult && result === 'tails' && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -198,7 +208,7 @@ export function CoinTossModal({
             <div className="absolute inset-0 rounded-full bg-yellow-400 blur-2xl opacity-30 -z-10" />
           </div>
 
-          {/* Status text */}
+          {/* Status text - only shows winner AFTER spin stops */}
           <AnimatePresence mode="wait">
             {isSpinning ? (
               <motion.div
@@ -227,18 +237,26 @@ export function CoinTossModal({
                 <motion.div 
                   className="text-5xl font-black text-emerald-400 mb-2"
                   initial={{ scale: 0.5 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+                  animate={{ scale: [0.5, 1.2, 1] }}
+                  transition={{ duration: 0.5 }}
                 >
-                  {result?.toUpperCase()}!
+                  {winnerName}
                 </motion.div>
                 <motion.p 
-                  className="text-white text-xl"
+                  className="text-emerald-300 text-xl font-bold"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <span className="font-bold text-emerald-300">{winnerName}</span> throws first
+                  WINS THE TOSS!
+                </motion.p>
+                <motion.p 
+                  className="text-slate-400 text-sm mt-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  Starting match...
                 </motion.p>
               </motion.div>
             ) : null}

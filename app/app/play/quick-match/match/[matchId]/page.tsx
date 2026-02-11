@@ -784,6 +784,16 @@ function ScoringPanel({
   doubleOut: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus input when scoring panel mounts (when it becomes user's turn)
+  useEffect(() => {
+    // Small delay to ensure render is complete
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const visitTotal = currentDarts.reduce((sum, d) => sum + d.value, 0);
   const previewRemaining = currentRemaining - visitTotal;
@@ -844,6 +854,7 @@ function ScoringPanel({
       <div className="mb-4">
         <div className="flex gap-2">
           <Input
+            ref={inputRef}
             type="number"
             placeholder="Type score (0-180)"
             value={scoreInput}
@@ -1889,6 +1900,17 @@ export default function QuickMatchRoomPage() {
     isBust: boolean;
   } | null>(null);
 
+  // Helper to get darts options based on score
+  const getDartsOptions = (checkoutScore: number, isBust: boolean) => {
+    if (isBust) return [1, 2, 3]; // Busts can be 1-3 darts
+    
+    // For checkouts:
+    if (checkoutScore >= 141) return [3]; // Must use 3 darts
+    if (checkoutScore >= 110) return [2, 3]; // 2 or 3 darts possible
+    if (checkoutScore > 50) return [2, 3]; // 2 or 3 darts
+    return [1, 2, 3]; // Lower scores can be any
+  };
+
   const handleInputScoreSubmit = async () => {
     console.log('[TYPED SCORE] Submit clicked, scoreInput:', scoreInput);
     
@@ -1931,12 +1953,50 @@ export default function QuickMatchRoomPage() {
     const isBust = newRemaining < 0 || newRemaining === 1;
     const isCheckout = newRemaining === 0;
     
-    // If it's a BUST or CHECKOUT, ask how many darts were thrown
-    // Otherwise (normal score), assume 3 darts
+    // If it's a BUST or CHECKOUT, check how many darts options there are
     if (isBust || isCheckout) {
+      const dartsOptions = getDartsOptions(score, isBust);
+      
+      // If only 1 option, auto-pick it and don't show dialog
+      if (dartsOptions.length === 1) {
+        const dartsThrown = dartsOptions[0];
+        console.log('[TYPED SCORE] Auto-picking', dartsThrown, 'darts (only option)');
+        
+        // Create darts array
+        const darts: Dart[] = [];
+        if (isBust) {
+          // Bust: all misses
+          for (let i = 0; i < dartsThrown; i++) {
+            darts.push({
+              type: 'single', number: 0, value: 0, multiplier: 1,
+              label: 'Miss', score: 0, is_double: false
+            });
+          }
+          await submitScore(0, true, darts, false, true);
+        } else {
+          // Checkout: last dart is the checkout
+          for (let i = 0; i < dartsThrown; i++) {
+            const isLastDart = i === dartsThrown - 1;
+            darts.push({
+              type: isLastDart ? 'double' : 'single',
+              number: isLastDart ? score : 0,
+              value: isLastDart ? score : 0,
+              multiplier: isLastDart ? 2 : 1,
+              label: isLastDart ? `D${score/2}` : 'Miss',
+              score: isLastDart ? score : 0,
+              is_double: isLastDart
+            });
+          }
+          await submitScoreWithCheckoutDetails(score, darts, dartsThrown, 1);
+        }
+        setScoreInput('');
+        return;
+      }
+      
+      // Multiple options - show dialog
       console.log('[TYPED SCORE] Bust or Checkout detected, showing darts dialog');
       setPendingCheckoutInfo({ 
-        score: isBust ? 0 : score, // Busts record 0 score
+        score: isBust ? 0 : score,
         remainingBefore: currentRemaining,
         isBust 
       });
@@ -1954,8 +2014,8 @@ export default function QuickMatchRoomPage() {
       { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }
     ];
     
-    await submitScore(score, false, normalDarts, false, true); // 3 darts, not bust, not checkout
-    setScoreInput(''); // Clear input after submit
+    await submitScore(score, false, normalDarts, false, true);
+    setScoreInput('');
   };
 
   // Handle checkout/bust details submission from dialog
@@ -2938,80 +2998,80 @@ export default function QuickMatchRoomPage() {
         </Button>
       </div>
 
-      {/* Main Content - Two cameras side by side + game panel */}
+      {/* Main Content - Single camera (switches with turn) + game panel */}
       <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
-        {/* LEFT: Both Cameras Stacked */}
-        <div className="flex flex-col gap-2">
-          {/* My Camera (Large) */}
-          <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col">
-            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-slate-800/80">
-              <span className="text-xs text-emerald-400 font-semibold">You ({myPlayer.name})</span>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
-                  {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
-                </Button>
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleMic}>
-                  {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                </Button>
-              </div>
-            </div>
-            <div className="flex-1 relative bg-slate-900">
-              {isCameraOn ? (
-                <video 
-                  ref={liveVideoRef} 
-                  autoPlay 
-                  playsInline 
-                  muted 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-600">
-                  <div className="text-center">
-                    <CameraOff className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <span className="text-sm">Camera Off</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-          
-          {/* Opponent Camera (Small) */}
-          <Card className="bg-slate-800/50 border-white/10 overflow-hidden h-48 flex flex-col">
-            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-slate-800/80">
-              <span className="text-xs text-blue-400 font-semibold">Opponent ({opponentPlayer.name})</span>
-              <div className="flex gap-1">
-                {callStatus === 'connected' ? (
-                  <span className="text-xs text-emerald-400 flex items-center gap-1">
-                    <Wifi className="w-3 h-3" /> Live
-                  </span>
-                ) : callStatus === 'connecting' ? (
-                  <span className="text-xs text-amber-400 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Connecting...
-                  </span>
+        {/* LEFT: Single Camera - Shows whoever's turn it is */}
+        <div className="flex flex-col">
+          <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
+            <div className={`flex items-center justify-between p-3 border-b border-white/5 ${isMyTurn ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
+              <span className={`text-sm font-bold ${isMyTurn ? 'text-emerald-400' : 'text-blue-400'}`}>
+                {isMyTurn ? `🎯 YOUR TURN - ${myPlayer.name}` : `⏳ ${opponentPlayer.name}'S TURN`}
+              </span>
+              <div className="flex gap-2">
+                {isMyTurn ? (
+                  <>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
+                      {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleMic}>
+                      {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </Button>
+                  </>
                 ) : (
-                  <span className="text-xs text-slate-500">Not connected</span>
+                  <>
+                    {callStatus === 'connected' ? (
+                      <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
+                        <Wifi className="w-3 h-3" /> Connected
+                      </span>
+                    ) : callStatus === 'connecting' ? (
+                      <span className="text-xs text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Connecting...
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">Not connected</span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
             <div className="flex-1 relative bg-slate-900">
-              {webrtc.remoteStream ? (
-                <video 
-                  ref={(el) => {
-                    if (el && webrtc.remoteStream) {
-                      el.srcObject = webrtc.remoteStream;
-                    }
-                  }}
-                  autoPlay 
-                  playsInline 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-600">
-                  <div className="text-center">
-                    <UserPlus className="w-10 h-10 mx-auto mb-1 opacity-50" />
-                    <span className="text-xs">Waiting for opponent...</span>
+              {isMyTurn ? (
+                // My turn - show MY camera (local stream)
+                isCameraOn ? (
+                  <video 
+                    ref={liveVideoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                    <CameraOff className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium">Your camera is off</span>
+                    <span className="text-sm text-slate-500 mt-2">Click the camera button to turn it on</span>
                   </div>
-                </div>
+                )
+              ) : (
+                // Opponent's turn - show THEIR camera (remote stream)
+                webrtc.remoteStream ? (
+                  <video 
+                    ref={(el) => {
+                      if (el && webrtc.remoteStream) {
+                        el.srcObject = webrtc.remoteStream;
+                      }
+                    }}
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                    <UserPlus className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium">Waiting for opponent...</span>
+                    <span className="text-sm text-slate-500 mt-2">Their camera will appear when they connect</span>
+                  </div>
+                )
               )}
             </div>
           </Card>
