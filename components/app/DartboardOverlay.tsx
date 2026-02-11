@@ -74,7 +74,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_BOARD)}
               fill="none"
               stroke="#00ff00"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
               strokeDasharray="3,2"
             />
             {/* Double ring outer - Bright Red */}
@@ -84,7 +84,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_DOUBLE_OUT)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
             />
             {/* Double ring inner - Bright Red */}
             <circle
@@ -93,7 +93,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_DOUBLE_IN)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
             />
             {/* Treble ring outer - Bright Yellow */}
             <circle
@@ -102,7 +102,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_TREBLE_OUT)}
               fill="none"
               stroke="#ffff00"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
             />
             {/* Treble ring inner - Bright Yellow */}
             <circle
@@ -111,7 +111,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_TREBLE_IN)}
               fill="none"
               stroke="#ffff00"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
             />
             {/* Bull outer - Bright Cyan */}
             <circle
@@ -120,7 +120,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_BULL_OUT)}
               fill="none"
               stroke="#00ffff"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
             />
             {/* Bull inner - Bright Cyan */}
             <circle
@@ -129,7 +129,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_BULL_IN)}
               fill="none"
               stroke="#00ffff"
-              strokeWidth="0.8"
+              strokeWidth="0.4"
             />
             {/* Legend text */}
             <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Playable Area</text>
