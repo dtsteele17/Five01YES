@@ -22,6 +22,12 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
   // Calibration rings also scaled to 1.8x (180%) to match PNG
   // Normalized coords (-1..1) map to pixels
   // NOTE: Y-axis flip - bot engine uses Y-up (math coords), CSS uses Y-down (screen coords)
+  //
+  // ⚠️ DARTBOT CALIBRATION: The debug rings drawn below (R_BOARD, R_DOUBLE_IN/OUT, R_TREBLE_IN/OUT, R_BULL_IN/OUT)
+  // are imported from botThrowEngine.ts and represent the EXACT same values the dartbot uses for:
+  // - Aiming at targets (getAimPoint)
+  // - Scoring dart hits (evaluateDartFromXY)
+  // The visual calibration lines ARE the dartbot's targeting system.
   const normalizedToPixel = (coord: number, size: number): number => {
     return (coord * 0.5 + 0.5) * size;
   };
