@@ -1099,12 +1099,13 @@ export default function QuickMatchRoomPage() {
     }
   }, [newRematchRoomId, matchId]);
 
-  // WebRTC
+  // WebRTC - only connect after coin toss is complete
   const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
     isMyTurn: isMyTurnForWebRTC,
+    coinTossComplete: coinTossCompleted,
   });
   const {
     localStream,
@@ -1153,6 +1154,11 @@ export default function QuickMatchRoomPage() {
   // Auto-start camera when match is active and both players are present
   useEffect(() => {
     const initCamera = async () => {
+      // Only auto-start after coin toss is complete
+      if (!coinTossCompleted) {
+        console.log('[CAMERA] Waiting for coin toss to complete before starting camera');
+        return;
+      }
       if (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
         console.log('[CAMERA] Auto-starting camera for active match');
         cameraInitAttempted.current = true;
@@ -1167,7 +1173,7 @@ export default function QuickMatchRoomPage() {
       }
     };
     initCamera();
-  }, [room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+  }, [room?.status, room?.player2_id, isCameraOn, toggleCamera, coinTossCompleted]);
 
 
   cleanupMatchRef.current = () => {

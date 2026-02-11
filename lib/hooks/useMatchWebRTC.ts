@@ -7,6 +7,7 @@ export interface UseMatchWebRTCProps {
   roomId: string | null;
   myUserId: string | null;
   isMyTurn: boolean; // Only for UI display
+  coinTossComplete?: boolean; // Wait for coin toss before connecting
 }
 
 export interface UseMatchWebRTCReturn {
@@ -48,7 +49,8 @@ export interface UseMatchWebRTCReturn {
 export function useMatchWebRTC({
   roomId,
   myUserId,
-  isMyTurn
+  isMyTurn,
+  coinTossComplete = true
 }: UseMatchWebRTCProps): UseMatchWebRTCReturn {
   const supabase = createClient();
 
@@ -84,7 +86,8 @@ export function useMatchWebRTC({
     myUserId,
     opponentUserId,
     isPlayer1,
-    isMyTurn: isMyTurn ? 'ME' : 'OPPONENT'
+    isMyTurn: isMyTurn ? 'ME' : 'OPPONENT',
+    coinTossComplete
   });
 
   // ========== FETCH OPPONENT FROM MATCH_ROOMS ==========
@@ -173,6 +176,11 @@ export function useMatchWebRTC({
     }
     if (!opponentUserId) {
       console.log('[WEBRTC QS] Waiting for opponentUserId');
+      return;
+    }
+    
+    if (!coinTossComplete) {
+      console.log('[WEBRTC QS] Waiting for coin toss to complete');
       return;
     }
 
@@ -343,7 +351,7 @@ export function useMatchWebRTC({
         console.log('[WEBRTC QS] Peer connection closed');
       }
     };
-  }, [roomId, myUserId, opponentUserId, isPlayer1]);
+  }, [roomId, myUserId, opponentUserId, isPlayer1, coinTossComplete]);
 
   // ========== SIGNALING SUBSCRIPTION ==========
   useEffect(() => {
@@ -358,6 +366,11 @@ export function useMatchWebRTC({
     }
     if (!opponentUserId) {
       console.log('[WEBRTC QS] Subscription waiting for opponentUserId');
+      return;
+    }
+    
+    if (!coinTossComplete) {
+      console.log('[WEBRTC QS] Subscription waiting for coin toss');
       return;
     }
 
@@ -546,7 +559,7 @@ export function useMatchWebRTC({
       }
       setIsSubscribed(false);
     };
-  }, [roomId, myUserId, opponentUserId, isPlayer1]);
+  }, [roomId, myUserId, opponentUserId, isPlayer1, coinTossComplete]);
 
   // Refs to prevent duplicate operations
   const offerCreatedRef = useRef(false);
