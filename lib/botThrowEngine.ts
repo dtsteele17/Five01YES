@@ -95,23 +95,37 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 // === CALIBRATION CONSTANTS ===
 // These values are tuned to match the DARTBOARD.PNG asset in Supabase storage
 // and produce realistic averages for each skill level
+// 
+// DARTBOARD LAYOUT (from center to edge):
+// 1. Bullseye (inner red): 0 to ~6% of board radius = 50 points (double)
+// 2. Outer bull (green ring): ~6% to ~12% = 25 points (single)  
+// 3. Inner singles (black/cream): ~12% to ~55%
+// 4. TREBLE RING (inner red/green): ~55% to ~65% = 3x multiplier
+// 5. Outer singles (black/cream): ~65% to ~88%
+// 6. DOUBLE RING (outer red/green): ~88% to ~100% = 2x multiplier
+// 7. Number ring (outside scoring area)
 
-export const R_BOARD = 0.86;        // Playable radius (excludes number ring)
+export const R_BOARD = 1.0;        // Normalized board radius (scoring area)
 
-// Ring calibration - adjusted to match PNG dartboard proportions
-// Treble ring: inner edge at ~54% of board, outer at ~64% (thinner ring)
-export const TREBLE_CAL = 0.96;     // 4% inward adjustment (was 0.975)
-export const R_TREBLE_IN = R_BOARD * (0.54 * TREBLE_CAL);   // ~0.446
-export const R_TREBLE_OUT = R_BOARD * (0.64 * TREBLE_CAL);  // ~0.529
+// === TREBLE RING (INNER scoring ring, closer to bull) ===
+// The treble ring is the INNER red/green ring
+// In the PNG: inner edge ~55% from center, outer edge ~65% from center
+export const R_TREBLE_IN = 0.55;    // Inner edge of treble ring
+export const R_TREBLE_OUT = 0.65;   // Outer edge of treble ring
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.60 (aim point)
 
-// Double ring: inner edge at ~88% of board, outer at ~98% (at edge of scoring area)
-export const DOUBLE_CAL = 0.96;     // 4% inward adjustment (was 0.985)
-export const R_DOUBLE_IN = R_BOARD * (0.88 * DOUBLE_CAL);   // ~0.725
-export const R_DOUBLE_OUT = R_BOARD * (0.98 * DOUBLE_CAL);  // ~0.808
+// === DOUBLE RING (OUTER scoring ring, at the edge) ===
+// The double ring is the OUTER red/green ring (at the edge of the board)
+// In the PNG: inner edge ~88% from center, outer edge ~100% from center  
+export const R_DOUBLE_IN = 0.88;    // Inner edge of double ring
+export const R_DOUBLE_OUT = 1.00;   // Outer edge of double ring (at scoring boundary)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.94 (aim point)
 
-// Bull proportions
-export const R_BULL_IN = R_BOARD * 0.038;   // Inner bull (25) ~0.033
-export const R_BULL_OUT = R_BOARD * 0.095;  // Outer bull (single 25) ~0.082
+// === BULL ===
+// Inner bull (red, double): ~0% to ~6.3%
+export const R_BULL_IN = 0.063;     // Inner bull radius (50 pts, counts as double)
+// Outer bull (green, single): ~6.3% to ~12.7%
+export const R_BULL_OUT = 0.127;    // Outer bull radius (25 pts, single)
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
@@ -336,8 +350,18 @@ export function evaluateDartFromXY(x: number, y: number): {
   const segmentIndex = Math.floor(adjustedAngle / SEGMENT_ANGLE) % 20;
   const number = DARTBOARD_NUMBERS[segmentIndex];
 
-  // Ring detection (check from outside in for correct priority)
-  // Double ring
+  // === RING DETECTION ===
+  // Check from OUTSIDE to INSIDE (correct priority order)
+  // 
+  // DARTBOARD STRUCTURE (outer to inner):
+  // 1. DOUBLE ring (outer red/green) - at the EDGE of the board
+  // 2. Outer singles (black/cream)
+  // 3. TREBLE ring (inner red/green) - closer to the bull
+  // 4. Inner singles (black/cream)
+  // 5. Bull area
+  
+  // DOUBLE ring - OUTER scoring ring (red/green at the edge)
+  // Radius: 0.88 to 1.0 (outer 12% of board)
   if (radius >= R_DOUBLE_IN && radius <= R_DOUBLE_OUT) {
     return { 
       label: `D${number}`, 
@@ -348,7 +372,8 @@ export function evaluateDartFromXY(x: number, y: number): {
     };
   }
   
-  // Treble ring
+  // TREBLE ring - INNER scoring ring (red/green closer to bull)
+  // Radius: 0.55 to 0.65 (inner scoring ring)
   if (radius >= R_TREBLE_IN && radius <= R_TREBLE_OUT) {
     return { 
       label: `T${number}`, 
@@ -359,7 +384,8 @@ export function evaluateDartFromXY(x: number, y: number): {
     };
   }
 
-  // Single area (inner or outer)
+  // SINGLE area (anywhere between the rings - inner or outer singles)
+  // Black and cream areas, scores face value
   return { 
     label: `S${number}`, 
     score: number, 
@@ -371,18 +397,37 @@ export function evaluateDartFromXY(x: number, y: number): {
 
 // === DARTBOARD VALIDATION ===
 
+export interface RingCalibration {
+  name: string;
+  innerRadius: number;
+  outerRadius: number;
+  centerRadius: number;
+  color: string;  // 'red' or 'green' for scoring rings
+}
+
+export const RING_CALIBRATION: RingCalibration[] = [
+  { name: 'Bull (Inner)', innerRadius: 0, outerRadius: R_BULL_IN, centerRadius: R_BULL_IN / 2, color: 'red' },
+  { name: 'Outer Bull', innerRadius: R_BULL_IN, outerRadius: R_BULL_OUT, centerRadius: (R_BULL_IN + R_BULL_OUT) / 2, color: 'green' },
+  { name: 'Treble (INNER ring)', innerRadius: R_TREBLE_IN, outerRadius: R_TREBLE_OUT, centerRadius: R_TREBLE_CENTER, color: 'red/green' },
+  { name: 'Double (OUTER ring)', innerRadius: R_DOUBLE_IN, outerRadius: R_DOUBLE_OUT, centerRadius: R_DOUBLE_CENTER, color: 'red/green' },
+];
+
 /**
  * Validate that the dartboard geometry is correct
  * Returns diagnostic info for debugging
  */
 export function validateDartboardGeometry(): {
-  number20: { aim: { x: number; y: number }; score: string };
-  number6: { aim: { x: number; y: number }; score: string };
-  number3: { aim: { x: number; y: number }; score: string };
+  rings: RingCalibration[];
+  number20: { aim: { x: number; y: number }; score: string; ring: string };
+  number6: { aim: { x: number; y: number }; score: string; ring: string };
+  number3: { aim: { x: number; y: number }; score: string; ring: string };
+  trebleTest: { aim: { x: number; y: number }; score: string };
+  doubleTest: { aim: { x: number; y: number }; score: string };
 } {
-  // Test aiming at T20 (should be at top)
+  // Test aiming at T20 (should be at top, in treble ring)
   const t20Aim = getAimPoint('T20');
   const t20Score = evaluateDartFromXY(t20Aim.x, t20Aim.y);
+  const t20Radius = Math.sqrt(t20Aim.x ** 2 + t20Aim.y ** 2);
   
   // Test aiming at T6 (should be at right, 3 o'clock)
   const t6Aim = getAimPoint('T6');
@@ -392,11 +437,125 @@ export function validateDartboardGeometry(): {
   const t3Aim = getAimPoint('T3');
   const t3Score = evaluateDartFromXY(t3Aim.x, t3Aim.y);
   
+  // Test treble ring hit
+  const trebleAim = getAimPoint('T20');
+  const trebleScore = evaluateDartFromXY(trebleAim.x, trebleAim.y);
+  
+  // Test double ring hit
+  const doubleAim = getAimPoint('D20');
+  const doubleScore = evaluateDartFromXY(doubleAim.x, doubleAim.y);
+  
   return {
-    number20: { aim: t20Aim, score: t20Score.label },
-    number6: { aim: t6Aim, score: t6Score.label },
-    number3: { aim: t3Aim, score: t3Score.label },
+    rings: RING_CALIBRATION,
+    number20: { 
+      aim: t20Aim, 
+      score: t20Score.label, 
+      ring: t20Radius >= R_TREBLE_IN && t20Radius <= R_TREBLE_OUT ? 'TREBLE ✓' : 
+            t20Radius >= R_DOUBLE_IN && t20Radius <= R_DOUBLE_OUT ? 'DOUBLE' : 'OTHER'
+    },
+    number6: { aim: t6Aim, score: t6Score.label, ring: 'right side' },
+    number3: { aim: t3Aim, score: t3Score.label, ring: 'bottom' },
+    trebleTest: { aim: trebleAim, score: trebleScore.label },
+    doubleTest: { aim: doubleAim, score: doubleScore.label },
   };
+}
+
+/**
+ * Test ring calibration at multiple positions
+ * Use this to verify the dartbot correctly identifies rings
+ */
+export function testRingCalibration(): {
+  bull: { hit: DartResult; expected: string };
+  outerBull: { hit: DartResult; expected: string };
+  innerSingle: { hit: DartResult; expected: string };
+  treble20: { hit: DartResult; expected: string };
+  treble1: { hit: DartResult; expected: string };
+  outerSingle: { hit: DartResult; expected: string };
+  double20: { hit: DartResult; expected: string };
+  double1: { hit: DartResult; expected: string };
+  offBoard: { hit: DartResult; expected: string };
+} {
+  // Helper to simulate a perfect throw (no scatter)
+  const perfectThrow = (target: string): DartResult => {
+    const aim = getAimPoint(target);
+    const result = evaluateDartFromXY(aim.x, aim.y);
+    return { ...result, aimTarget: target, x: aim.x, y: aim.y };
+  };
+  
+  // Test each ring with precise aim points
+  const tests = {
+    // Bullseye (center) - INNER RED area
+    bull: {
+      hit: perfectThrow('DB'),
+      expected: 'DBull'
+    },
+    // Outer bull - GREEN ring around bullseye
+    outerBull: {
+      hit: perfectThrow('SB'),
+      expected: 'SBull'
+    },
+    // Inner single (between bull and treble) - BLACK/CREAM
+    innerSingle: {
+      hit: (() => {
+        const r = (R_BULL_OUT + R_TREBLE_IN) / 2;
+        const x = 0;  // At top (20)
+        const y = r;
+        const result = evaluateDartFromXY(x, y);
+        return { ...result, aimTarget: 'test', x, y };
+      })(),
+      expected: 'S20'
+    },
+    // Treble 20 (top) - INNER RED/GREEN ring
+    treble20: {
+      hit: perfectThrow('T20'),
+      expected: 'T20'
+    },
+    // Treble 1 (next to 20, clockwise) - INNER RED/GREEN ring
+    treble1: {
+      hit: perfectThrow('T1'),
+      expected: 'T1'
+    },
+    // Outer single (between treble and double) - BLACK/CREAM
+    outerSingle: {
+      hit: (() => {
+        const r = (R_TREBLE_OUT + R_DOUBLE_IN) / 2;
+        const x = 0;  // At top (20)
+        const y = r;
+        const result = evaluateDartFromXY(x, y);
+        return { ...result, aimTarget: 'test', x, y };
+      })(),
+      expected: 'S20'
+    },
+    // Double 20 (top edge) - OUTER RED/GREEN ring
+    double20: {
+      hit: perfectThrow('D20'),
+      expected: 'D20'
+    },
+    // Double 1 - OUTER RED/GREEN ring
+    double1: {
+      hit: perfectThrow('D1'),
+      expected: 'D1'
+    },
+    // Off the board
+    offBoard: {
+      hit: (() => {
+        const result = evaluateDartFromXY(1.5, 0);  // Beyond board edge
+        return { ...result, aimTarget: 'test', x: 1.5, y: 0 };
+      })(),
+      expected: 'MISS'
+    }
+  };
+  
+  // Log results for debugging
+  console.log('[DARTBOARD CALIBRATION TEST]');
+  console.log('  Ring structure: Bull (center) → Outer Bull → Inner Single → TREBLE (inner ring) → Outer Single → DOUBLE (outer ring)');
+  Object.entries(tests).forEach(([name, test]) => {
+    const passed = test.hit.label === test.expected || 
+                   (test.expected === 'MISS' && test.hit.offboard);
+    console.log(`  ${name}: ${test.hit.label} (expected: ${test.expected}) ${passed ? '✓' : '✗'}`);
+  });
+  
+  return tests;
 }
 
 // === SKILL AND THROWING ===
