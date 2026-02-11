@@ -484,6 +484,11 @@ export default function DartbotMatchPage() {
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
+    const bustCount = allPlayerVisits.filter(v => v.isBust).length;
+    if (bustCount > 0) {
+      console.log(`[Stats] ${playerName}: ${totalDarts} total darts (${bustCount} bust visits included), ${totalScored} scored, avg: ${threeDartAverage.toFixed(2)}`);
+    }
+    
     // First 9 calculation (only from valid visits)
     let first9Score = 0, first9Darts = 0;
     for (const visit of playerVisits.slice(0, 3)) {
@@ -770,6 +775,8 @@ export default function DartbotMatchPage() {
       
       if (!visualVisit.bust) {
         setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
+      } else {
+        console.log(`[DartBot] BUST: ${dartsThrown} darts thrown, counted toward total`);
       }
       setPlayer2MatchDartsThrown(prev => prev + dartsThrown);
       setPlayer2Score(visualVisit.newRemaining);
