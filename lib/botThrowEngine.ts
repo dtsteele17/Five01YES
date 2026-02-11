@@ -111,22 +111,22 @@ export const R_BOARD = 0.60;        // Actual visible board edge in PNG
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
-// Much narrower and moved inward for precise calibration
-export const R_TREBLE_IN = 0.34;    // Inner edge of treble ring (moved in)
-export const R_TREBLE_OUT = 0.38;   // Outer edge of treble ring (width: 0.04 - very narrow)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.36 (aim point)
+// Adjusted to match PNG dartboard dimensions more accurately
+export const R_TREBLE_IN = 0.28;    // Inner edge of treble ring (brought in significantly)
+export const R_TREBLE_OUT = 0.32;   // Outer edge of treble ring (width: 0.04)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.30 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
-// Slightly narrower for more precise calibration
-export const R_DOUBLE_IN = 0.485;   // Inner edge of double ring
-export const R_DOUBLE_OUT = 0.535;  // Outer edge of double ring (width: 0.05)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.51 (aim point)
+// Adjusted to match PNG dartboard dimensions
+export const R_DOUBLE_IN = 0.44;    // Inner edge of double ring (brought in)
+export const R_DOUBLE_OUT = 0.49;   // Outer edge of double ring (width: 0.05)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.465 (aim point)
 
 // === BULL ===
-// Scaled proportionally to match PNG (factor of ~0.60)
-export const R_BULL_IN = 0.035;     // Inner bull radius (50 pts)
-export const R_BULL_OUT = 0.070;    // Outer bull radius (25 pts)
+// Adjusted to match PNG dartboard dimensions
+export const R_BULL_IN = 0.030;     // Inner bull radius (50 pts) - slightly smaller
+export const R_BULL_OUT = 0.062;    // Outer bull radius (25 pts) - slightly smaller
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
