@@ -3073,67 +3073,82 @@ export default function QuickMatchRoomPage() {
               </div>
             </div>
             <div className="flex-1 relative bg-slate-900">
-              {/* Single video element - hook handles switching between local/remote based on turn */}
-              <video 
-                ref={liveVideoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Overlay when no stream available */}
-              {(!localStream && !remoteStream) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 p-6 bg-slate-900">
-                  {isMyTurn ? (
-                    // My turn but no camera
-                    <>
-                      <CameraOff className="w-16 h-16 mb-4 opacity-50" />
-                      <span className="text-lg font-medium mb-2">Your camera is off</span>
-                      <span className="text-sm text-slate-500 mb-4 text-center">
-                        It's your turn! Enable your camera so your opponent can see you.
-                      </span>
+              {/* MY TURN: Show MY local camera */}
+              {isMyTurn ? (
+                localStream ? (
+                  <video 
+                    ref={(el) => {
+                      if (el && localStream) {
+                        el.srcObject = localStream;
+                        el.play().catch(() => {});
+                      }
+                    }}
+                    autoPlay 
+                    playsInline 
+                    muted 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                    <CameraOff className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium mb-2">Your camera is off</span>
+                    <span className="text-sm text-slate-500 mb-4 text-center">
+                      It's your turn! Enable your camera so your opponent can see you.
+                    </span>
+                    <Button 
+                      onClick={toggleCamera}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Enable Camera
+                    </Button>
+                  </div>
+                )
+              ) : (
+                /* OPPONENT'S TURN: Show THEIR remote camera */
+                remoteStream ? (
+                  <video 
+                    ref={(el) => {
+                      if (el && remoteStream) {
+                        el.srcObject = remoteStream;
+                        el.play().catch(() => {});
+                      }
+                    }}
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                    <UserPlus className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium mb-2">
+                      {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${opponentPlayer.name}...`}
+                    </span>
+                    <span className="text-sm text-slate-500 text-center mb-4">
+                      {callStatus === 'failed' 
+                        ? 'Video connection failed. This may be due to firewall or network restrictions.'
+                        : "It's their turn. Their camera will appear when they enable it."
+                      }
+                    </span>
+                    {callStatus === 'failed' && (
                       <Button 
-                        onClick={toggleCamera}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                        onClick={forceTurnAndRestart}
+                        variant="outline"
+                        className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 mb-2"
                       >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Enable Camera
+                        <Loader2 className="w-4 h-4 mr-2" />
+                        Retry with TURN Relay
                       </Button>
-                    </>
-                  ) : (
-                    // Opponent's turn, waiting for their stream
-                    <>
-                      <UserPlus className="w-16 h-16 mb-4 opacity-50" />
-                      <span className="text-lg font-medium mb-2">
-                        {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${opponentPlayer.name}...`}
-                      </span>
-                      <span className="text-sm text-slate-500 text-center mb-4">
-                        {callStatus === 'failed' 
-                          ? 'Video connection failed. This may be due to firewall or network restrictions.'
-                          : "It's their turn. Their camera will appear when they enable it."
-                        }
-                      </span>
-                      {callStatus === 'failed' && (
-                        <Button 
-                          onClick={forceTurnAndRestart}
-                          variant="outline"
-                          className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 mb-2"
-                        >
-                          <Loader2 className="w-4 h-4 mr-2" />
-                          Retry with TURN Relay
-                        </Button>
-                      )}
-                      {!isCameraOn && callStatus !== 'failed' && (
-                        <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                          <span className="text-sm text-amber-400">
-                            ⚠️ You should also enable your camera for your turn
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                    )}
+                    {!isCameraOn && callStatus !== 'failed' && (
+                      <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <span className="text-sm text-amber-400">
+                          ⚠️ You should also enable your camera for your turn
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
               )}
             </div>
           </Card>
