@@ -174,6 +174,7 @@ export function subscribeSignals(
         schema: 'public',
         table: 'match_signals',
         filter: `room_id=eq.${roomId}`
+        // Note: Realtime doesn't support multiple filters, so we filter to_user_id in JS
       },
       async (payload) => {
         const signal = payload.new as any;

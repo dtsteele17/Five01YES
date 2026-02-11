@@ -64,6 +64,7 @@ export function useMatchWebRTC({
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [opponentCameraOn, setOpponentCameraOn] = useState(false);
+  const [opponentReady, setOpponentReady] = useState(false);
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -497,6 +498,12 @@ export function useMatchWebRTC({
         console.log('[WEBRTC QS] 🔄 Received reconnect request - resetting offerCreatedRef');
         offerCreatedRef.current = false;
       }
+      
+      // Player 2 sends ready signal - Player 1 receives it
+      if (state.ready === true && isPlayer1) {
+        console.log('[WEBRTC QS] ✅ Opponent (Player 2) is ready');
+        setOpponentReady(true);
+      }
     };
 
     // Subscribe to signals
@@ -510,6 +517,12 @@ export function useMatchWebRTC({
     subscriptionCleanupRef.current = cleanup;
     setIsSubscribed(true);
     console.log('[WEBRTC QS] ✅ Subscription active');
+    
+    // Player 2 sends ready signal to Player 1
+    if (!isPlayer1 && roomId && myUserId && opponentUserId) {
+      console.log('[WEBRTC QS] 📢 Sending ready signal to Player 1');
+      sendSignal(roomId, myUserId, opponentUserId, 'state', { ready: true });
+    }
 
     return () => {
       if (subscriptionCleanupRef.current) {
@@ -545,7 +558,8 @@ export function useMatchWebRTC({
       hasLocalStream: !!localStream,
       isSubscribed,
       offerCreated: offerCreatedRef.current,
-      opponentCameraOn
+      opponentCameraOn,
+      opponentReady
     });
 
     if (!isPlayer1) {
@@ -567,6 +581,12 @@ export function useMatchWebRTC({
       console.log('[WEBRTC QS] Subscription not ready yet');
       return;
     }
+    
+    // Wait for Player 2 to be ready (subscribed) before creating first offer
+    if (!opponentReady && !opponentCameraOn) {
+      console.log('[WEBRTC QS] Waiting for Player 2 to be ready...');
+      return;
+    }
 
     // CRITICAL: Prevent duplicate offer creation
     if (offerCreatedRef.current) {
@@ -579,6 +599,22 @@ export function useMatchWebRTC({
       if (!pc) {
         console.log('[WEBRTC QS] No peer connection in createOffer');
         return;
+      }
+
+      // Handle stuck state - rollback if we have local offer but no answer
+      if (pc.signalingState === 'have-local-offer') {
+        console.log('[WEBRTC QS] Stuck in have-local-offer, rolling back...');
+        try {
+          await pc.setLocalDescription({type: 'rollback'});
+          console.log('[WEBRTC QS] ✅ Rolled back to stable');
+        } catch (e) {
+          console.error('[WEBRTC QS] Rollback failed:', e);
+          // Create new peer connection
+          pc.close();
+          peerConnectionRef.current = null;
+          offerCreatedRef.current = false;
+          return;
+        }
       }
 
       // Double-check signaling state
@@ -622,7 +658,7 @@ export function useMatchWebRTC({
     const timer = setTimeout(createOffer, 1000);
     return () => clearTimeout(timer);
 
-  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId, isSubscribed, opponentCameraOn]);
+  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId, isSubscribed, opponentCameraOn, opponentReady]);
 
   // ========== CAMERA CONTROLS ==========
   
