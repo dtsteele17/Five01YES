@@ -65,6 +65,7 @@ export interface VisitResult {
   bust: boolean;
   finished: boolean;
   newRemaining: number;
+  bustReason?: string;
 }
 
 interface AimTarget {
@@ -85,37 +86,38 @@ const CALIBRATION_MAX_ADJUSTMENT = 0.03; // Max 3% adjustment per update (0.97-1
 
 // Sigma values for realistic scatter (tuned for each level)
 // Higher levels = tighter grouping, lower levels = wider spread
+// Tuned to achieve target 3-dart averages with realistic variance
 const LEVEL_BASE_SIGMA: Record<number, number> = {
-  95: 0.050,  // Elite precision
-  85: 0.065,  // Professional level
-  75: 0.080,  // Strong player
-  65: 0.095,  // Above average
-  55: 0.110,  // Average player
-  45: 0.130,  // Below average
-  35: 0.150,  // Beginner
-  25: 0.180,  // Novice
+  95: 0.055,  // Elite precision - ~95 avg (tight grouping, frequent T20/T19)
+  85: 0.075,  // Professional level - ~85 avg (good T20s, occasional misses)
+  75: 0.095,  // Strong player - ~75 avg (decent trebles, more singles)
+  65: 0.120,  // Above average - ~65 avg (mix of trebles and singles)
+  55: 0.145,  // Average player - ~55 avg (fewer trebles, more big singles)
+  45: 0.175,  // Below average - ~45 avg (mostly singles, some trebles)
+  35: 0.210,  // Beginner - ~35 avg (many singles, occasional treble)
+  25: 0.250,  // Novice - ~25 avg (very scattered, lots of singles/misses)
 };
 
 const DOUBLE_MISS_PROBABILITY: Record<number, number> = {
-  95: 0.15,
-  85: 0.22,
-  75: 0.30,
-  65: 0.40,
-  55: 0.50,
-  45: 0.60,
-  35: 0.72,
-  25: 0.85,
+  95: 0.18,  // Elite: 82% hit double when aiming
+  85: 0.28,  // Pro: 72% hit double
+  75: 0.38,  // Strong: 62% hit double
+  65: 0.50,  // Above avg: 50% hit double
+  55: 0.62,  // Average: 38% hit double
+  45: 0.75,  // Below avg: 25% hit double
+  35: 0.85,  // Beginner: 15% hit double
+  25: 0.92,  // Novice: 8% hit double
 };
 
 const OFFBOARD_BASE_PROBABILITY: Record<number, number> = {
-  95: 0.000,
-  85: 0.002,
-  75: 0.005,
-  65: 0.010,
-  55: 0.018,
-  45: 0.030,
-  35: 0.048,
-  25: 0.075,
+  95: 0.001,  // Elite: almost no misses
+  85: 0.005,  // Pro: very few misses
+  75: 0.012,  // Strong: occasional miss
+  65: 0.025,  // Above avg: some misses
+  55: 0.045,  // Average: regular misses
+  45: 0.080,  // Below avg: frequent misses
+  35: 0.120,  // Beginner: many misses
+  25: 0.180,  // Novice: very frequent misses
 };
 
 // === COMPREHENSIVE CHECKOUT TABLE (170 down to 2) ===
@@ -307,9 +309,9 @@ function getOffboardProbability(level: number): number {
  * Calculate calibrated sigma to maintain target average over time
  *
  * Adjusts sigma (accuracy) based on rolling average performance:
- * - If performing above target by >10 points: increase sigma (worse accuracy)
- * - If performing below target by >10 points: decrease sigma (better accuracy)
- * - Adjustments are small (max 3%) to avoid scripted feeling
+ * - If performing above target by >5 points: increase sigma (worse accuracy)
+ * - If performing below target by >5 points: decrease sigma (better accuracy)
+ * - Adjustments are small (max 5%) to avoid scripted feeling
  * - Scores still come from real hits via evaluateDartFromXY()
  *
  * @param baseSigma - Base scatter value for this level
@@ -322,8 +324,8 @@ function calculateCalibratedSigma(
   tracker: BotPerformanceTracker | null,
   level: number
 ): number {
-  // Need at least 3 visits to calibrate
-  if (!tracker || tracker.recentVisits.length < 3) {
+  // Need at least 2 visits to calibrate
+  if (!tracker || tracker.recentVisits.length < 2) {
     return baseSigma;
   }
 
@@ -331,23 +333,25 @@ function calculateCalibratedSigma(
   const target = level;
   const difference = recentAverage - target;
 
-  // Only adjust if difference is more than threshold (10 points)
-  if (Math.abs(difference) <= CALIBRATION_THRESHOLD) {
+  // Tighter threshold for better calibration (5 points instead of 10)
+  if (Math.abs(difference) <= 5) {
     return baseSigma; // Performing close enough to target
   }
 
-  // Calculate small adjustment based on how far off we are
+  // Calculate adjustment based on how far off we are
   // If recentAverage > target: increase sigma (make worse)
   // If recentAverage < target: decrease sigma (make better)
   const adjustmentDirection = difference > 0 ? 1 : -1;
   const adjustmentMagnitude = Math.min(
-    Math.abs(difference) / target * 0.5, // Scale based on % difference
-    CALIBRATION_MAX_ADJUSTMENT // Cap at 3%
+    Math.abs(difference) / target * 0.8, // Scale based on % difference
+    0.05 // Cap at 5%
   );
 
   const adjustment = 1.0 + (adjustmentDirection * adjustmentMagnitude);
 
-  return baseSigma * adjustment;
+  // Clamp sigma to reasonable bounds
+  const adjustedSigma = baseSigma * adjustment;
+  return Math.max(0.04, Math.min(0.35, adjustedSigma));
 }
 
 export function updatePerformanceTracker(
@@ -604,142 +608,145 @@ export function simulateDart(
   };
 }
 
+/**
+ * Get the checkout target for a given remaining score
+ * Returns the first dart of the checkout route, or null if no checkout available
+ */
 function getCheckoutTarget(remaining: number, doubleOut: boolean): string | null {
   if (!doubleOut) return null;
-
-  if (remaining === 50) return 'BULL';
-  if (remaining === 40) return 'D20';
-  if (remaining === 38) return 'D19';
-  if (remaining === 36) return 'D18';
-  if (remaining === 34) return 'D17';
-  if (remaining === 32) return 'D16';
-  if (remaining === 30) return 'D15';
-  if (remaining === 28) return 'D14';
-  if (remaining === 26) return 'D13';
-  if (remaining === 24) return 'D12';
-  if (remaining === 22) return 'D11';
-  if (remaining === 20) return 'D10';
-  if (remaining === 18) return 'D9';
-  if (remaining === 16) return 'D8';
-  if (remaining === 14) return 'D7';
-  if (remaining === 12) return 'D6';
-  if (remaining === 10) return 'D5';
-  if (remaining === 8) return 'D4';
-  if (remaining === 6) return 'D3';
-  if (remaining === 4) return 'D2';
-  if (remaining === 2) return 'D1';
-
+  
+  // Check if we have a checkout in the table
+  if (CHECKOUT_TABLE[remaining]) {
+    return CHECKOUT_TABLE[remaining][0];
+  }
+  
+  // Scores that can't be checked out
+  const impossibleScores = [159, 162, 163, 165, 166, 168, 169];
+  if (impossibleScores.includes(remaining)) {
+    return null;
+  }
+  
+  // Direct double finishes (2-40, even numbers)
   if (remaining >= 2 && remaining <= 40 && remaining % 2 === 0) {
     return `D${remaining / 2}`;
   }
-
-  if (remaining === 3) return 'S1';
-  if (remaining === 5) return 'S1';
-  if (remaining === 7) return 'S3';
-  if (remaining === 9) return 'S1';
-
-  if (remaining >= 41 && remaining <= 60) {
-    const setup = remaining - 32;
-    if (setup >= 1 && setup <= 20) {
-      return `S${setup}`;
-    }
-  }
-
-  if (remaining >= 61 && remaining <= 110) {
-    const afterTriple = remaining - 60;
-    if (afterTriple % 2 === 0 && afterTriple >= 2 && afterTriple <= 40) {
-      return 'T20';
-    }
-    return 'T19';
-  }
-
-  if (remaining >= 111 && remaining <= 170) {
-    const afterT20 = remaining - 60;
-    if (afterT20 % 2 === 0 && afterT20 >= 2 && afterT20 <= 60) {
-      return 'T20';
-    }
-    const afterT19 = remaining - 57;
-    if (afterT19 % 2 === 0 && afterT19 >= 2 && afterT19 <= 60) {
-      return 'T19';
-    }
-    return 'T20';
-  }
-
+  
+  // Bull finish
+  if (remaining === 50) return 'BULL';
+  
   return null;
 }
 
 /**
+ * Check if a score requires a double to finish (checkout attempt)
+ */
+function isCheckoutAttempt(remaining: number, doubleOut: boolean): boolean {
+  if (!doubleOut) return remaining <= 60; // Single out: any score <= 60 can finish
+  
+  // Double out: must finish on double or bull
+  // Valid checkout range is 2-170, excluding impossible scores
+  const impossibleScores = [159, 162, 163, 165, 166, 168, 169];
+  return remaining >= 2 && remaining <= 170 && !impossibleScores.includes(remaining);
+}
+
+/**
  * Choose aim target based on remaining score and skill level
- * Adds realistic variety: sometimes T19, low levels aim at singles
+ * Realistic patterns: T20 preference, T19 as secondary, singles for low levels
  */
 function chooseAimTarget(remaining: number, doubleOut: boolean, level: number): string {
-  // Special handling for 50 remaining - sometimes go for bull
+  // === CHECKOUT LOGIC ===
+  // Must finish on a double (or bull) when doubleOut is enabled
+  if (doubleOut && remaining <= 170) {
+    // Check if we have a direct checkout route
+    if (CHECKOUT_TABLE[remaining]) {
+      const route = CHECKOUT_TABLE[remaining];
+      return route[0]; // First dart of checkout route
+    }
+    
+    // No direct checkout - need to set up
+    // Aim to leave a good double
+    const goodDoubles = [40, 32, 36, 24, 20, 16, 8, 4, 2];
+    for (const d of goodDoubles) {
+      const needed = remaining - d;
+      if (needed >= 60 && needed <= 60) return 'T20';
+      if (needed >= 57 && needed <= 59) return 'T19';
+      if (needed >= 54 && needed <= 56) return 'T18';
+      if (needed >= 51 && needed <= 53) return 'T17';
+    }
+  }
+  
+  // Special handling for 50 remaining (Bull or setup)
   if (remaining === 50 && doubleOut) {
-    // Higher levels more likely to go for bull
-    const bullProbability = level >= 75 ? 0.5 : level >= 55 ? 0.3 : 0.15;
+    const bullProbability = level >= 75 ? 0.6 : level >= 55 ? 0.35 : 0.15;
     if (Math.random() < bullProbability) {
       return 'BULL'; // Go for DBull finish
     }
-    // Otherwise set up D20 or D16
-    return Math.random() < 0.5 ? 'S10' : 'S18';
+    return Math.random() < 0.5 ? 'S10' : 'S18'; // Setup for next visit
   }
-
-  // Checkout range - aim at specific finishes
-  if (remaining <= 170 && doubleOut) {
-    const checkoutTarget = getCheckoutTarget(remaining, doubleOut);
-    if (checkoutTarget) {
-      return checkoutTarget;
-    }
-  }
-
-  // Scoring mode (>170 or no checkout available)
+  
+  // === SCORING MODE ===
+  // Above checkout range - score heavily
   if (remaining > 170) {
-    // Add variety to targeting
     const rand = Math.random();
-
-    // Low levels sometimes aim at big singles instead of trebles
-    if (level <= 35 && rand < 0.25) {
-      return 'S20'; // Aim at single 20
-    }
-
-    // Occasionally switch to T19 for variety (10-20% of the time)
-    if (rand < 0.15) {
+    
+    // Low levels (25-35) often aim at big singles
+    if (level <= 35) {
+      if (rand < 0.40) return 'S20';
+      if (rand < 0.65) return 'S19';
+      if (rand < 0.80) return 'S18';
+      if (rand < 0.90) return 'T20'; // Occasional treble attempt
       return 'T19';
     }
-
-    // Most of the time, aim at T20 (main scoring target)
-    return 'T20';
+    
+    // Mid levels (45-55) mix singles and trebles
+    if (level <= 55) {
+      if (rand < 0.15) return 'S20';
+      if (rand < 0.25) return 'S19';
+      if (rand < 0.35) return 'T19'; // T19 as alternative
+      return 'T20'; // Mostly T20
+    }
+    
+    // Higher levels mostly go for trebles
+    if (rand < 0.20) return 'T19'; // 20% T19 for variety
+    if (rand < 0.05 && level >= 75) return 'T14'; // Occasional T14 for pros
+    return 'T20'; // Main target
   }
-
-  // Setup shots - try to leave good doubles
-  const goodLeaves = [40, 32, 36, 24, 20, 16];
-  for (const leave of goodLeaves) {
+  
+  // === SETUP SHOTS (61-170) ===
+  // Try to leave a finish
+  const setupTargets = [
+    { leave: 40, target: 'T20' }, // Leave D20
+    { leave: 32, target: 'T20' }, // Leave D16
+    { leave: 36, target: 'T19' }, // Leave D18
+    { leave: 24, target: 'T18' }, // Leave D12
+    { leave: 50, target: 'T20' }, // Leave Bull
+  ];
+  
+  for (const { leave, target } of setupTargets) {
     const needed = remaining - leave;
     if (needed >= 57 && needed <= 60) {
-      return 'T20';
-    } else if (needed >= 51 && needed <= 56) {
-      return 'T19';
-    } else if (needed >= 45 && needed <= 50) {
-      return 'T17';
-    } else if (needed >= 39 && needed <= 44) {
-      return 'T15';
+      return needed === 60 ? 'T20' : needed === 57 ? 'T19' : 'T18';
     }
   }
-
-  // General scoring based on remaining
+  
+  // General scoring in setup range
   if (remaining >= 100) {
-    // Add T19 variety
-    return Math.random() < 0.15 ? 'T19' : 'T20';
+    return Math.random() < 0.20 ? 'T19' : 'T20';
   }
-  if (remaining >= 80) return 'T19';
-  if (remaining >= 60) return 'T17';
-  if (remaining >= 40) return 'T15';
-
+  if (remaining >= 80) return Math.random() < 0.25 ? 'T18' : 'T19';
+  if (remaining >= 60) return Math.random() < 0.20 ? 'T15' : 'T17';
+  
+  // Low scores - aim at singles to set up
+  if (remaining >= 41) {
+    const single = Math.ceil((remaining - 40) / 2);
+    if (single >= 1 && single <= 20) return `S${single}`;
+  }
+  
   return 'S20';
 }
 
 function isDoubleTarget(target: string): boolean {
-  return target.startsWith('D') || target === 'BULL';
+  return target.startsWith('D') || target === 'BULL' || target === 'DBull';
 }
 
 /**
@@ -753,44 +760,78 @@ export function planBotTurn(
   botSkill: number,
   dartsLeft: number = 3
 ): string[] {
+  // Impossible checkout scores (cannot be finished with double-out)
+  const impossibleScores = [159, 162, 163, 165, 166, 168, 169];
+  
   // If no double-out, just score normally
-  if (!doubleOut && remaining > 170) {
+  if (!doubleOut && remaining > 60) {
+    // Mix targeting based on skill level
+    if (botSkill <= 35) {
+      // Low skill: often aim at singles
+      return Array(dartsLeft).fill(Math.random() < 0.6 ? 'S20' : 'T20');
+    }
     return Array(dartsLeft).fill('T20');
   }
+  
+  // Without double out, can finish on any score <= 60
+  if (!doubleOut && remaining <= 60) {
+    if (remaining === 50) return ['BULL'];
+    // Aim at single to finish
+    return [`S${remaining}`];
+  }
 
-  // Check if we have a checkout available
-  if (remaining <= 170 && CHECKOUT_TABLE[remaining]) {
+  // Check if we have a checkout available (and it's not an impossible score)
+  if (doubleOut && remaining <= 170 && !impossibleScores.includes(remaining) && CHECKOUT_TABLE[remaining]) {
     const route = CHECKOUT_TABLE[remaining];
     // Return only as many darts as we have left
     return route.slice(0, dartsLeft);
   }
+  
+  // Impossible checkout - set up for next visit
+  if (doubleOut && impossibleScores.includes(remaining)) {
+    // Leave a good double for next time
+    if (remaining > 50) return ['T20']; // Score to get under 50
+    return ['S20']; // Just score something
+  }
 
   // No direct checkout - play for setup
-  // Try to leave a good number
-  const goodLeaves = [40, 32, 36, 24, 20, 16, 50, 60];
+  // Try to leave a good double
+  const goodLeaves = [40, 32, 36, 24, 20, 16, 8]; // Popular doubles
 
   for (const leave of goodLeaves) {
     const needed = remaining - leave;
+    if (needed <= 0) continue;
 
-    // Can we get there in the darts we have?
-    if (needed === 60 && dartsLeft >= 1) return ['T20'];
-    if (needed === 57 && dartsLeft >= 1) return ['T19'];
-    if (needed === 54 && dartsLeft >= 1) return ['T18'];
-    if (needed === 51 && dartsLeft >= 1) return ['T17'];
+    // Single dart to reach this leave
+    if (dartsLeft >= 1) {
+      if (needed === 60) return ['T20'];
+      if (needed === 57) return ['T19'];
+      if (needed === 54) return ['T18'];
+      if (needed === 51) return ['T17'];
+      if (needed === 48) return ['T16'];
+      if (needed === 45) return ['T15'];
+      if (needed >= 1 && needed <= 20) return [`S${needed}`];
+    }
 
     // Two-dart setups
-    if (needed >= 100 && needed <= 120 && dartsLeft >= 2) {
-      return ['T20', 'T20']; // Leave something around 40
+    if (needed <= 120 && dartsLeft >= 2) {
+      if (needed === 120) return ['T20', 'S20'];
+      if (needed === 114) return ['T20', 'S14'];
+      if (needed === 100) return ['T20', 'S20'];
     }
 
     // Three-dart setups
-    if (needed >= 140 && needed <= 180 && dartsLeft >= 3) {
+    if (needed <= 180 && dartsLeft >= 3) {
       return ['T20', 'T20', 'T20'];
     }
   }
 
   // Default: score heavily
   if (remaining > 170) {
+    // Lower levels sometimes aim at singles
+    if (botSkill <= 35 && Math.random() < 0.3) {
+      return Array(dartsLeft).fill('S20');
+    }
     return Array(dartsLeft).fill('T20');
   }
 
@@ -812,8 +853,9 @@ export function replanAfterDart(
 }
 
 /**
- * Simulate a full visit (up to 3 darts)
+ * Simulate a full visit (exactly 3 darts, or fewer if checkout achieved)
  * Bot uses intelligent checkout planning with adaptive replanning after each dart
+ * Enforces double-out rules: must finish on a double (or bull)
  */
 export function simulateVisit({
   level,
@@ -834,6 +876,7 @@ export function simulateVisit({
   let currentRemaining = remaining;
   let finished = false;
   let bust = false;
+  let bustReason = '';
 
   // Initial plan for all 3 darts
   let plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
@@ -849,7 +892,7 @@ export function simulateVisit({
 
   for (let i = 0; i < 3; i++) {
     // Get the target for this dart from the plan
-    const aimTarget = plannedTargets[i] || 'T20'; // Fallback to T20 if plan doesn't cover this dart
+    const aimTarget = plannedTargets[i] || 'T20';
     const isDoubleAttempt = doubleOut && isDoubleTarget(aimTarget);
 
     if (debug) {
@@ -866,42 +909,51 @@ export function simulateVisit({
       console.log(`  Dart ${i + 1}: Hit ${dart.label} (scored: ${dart.score}, new remaining: ${newRemaining})`);
     }
 
-    // Check for finish or bust
+    // === CHECKOUT LOGIC ===
     if (newRemaining === 0) {
       if (doubleOut) {
+        // MUST finish on a double or bull
         if (dart.isDouble) {
           finished = true;
           currentRemaining = 0;
           if (debug) console.log('  ✅ CHECKOUT! (Double finish)');
           break;
         } else {
+          // Hit single instead of double - BUST!
           bust = true;
+          bustReason = 'Must finish on a double';
           if (debug) console.log('  ❌ BUST! (Finished on single, not double)');
           break;
         }
       } else {
+        // Single out - any finish is valid
         finished = true;
         currentRemaining = 0;
         if (debug) console.log('  ✅ CHECKOUT!');
         break;
       }
     } else if (newRemaining === 1) {
+      // Can't finish on 1 with double out
       bust = true;
+      bustReason = 'Cannot finish on 1';
       if (debug) console.log('  ❌ BUST! (Left on 1)');
       break;
     } else if (newRemaining < 0) {
+      // Overshot
       bust = true;
+      bustReason = 'Overshot';
       if (debug) console.log('  ❌ BUST! (Went below 0)');
       break;
     } else {
+      // Valid score - continue
       currentRemaining = newRemaining;
 
-      // ADAPTIVE REPLANNING: Dart didn't land where we aimed - recalculate plan for remaining darts
+      // ADAPTIVE REPLANNING: Recalculate plan for remaining darts
       const dartsLeft = 3 - (i + 1);
       if (dartsLeft > 0) {
         plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
         if (debug && dart.label !== aimTarget) {
-          console.log(`  🔄 Replan: Missed ${aimTarget}, hit ${dart.label}. New plan for ${dartsLeft} darts: ${plannedTargets.slice(0, dartsLeft)}`);
+          console.log(`  🔄 Replan: Missed ${aimTarget}, hit ${dart.label}. New plan: ${plannedTargets.slice(0, dartsLeft)}`);
         }
       }
     }
@@ -915,7 +967,8 @@ export function simulateVisit({
       visitTotal,
       bust: true,
       finished: false,
-      newRemaining: remaining,
+      newRemaining: remaining, // Return to original score on bust
+      bustReason,
     };
   }
 

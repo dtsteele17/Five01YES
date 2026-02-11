@@ -273,6 +273,12 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Vi
   const botVisits = currentLegVisits.filter(v => v.player === 'player2').sort((a, b) => b.timestamp - a.timestamp);
   const maxVisits = Math.max(myVisits.length, botVisits.length);
 
+  const formatDartLabel = (dart: any) => {
+    if (!dart) return '-';
+    if (dart.label === 'MISS' || dart.label === 'DBull' || dart.label === 'SBull') return dart.label;
+    return dart.label;
+  };
+
   return (
     <div className="h-full flex flex-col">
       <h3 className="text-sm font-semibold text-white mb-2">Visit History - Leg {currentLeg}</h3>
@@ -289,26 +295,58 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Vi
               <div key={i} className="grid grid-cols-2 gap-2 py-1 border-b border-white/5 text-sm">
                 <div>{myVisit ? (
                   <div className="bg-slate-800/50 rounded p-1.5">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-500">#{myVisits.length - i}</span>
-                      <span className={`font-bold text-emerald-400`}>{myVisit.score}</span>
+                      <span className={`font-bold text-emerald-400 text-lg`}>{myVisit.score}</span>
                     </div>
+                    {/* Show individual darts */}
+                    {myVisit.darts && myVisit.darts.length > 0 && (
+                      <div className="flex gap-1 mt-1 mb-1">
+                        {myVisit.darts.map((dart, idx) => (
+                          <span key={idx} className={`text-xs px-1.5 py-0.5 rounded ${
+                            dart.is_double ? 'bg-red-500/30 text-red-300' :
+                            dart.multiplier === 3 ? 'bg-amber-500/30 text-amber-300' :
+                            'bg-slate-700 text-gray-300'
+                          }`}>
+                            {formatDartLabel(dart)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500">→ {myVisit.remainingScore}</div>
-                    {myVisit.isBust && <span className="text-xs text-red-400 font-bold">BUST</span>}
+                    {myVisit.isBust && (
+                      <span className="text-xs text-red-400 font-bold" title={myVisit.bustReason}>BUST</span>
+                    )}
                     {myVisit.isCheckout && <span className="text-xs text-emerald-400 font-bold">CHECKOUT!</span>}
                   </div>
-                ) : (<div className="h-14 bg-slate-800/20 rounded flex items-center justify-center text-gray-600">-</div>)}</div>
+                ) : (<div className="h-20 bg-slate-800/20 rounded flex items-center justify-center text-gray-600">-</div>)}</div>
                 <div>{botVisit ? (
                   <div className="bg-slate-800/50 rounded p-1.5">
-                    <div className="flex justify-between">
-                      <span className={`font-bold text-purple-400`}>{botVisit.score}</span>
+                    <div className="flex justify-between items-center">
+                      <span className={`font-bold text-purple-400 text-lg`}>{botVisit.score}</span>
                       <span className="text-xs text-gray-500">#{botVisits.length - i}</span>
                     </div>
+                    {/* Show individual darts for bot */}
+                    {botVisit.darts && botVisit.darts.length > 0 && (
+                      <div className="flex gap-1 mt-1 mb-1 justify-end">
+                        {botVisit.darts.map((dart, idx) => (
+                          <span key={idx} className={`text-xs px-1.5 py-0.5 rounded ${
+                            dart.is_double ? 'bg-red-500/30 text-red-300' :
+                            dart.multiplier === 3 ? 'bg-amber-500/30 text-amber-300' :
+                            'bg-slate-700 text-gray-300'
+                          }`}>
+                            {formatDartLabel(dart)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500 text-right">{botVisit.remainingScore} ←</div>
-                    {botVisit.isBust && <span className="text-xs text-red-400 font-bold">BUST</span>}
+                    {botVisit.isBust && (
+                      <span className="text-xs text-red-400 font-bold" title={botVisit.bustReason}>BUST</span>
+                    )}
                     {botVisit.isCheckout && <span className="text-xs text-emerald-400 font-bold">CHECKOUT!</span>}
                   </div>
-                ) : (<div className="h-14 bg-slate-800/20 rounded flex items-center justify-center text-gray-600">-</div>)}</div>
+                ) : (<div className="h-20 bg-slate-800/20 rounded flex items-center justify-center text-gray-600">-</div>)}</div>
               </div>
             );
           })
@@ -523,22 +561,58 @@ export default function DartbotMatchPage() {
     } catch (error) { console.error('Error saving match stats:', error); }
   };
 
+  // Track if a bot turn is currently in progress to prevent overlapping animations
+  const botTurnInProgressRef = useRef(false);
+
   const animateBotThrows = useCallback(async (darts: DartResult[]): Promise<void> => {
+    // Prevent overlapping animations
+    if (botTurnInProgressRef.current) {
+      console.log('[DartBot] Turn already in progress, skipping');
+      return;
+    }
+    botTurnInProgressRef.current = true;
+    
     clearDartboardAnimationTimer();
     setDartboardHits([]);
     setBotLastVisitTotal(null);
     setLastThreeDarts([]);
+    
+    // Show "DartBot is throwing..." message with dart preview
+    const visitTotal = darts.reduce((sum, dart) => sum + dart.score, 0);
+    
     for (let i = 0; i < darts.length; i++) {
       const dart = darts[i];
-      await new Promise<void>((resolve) => { dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), i === 0 ? 300 : 1000); });
+      // Delay before dart appears (thinking/aiming time)
+      await new Promise<void>((resolve) => { 
+        dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), i === 0 ? 600 : 1200); 
+      });
+      
+      // Add dart to board
       setDartboardHits(prev => [...prev, { x: dart.x, y: dart.y, label: dart.label, offboard: dart.offboard }]);
-      await new Promise<void>((resolve) => { dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 400); });
+      
+      // Show dart score immediately
       setLastThreeDarts(prev => [...prev, dart]);
-      if (i < darts.length - 1) await new Promise<void>((resolve) => { dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 300); });
+      
+      // Short pause to show the hit before next dart
+      if (i < darts.length - 1) {
+        await new Promise<void>((resolve) => { 
+          dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 400); 
+        });
+      }
     }
-    const visitTotal = darts.reduce((sum, dart) => sum + dart.score, 0);
+    
+    // Show total after all darts thrown
     setBotLastVisitTotal(visitTotal);
-    await new Promise<void>((resolve) => { dartboardAnimationTimerRef.current = window.setTimeout(() => { setDartboardHits([]); resolve(); }, 1800); });
+    
+    // Keep darts visible for a moment, then clear
+    await new Promise<void>((resolve) => { 
+      dartboardAnimationTimerRef.current = window.setTimeout(() => { 
+        setDartboardHits([]); 
+        resolve(); 
+      }, 1500); 
+    });
+    
+    botTurnInProgressRef.current = false;
   }, [clearDartboardAnimationTimer]);
 
   const botTakeTurn = useCallback(async () => {
@@ -546,22 +620,68 @@ export default function DartbotMatchPage() {
     const currentScore = player2Score;
     if (currentScore <= 0) { setCurrentPlayer('player1'); return; }
     if (showVisualization && config) {
-      const visualVisit = simulateVisit({ level: config.botAverage, remaining: currentScore, doubleOut: config.doubleOut, formMultiplier: botFormMultiplier, tracker: botPerformanceTracker, debug: debugMode });
+      // Generate exactly 3 darts (or fewer if checkout achieved)
+      const visualVisit = simulateVisit({ 
+        level: config.botAverage, 
+        remaining: currentScore, 
+        doubleOut: config.doubleOut, 
+        formMultiplier: botFormMultiplier, 
+        tracker: botPerformanceTracker, 
+        debug: debugMode 
+      });
+      
+      // Update performance tracker for calibration
       setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
-      setBotLastVisitTotal(visualVisit.visitTotal);
+      
+      // Animate the throws (shows exactly 3 darts or fewer if checkout)
       await animateBotThrows(visualVisit.darts);
-      const visit: Visit = { player: 'player2', score: visualVisit.bust ? 0 : visualVisit.visitTotal, remainingScore: visualVisit.newRemaining, isBust: visualVisit.bust, isCheckout: visualVisit.finished, timestamp: Date.now(), dartsThrown: visualVisit.darts.length, darts: visualVisit.darts as any };
+      
+      // Record the visit
       const dartsThrown = visualVisit.darts.length;
+      const visit: Visit = { 
+        player: 'player2', 
+        score: visualVisit.bust ? 0 : visualVisit.visitTotal, 
+        remainingScore: visualVisit.newRemaining, 
+        isBust: visualVisit.bust, 
+        isCheckout: visualVisit.finished, 
+        timestamp: Date.now(), 
+        dartsThrown, 
+        darts: visualVisit.darts.map(d => ({
+          type: d.isDouble ? 'double' : d.isTreble ? 'triple' : d.offboard ? 'single' : 'single',
+          number: d.offboard ? 0 : parseInt(d.label.replace(/[^0-9]/g, '')) || (d.label.includes('Bull') ? 25 : 0),
+          value: d.score,
+          multiplier: d.isDouble ? 2 : d.isTreble ? 3 : 1,
+          label: d.label,
+          score: d.score,
+          is_double: d.isDouble,
+        })),
+        remainingBefore: currentScore,
+        remainingAfter: visualVisit.newRemaining,
+        bustReason: visualVisit.bustReason,
+      };
+      
       setCurrentLeg(prev => {
         const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player2First9DartsThrown));
         const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (visualVisit.bust ? 0 : (visualVisit.visitTotal * dartsUsedInFirst9) / dartsThrown) : 0;
-        return { ...prev, visits: [...prev.visits, visit], player2DartsThrown: prev.player2DartsThrown + dartsThrown, player2First9DartsThrown: prev.player2First9DartsThrown + dartsUsedInFirst9, player2First9PointsScored: prev.player2First9PointsScored + pointsForFirst9 };
+        return { 
+          ...prev, 
+          visits: [...prev.visits, visit], 
+          player2DartsThrown: prev.player2DartsThrown + dartsThrown, 
+          player2First9DartsThrown: prev.player2First9DartsThrown + dartsUsedInFirst9, 
+          player2First9PointsScored: prev.player2First9PointsScored + pointsForFirst9 
+        };
       });
-      if (!visualVisit.bust) setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
+      
+      if (!visualVisit.bust) {
+        setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
+      }
       setPlayer2MatchDartsThrown(prev => prev + dartsThrown);
       setPlayer2Score(visualVisit.newRemaining);
+      
       if (visualVisit.finished) {
-        setTimeout(() => { if (!matchOverRef.current) handleLegComplete('player2'); }, 500);
+        setTimeout(() => { 
+          if (!matchOverRef.current) handleLegComplete('player2'); 
+        }, 500);
         return;
       }
       setCurrentPlayer('player1');
@@ -855,12 +975,49 @@ export default function DartbotMatchPage() {
               </div>
             </div>
           )}
-          {lastThreeDarts.length > 0 && currentPlayer === 'player1' && (
-            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded">
-              <div className="text-xs text-slate-400 mb-1">{botName}&apos;s Last:</div>
+          {/* Show DartBot's last throw - visible after bot completes turn */}
+          {lastThreeDarts.length > 0 && currentPlayer === 'player1' && !isBotThinking && (
+            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/20">
+              <div className="text-xs text-purple-400 mb-1 font-medium">{botName}&apos;s Last Throw:</div>
               <div className="flex items-center gap-2">
-                {lastThreeDarts.map((dart, i) => (<span key={i} className="text-white text-sm font-medium">{dart.label}</span>))}
-                <span className="text-emerald-400 font-bold ml-auto">= {lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}</span>
+                {lastThreeDarts.map((dart, i) => (
+                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                    dart.isDouble ? 'bg-red-500/30 text-red-300' : 
+                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                    'bg-slate-700 text-white'
+                  }`}>
+                    {dart.label}
+                  </span>
+                ))}
+                <span className="text-emerald-400 font-bold ml-auto text-lg">
+                  = {lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}
+                  {lastThreeDarts.some(d => d.isDouble) && lastThreeDarts.reduce((sum, d) => sum + d.score, 0) > 0 && player2Score === 0 && (
+                    <span className="text-xs text-emerald-300 ml-2">CHECKOUT!</span>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+          
+          {/* Live dart display during bot's turn */}
+          {isBotThinking && lastThreeDarts.length > 0 && (
+            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/30">
+              <div className="text-xs text-purple-400 mb-1 font-medium">{botName} throwing...</div>
+              <div className="flex items-center gap-2">
+                {lastThreeDarts.map((dart, i) => (
+                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                    dart.isDouble ? 'bg-red-500/30 text-red-300' : 
+                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                    'bg-slate-700 text-white'
+                  }`}>
+                    {dart.label}
+                  </span>
+                ))}
+                {lastThreeDarts.length < 3 && (
+                  <span className="w-8 h-8 rounded bg-slate-700/50 border-2 border-dashed border-purple-400/30 animate-pulse" />
+                )}
               </div>
             </div>
           )}
