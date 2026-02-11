@@ -425,7 +425,7 @@ export default function DartbotMatchPage() {
 
   useEffect(() => {
     setShowVisualization(isDartbotVisualizationEnabled());
-    setDebugMode(isDartbotDebugModeEnabled());
+    setDebugMode(true); // Always show calibration rings
   }, []);
 
   useEffect(() => {
