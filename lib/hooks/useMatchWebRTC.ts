@@ -62,6 +62,7 @@ export function useMatchWebRTC({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -498,12 +499,15 @@ export function useMatchWebRTC({
     });
 
     subscriptionCleanupRef.current = cleanup;
+    setIsSubscribed(true);
+    console.log('[WEBRTC QS] ✅ Subscription active');
 
     return () => {
       if (subscriptionCleanupRef.current) {
         subscriptionCleanupRef.current();
         subscriptionCleanupRef.current = null;
       }
+      setIsSubscribed(false);
     };
   }, [roomId, myUserId, opponentUserId, isPlayer1]);
 
@@ -526,6 +530,14 @@ export function useMatchWebRTC({
     // 3. Subscription is active
     // 4. Offer hasn't been created yet
 
+    console.log('[WEBRTC QS] Offer creation check:', {
+      isPlayer1,
+      hasPeerConnection: !!peerConnectionRef.current,
+      hasLocalStream: !!localStream,
+      isSubscribed,
+      offerCreated: offerCreatedRef.current
+    });
+
     if (!isPlayer1) {
       console.log('[WEBRTC QS] Not player1, waiting for offer');
       return;
@@ -541,7 +553,7 @@ export function useMatchWebRTC({
       return;
     }
 
-    if (!subscriptionCleanupRef.current) {
+    if (!isSubscribed) {
       console.log('[WEBRTC QS] Subscription not ready yet');
       return;
     }
@@ -600,7 +612,7 @@ export function useMatchWebRTC({
     const timer = setTimeout(createOffer, 1000);
     return () => clearTimeout(timer);
 
-  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId]);
+  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId, isSubscribed]);
 
   // ========== CAMERA CONTROLS ==========
   
