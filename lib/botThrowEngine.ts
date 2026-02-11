@@ -305,6 +305,19 @@ export function getAimPoint(target: string): { x: number; y: number; ringMultipl
 /**
  * Evaluate where a dart landed and return the score
  * Uses the calibrated ring constants for accurate scoring
+ *
+ * SCORING AREAS (from center outward):
+ * 1. Inner Bull (0 to R_BULL_IN): 50 points
+ * 2. Outer Bull (R_BULL_IN to R_BULL_OUT): 25 points
+ * 3. Inner Singles (R_BULL_OUT to R_TREBLE_IN): face value
+ * 4. Treble Ring (R_TREBLE_IN to R_TREBLE_OUT): 3x face value
+ * 5. Outer Singles (R_TREBLE_OUT to R_DOUBLE_IN): face value
+ * 6. Double Ring (R_DOUBLE_IN to R_DOUBLE_OUT): 2x face value
+ * 7. Black Number Ring (R_DOUBLE_OUT to R_BOARD): face value (still scores!)
+ * 8. Beyond R_BOARD: MISS (0 points)
+ *
+ * CRITICAL: Anything with radius <= R_BOARD scores points.
+ * The area between R_DOUBLE_OUT and R_BOARD is the black number ring - still valid scoring area.
  */
 export function evaluateDartFromXY(x: number, y: number): {
   label: string;
@@ -315,7 +328,8 @@ export function evaluateDartFromXY(x: number, y: number): {
 } {
   const radius = Math.sqrt(x * x + y * y);
 
-  // Check if off the board (beyond scoring area)
+  // MISS BOUNDARY: Only darts beyond R_BOARD are misses
+  // Everything at radius <= R_BOARD scores points (including black number ring area)
   if (radius > R_BOARD) {
     return { label: 'MISS', score: 0, isDouble: false, isTreble: false, offboard: true };
   }
@@ -385,14 +399,15 @@ export function evaluateDartFromXY(x: number, y: number): {
     };
   }
 
-  // SINGLE area (anywhere between the rings - inner or outer singles)
-  // Black and cream areas, scores face value
-  return { 
-    label: `S${number}`, 
-    score: number, 
-    isDouble: false, 
-    isTreble: false, 
-    offboard: false 
+  // SINGLE area (anywhere else inside R_BOARD)
+  // Includes: inner singles (between bull and treble), outer singles (between treble and double),
+  // AND the black number ring area (between double and board edge) - all score face value
+  return {
+    label: `S${number}`,
+    score: number,
+    isDouble: false,
+    isTreble: false,
+    offboard: false
   };
 }
 
