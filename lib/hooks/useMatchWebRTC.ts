@@ -315,8 +315,21 @@ export function useMatchWebRTC({
           return;
         }
         
+        // Must be in stable state to create offer
+        if (pc.signalingState !== 'stable') {
+          console.log('[WEBRTC QS] Cannot renegotiate, signaling state:', pc.signalingState);
+          return;
+        }
+        
+        // Prevent duplicate offers
+        if (makingOfferRef.current) {
+          console.log('[WEBRTC QS] Already making offer, skipping');
+          return;
+        }
+        
         try {
           makingOfferRef.current = true;
+          offerCreatedRef.current = true;
           
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -330,6 +343,7 @@ export function useMatchWebRTC({
           console.log('[WEBRTC QS] ✅ Renegotiation offer sent');
         } catch (error) {
           console.error('[WEBRTC QS] ❌ Error during renegotiation:', error);
+          offerCreatedRef.current = false;
         } finally {
           makingOfferRef.current = false;
         }
@@ -629,20 +643,25 @@ export function useMatchWebRTC({
         return;
       }
 
-      // Handle stuck state - rollback if we have local offer but no answer
+      // Handle stuck state - if we have local offer but no answer after timeout
+      // We need to restart the connection completely since rollback doesn't work reliably
       if (pc.signalingState === 'have-local-offer') {
-        console.log('[WEBRTC QS] Stuck in have-local-offer, rolling back...');
-        try {
-          await pc.setLocalDescription({type: 'rollback'});
-          console.log('[WEBRTC QS] ✅ Rolled back to stable');
-        } catch (e) {
-          console.error('[WEBRTC QS] Rollback failed:', e);
-          // Create new peer connection
-          pc.close();
-          peerConnectionRef.current = null;
-          offerCreatedRef.current = false;
+        console.log('[WEBRTC QS] Stuck in have-local-offer, need to restart...');
+        
+        // Check if we already tried creating an offer recently
+        const timeSinceLastOffer = Date.now() - (pc as any).lastOfferTime;
+        if (timeSinceLastOffer < 5000) {
+          console.log('[WEBRTC QS] Recent offer attempt, waiting...');
           return;
         }
+        
+        // Mark this attempt
+        (pc as any).lastOfferTime = Date.now();
+        
+        // Don't try to rollback - it causes m-line order issues
+        // Instead, just wait for the opponent to respond or timeout
+        console.log('[WEBRTC QS] Waiting for opponent answer or timeout...');
+        return;
       }
 
       // Double-check signaling state
@@ -715,55 +734,37 @@ export function useMatchWebRTC({
       setIsCameraOn(true);
       setCameraError(null);
 
-      // Add tracks to peer connection if it exists
+      // Add/replace tracks in peer connection if it exists
       const pc = peerConnectionRef.current;
       if (pc) {
-        console.log('[WEBRTC QS] Adding tracks to peer connection');
+        console.log('[WEBRTC QS] Adding/replacing tracks in peer connection');
         console.log('[WEBRTC QS] PC signaling state:', pc.signalingState);
         console.log('[WEBRTC QS] PC connection state:', pc.connectionState);
 
-        // Remove old senders
-        pc.getSenders().forEach(sender => {
-          if (sender.track) {
-            console.log('[WEBRTC QS] Removing old track:', sender.track.kind);
-            pc.removeTrack(sender);
-          }
-        });
+        // Get existing video sender (if any)
+        const videoSender = pc.getSenders().find(s => 
+          s.track && s.track.kind === 'video'
+        );
 
-        // Add new tracks
-        stream.getTracks().forEach(track => {
-          console.log('[WEBRTC QS] Adding track:', track.kind);
-          pc.addTrack(track, stream);
-        });
+        const videoTrack = stream.getVideoTracks()[0];
+        
+        if (videoSender && videoTrack) {
+          // Replace track to preserve m-line order (prevents SDP mismatch)
+          console.log('[WEBRTC QS] Replacing existing video track');
+          await videoSender.replaceTrack(videoTrack);
+        } else if (videoTrack) {
+          // No existing sender, add new track
+          console.log('[WEBRTC QS] Adding new video track');
+          pc.addTrack(videoTrack, stream);
+        }
 
-        console.log('[WEBRTC QS] ✅ All tracks added to peer connection');
+        console.log('[WEBRTC QS] ✅ Track added/replaced in peer connection');
         console.log('[WEBRTC QS] Current senders:', pc.getSenders().length);
 
-        // Manually trigger negotiation if Player 1
-        // onnegotiationneeded doesn't always fire reliably
-        if (isPlayer1 && roomId && myUserId && opponentUserId) {
-          if (pc.signalingState === 'stable') {
-            console.log('[WEBRTC QS] 🔄 Manually triggering negotiation as Player 1');
-            setTimeout(async () => {
-              try {
-                makingOfferRef.current = true;
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                console.log('[WEBRTC QS] ✅ Manual renegotiation offer created');
-                
-                await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
-                  offer: pc.localDescription?.toJSON()
-                });
-                console.log('[WEBRTC QS] ✅ Manual renegotiation offer sent');
-              } catch (err) {
-                console.error('[WEBRTC QS] ❌ Error in manual negotiation:', err);
-              } finally {
-                makingOfferRef.current = false;
-              }
-            }, 100);
-          } else {
-            console.log('[WEBRTC QS] Waiting for stable state to negotiate, current:', pc.signalingState);
-          }
+        // Note: onnegotiationneeded will fire automatically when track is added/replaced
+        // This triggers the renegotiation handler above
+        if (isPlayer1) {
+          console.log('[WEBRTC QS] Track added, onnegotiationneeded should fire shortly');
         }
       }
 
@@ -778,7 +779,7 @@ export function useMatchWebRTC({
       setIsCameraOn(false);
       throw error;  // Re-throw so caller knows it failed
     }
-  }, [roomId, myUserId, opponentUserId]);
+  }, [roomId, myUserId, opponentUserId, isPlayer1]);
 
   const stopCamera = useCallback((reason?: string) => {
     console.log('[WEBRTC QS] ========== STOP CAMERA ==========');
