@@ -561,6 +561,10 @@ export default function DartbotMatchPage() {
 
   // Track if a bot turn is currently in progress to prevent overlapping animations
   const botTurnInProgressRef = useRef(false);
+  // Track if bot turn has been scheduled to prevent duplicate turns
+  const botTurnScheduledRef = useRef(false);
+  // Track the last processed turn to prevent double execution
+  const lastProcessedTurnRef = useRef(0);
 
   const animateBotThrows = useCallback(async (darts: DartResult[]): Promise<void> => {
     // Prevent overlapping animations
@@ -688,13 +692,36 @@ export default function DartbotMatchPage() {
   }, [isLegTransitioning, player2Score, showVisualization, config, botFormMultiplier, debugMode, botPerformanceTracker, animateBotThrows]);
 
   const scheduleBotTurn = useCallback((reason: string) => {
-    if (currentPlayer !== 'player2') return;
-    if (isLegTransitioning) { clearBotTimer(); botTimerRef.current = window.setTimeout(() => scheduleBotTurn("retry"), 50); return; }
+    // Prevent scheduling if not bot's turn or if already scheduled
+    if (currentPlayer !== 'player2') {
+      botTurnScheduledRef.current = false;
+      return;
+    }
+    // Prevent duplicate scheduling
+    if (botTurnScheduledRef.current) {
+      console.log('[DartBot] Turn already scheduled, skipping duplicate');
+      return;
+    }
+    if (isLegTransitioning) { 
+      clearBotTimer(); 
+      botTimerRef.current = window.setTimeout(() => scheduleBotTurn("retry"), 50); 
+      return; 
+    }
+    
+    botTurnScheduledRef.current = true;
     clearBotTimer();
     setIsBotThinking(true);
     const myTurnId = ++botTurnIdRef.current;
+    
     botTimerRef.current = window.setTimeout(async () => {
       if (myTurnId !== botTurnIdRef.current) return;
+      // Additional guard: check if turn was already processed
+      if (lastProcessedTurnRef.current === myTurnId) {
+        console.log('[DartBot] Turn already processed, skipping');
+        return;
+      }
+      lastProcessedTurnRef.current = myTurnId;
+      
       try {
         await Promise.race([
           botTakeTurn(),
@@ -704,6 +731,7 @@ export default function DartbotMatchPage() {
         console.error("BOT_ERROR", err);
         setIsBotThinking(false);
         clearBotTimer();
+        botTurnScheduledRef.current = false;
         botTimerRef.current = window.setTimeout(() => {
           if (currentPlayer === 'player2') scheduleBotTurn("recover");
         }, 150);
@@ -711,13 +739,22 @@ export default function DartbotMatchPage() {
       } finally {
         setIsBotThinking(false);
         clearBotTimer();
+        botTurnScheduledRef.current = false;
       }
     }, 1500);
   }, [currentPlayer, isLegTransitioning, clearBotTimer, botTakeTurn]);
 
   useEffect(() => {
-    if (currentPlayer === 'player2') scheduleBotTurn("turn");
-    else { setIsBotThinking(false); clearBotTimer(); }
+    if (currentPlayer === 'player2') {
+      // Only schedule if not already scheduled and not currently processing
+      if (!botTurnScheduledRef.current && !botTurnInProgressRef.current) {
+        scheduleBotTurn("turn");
+      }
+    } else { 
+      setIsBotThinking(false); 
+      botTurnScheduledRef.current = false;
+      clearBotTimer(); 
+    }
     return () => clearBotTimer();
   }, [currentPlayer, isLegTransitioning, scheduleBotTurn, clearBotTimer]);
 
@@ -792,6 +829,8 @@ export default function DartbotMatchPage() {
     if (matchOverRef.current || matchWinner) return;
     clearBotTimer();
     setIsBotThinking(false);
+    botTurnScheduledRef.current = false;
+    botTurnInProgressRef.current = false;
     setIsLegTransitioning(true);
     const nextStartingPlayer = legStartingPlayer === 'player1' ? 'player2' : 'player1';
     const s = config ? getStartScore(config.mode) : 501;
@@ -830,6 +869,8 @@ export default function DartbotMatchPage() {
     setInputModeError('');
     setIsBotThinking(false);
     botTurnIdRef.current = 0;
+    botTurnScheduledRef.current = false;
+    botTurnInProgressRef.current = false;
     setPlayer1TotalDartsAtDouble(0);
     setPlayer1CheckoutsMade(0);
     setPlayer2TotalDartsAtDouble(0);
