@@ -48,6 +48,7 @@ interface Visit {
   dartsThrown?: number;
   remainingBefore?: number;
   remainingAfter?: number;
+  legNumber: number;
 }
 
 interface LegData {
@@ -264,10 +265,7 @@ function ScoringPanel({
 
 // Visit History Panel
 function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Visit[]; myName: string; botName: string; currentLeg: number }) {
-  const currentLegVisits = useMemo(() => visits.filter(v => {
-    const visitLeg = (v as any).legNumber || (v as any).leg || 1;
-    return visitLeg === currentLeg;
-  }), [visits, currentLeg]);
+  const currentLegVisits = useMemo(() => visits.filter(v => v.legNumber === currentLeg), [visits, currentLeg]);
 
   const myVisits = currentLegVisits.filter(v => v.player === 'player1').sort((a, b) => b.timestamp - a.timestamp);
   const botVisits = currentLegVisits.filter(v => v.player === 'player2').sort((a, b) => b.timestamp - a.timestamp);
@@ -658,6 +656,7 @@ export default function DartbotMatchPage() {
         remainingBefore: currentScore,
         remainingAfter: visualVisit.newRemaining,
         bustReason: visualVisit.bustReason,
+        legNumber: currentLeg.legNumber,
       };
       
       setCurrentLeg(prev => {
@@ -751,7 +750,7 @@ export default function DartbotMatchPage() {
     const doubleOut = config.doubleOut;
     const newScore = currentScore - score;
     if (isBust(currentScore, score, doubleOut)) {
-      const visit: Visit = { player: 'player1', score: 0, remainingScore: currentScore, isBust: true, isCheckout: false, timestamp: Date.now(), dartsThrown, remainingBefore: currentScore, remainingAfter: currentScore };
+      const visit: Visit = { player: 'player1', score: 0, remainingScore: currentScore, isBust: true, isCheckout: false, timestamp: Date.now(), dartsThrown, remainingBefore: currentScore, remainingAfter: currentScore, legNumber: currentLeg.legNumber };
       setCurrentLeg(prev => { const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown)); return { ...prev, visits: [...prev.visits, visit], player1DartsThrown: prev.player1DartsThrown + dartsThrown, player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9 }; });
       setPlayer1MatchDartsThrown(prev => prev + dartsThrown);
       setCurrentPlayer('player2');
@@ -761,7 +760,7 @@ export default function DartbotMatchPage() {
       return;
     }
     const isCheckout = newScore === 0;
-    const visit: Visit = { player: 'player1', score, remainingScore: newScore, isBust: false, isCheckout, timestamp: Date.now(), lastDartType, dartsThrown, remainingBefore: currentScore, remainingAfter: newScore };
+    const visit: Visit = { player: 'player1', score, remainingScore: newScore, isBust: false, isCheckout, timestamp: Date.now(), lastDartType, dartsThrown, remainingBefore: currentScore, remainingAfter: newScore, legNumber: currentLeg.legNumber };
     setCurrentLeg(prev => { const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown)); const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (score * dartsUsedInFirst9) / dartsThrown : 0; return { ...prev, visits: [...prev.visits, visit], player1DartsThrown: prev.player1DartsThrown + dartsThrown, player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9, player1First9PointsScored: prev.player1First9PointsScored + pointsForFirst9 }; });
     setPlayer1MatchTotalScored(prev => prev + score);
     setPlayer1MatchDartsThrown(prev => prev + dartsThrown);
