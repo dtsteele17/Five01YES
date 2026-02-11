@@ -1060,7 +1060,7 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   // Log result
   if (wasCheckoutAttempt) {
-    console.log(`[DartBot🎯] ${remaining}→${currentRemaining} (${visitTotal scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
+    console.log(`[DartBot🎯] ${remaining}→${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
   } else {
     console.log(`[DartBot] ${remaining}→${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
   }
