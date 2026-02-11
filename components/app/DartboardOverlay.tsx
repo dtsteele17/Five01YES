@@ -132,9 +132,9 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               strokeWidth="0.4"
             />
             {/* Legend text */}
-            <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Playable Area</text>
-            <text x="2" y="14" fill="#ff0000" fontSize="4" fontWeight="bold">Doubles (inside black ring)</text>
-            <text x="2" y="20" fill="#ffff00" fontSize="4" fontWeight="bold">Trebles</text>
+            <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Board Edge (outer red line)</text>
+            <text x="2" y="14" fill="#ff0000" fontSize="4" fontWeight="bold">Doubles (outer ring)</text>
+            <text x="2" y="20" fill="#ffff00" fontSize="4" fontWeight="bold">Trebles (inner ring)</text>
             <text x="2" y="26" fill="#00ffff" fontSize="4" fontWeight="bold">Bulls</text>
           </svg>
         )}

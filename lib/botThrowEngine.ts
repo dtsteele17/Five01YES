@@ -104,10 +104,11 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 // 4. TREBLE RING (inner red/green): ~32% to ~40% = 3x multiplier
 // 5. Outer singles (black/cream): ~40% to ~47%
 // 6. DOUBLE RING (outer red/green): ~47% to ~55% = 2x multiplier
-// 7. BLACK NUMBER RING (decorative): ~55% to ~60%
-// 8. Transparent padding: ~60% to 100% (invisible space in PNG)
+// 7. Beyond doubles: MISS (0 points)
+//
+// SCORING BOUNDARY: R_BOARD = R_DOUBLE_OUT (outer edge of doubles is the playable limit)
 
-export const R_BOARD = 0.57;        // Actual visible board edge in PNG (brought in)
+export const R_BOARD = 0.4675;      // Playable area ends at outer edge of doubles ring
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
@@ -285,10 +286,10 @@ export function getAimPoint(target: string): { x: number; y: number; ringMultipl
       break;
     case 'S':
     default:
-      // For singles, aim between bull and treble (single inner area)
-      // or between treble and double (single outer area)
-      // Use a radius that's safely in the outer single area for consistency
-      radius = (R_TREBLE_OUT + R_DOUBLE_IN) / 2;
+      // For singles, aim for the OUTER singles area (between treble and double)
+      // This is where darts naturally land more frequently
+      // Aim slightly closer to the double ring for better scoring chance
+      radius = R_TREBLE_OUT + (R_DOUBLE_IN - R_TREBLE_OUT) * 0.65;
       ringMultiplier = 0.95;
       break;
   }
@@ -313,11 +314,10 @@ export function getAimPoint(target: string): { x: number; y: number; ringMultipl
  * 4. Treble Ring (R_TREBLE_IN to R_TREBLE_OUT): 3x face value
  * 5. Outer Singles (R_TREBLE_OUT to R_DOUBLE_IN): face value
  * 6. Double Ring (R_DOUBLE_IN to R_DOUBLE_OUT): 2x face value
- * 7. Black Number Ring (R_DOUBLE_OUT to R_BOARD): face value (still scores!)
- * 8. Beyond R_BOARD: MISS (0 points)
+ * 7. Beyond R_DOUBLE_OUT: MISS (0 points)
  *
- * CRITICAL: Anything with radius <= R_BOARD scores points.
- * The area between R_DOUBLE_OUT and R_BOARD is the black number ring - still valid scoring area.
+ * CRITICAL: R_BOARD = R_DOUBLE_OUT (playable area ends at outer edge of doubles)
+ * Anything beyond the doubles ring is a miss.
  */
 export function evaluateDartFromXY(x: number, y: number): {
   label: string;
@@ -328,8 +328,8 @@ export function evaluateDartFromXY(x: number, y: number): {
 } {
   const radius = Math.sqrt(x * x + y * y);
 
-  // MISS BOUNDARY: Only darts beyond R_BOARD are misses
-  // Everything at radius <= R_BOARD scores points (including black number ring area)
+  // MISS BOUNDARY: Anything beyond the outer edge of doubles is a miss
+  // R_BOARD = R_DOUBLE_OUT, so the playable area ends at the doubles ring
   if (radius > R_BOARD) {
     return { label: 'MISS', score: 0, isDouble: false, isTreble: false, offboard: true };
   }
@@ -399,9 +399,9 @@ export function evaluateDartFromXY(x: number, y: number): {
     };
   }
 
-  // SINGLE area (anywhere else inside R_BOARD)
-  // Includes: inner singles (between bull and treble), outer singles (between treble and double),
-  // AND the black number ring area (between double and board edge) - all score face value
+  // SINGLE area (anywhere else inside R_BOARD that isn't treble or double)
+  // Includes: inner singles (between bull and treble) and outer singles (between treble and double)
+  // Both score face value
   return {
     label: `S${number}`,
     score: number,
