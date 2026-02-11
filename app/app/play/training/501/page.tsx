@@ -474,7 +474,7 @@ export default function DartbotMatchPage() {
     return { average: threeDartAverage, lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
   }, [allLegs, currentLeg]);
 
-  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, checkoutDartsAttempted: number = 0, checkoutsMade: number = 0, totalDartsTracked: number = 0, totalScoreTracked: number = 0) => {
+  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, checkoutDartsAttempted: number = 0, checkoutsMade: number = 0, totalDartsTracked: number = 0, totalScoreTracked: number = 0, allLegsData?: LegData[]) => {
     const allPlayerVisits = visitData.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
     const playerVisits = allPlayerVisits.filter(v => !v.isBust);
     
@@ -503,9 +503,18 @@ export default function DartbotMatchPage() {
     }
     const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
     
-    // Checkout stats
+    // Checkout stats - find highest checkout from visits
     const checkouts = playerVisits.filter(v => v.isCheckout);
-    const highestCheckout = checkouts.length > 0 ? Math.max(...checkouts.map(v => v.score)) : 0;
+    let highestCheckout = 0;
+    
+    // Calculate highest checkout from the remainingBefore of checkout visits
+    for (const visit of checkouts) {
+      // remainingBefore shows what was needed to checkout
+      const checkoutValue = visit.remainingBefore || 0;
+      if (checkoutValue > highestCheckout && checkoutValue <= 170) {
+        highestCheckout = checkoutValue;
+      }
+    }
     
     // For bot (player2), use tracked checkout stats if available, otherwise calculate from visits
     let successfulCheckouts: number;
@@ -526,18 +535,27 @@ export default function DartbotMatchPage() {
     
     const checkoutPercentage = dartsAtDouble > 0 ? (successfulCheckouts / dartsAtDouble) * 100 : 0;
     
-    // Best leg calculation
-    const visitsByLeg = new Map<number, typeof playerVisits>();
-    for (const visit of playerVisits) {
-      const legNum = (visit as any).legNumber || (visit as any).leg || 1;
-      if (!visitsByLeg.has(legNum)) visitsByLeg.set(legNum, []);
-      visitsByLeg.get(legNum)!.push(visit);
-    }
-    let bestLegDarts = Infinity, bestLegNum = 0;
-    for (const [legNum, legVisits] of visitsByLeg) {
-      if (legVisits.some((v: Visit) => v.isCheckout)) {
-        const legDarts = legVisits.reduce((sum: number, v: Visit) => sum + (v.dartsThrown || 3), 0);
-        if (legDarts < bestLegDarts) { bestLegDarts = legDarts; bestLegNum = legNum; }
+    // BEST LEG CALCULATION - Find lowest darts in a won leg
+    let bestLegDarts = 0;
+    let bestLegNum = 0;
+    
+    // Use the legs data if provided, otherwise calculate from visits
+    const legsToCheck = allLegsData || allLegs;
+    
+    for (const leg of legsToCheck) {
+      // Check if this player won this leg
+      const legWinner = leg.winner;
+      const playerWon = (isPlayer1 && legWinner === 'player1') || (!isPlayer1 && legWinner === 'player2');
+      
+      if (playerWon) {
+        // Count darts for this player in this leg
+        const legVisits = leg.visits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
+        const legDarts = legVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+        
+        if (bestLegDarts === 0 || legDarts < bestLegDarts) {
+          bestLegDarts = legDarts;
+          bestLegNum = leg.legNumber;
+        }
       }
     }
     
@@ -550,12 +568,12 @@ export default function DartbotMatchPage() {
       id: isPlayer1 ? 'player1' : 'player2', 
       name: playerName, 
       legsWon, 
-      threeDartAverage, 
-      first9Average, 
+      threeDartAverage: Math.round(threeDartAverage * 100) / 100, 
+      first9Average: Math.round(first9Average * 100) / 100, 
       highestCheckout, 
-      checkoutPercentage, 
+      checkoutPercentage: Math.round(checkoutPercentage * 100) / 100, 
       totalDartsThrown: totalDarts, 
-      bestLegDarts: bestLegDarts === Infinity ? 0 : bestLegDarts, 
+      bestLegDarts, 
       bestLegNum, 
       totalScore: totalScored, 
       checkouts: successfulCheckouts, 
@@ -595,13 +613,18 @@ export default function DartbotMatchPage() {
       };
 
       // Set match end stats for WinnerPopup
+      // Get all completed legs including current
+      const completedLegs = [...allLegs, currentLeg].filter(leg => leg.winner);
+      
       const p1FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        true, 'You', player1LegsWon, player1TotalDartsAtDouble, player1CheckoutsMade, player1MatchDartsThrown, player1MatchTotalScored
+        true, 'You', player1LegsWon, player1TotalDartsAtDouble, player1CheckoutsMade, player1MatchDartsThrown, player1MatchTotalScored,
+        completedLegs
       );
       const p2FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        false, botName, player2LegsWon, player2TotalDartsAtDouble, player2CheckoutsMade, player2MatchDartsThrown, player2MatchTotalScored
+        false, botName, player2LegsWon, player2TotalDartsAtDouble, player2CheckoutsMade, player2MatchDartsThrown, player2MatchTotalScored,
+        completedLegs
       );
       
       setMatchEndStats({
@@ -728,7 +751,10 @@ export default function DartbotMatchPage() {
       // Track checkout stats for DartBot
       if (visualVisit.wasCheckoutAttempt) {
         setPlayer2CheckoutAttempts(prev => prev + 1);
-        setPlayer2TotalDartsAtDouble(prev => prev + (visualVisit.dartsAtDouble || 0));
+      }
+      // Track darts at double on ANY visit where remaining was <= 170
+      if (currentScore <= 170 && currentScore > 0) {
+        setPlayer2TotalDartsAtDouble(prev => prev + dartsThrown);
       }
       if (visualVisit.finished) {
         setPlayer2CheckoutsMade(prev => prev + 1);
