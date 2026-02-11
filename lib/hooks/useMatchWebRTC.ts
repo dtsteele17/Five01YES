@@ -468,9 +468,25 @@ export function useMatchWebRTC({
       }
     };
 
-    const handleState = (state: any) => {
+    const handleState = async (state: any) => {
       console.log('[WEBRTC QS] 📊 State update from opponent:', state);
-      // Could update UI to show opponent camera status
+      
+      // If opponent camera is on but we have no remote stream, request reconnection
+      if (state.camera === true && !remoteStream && !isPlayer1 && roomId && myUserId && opponentUserId) {
+        console.log('[WEBRTC QS] 🔄 Opponent camera on but no remote stream - requesting reconnect');
+        // Small delay to avoid signal storm
+        setTimeout(() => {
+          if (roomId && myUserId && opponentUserId) {
+            sendSignal(roomId, myUserId, opponentUserId, 'state', { requestReconnect: true });
+          }
+        }, 500);
+      }
+      
+      // Player 1 receives reconnect request - reset offerCreatedRef to trigger new offer
+      if (state.requestReconnect === true && isPlayer1) {
+        console.log('[WEBRTC QS] 🔄 Received reconnect request - resetting offerCreatedRef');
+        offerCreatedRef.current = false;
+      }
     };
 
     // Subscribe to signals
@@ -493,6 +509,14 @@ export function useMatchWebRTC({
 
   // Refs to prevent duplicate operations
   const offerCreatedRef = useRef(false);
+  
+  // Reset offerCreatedRef when local stream changes (for renegotiation)
+  useEffect(() => {
+    if (!localStream) {
+      offerCreatedRef.current = false;
+      console.log('[WEBRTC QS] Reset offerCreatedRef - no local stream');
+    }
+  }, [localStream]);
 
   // ========== CREATE OFFER (PLAYER1 ONLY) ==========
   useEffect(() => {
@@ -609,10 +633,13 @@ export function useMatchWebRTC({
       const pc = peerConnectionRef.current;
       if (pc) {
         console.log('[WEBRTC QS] Adding tracks to peer connection');
+        console.log('[WEBRTC QS] PC signaling state:', pc.signalingState);
+        console.log('[WEBRTC QS] PC connection state:', pc.connectionState);
 
         // Remove old senders
         pc.getSenders().forEach(sender => {
           if (sender.track) {
+            console.log('[WEBRTC QS] Removing old track:', sender.track.kind);
             pc.removeTrack(sender);
           }
         });
@@ -624,6 +651,30 @@ export function useMatchWebRTC({
         });
 
         console.log('[WEBRTC QS] ✅ All tracks added to peer connection');
+        console.log('[WEBRTC QS] Current senders:', pc.getSenders().length);
+
+        // Manually trigger negotiation if Player 1
+        // onnegotiationneeded doesn't always fire reliably
+        if (isPlayer1 && pc.signalingState === 'stable' && roomId && myUserId && opponentUserId) {
+          console.log('[WEBRTC QS] 🔄 Manually triggering negotiation as Player 1');
+          setTimeout(async () => {
+            try {
+              makingOfferRef.current = true;
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              console.log('[WEBRTC QS] ✅ Manual renegotiation offer created');
+              
+              await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+                offer: pc.localDescription?.toJSON()
+              });
+              console.log('[WEBRTC QS] ✅ Manual renegotiation offer sent');
+            } catch (err) {
+              console.error('[WEBRTC QS] ❌ Error in manual negotiation:', err);
+            } finally {
+              makingOfferRef.current = false;
+            }
+          }, 100);
+        }
       }
 
       // Send camera state to opponent
