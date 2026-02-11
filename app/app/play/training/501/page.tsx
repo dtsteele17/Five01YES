@@ -550,7 +550,7 @@ export default function DartbotMatchPage() {
       });
 
       const dartbotStats: DartbotMatchStats = {
-        gameMode: normalizedConfig.mode,
+        gameMode: normalizedConfig.mode === '301' ? 301 : 501,
         matchFormat: config.bestOf,
         dartbotLevel: config.botAverage,
         playerLegs: player1LegsWon,
