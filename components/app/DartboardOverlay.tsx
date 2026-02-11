@@ -19,7 +19,7 @@ interface DartboardOverlayProps {
 export function DartboardOverlay({ hits = [], className = '', showDebugRings = false }: DartboardOverlayProps) {
   // PNG dartboard with black number ring on outside
   // Board is 1.8x bigger on screen for better visibility
-  // Calibration rings at 1.0x scale to match actual board geometry
+  // Calibration rings also scaled to 1.8x (180%) to match PNG
   // Normalized coords (-1..1) map to pixels
   // NOTE: Y-axis flip - bot engine uses Y-up (math coords), CSS uses Y-down (screen coords)
   const normalizedToPixel = (coord: number, size: number): number => {
@@ -27,9 +27,9 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
   };
 
   // Convert normalized radius to SVG percentage
-  // Rings at 1.0x scale to match actual dartboard dimensions
+  // Rings use actual dartboard geometry (1.0x relative to normalized coords)
   const radiusToPercent = (radius: number): number => {
-    return radius * 50 * 1.0; // radius 1.0 = 50% of container
+    return radius * 50 * 1.0; // radius 1.0 = 50% of SVG, SVG scaled to 180% in CSS
   };
 
   const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
@@ -52,7 +52,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
           }}
         />
 
-        {/* Debug rings overlay - Scaled to match actual board geometry */}
+        {/* Debug rings overlay - Scaled to 180% to match PNG */}
         {showDebugRings && (
           <svg
             className="absolute pointer-events-none"
@@ -60,8 +60,8 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
             style={{
               mixBlendMode: 'normal',
               opacity: 0.8,
-              width: '100%',
-              height: '100%',
+              width: '180%',
+              height: '180%',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
