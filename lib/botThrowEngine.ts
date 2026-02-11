@@ -142,81 +142,74 @@ function scoreToTarget(score: number): string {
 }
 
 /**
- * Get setup shot target to leave a checkout
- * IMPROVED: Better awareness of how to reach 0
+ * REAL DARTS PLAYER STRATEGY - Favorite doubles in order of preference
+ * D20 is easiest (top), D16 is very popular (left side)
+ */
+const FAVORITE_DOUBLES = [
+  { double: 20, score: 40 }, // D20 - easiest, top of board
+  { double: 16, score: 32 }, // D16 - left side, very popular
+  { double: 8, score: 16 },  // D8 - easy, near center
+  { double: 12, score: 24 }, // D12 - right side
+  { double: 4, score: 8 },   // D4 - easy backup
+  { double: 18, score: 36 }, // D18 - good alternative
+  { double: 10, score: 20 }, // D10 - near center
+  { double: 6, score: 12 },  // D6 - backup
+  { double: 14, score: 28 }, // D14 - less common
+  { double: 2, score: 4 },   // D2 - last resort
+];
+
+/**
+ * REAL DARTS PLAYER THINKING:
+ * 1. Score big when you can't finish
+ * 2. When on ≤40 and EVEN → go for that double directly!
+ * 3. When on ODD ≤40 → hit a single to leave a favorite double
+ * 4. Example: 57 left → hit S17 to leave D20 (40)
+ * 5. Example: 39 left → hit S7 to leave D16 (32)
  */
 export function getSetupTarget(remaining: number, doubleOut: boolean, level: number): string {
   if (!doubleOut) {
-    // Straight out - just aim for maximum score
     return remaining >= 60 ? 'T20' : remaining >= 40 ? 'D20' : remaining.toString();
   }
 
-  // Can't checkout on 1 - aim for S1 to leave 0 (bust) or leave valid number
-  if (remaining === 1) {
-    return 'S1'; // Will bust or leave invalid
-  }
+  // === 50 LEFT → DOUBLE BULL ===
+  if (remaining === 50) return 'DB';
 
-  // For scores 40 or lower, ALWAYS go for the double if possible
+  // === 40 OR BELOW → CHECKOUT MODE ===
   if (remaining <= 40 && remaining > 1) {
-    // If even number, go for the double directly
+    // EVEN → GO FOR THAT DOUBLE!
     if (remaining % 2 === 0) {
-      const double = remaining / 2;
-      if (double >= 1 && double <= 20) {
-        return `D${double}`;
+      return `D${remaining / 2}`;
+    }
+    
+    // ODD → HIT SINGLE TO LEAVE FAVORITE DOUBLE
+    // Try to leave D20, D16, D8, etc.
+    for (const fav of FAVORITE_DOUBLES) {
+      if (remaining > fav.score) {
+        const single = remaining - fav.score;
+        if (single >= 1 && single <= 20) return `S${single}`;
       }
     }
-    // 50 = Double Bull
-    if (remaining === 50) {
-      return 'DB';
-    }
-
-    // If odd number, we need to get to an even number first
-    if (remaining % 2 === 1) {
-      // Find the best single to leave a favorite double
-      // For example: 57 -> S17 leaves D20 (40)
-      const favoriteDoubles = [20, 16, 8, 12, 4, 18, 10, 6, 14, 2]; 
-      for (const double of favoriteDoubles) {
-        const needed = double * 2; // The score needed for this double
-        if (remaining > needed) {
-          const singleNeeded = remaining - needed;
-          if (singleNeeded >= 1 && singleNeeded <= 20) {
-            return `S${singleNeeded}`;
-          }
-        }
-      }
-      // Fallback: just hit a single 1 to get to even
-      return 'S1';
-    }
+    return 'S1'; // Fallback
   }
 
-  // For 41-170: Check if there's a checkout route
+  // === 41-170 → USE CHECKOUT TABLE ===
   if (remaining <= 170 && !impossibleCheckouts.has(remaining)) {
     const route = checkoutRoutes[remaining];
-    if (route) {
-      // We have a checkout route - use the first dart
-      return route[0];
-    }
+    if (route) return route[0];
   }
 
-  // For scores that can't be checked out (like 171+ or impossible scores)
+  // === CAN'T FINISH → SCORE BIG ===
   if (remaining > 170 || impossibleCheckouts.has(remaining)) {
-    // Aim to leave a nice checkout
-    const preferredLeaves = [40, 32, 24, 16, 8, 4, 2, 50, 36, 28, 20, 12, 6];
-    for (const leave of preferredLeaves) {
-      const needed = remaining - leave;
-      // Find the best way to score 'needed'
+    // Try to leave a nice checkout
+    for (const fav of FAVORITE_DOUBLES) {
+      const needed = remaining - fav.score;
       if (needed >= 60) return 'T20';
       if (needed >= 57) return 'T19';
       if (needed >= 54) return 'T18';
-      if (needed >= 51) return 'T17';
-      if (needed >= 48) return 'T16';
-      if (needed === 50) return 'DB'; // If we need exactly 50
-      if (needed >= 40) return 'T14'; // 42 is close
     }
     return 'T20';
   }
 
-  // Fallback - should rarely reach here
   return 'T20';
 }
 
@@ -769,12 +762,13 @@ export function simulateDart(
 // === CHECKOUT PLANNING ===
 
 /**
- * Plan the bot's turn based on remaining score
- * Returns an array of target strings for each dart (up to 3)
+ * Plan the bot's turn like a REAL DARTS PLAYER
  * 
- * IMPROVED: Better checkout awareness with optimal route planning
- * Example: 57 left with 3 darts -> ['S17', 'D20'] (or just ['S17'] if replanning)
- * Example: 70 left with 3 darts -> ['S20', 'S18', 'D16'] (plan all 3 darts ahead)
+ * REAL PLAYER THINKING:
+ * - "I'm on 70 with 3 darts... I'll hit S20 first (leaves 50), 
+ *    then if I hit it, I'll go for DB (bull) to finish"
+ * - "I'm on 57 with 2 darts... I'll hit S17 to leave D20"
+ * - "I'm on 38... just D19 to win!"
  */
 export function planBotTurn(
   remaining: number,
@@ -782,35 +776,59 @@ export function planBotTurn(
   level: number,
   dartsAvailable: number = 3
 ): string[] {
-  // If no darts left or already finished
-  if (dartsAvailable <= 0 || remaining <= 0) {
-    return [];
-  }
-
-  // Can't finish on 1 in double-out mode - must leave a double
+  if (dartsAvailable <= 0 || remaining <= 0) return [];
+  
+  // On 1 - can only bust, try to leave something useful
   if (doubleOut && remaining === 1) {
-    // On 1, we can only bust. Try to leave a valid double for next turn
-    return ['S1', 'S1', 'S1'].slice(0, dartsAvailable);
+    return ['S1'].slice(0, dartsAvailable);
   }
 
-  // Check for direct checkout route - ALWAYS attempt if on a valid checkout
-  if (doubleOut) {
-    const route = findBestCheckoutRoute(remaining, dartsAvailable);
-    if (route) {
-      return route;
+  // === CAN FINISH? TAKE IT! ===
+  if (doubleOut && remaining <= 170 && !impossibleCheckouts.has(remaining)) {
+    const route = checkoutRoutes[remaining];
+    if (route && route.length <= dartsAvailable) {
+      return route.slice(0, dartsAvailable);
     }
   }
 
-  // Not on a checkout - need to set up for one
+  // === 50 LEFT → BULL ===
+  if (remaining === 50) return ['DB'];
+
+  // === ≤40 AND EVEN → GO FOR THAT DOUBLE! ===
+  if (remaining <= 40 && remaining > 1 && remaining % 2 === 0) {
+    return [`D${remaining / 2}`];
+  }
+
+  // === ≤40 AND ODD → SETUP FOR FAVORITE DOUBLE ===
+  if (remaining <= 40 && remaining > 1 && remaining % 2 === 1) {
+    const setup = getSetupTarget(remaining, doubleOut, level);
+    const newRemaining = remaining - scoreFromTarget(setup);
+    
+    // After setup, should be on a double
+    if (dartsAvailable > 1 && newRemaining > 0 && newRemaining % 2 === 0) {
+      return [setup, `D${newRemaining / 2}`];
+    }
+    return [setup];
+  }
+
+  // === 41-170 → PLAN MULTI-DART CHECKOUT ===
+  if (doubleOut && remaining <= 170 && !impossibleCheckouts.has(remaining)) {
+    const route = checkoutRoutes[remaining];
+    if (route) {
+      // Plan the whole route
+      return route.slice(0, dartsAvailable);
+    }
+  }
+
+  // === CAN'T FINISH → SCORE BIG ===
+  // Just score as much as possible
   const setup = getSetupTarget(remaining, doubleOut, level);
-  
-  // Plan remaining darts
-  const targets: string[] = [setup];
   const newRemaining = remaining - scoreFromTarget(setup);
   
+  const targets: string[] = [setup];
   if (dartsAvailable > 1 && newRemaining > 0) {
-    const remainingTargets = planBotTurn(newRemaining, doubleOut, level, dartsAvailable - 1);
-    targets.push(...remainingTargets);
+    const rest = planBotTurn(newRemaining, doubleOut, level, dartsAvailable - 1);
+    targets.push(...rest);
   }
   
   return targets;
@@ -885,22 +903,45 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   let wasCheckoutAttempt = false;
   let bustState: { isBust: boolean; reason: string } | null = null;
   
-  // Check if we're on a checkout at the start
+  // === REAL DARTS PLAYER DECISION MAKING ===
+  // Am I on a checkout? If yes, GO FOR IT!
   const isOnCheckout = doubleOut && isValidCheckoutScore(remaining);
+  const isOnEasyDouble = remaining <= 40 && remaining > 1 && remaining % 2 === 0; // 2-40 even
+  const needsSetup = remaining <= 40 && remaining > 1 && remaining % 2 === 1; // Odd, need setup
   
-  if (isOnCheckout) {
-    console.log(`[DartBot] ON CHECKOUT: ${remaining} - Route:`, checkoutRoutes[remaining]?.join(' → ') || 'No standard route');
+  if (isOnEasyDouble) {
+    console.log(`[DartBot🎯] ${remaining} left → AIMING AT D${remaining/2} TO WIN!`);
+  } else if (needsSetup) {
+    // Find what we're setting up for
+    for (const fav of FAVORITE_DOUBLES) {
+      if (remaining > fav.score) {
+        const single = remaining - fav.score;
+        if (single >= 1 && single <= 20) {
+          console.log(`[DartBot🎯] ${remaining} left → S${single} to leave D${fav.double} (${fav.score})`);
+          break;
+        }
+      }
+    }
+  } else if (isOnCheckout) {
+    console.log(`[DartBot🎯] ${remaining} left → Checkout attempt`);
+  } else {
+    console.log(`[DartBot] ${remaining} left → Scoring mode`);
   }
   
-  // Plan initial targets - use checkout route if available
+  // Plan targets based on what a real player would do
   let plannedTargets: string[];
-  if (isOnCheckout && checkoutRoutes[remaining]) {
+  
+  if (isOnEasyDouble) {
+    // ≤40 and even - GO FOR THE DOUBLE DIRECTLY!
+    plannedTargets = [`D${remaining/2}`];
+    wasCheckoutAttempt = true;
+  } else if (isOnCheckout && checkoutRoutes[remaining]) {
+    // Use standard checkout route
     plannedTargets = checkoutRoutes[remaining];
     wasCheckoutAttempt = true;
-    console.log(`[DartBot] Using checkout route:`, plannedTargets);
   } else {
+    // Score big
     plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
-    if (debug) console.log(`[DartBot] Planned targets for ${remaining}:`, plannedTargets);
   }
   
   for (let i = 0; i < 3; i++) {
@@ -1002,7 +1043,7 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   // If we busted, return bust result with all 3 darts thrown
   if (bustState) {
-    console.log(`[DartBot] BUST: ${remaining}→${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}${wasCheckoutAttempt ? ` | Doubles attempted: ${dartsAtDouble}` : ''}`);
+    console.log(`[DartBot❌] BUST! ${remaining}→${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
     return {
       darts,
       visitTotal: 0,
@@ -1017,8 +1058,12 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   const visitTotal = remaining - currentRemaining;
   
-  // Always log important info
-  console.log(`[DartBot] ${remaining}→${currentRemaining} | Darts: ${darts.map(d => d.label).join(', ')} | Score: ${visitTotal}${wasCheckoutAttempt ? ` | Doubles: ${dartsAtDouble}` : ''}`);
+  // Log result
+  if (wasCheckoutAttempt) {
+    console.log(`[DartBot🎯] ${remaining}→${currentRemaining} (${visitTotal scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
+  } else {
+    console.log(`[DartBot] ${remaining}→${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
+  }
   
   return {
     darts,
