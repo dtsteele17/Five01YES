@@ -111,22 +111,22 @@ export const R_BOARD = 0.57;        // Actual visible board edge in PNG (brought
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
-// Matched to PNG dartboard: ~32% to ~40% of normalized radius
-export const R_TREBLE_IN = 0.32;    // Inner edge of treble ring (32% of board)
-export const R_TREBLE_OUT = 0.40;   // Outer edge of treble ring (40% of board)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.36 (aim point)
+// Adjusted to match PNG dartboard dimensions more accurately
+export const R_TREBLE_IN = 0.2425;  // Inner edge of treble ring (slightly thinner)
+export const R_TREBLE_OUT = 0.2775; // Outer edge of treble ring (width: 0.035)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.26 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
-// Matched to PNG dartboard: ~47% to ~55% of normalized radius
-export const R_DOUBLE_IN = 0.47;    // Inner edge of double ring (47% of board)
-export const R_DOUBLE_OUT = 0.55;   // Outer edge of double ring (55% of board)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.51 (aim point)
+// Adjusted to match PNG dartboard dimensions
+export const R_DOUBLE_IN = 0.4225;  // Inner edge of double ring (slightly thinner)
+export const R_DOUBLE_OUT = 0.4675; // Outer edge of double ring (width: 0.045)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.445 (aim point)
 
 // === BULL ===
-// Matched to PNG dartboard dimensions
-export const R_BULL_IN = 0.035;     // Inner bull radius (50 pts) - ~3.5% of board
-export const R_BULL_OUT = 0.070;    // Outer bull radius (25 pts) - ~7% of board
+// Adjusted to match PNG dartboard dimensions
+export const R_BULL_IN = 0.026;     // Inner bull radius (50 pts)
+export const R_BULL_OUT = 0.052;    // Outer bull radius (25 pts) - slightly thinner
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
