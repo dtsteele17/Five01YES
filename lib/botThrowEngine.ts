@@ -93,41 +93,43 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 }
 
 // === CALIBRATION CONSTANTS ===
-// These values are tuned to match the DARTBOARD.PNG asset in Supabase storage
+// These values match ACTUAL DARTBOARD DIMENSIONS scaled to the visible calibration rings
 // CRITICAL: The PNG has SIGNIFICANT TRANSPARENT PADDING - the actual board is much smaller
-// The visible doubles in the PNG are at approximately 47-55% of the PNG dimensions
+// R_DOUBLE_OUT = 0.4675 represents the full playable dartboard (170mm standard diameter)
 //
-// DARTBOARD LAYOUT (from center to edge, % of PNG size):
-// 1. Bullseye (inner red): 0 to ~3.5% = 50 points (double bull)
-// 2. Outer bull (green ring): ~3.5% to ~7% = 25 points (single bull)
-// 3. Inner singles (black/cream): ~7% to ~32%
-// 4. TREBLE RING (inner red/green): ~32% to ~40% = 3x multiplier
-// 5. Outer singles (black/cream): ~40% to ~47%
-// 6. DOUBLE RING (outer red/green): ~47% to ~55% = 2x multiplier
+// STANDARD DARTBOARD DIMENSIONS (Official):
+// Total radius: 170mm from center to outer edge of doubles
+// 1. Bullseye (inner red): 0-6.35mm = 50 points (double bull)
+// 2. Outer bull (green ring): 6.35-15.9mm = 25 points (single bull)
+// 3. Inner singles (black/cream): 15.9-99mm
+// 4. TREBLE RING (inner red/green): 99-107mm = 3x multiplier (8mm wide)
+// 5. Outer singles (black/cream): 107-162mm
+// 6. DOUBLE RING (outer red/green): 162-170mm = 2x multiplier (8mm wide)
 // 7. Beyond doubles: MISS (0 points)
 //
 // SCORING BOUNDARY: R_BOARD = R_DOUBLE_OUT (outer edge of doubles is the playable limit)
+// SCALE FACTOR: 0.4675 / 170mm = 0.00275 per mm
 
-export const R_BOARD = 0.4675;      // Playable area ends at outer edge of doubles ring
+export const R_BOARD = 0.4675;      // Playable area ends at outer edge of doubles ring (170mm)
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
-// The treble ring is the INNER red/green ring
-// Adjusted to match PNG dartboard dimensions more accurately
-export const R_TREBLE_IN = 0.2425;  // Inner edge of treble ring (slightly thinner)
-export const R_TREBLE_OUT = 0.2775; // Outer edge of treble ring (width: 0.035)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.26 (aim point)
+// The treble ring is the INNER red/green ring at 99-107mm from center
+// Properly scaled to match actual dartboard proportions
+export const R_TREBLE_IN = 0.2723;   // 99mm * 0.00275 = Inner edge of treble ring
+export const R_TREBLE_OUT = 0.2943;  // 107mm * 0.00275 = Outer edge of treble ring (8mm wide)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.2833 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
-// The double ring is the OUTER red/green ring
-// Adjusted to match PNG dartboard dimensions
-export const R_DOUBLE_IN = 0.4225;  // Inner edge of double ring (slightly thinner)
-export const R_DOUBLE_OUT = 0.4675; // Outer edge of double ring (width: 0.045)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.445 (aim point)
+// The double ring is the OUTER red/green ring at 162-170mm from center
+// Properly scaled to match actual dartboard proportions
+export const R_DOUBLE_IN = 0.4455;   // 162mm * 0.00275 = Inner edge of double ring
+export const R_DOUBLE_OUT = 0.4675;  // 170mm * 0.00275 = Outer edge of double ring (8mm wide)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.4565 (aim point)
 
 // === BULL ===
-// Adjusted to match PNG dartboard dimensions
-export const R_BULL_IN = 0.026;     // Inner bull radius (50 pts)
-export const R_BULL_OUT = 0.052;    // Outer bull radius (25 pts) - slightly thinner
+// Bull dimensions scaled to match actual dartboard proportions
+export const R_BULL_IN = 0.0175;     // 6.35mm * 0.00275 = Inner bull radius (50 pts)
+export const R_BULL_OUT = 0.0437;    // 15.9mm * 0.00275 = Outer bull radius (25 pts)
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
@@ -481,15 +483,15 @@ export function validateDartboardGeometry(): {
  * Use this to verify the dartbot correctly identifies rings
  */
 export function testRingCalibration(): {
-  bull: { hit: DartResult; expected: string };
-  outerBull: { hit: DartResult; expected: string };
-  innerSingle: { hit: DartResult; expected: string };
-  treble20: { hit: DartResult; expected: string };
-  treble1: { hit: DartResult; expected: string };
-  outerSingle: { hit: DartResult; expected: string };
-  double20: { hit: DartResult; expected: string };
-  double1: { hit: DartResult; expected: string };
-  offBoard: { hit: DartResult; expected: string };
+  bull: { hit: DartResult; expected: string; radius: number };
+  outerBull: { hit: DartResult; expected: string; radius: number };
+  innerSingle: { hit: DartResult; expected: string; radius: number };
+  treble20: { hit: DartResult; expected: string; radius: number };
+  treble1: { hit: DartResult; expected: string; radius: number };
+  outerSingle: { hit: DartResult; expected: string; radius: number };
+  double20: { hit: DartResult; expected: string; radius: number };
+  double1: { hit: DartResult; expected: string; radius: number };
+  offBoard: { hit: DartResult; expected: string; radius: number };
 } {
   // Helper to simulate a perfect throw (no scatter)
   const perfectThrow = (target: string): DartResult => {
@@ -497,18 +499,20 @@ export function testRingCalibration(): {
     const result = evaluateDartFromXY(aim.x, aim.y);
     return { ...result, aimTarget: target, x: aim.x, y: aim.y };
   };
-  
+
   // Test each ring with precise aim points
   const tests = {
     // Bullseye (center) - INNER RED area
     bull: {
       hit: perfectThrow('DB'),
-      expected: 'DBull'
+      expected: 'DBull',
+      radius: 0
     },
     // Outer bull - GREEN ring around bullseye
     outerBull: {
       hit: perfectThrow('SB'),
-      expected: 'SBull'
+      expected: 'SBull',
+      radius: (R_BULL_IN + R_BULL_OUT) / 2
     },
     // Inner single (between bull and treble) - BLACK/CREAM
     innerSingle: {
@@ -519,17 +523,20 @@ export function testRingCalibration(): {
         const result = evaluateDartFromXY(x, y);
         return { ...result, aimTarget: 'test', x, y };
       })(),
-      expected: 'S20'
+      expected: 'S20',
+      radius: (R_BULL_OUT + R_TREBLE_IN) / 2
     },
     // Treble 20 (top) - INNER RED/GREEN ring
     treble20: {
       hit: perfectThrow('T20'),
-      expected: 'T20'
+      expected: 'T20',
+      radius: R_TREBLE_CENTER
     },
     // Treble 1 (next to 20, clockwise) - INNER RED/GREEN ring
     treble1: {
       hit: perfectThrow('T1'),
-      expected: 'T1'
+      expected: 'T1',
+      radius: R_TREBLE_CENTER
     },
     // Outer single (between treble and double) - BLACK/CREAM
     outerSingle: {
@@ -540,17 +547,20 @@ export function testRingCalibration(): {
         const result = evaluateDartFromXY(x, y);
         return { ...result, aimTarget: 'test', x, y };
       })(),
-      expected: 'S20'
+      expected: 'S20',
+      radius: (R_TREBLE_OUT + R_DOUBLE_IN) / 2
     },
     // Double 20 (top edge) - OUTER RED/GREEN ring
     double20: {
       hit: perfectThrow('D20'),
-      expected: 'D20'
+      expected: 'D20',
+      radius: R_DOUBLE_CENTER
     },
     // Double 1 - OUTER RED/GREEN ring
     double1: {
       hit: perfectThrow('D1'),
-      expected: 'D1'
+      expected: 'D1',
+      radius: R_DOUBLE_CENTER
     },
     // Off the board
     offBoard: {
@@ -558,19 +568,22 @@ export function testRingCalibration(): {
         const result = evaluateDartFromXY(1.5, 0);  // Beyond board edge
         return { ...result, aimTarget: 'test', x: 1.5, y: 0 };
       })(),
-      expected: 'MISS'
+      expected: 'MISS',
+      radius: 1.5
     }
   };
-  
+
   // Log results for debugging
-  console.log('[DARTBOARD CALIBRATION TEST]');
-  console.log('  Ring structure: Bull (center) → Outer Bull → Inner Single → TREBLE (inner ring) → Outer Single → DOUBLE (outer ring)');
+  console.log('[DARTBOARD CALIBRATION TEST - Updated to match actual dartboard dimensions]');
+  console.log('  Standard dartboard: Bull (0-15.9mm) → Singles → TREBLE (99-107mm) → Singles → DOUBLE (162-170mm)');
+  console.log('  Scaled to visible rings: R_BOARD = 0.4675 represents 170mm');
   Object.entries(tests).forEach(([name, test]) => {
-    const passed = test.hit.label === test.expected || 
+    const passed = test.hit.label === test.expected ||
                    (test.expected === 'MISS' && test.hit.offboard);
-    console.log(`  ${name}: ${test.hit.label} (expected: ${test.expected}) ${passed ? '✓' : '✗'}`);
+    const status = passed ? '✓' : '✗ FAILED';
+    console.log(`  ${name}: ${test.hit.label} @ r=${test.radius.toFixed(4)} (expected: ${test.expected}) ${status}`);
   });
-  
+
   return tests;
 }
 
