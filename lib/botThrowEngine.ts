@@ -115,10 +115,10 @@ export const R_BOARD = 0.85;         // Playable area ends where black number ri
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
-// Adjusted to match the visible calibration rings on PNG (narrower and closer to center)
-export const R_TREBLE_IN = 0.468;    // Inner edge of treble ring (matches visible yellow rings)
-export const R_TREBLE_OUT = 0.553;   // Outer edge of treble ring (matches visible yellow rings)
-export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.5105 (aim point)
+// Moved extra 1-2cm inward toward center to match PNG dartboard
+export const R_TREBLE_IN = 0.40;     // Inner edge of treble ring (moved closer to center)
+export const R_TREBLE_OUT = 0.48;    // Outer edge of treble ring (moved closer to center)
+export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.44 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
