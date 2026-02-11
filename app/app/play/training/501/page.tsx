@@ -28,7 +28,8 @@ import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } 
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
-import { recordMatchCompletion, type PlayerStats } from '@/lib/match/recordMatchCompletion';
+import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
+import type { PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
 import Link from 'next/link';
@@ -548,14 +549,33 @@ export default function DartbotMatchPage() {
         winnerId: matchWinner === 'player1' ? 'player1' : 'player2',
       });
 
-      const result = await recordMatchCompletion({
-        matchType: 'dartbot', game: normalizedConfig.mode, startedAt: new Date(matchStartTime).toISOString(), endedAt: new Date().toISOString(),
-        opponent: { name: botName, isBot: true, botLevel: config.botAverage },
-        winner: matchWinner === 'player1' ? 'user' : 'opponent',
-        userStats: userPlayerStats, opponentStats: opponentPlayerStats, matchFormat: config.bestOf,
-      });
+      const dartbotStats: DartbotMatchStats = {
+        gameMode: normalizedConfig.mode,
+        matchFormat: config.bestOf,
+        dartbotLevel: config.botAverage,
+        playerLegs: player1LegsWon,
+        dartbotLegs: player2LegsWon,
+        winner: matchWinner === 'player1' ? 'player' : 'dartbot',
+        startedAt: new Date(matchStartTime).toISOString(),
+        completedAt: new Date().toISOString(),
+        playerStats: {
+          threeDartAvg: userStats.threeDartAverage,
+          first9Avg: userStats.first9Average,
+          highestCheckout: userStats.highestCheckout,
+          checkoutPercentage: userStats.checkoutPercent,
+          dartsThrown: userStats.totalDartsThrown,
+          totalScore: userStats.totalPointsScored,
+          totalCheckouts: userStats.checkoutsMade,
+          checkoutAttempts: userStats.checkoutDartsAttempted,
+          visits100Plus: userStats.count100Plus,
+          visits140Plus: userStats.count140Plus,
+          visits180: userStats.oneEighties,
+        },
+      };
+      
+      const result = await recordDartbotMatchCompletion(dartbotStats);
       console.log('📊 DARTBOT MATCH SAVED:', result);
-      if (result.ok) toast.success('Match stats saved!');
+      if (result.success) toast.success('Match stats saved!');
     } catch (error) { console.error('Error saving match stats:', error); }
   };
 
