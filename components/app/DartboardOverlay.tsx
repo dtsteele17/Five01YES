@@ -52,14 +52,14 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
           }}
         />
 
-        {/* Debug rings overlay - Hidden from users (calibration complete) */}
-        {false && showDebugRings && (
+        {/* Debug rings overlay - Scaled to 180% to match PNG */}
+        {showDebugRings && (
           <svg
             className="absolute pointer-events-none"
             viewBox="0 0 100 100"
             style={{
               mixBlendMode: 'normal',
-              opacity: 0,
+              opacity: 0.8,
               width: '180%',
               height: '180%',
               top: '50%',
