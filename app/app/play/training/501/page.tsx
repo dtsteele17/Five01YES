@@ -474,24 +474,14 @@ export default function DartbotMatchPage() {
     return { average: threeDartAverage, lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
   }, [allLegs, currentLeg]);
 
-  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, checkoutDartsAttempted: number = 0, checkoutsMade: number = 0, totalDartsTracked: number = 0, totalScoreTracked: number = 0, allLegsData?: LegData[]) => {
-    const allPlayerVisits = visitData.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
+  const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, allLegsData?: LegData[]) => {
+    const playerKey = isPlayer1 ? 'player1' : 'player2';
+    const allPlayerVisits = visitData.filter(v => v.player === playerKey);
     const playerVisits = allPlayerVisits.filter(v => !v.isBust);
     
-    // Use tracked stats for bot if available, otherwise calculate from visits
-    let totalDarts: number;
-    let totalScored: number;
-    
-    if (!isPlayer1 && totalDartsTracked > 0) {
-      // Use tracked stats for bot (includes bust darts)
-      totalDarts = totalDartsTracked;
-      totalScored = totalScoreTracked;
-    } else {
-      // Calculate from visits for player
-      totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-      totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
-    }
-    
+    // ALWAYS calculate from visits - works for both user and bot
+    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
     // First 9 calculation (only from valid visits)
@@ -509,29 +499,17 @@ export default function DartbotMatchPage() {
     
     // Calculate highest checkout from the remainingBefore of checkout visits
     for (const visit of checkouts) {
-      // remainingBefore shows what was needed to checkout
       const checkoutValue = visit.remainingBefore || 0;
       if (checkoutValue > highestCheckout && checkoutValue <= 170) {
         highestCheckout = checkoutValue;
       }
     }
     
-    // For bot (player2), use tracked checkout stats if available, otherwise calculate from visits
-    let successfulCheckouts: number;
-    let dartsAtDouble: number;
-    
-    if (!isPlayer1 && checkoutsMade > 0) {
-      // Use tracked stats for bot
-      successfulCheckouts = checkoutsMade;
-      dartsAtDouble = checkoutDartsAttempted;
-    } else {
-      // Calculate from visits for player
-      successfulCheckouts = checkouts.length;
-      // Count visits where player was on a checkout (<=170, >0)
-      dartsAtDouble = allPlayerVisits
-        .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
-        .reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    }
+    // Calculate checkout stats from visits
+    const successfulCheckouts = checkouts.length;
+    const dartsAtDouble = allPlayerVisits
+      .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
+      .reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
     
     const checkoutPercentage = dartsAtDouble > 0 ? (successfulCheckouts / dartsAtDouble) * 100 : 0;
     
@@ -539,17 +517,14 @@ export default function DartbotMatchPage() {
     let bestLegDarts = 0;
     let bestLegNum = 0;
     
-    // Use the legs data if provided, otherwise calculate from visits
     const legsToCheck = allLegsData || allLegs;
     
     for (const leg of legsToCheck) {
-      // Check if this player won this leg
       const legWinner = leg.winner;
       const playerWon = (isPlayer1 && legWinner === 'player1') || (!isPlayer1 && legWinner === 'player2');
       
       if (playerWon) {
-        // Count darts for this player in this leg
-        const legVisits = leg.visits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
+        const legVisits = leg.visits.filter(v => v.player === playerKey);
         const legDarts = legVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
         
         if (bestLegDarts === 0 || legDarts < bestLegDarts) {
@@ -565,7 +540,7 @@ export default function DartbotMatchPage() {
     const oneEighties = playerVisits.filter(v => v.score === 180).length;
     
     return { 
-      id: isPlayer1 ? 'player1' : 'player2', 
+      id: playerKey, 
       name: playerName, 
       legsWon, 
       threeDartAverage: Math.round(threeDartAverage * 100) / 100, 
@@ -618,13 +593,11 @@ export default function DartbotMatchPage() {
       
       const p1FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        true, 'You', player1LegsWon, player1TotalDartsAtDouble, player1CheckoutsMade, player1MatchDartsThrown, player1MatchTotalScored,
-        completedLegs
+        true, 'You', player1LegsWon, completedLegs
       );
       const p2FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        false, botName, player2LegsWon, player2TotalDartsAtDouble, player2CheckoutsMade, player2MatchDartsThrown, player2MatchTotalScored,
-        completedLegs
+        false, botName, player2LegsWon, completedLegs
       );
       
       setMatchEndStats({
