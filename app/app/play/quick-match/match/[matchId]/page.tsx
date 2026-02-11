@@ -1118,6 +1118,13 @@ export default function QuickMatchRoomPage() {
     stopCamera,
     liveVideoRef
   } = webrtc;
+  
+  // Expose localStream to window for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStream) {
+      (window as any).__localStream = localStream;
+    }
+  }, [localStream]);
 
   // Auto-start camera when match is active and both players are present
   useEffect(() => {
@@ -3034,24 +3041,25 @@ export default function QuickMatchRoomPage() {
         </Button>
       </div>
 
-      {/* Main Content - Single camera (switches with turn) + game panel */}
+      {/* Main Content - Single camera (shows active player's camera to BOTH users) + game panel */}
       <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
-        {/* LEFT: Single Camera - Shows whoever's turn it is */}
+        {/* LEFT: Active Player Camera - Both users see whoever's turn it is */}
         <div className="flex flex-col">
           <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
             <div className={`flex items-center justify-between p-3 border-b border-white/5 ${isMyTurn ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
               <span className={`text-sm font-bold ${isMyTurn ? 'text-emerald-400' : 'text-blue-400'}`}>
-                {isMyTurn ? `🎯 YOUR TURN - ${myPlayer.name}` : `⏳ ${opponentPlayer.name}'S TURN`}
+                {isMyTurn ? `🎯 ${myPlayer.name}'S TURN (You)` : `🎯 ${opponentPlayer.name}'S TURN`}
               </span>
               <div className="flex gap-2">
+                {/* Show camera controls only if it's my turn AND I'm the active player */}
                 {isMyTurn ? (
                   <>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
                       {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleMic}>
-                      {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                    </Button>
+                    <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
+                      <Wifi className="w-3 h-3" /> Live
+                    </span>
                   </>
                 ) : (
                   <>
@@ -3072,7 +3080,7 @@ export default function QuickMatchRoomPage() {
             </div>
             <div className="flex-1 relative bg-slate-900">
               {isMyTurn ? (
-                // My turn - show MY camera (local stream)
+                // It's MY turn - show MY camera (local stream) to BOTH users
                 isCameraOn ? (
                   <video 
                     ref={liveVideoRef} 
@@ -3084,9 +3092,9 @@ export default function QuickMatchRoomPage() {
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
                     <CameraOff className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium mb-2">Camera is off</span>
+                    <span className="text-lg font-medium mb-2">Your camera is off</span>
                     <span className="text-sm text-slate-500 mb-4 text-center">
-                      Enable camera to see your opponent during their turn
+                      It's your turn! Enable your camera so your opponent can see you.
                     </span>
                     <Button 
                       onClick={toggleCamera}
@@ -3098,7 +3106,7 @@ export default function QuickMatchRoomPage() {
                   </div>
                 )
               ) : (
-                // Opponent's turn - show THEIR camera (remote stream)
+                // It's OPPONENT'S turn - show THEIR camera (remote stream) to BOTH users
                 remoteStream ? (
                   <video 
                     ref={remoteVideoRef}
@@ -3109,24 +3117,51 @@ export default function QuickMatchRoomPage() {
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
                     <UserPlus className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium mb-2">Connecting to opponent...</span>
+                    <span className="text-lg font-medium mb-2">Waiting for {opponentPlayer.name}...</span>
                     <span className="text-sm text-slate-500 text-center">
-                      {callStatus === 'connecting' 
-                        ? 'Establishing video connection...'
-                        : callStatus === 'connected' 
-                          ? 'Waiting for opponent to enable camera'
-                          : 'Make sure both players have camera enabled'
-                      }
+                      It's their turn. Their camera will appear when they enable it.
                     </span>
                     {!isCameraOn && (
                       <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                         <span className="text-sm text-amber-400">
-                          ⚠️ Enable your camera so they can see you too
+                          ⚠️ You should also enable your camera for your turn
                         </span>
                       </div>
                     )}
                   </div>
                 )
+              )}
+            </div>
+          </Card>
+          
+          {/* Small preview of YOUR camera (always visible so you can check your setup) */}
+          <Card className="bg-slate-800/50 border-white/10 overflow-hidden h-32 mt-2">
+            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-slate-800/80">
+              <span className="text-xs text-slate-400">Your Camera Preview</span>
+              {!isMyTurn && (
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
+                  {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
+                </Button>
+              )}
+            </div>
+            <div className="flex-1 relative bg-slate-900 h-20">
+              {isCameraOn ? (
+                <video 
+                  ref={(el) => {
+                    if (el && localStream) {
+                      el.srcObject = localStream;
+                      el.play().catch(() => {});
+                    }
+                  }}
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  className="w-full h-full object-cover opacity-70"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                  <CameraOff className="w-6 h-6 opacity-50" />
+                </div>
               )}
             </div>
           </Card>
