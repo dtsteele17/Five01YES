@@ -72,6 +72,12 @@ export async function sendMatchSignal(
     return false;
   }
 
+  // Get current auth user to verify
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log('[WEBRTC QS] 📤 Current auth user:', user?.id);
+  console.log('[WEBRTC QS] 📤 from_user_id being sent:', fromUserId);
+  console.log('[WEBRTC QS] 📤 Match:', user?.id === fromUserId);
+
   // Build insert payload with EXACT column names
   const signalData = {
     room_id: roomId,
@@ -81,7 +87,7 @@ export async function sendMatchSignal(
     payload
   };
 
-  console.log('[WEBRTC QS] 📤 Inserting into match_signals with exact column names');
+  console.log('[WEBRTC QS] 📤 Inserting into match_signals:', signalData);
 
   try {
     const { data, error } = await supabase
