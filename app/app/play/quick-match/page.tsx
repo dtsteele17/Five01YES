@@ -503,24 +503,29 @@ export default function QuickMatchLobbyPage() {
   }
 
   async function cancelLobby() {
-    if (!myLobby) return;
+    if (!myLobby || !userId) return;
 
     try {
       console.log('[CANCEL] Cancelling lobby:', myLobby.id);
 
+      // Delete the lobby - use created_by to verify ownership
       const { error } = await supabase
         .from('quick_match_lobbies')
         .delete()
         .eq('id', myLobby.id)
-        .eq('player1_id', userId);
+        .eq('created_by', userId);
 
       if (error) {
         console.error('[CANCEL] Delete error:', error);
         throw error;
       }
 
+      // Immediately update local state (don't wait for realtime)
       setMyLobby(null);
+      setLobbies((prev) => prev.filter(l => l.id !== myLobby.id));
+      
       toast.info('Lobby cancelled');
+      console.log('[CANCEL] Lobby deleted successfully');
     } catch (error: any) {
       console.error('[CANCEL] Failed:', error);
       toast.error(`Failed to cancel: ${error.message}`);
