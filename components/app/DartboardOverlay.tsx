@@ -19,6 +19,7 @@ interface DartboardOverlayProps {
 export function DartboardOverlay({ hits = [], className = '', showDebugRings = false }: DartboardOverlayProps) {
   // PNG dartboard with black number ring on outside
   // Board is 1.8x bigger on screen for better visibility
+  // Calibration rings at 1.0x scale to match actual board geometry
   // Normalized coords (-1..1) map to pixels
   // NOTE: Y-axis flip - bot engine uses Y-up (math coords), CSS uses Y-down (screen coords)
   const normalizedToPixel = (coord: number, size: number): number => {
@@ -26,9 +27,9 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
   };
 
   // Convert normalized radius to SVG percentage
-  // Board is 1.8x bigger, so scale rings accordingly
+  // Rings at 1.0x scale to match actual dartboard dimensions
   const radiusToPercent = (radius: number): number => {
-    return radius * 50 * 1.8; // radius 1.0 = 90% of container (50% × 1.8)
+    return radius * 50 * 1.0; // radius 1.0 = 50% of container
   };
 
   const boardUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/assets/PNG%20DARTBOARD.png`;
@@ -51,7 +52,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
           }}
         />
 
-        {/* Debug rings overlay - Enhanced visibility */}
+        {/* Debug rings overlay - Scaled to match actual board geometry */}
         {showDebugRings && (
           <svg
             className="absolute pointer-events-none"
@@ -59,8 +60,8 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
             style={{
               mixBlendMode: 'normal',
               opacity: 0.8,
-              width: '180%',
-              height: '180%',
+              width: '100%',
+              height: '100%',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
@@ -76,23 +77,23 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               strokeWidth="0.8"
               strokeDasharray="3,2"
             />
-            {/* Double ring outer - Bright Red (thinner) */}
+            {/* Double ring outer - Bright Red */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_DOUBLE_OUT)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.4"
+              strokeWidth="0.8"
             />
-            {/* Double ring inner - Bright Red (thinner) */}
+            {/* Double ring inner - Bright Red */}
             <circle
               cx="50"
               cy="50"
               r={radiusToPercent(R_DOUBLE_IN)}
               fill="none"
               stroke="#ff0000"
-              strokeWidth="0.4"
+              strokeWidth="0.8"
             />
             {/* Treble ring outer - Bright Yellow */}
             <circle
@@ -101,7 +102,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_TREBLE_OUT)}
               fill="none"
               stroke="#ffff00"
-              strokeWidth="0.6"
+              strokeWidth="0.8"
             />
             {/* Treble ring inner - Bright Yellow */}
             <circle
@@ -110,7 +111,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_TREBLE_IN)}
               fill="none"
               stroke="#ffff00"
-              strokeWidth="0.6"
+              strokeWidth="0.8"
             />
             {/* Bull outer - Bright Cyan */}
             <circle
@@ -119,7 +120,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_BULL_OUT)}
               fill="none"
               stroke="#00ffff"
-              strokeWidth="0.6"
+              strokeWidth="0.8"
             />
             {/* Bull inner - Bright Cyan */}
             <circle
@@ -128,7 +129,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
               r={radiusToPercent(R_BULL_IN)}
               fill="none"
               stroke="#00ffff"
-              strokeWidth="0.6"
+              strokeWidth="0.8"
             />
             {/* Legend text */}
             <text x="2" y="8" fill="#00ff00" fontSize="4" fontWeight="bold">Playable Area</text>

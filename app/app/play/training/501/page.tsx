@@ -1023,7 +1023,7 @@ export default function DartbotMatchPage() {
             <div className="text-xs text-purple-400">{botName}</div>
           </div>
           <div className="flex-1 relative flex items-center justify-center p-4">
-            <div className="relative w-full max-w-sm aspect-square">
+            <div className="relative w-full max-w-lg aspect-square">
               <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
             </div>
           </div>
