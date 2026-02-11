@@ -15,13 +15,14 @@ export interface UseMatchWebRTCReturn {
   isCameraOn: boolean;
   isMicMuted: boolean;
   isVideoDisabled: boolean;
-  callStatus: 'idle' | 'connecting' | 'connected';
+  callStatus: 'idle' | 'connecting' | 'connected' | 'failed';
   cameraError: string | null;
   toggleCamera: () => Promise<void>;
   toggleMic: () => void;
   toggleVideo: () => void;
   stopCamera: (reason?: string) => void;
   liveVideoRef: React.RefObject<HTMLVideoElement>;
+  forceTurnAndRestart: () => void;
 }
 
 /**
@@ -57,7 +58,7 @@ export function useMatchWebRTC({
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicMuted, setIsMicMuted] = useState(true); // Always muted by default
   const [isVideoDisabled, setIsVideoDisabled] = useState(false);
-  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected'>('idle');
+  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'failed'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
@@ -70,6 +71,8 @@ export function useMatchWebRTC({
   const makingOfferRef = useRef(false);
   const ignoreOfferRef = useRef(false);
   const subscriptionCleanupRef = useRef<(() => void) | null>(null);
+  const forceTurnRef = useRef(false); // Set to true to force TURN relay
+  const connectionAttemptRef = useRef(0);
 
   console.log('[WEBRTC QS] Render with:', {
     roomId,
@@ -163,13 +166,30 @@ export function useMatchWebRTC({
 
     try {
       const iceServers = getIceServers();
+      connectionAttemptRef.current++;
+      
+      // If previous attempts failed, force TURN relay
+      const shouldForceTurn = forceTurnRef.current || connectionAttemptRef.current > 1;
+      
       const pc = new RTCPeerConnection({
         iceServers,
-        iceCandidatePoolSize: 10
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: shouldForceTurn ? 'relay' : 'all'
       });
+      
+      console.log('[WEBRTC QS] ICE transport policy:', shouldForceTurn ? 'relay (forced)' : 'all');
 
       peerConnectionRef.current = pc;
       console.log('[WEBRTC QS] ✅ RTCPeerConnection created');
+
+      // Log ICE configuration for debugging
+      console.log('[WEBRTC QS] ICE servers count:', iceServers.length);
+      const hasTurn = iceServers.some(s => 
+        Array.isArray(s.urls) 
+          ? s.urls.some((u: string) => u.startsWith('turn'))
+          : (s.urls as string).startsWith('turn')
+      );
+      console.log('[WEBRTC QS] TURN configured:', hasTurn);
 
       // Connection state handlers
       pc.onconnectionstatechange = () => {
@@ -181,7 +201,21 @@ export function useMatchWebRTC({
           setCallStatus('connecting');
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
           console.error('[WEBRTC QS] ❌ Connection failed/disconnected');
-          setCallStatus('idle');
+          setCallStatus(pc.connectionState === 'failed' ? 'failed' : 'idle');
+          
+          // If connection failed and we have TURN, suggest checking credentials
+          if (pc.connectionState === 'failed' && hasTurn) {
+            console.warn('[WEBRTC QS] 💡 Connection failed despite TURN. Check:');
+            console.warn('   1. Xirsys credentials are correct in .env.local');
+            console.warn('   2. Xirsys account is active (not expired)');
+            console.warn('   3. Try refreshing Xirsys token if using dynamic credentials');
+          }
+          
+          // Auto-retry with forced TURN relay on next connection attempt
+          if (pc.connectionState === 'failed' && !forceTurnRef.current && connectionAttemptRef.current < 3) {
+            console.log('[WEBRTC QS] 🔄 Will retry with forced TURN relay on next camera start');
+            forceTurnRef.current = true;
+          }
         }
       };
 
@@ -609,6 +643,32 @@ export function useMatchWebRTC({
     }
   }, [localStream]);
 
+  // Force TURN relay and restart connection
+  const forceTurnAndRestart = useCallback(() => {
+    console.log('[WEBRTC QS] ========== FORCE TURN RESTART ==========');
+    forceTurnRef.current = true;
+    
+    // Close existing connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+      console.log('[WEBRTC QS] Closed existing peer connection');
+    }
+    
+    // Reset state
+    setRemoteStream(null);
+    setCallStatus('idle');
+    connectionAttemptRef.current = 0;
+    
+    console.log('[WEBRTC QS] Will create new connection with TURN relay forced on next camera start');
+    
+    // Restart camera if it was on
+    if (isCameraOn && localStream) {
+      console.log('[WEBRTC QS] Restarting camera with TURN relay...');
+      // The peer connection will be recreated on the next effect run
+    }
+  }, [isCameraOn, localStream]);
+
   // ========== CLEANUP ON UNMOUNT ==========
   useEffect(() => {
     return () => {
@@ -631,6 +691,7 @@ export function useMatchWebRTC({
     toggleMic,
     toggleVideo,
     stopCamera,
-    liveVideoRef
+    liveVideoRef,
+    forceTurnAndRestart
   };
 }
