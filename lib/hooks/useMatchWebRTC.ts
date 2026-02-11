@@ -223,6 +223,12 @@ export function useMatchWebRTC({
         if (pc.connectionState === 'connected') {
           setCallStatus('connected');
           console.log('[WEBRTC QS] ✅ PEER CONNECTION ESTABLISHED');
+          
+          // Check if we have senders but no remote stream - may need to renegotiate
+          setTimeout(() => {
+            const senders = pc.getSenders();
+            console.log('[WEBRTC QS] Connection established - senders:', senders.length, 'receivers:', pc.getReceivers().length);
+          }, 1000);
         } else if (pc.connectionState === 'connecting') {
           setCallStatus('connecting');
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
@@ -446,6 +452,15 @@ export function useMatchWebRTC({
         }
       } catch (error) {
         console.error('[WEBRTC QS] ❌ Error handling answer:', error);
+      }
+      
+      // After answer is applied, if we're Player 1 and have local stream but no remote,
+      // we may need to renegotiate
+      if (isPlayer1 && localStream && !remoteStream) {
+        console.log('[WEBRTC QS] 🔄 Answer applied but no remote stream - will renegotiate');
+        setTimeout(() => {
+          offerCreatedRef.current = false; // Allow new offer
+        }, 500);
       }
     };
 
@@ -713,25 +728,29 @@ export function useMatchWebRTC({
 
         // Manually trigger negotiation if Player 1
         // onnegotiationneeded doesn't always fire reliably
-        if (isPlayer1 && pc.signalingState === 'stable' && roomId && myUserId && opponentUserId) {
-          console.log('[WEBRTC QS] 🔄 Manually triggering negotiation as Player 1');
-          setTimeout(async () => {
-            try {
-              makingOfferRef.current = true;
-              const offer = await pc.createOffer();
-              await pc.setLocalDescription(offer);
-              console.log('[WEBRTC QS] ✅ Manual renegotiation offer created');
-              
-              await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
-                offer: pc.localDescription?.toJSON()
-              });
-              console.log('[WEBRTC QS] ✅ Manual renegotiation offer sent');
-            } catch (err) {
-              console.error('[WEBRTC QS] ❌ Error in manual negotiation:', err);
-            } finally {
-              makingOfferRef.current = false;
-            }
-          }, 100);
+        if (isPlayer1 && roomId && myUserId && opponentUserId) {
+          if (pc.signalingState === 'stable') {
+            console.log('[WEBRTC QS] 🔄 Manually triggering negotiation as Player 1');
+            setTimeout(async () => {
+              try {
+                makingOfferRef.current = true;
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                console.log('[WEBRTC QS] ✅ Manual renegotiation offer created');
+                
+                await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+                  offer: pc.localDescription?.toJSON()
+                });
+                console.log('[WEBRTC QS] ✅ Manual renegotiation offer sent');
+              } catch (err) {
+                console.error('[WEBRTC QS] ❌ Error in manual negotiation:', err);
+              } finally {
+                makingOfferRef.current = false;
+              }
+            }, 100);
+          } else {
+            console.log('[WEBRTC QS] Waiting for stable state to negotiate, current:', pc.signalingState);
+          }
         }
       }
 

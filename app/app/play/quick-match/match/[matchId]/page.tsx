@@ -1121,17 +1121,20 @@ export default function QuickMatchRoomPage() {
     forceTurnAndRestart
   } = webrtc;
   
-  // Expose localStream to window for debugging
+  // Expose streams to window for debugging
   useEffect(() => {
-    if (typeof window !== 'undefined' && localStream) {
+    if (typeof window !== 'undefined') {
       (window as any).__localStream = localStream;
+      (window as any).__remoteStream = remoteStream;
+      console.log('[CAMERA] localStream:', localStream ? 'YES' : 'NO', 'remoteStream:', remoteStream ? 'YES' : 'NO');
     }
-  }, [localStream]);
+  }, [localStream, remoteStream]);
   
   // Sync local video with localStream (stable ref - prevents flicker on re-render)
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       if (localVideoRef.current.srcObject !== localStream) {
+        console.log('[CAMERA] Setting local video stream');
         localVideoRef.current.srcObject = localStream;
       }
     }
@@ -1141,6 +1144,7 @@ export default function QuickMatchRoomPage() {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       if (remoteVideoRef.current.srcObject !== remoteStream) {
+        console.log('[CAMERA] Setting remote video stream');
         remoteVideoRef.current.srcObject = remoteStream;
       }
     }
