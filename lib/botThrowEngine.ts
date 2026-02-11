@@ -107,26 +107,26 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
 // 7. BLACK NUMBER RING (decorative): ~55% to ~60%
 // 8. Transparent padding: ~60% to 100% (invisible space in PNG)
 
-export const R_BOARD = 0.60;        // Actual visible board edge in PNG
+export const R_BOARD = 0.57;        // Actual visible board edge in PNG (brought in)
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
 // Adjusted to match PNG dartboard dimensions more accurately
-export const R_TREBLE_IN = 0.24;    // Inner edge of treble ring (brought in by full treble width)
-export const R_TREBLE_OUT = 0.28;   // Outer edge of treble ring (width: 0.04)
+export const R_TREBLE_IN = 0.2425;  // Inner edge of treble ring (slightly thinner)
+export const R_TREBLE_OUT = 0.2775; // Outer edge of treble ring (width: 0.035)
 export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.26 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
 // Adjusted to match PNG dartboard dimensions
-export const R_DOUBLE_IN = 0.42;    // Inner edge of double ring (brought in more)
-export const R_DOUBLE_OUT = 0.47;   // Outer edge of double ring (width: 0.05)
+export const R_DOUBLE_IN = 0.4225;  // Inner edge of double ring (slightly thinner)
+export const R_DOUBLE_OUT = 0.4675; // Outer edge of double ring (width: 0.045)
 export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.445 (aim point)
 
 // === BULL ===
 // Adjusted to match PNG dartboard dimensions
-export const R_BULL_IN = 0.026;     // Inner bull radius (50 pts) - smaller
-export const R_BULL_OUT = 0.055;    // Outer bull radius (25 pts) - smaller
+export const R_BULL_IN = 0.026;     // Inner bull radius (50 pts)
+export const R_BULL_OUT = 0.052;    // Outer bull radius (25 pts) - slightly thinner
 
 // === SKILL LEVELS ===
 // Sigma values tuned so level X produces ~X average over many visits
