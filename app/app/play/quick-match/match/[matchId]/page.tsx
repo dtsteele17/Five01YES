@@ -1121,11 +1121,21 @@ export default function QuickMatchRoomPage() {
 
   // Auto-start camera when match is active and both players are present
   useEffect(() => {
-    if (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
-      console.log('[CAMERA] Auto-starting camera for active match');
-      cameraInitAttempted.current = true;
-      toggleCamera();
-    }
+    const initCamera = async () => {
+      if (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
+        console.log('[CAMERA] Auto-starting camera for active match');
+        cameraInitAttempted.current = true;
+        try {
+          await toggleCamera();
+          console.log('[CAMERA] Auto-start successful');
+        } catch (err) {
+          console.error('[CAMERA] Auto-start failed:', err);
+          // Don't mark as attempted on error so user can retry manually
+          cameraInitAttempted.current = false;
+        }
+      }
+    };
+    initCamera();
   }, [room?.status, room?.player2_id, isCameraOn, toggleCamera]);
 
   // Effect to update remote video when stream changes
@@ -3072,10 +3082,19 @@ export default function QuickMatchRoomPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
                     <CameraOff className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium">Your camera is off</span>
-                    <span className="text-sm text-slate-500 mt-2">Click the camera button to turn it on</span>
+                    <span className="text-lg font-medium mb-2">Camera is off</span>
+                    <span className="text-sm text-slate-500 mb-4 text-center">
+                      Enable camera to see your opponent during their turn
+                    </span>
+                    <Button 
+                      onClick={toggleCamera}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Enable Camera
+                    </Button>
                   </div>
                 )
               ) : (
@@ -3088,10 +3107,24 @@ export default function QuickMatchRoomPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
                     <UserPlus className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium">Waiting for opponent...</span>
-                    <span className="text-sm text-slate-500 mt-2">Their camera will appear when they connect</span>
+                    <span className="text-lg font-medium mb-2">Connecting to opponent...</span>
+                    <span className="text-sm text-slate-500 text-center">
+                      {callStatus === 'connecting' 
+                        ? 'Establishing video connection...'
+                        : callStatus === 'connected' 
+                          ? 'Waiting for opponent to enable camera'
+                          : 'Make sure both players have camera enabled'
+                      }
+                    </span>
+                    {!isCameraOn && (
+                      <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <span className="text-sm text-amber-400">
+                          ⚠️ Enable your camera so they can see you too
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )
               )}

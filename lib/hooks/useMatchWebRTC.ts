@@ -493,23 +493,19 @@ export function useMatchWebRTC({
   }, [isPlayer1, localStream, roomId, myUserId, opponentUserId]);
 
   // ========== CAMERA CONTROLS ==========
-  const toggleCamera = useCallback(async () => {
-    if (isCameraOn) {
-      console.log('[WEBRTC QS] 📹 User toggling camera OFF');
-      stopCamera('user turned off camera');
-    } else {
-      console.log('[WEBRTC QS] 📹 User toggling camera ON');
-      await startCamera();
-    }
-  }, [isCameraOn]);
-
-  const startCamera = async () => {
+  
+  const startCamera = useCallback(async () => {
     console.log('[WEBRTC QS] ========== START CAMERA ==========');
 
     try {
+      // VIDEO ONLY - no audio for privacy
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: true
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        },
+        audio: false  // Always disabled
       });
 
       console.log('[WEBRTC QS] ✅ Camera stream obtained');
@@ -542,9 +538,6 @@ export function useMatchWebRTC({
         });
 
         console.log('[WEBRTC QS] ✅ All tracks added to peer connection');
-
-        // If player1 and no remote description yet, will trigger offer creation
-        // via the useEffect that watches localStream
       }
 
       // Send camera state to opponent
@@ -556,8 +549,9 @@ export function useMatchWebRTC({
       console.error('[WEBRTC QS] ❌ Error starting camera:', error);
       setCameraError(error.message || 'Failed to access camera');
       setIsCameraOn(false);
+      throw error;  // Re-throw so caller knows it failed
     }
-  };
+  }, [roomId, myUserId, opponentUserId]);
 
   const stopCamera = useCallback((reason?: string) => {
     console.log('[WEBRTC QS] ========== STOP CAMERA ==========');
@@ -581,6 +575,17 @@ export function useMatchWebRTC({
 
     console.log('[WEBRTC QS] Camera stopped, peer connection stays alive');
   }, [localStream, myUserId, opponentUserId, roomId]);
+
+  // Define toggleCamera AFTER startCamera and stopCamera
+  const toggleCamera = useCallback(async () => {
+    if (isCameraOn) {
+      console.log('[WEBRTC QS] 📹 User toggling camera OFF');
+      stopCamera('user turned off camera');
+    } else {
+      console.log('[WEBRTC QS] 📹 User toggling camera ON');
+      await startCamera();
+    }
+  }, [isCameraOn, startCamera, stopCamera]);
 
   const toggleMic = useCallback(() => {
     if (localStream) {
