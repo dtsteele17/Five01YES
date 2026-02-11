@@ -1030,6 +1030,10 @@ export default function QuickMatchRoomPage() {
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Camera refs
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraInitAttempted = useRef(false);
+
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
@@ -1103,6 +1107,7 @@ export default function QuickMatchRoomPage() {
   });
   const {
     localStream,
+    remoteStream,
     callStatus,
     isCameraOn,
     isMicMuted,
@@ -1114,8 +1119,29 @@ export default function QuickMatchRoomPage() {
     liveVideoRef
   } = webrtc;
 
+  // Auto-start camera when match is active and both players are present
+  useEffect(() => {
+    if (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
+      console.log('[CAMERA] Auto-starting camera for active match');
+      cameraInitAttempted.current = true;
+      toggleCamera();
+    }
+  }, [room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+
+  // Effect to update remote video when stream changes
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      console.log('[REMOTE VIDEO] Setting remote stream');
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(err => {
+        console.error('[REMOTE VIDEO] Error playing:', err);
+      });
+    }
+  }, [remoteStream]);
+
   cleanupMatchRef.current = () => {
     stopCamera('match cleanup');
+    cameraInitAttempted.current = false;
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(`match_context_${matchId}`);
       sessionStorage.removeItem(`lobby_id_${matchId}`);
@@ -3054,13 +3080,9 @@ export default function QuickMatchRoomPage() {
                 )
               ) : (
                 // Opponent's turn - show THEIR camera (remote stream)
-                webrtc.remoteStream ? (
+                remoteStream ? (
                   <video 
-                    ref={(el) => {
-                      if (el && webrtc.remoteStream) {
-                        el.srcObject = webrtc.remoteStream;
-                      }
-                    }}
+                    ref={remoteVideoRef}
                     autoPlay 
                     playsInline 
                     className="w-full h-full object-cover"

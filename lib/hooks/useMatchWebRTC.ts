@@ -405,12 +405,16 @@ export function useMatchWebRTC({
     };
   }, [roomId, myUserId, opponentUserId, isPlayer1]);
 
+  // Refs to prevent duplicate operations
+  const offerCreatedRef = useRef(false);
+
   // ========== CREATE OFFER (PLAYER1 ONLY) ==========
   useEffect(() => {
     // Only player1 creates the offer, and only when:
     // 1. Peer connection exists
     // 2. Local stream is ready (tracks added)
     // 3. Subscription is active
+    // 4. Offer hasn't been created yet
 
     if (!isPlayer1) {
       console.log('[WEBRTC QS] Not player1, waiting for offer');
@@ -432,12 +436,27 @@ export function useMatchWebRTC({
       return;
     }
 
+    // CRITICAL: Prevent duplicate offer creation
+    if (offerCreatedRef.current) {
+      console.log('[WEBRTC QS] Offer already created, skipping');
+      return;
+    }
+
     const createOffer = async () => {
       const pc = peerConnectionRef.current;
-      if (!pc || pc.signalingState !== 'stable') {
-        console.log('[WEBRTC QS] Cannot create offer, signaling state:', pc?.signalingState);
+      if (!pc) {
+        console.log('[WEBRTC QS] No peer connection in createOffer');
         return;
       }
+
+      // Double-check signaling state
+      if (pc.signalingState !== 'stable') {
+        console.log('[WEBRTC QS] Cannot create offer, signaling state:', pc.signalingState);
+        return;
+      }
+
+      // Mark as created BEFORE async operations to prevent race conditions
+      offerCreatedRef.current = true;
 
       console.log('[WEBRTC QS] ========== CREATING OFFER (PLAYER1) ==========');
 
@@ -448,23 +467,30 @@ export function useMatchWebRTC({
         await pc.setLocalDescription(offer);
         console.log('[WEBRTC QS] ✅ Local description set (offer)');
 
-        await sendSignal(roomId!, myUserId!, opponentUserId!, 'offer', {
-          offer: pc.localDescription?.toJSON()
-        });
-        console.log('[WEBRTC QS] ✅ Offer sent to player2');
+        // Only send if we still have all required data
+        if (roomId && myUserId && opponentUserId) {
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON()
+          });
+          console.log('[WEBRTC QS] ✅ Offer sent to player2');
+        } else {
+          console.warn('[WEBRTC QS] Missing required IDs for sending offer');
+        }
 
       } catch (error) {
         console.error('[WEBRTC QS] ❌ Error creating offer:', error);
+        // Reset on error so we can retry
+        offerCreatedRef.current = false;
       } finally {
         makingOfferRef.current = false;
       }
     };
 
     // Small delay to ensure subscription is fully ready
-    const timer = setTimeout(createOffer, 500);
+    const timer = setTimeout(createOffer, 1000);
     return () => clearTimeout(timer);
 
-  }, [isPlayer1, localStream, roomId, opponentUserId]);
+  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId]);
 
   // ========== CAMERA CONTROLS ==========
   const toggleCamera = useCallback(async () => {
