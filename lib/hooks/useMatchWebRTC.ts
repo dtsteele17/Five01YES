@@ -73,6 +73,7 @@ export function useMatchWebRTC({
   const subscriptionCleanupRef = useRef<(() => void) | null>(null);
   const forceTurnRef = useRef(false); // Set to true to force TURN relay
   const connectionAttemptRef = useRef(0);
+  const lastStreamRef = useRef<MediaStream | null>(null); // Keep last valid stream
 
   console.log('[WEBRTC QS] Render with:', {
     roomId,
@@ -116,20 +117,41 @@ export function useMatchWebRTC({
   useEffect(() => {
     if (!liveVideoRef.current) return;
 
-    const streamToShow = isMyTurn ? localStream : remoteStream;
+    // Determine which stream to show based on whose turn it is
+    let streamToShow: MediaStream | null = null;
+    
+    if (isMyTurn) {
+      // My turn - show my local camera
+      streamToShow = localStream;
+    } else {
+      // Opponent's turn - show their remote camera
+      streamToShow = remoteStream;
+      // Keep last remote stream as fallback while waiting for connection
+      if (remoteStream) {
+        lastStreamRef.current = remoteStream;
+      }
+    }
+    
     const turnLabel = isMyTurn ? 'ME' : 'OPPONENT';
-
     console.log('[WEBRTC QS] Video display - Turn:', turnLabel, 'Stream:', streamToShow ? 'YES' : 'NO');
 
     if (streamToShow) {
-      liveVideoRef.current.srcObject = streamToShow;
-      liveVideoRef.current.muted = isMyTurn; // Mute own video
-      liveVideoRef.current.autoplay = true;
-      liveVideoRef.current.playsInline = true;
-      liveVideoRef.current.play().catch((err) => {
-        console.error('[WEBRTC QS] Error playing video:', err);
-      });
-    } else {
+      // Only update if stream changed
+      if (liveVideoRef.current.srcObject !== streamToShow) {
+        liveVideoRef.current.srcObject = streamToShow;
+        liveVideoRef.current.muted = isMyTurn; // Mute own video
+        liveVideoRef.current.autoplay = true;
+        liveVideoRef.current.playsInline = true;
+        liveVideoRef.current.play().catch((err) => {
+          console.error('[WEBRTC QS] Error playing video:', err);
+        });
+      }
+    } else if (!isMyTurn && lastStreamRef.current) {
+      // Opponent's turn but no remote stream yet - show cached stream if available
+      console.log('[WEBRTC QS] Using cached remote stream');
+      liveVideoRef.current.srcObject = lastStreamRef.current;
+    } else if (isMyTurn) {
+      // My turn but no local stream - clear video
       liveVideoRef.current.srcObject = null;
     }
   }, [isMyTurn, localStream, remoteStream]);
@@ -262,6 +284,36 @@ export function useMatchWebRTC({
           }
         } else {
           console.warn('[WEBRTC QS] ⚠️ No streams in ontrack event');
+        }
+      };
+
+      // Handle renegotiation when tracks are added/removed
+      pc.onnegotiationneeded = async () => {
+        console.log('[WEBRTC QS] ========== RENEGOTIATION NEEDED ==========');
+        
+        // Only Player 1 (who creates the initial offer) handles renegotiation
+        if (!isPlayer1) {
+          console.log('[WEBRTC QS] Ignoring negotiationneeded - not Player 1');
+          return;
+        }
+        
+        try {
+          makingOfferRef.current = true;
+          
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          
+          console.log('[WEBRTC QS] ✅ Renegotiation offer created');
+          
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON()
+          });
+          
+          console.log('[WEBRTC QS] ✅ Renegotiation offer sent');
+        } catch (error) {
+          console.error('[WEBRTC QS] ❌ Error during renegotiation:', error);
+        } finally {
+          makingOfferRef.current = false;
         }
       };
 
