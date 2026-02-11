@@ -1032,6 +1032,8 @@ export default function QuickMatchRoomPage() {
 
   // Camera state
   const cameraInitAttempted = useRef(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
@@ -1125,6 +1127,24 @@ export default function QuickMatchRoomPage() {
       (window as any).__localStream = localStream;
     }
   }, [localStream]);
+  
+  // Sync local video with localStream (stable ref - prevents flicker on re-render)
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      if (localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+      }
+    }
+  }, [localStream]);
+  
+  // Sync remote video with remoteStream (stable ref - prevents flicker on re-render)
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      if (remoteVideoRef.current.srcObject !== remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      }
+    }
+  }, [remoteStream]);
 
   // Auto-start camera when match is active and both players are present
   useEffect(() => {
@@ -3077,12 +3097,7 @@ export default function QuickMatchRoomPage() {
               {isMyTurn ? (
                 localStream ? (
                   <video 
-                    ref={(el) => {
-                      if (el && localStream) {
-                        el.srcObject = localStream;
-                        el.play().catch(() => {});
-                      }
-                    }}
+                    ref={localVideoRef}
                     autoPlay 
                     playsInline 
                     muted 
@@ -3108,12 +3123,7 @@ export default function QuickMatchRoomPage() {
                 /* OPPONENT'S TURN: Show THEIR remote camera */
                 remoteStream ? (
                   <video 
-                    ref={(el) => {
-                      if (el && remoteStream) {
-                        el.srcObject = remoteStream;
-                        el.play().catch(() => {});
-                      }
-                    }}
+                    ref={remoteVideoRef}
                     autoPlay 
                     playsInline 
                     className="w-full h-full object-cover"
