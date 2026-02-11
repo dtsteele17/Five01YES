@@ -53,7 +53,7 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
         />
 
         {/* Debug rings overlay - Scaled to 180% to match PNG */}
-        {showDebugRings && (
+        {false && showDebugRings && (
           <svg
             className="absolute pointer-events-none"
             viewBox="0 0 100 100"

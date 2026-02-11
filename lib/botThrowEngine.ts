@@ -62,12 +62,43 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
     // Straight out - just aim for maximum score
     return remaining >= 60 ? 'T20' : remaining >= 40 ? 'D20' : remaining.toString();
   }
-  
+
   // Can't checkout on 1
   if (remaining === 1) {
     return 'S1'; // Bust
   }
-  
+
+  // CRITICAL: For scores 40 or lower, check every dart
+  if (remaining <= 40 && remaining > 1) {
+    // If even number, go for the double
+    if (remaining % 2 === 0) {
+      const double = remaining / 2;
+      if (double >= 1 && double <= 20) {
+        return `D${double}`;
+      }
+      if (remaining === 50) {
+        return 'DB'; // Double bull
+      }
+    }
+
+    // If odd number, get to an even number
+    // Aim for single 1 to leave an even number
+    if (remaining % 2 === 1) {
+      const afterSingle1 = remaining - 1;
+      // Make sure we leave a valid double
+      if (afterSingle1 >= 2 && afterSingle1 <= 40 && afterSingle1 % 2 === 0) {
+        return 'S1';
+      }
+      // If single 1 doesn't work, try single 3
+      const afterSingle3 = remaining - 3;
+      if (afterSingle3 >= 2 && afterSingle3 <= 40 && afterSingle3 % 2 === 0) {
+        return 'S3';
+      }
+      // Fallback to single 1
+      return 'S1';
+    }
+  }
+
   // For scores that can't be checked out, find a setup
   if (remaining > 170 || impossibleCheckouts.has(remaining)) {
     // Aim to leave a nice checkout
@@ -80,14 +111,14 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
     }
     return 'T20';
   }
-  
+
   // Has a checkout route, check if skill level supports it
   const route = checkoutRoutes[remaining];
   if (route) {
     // First dart of the route
     return route[0];
   }
-  
+
   // Fallback - aim for T20
   return 'T20';
 }
@@ -122,10 +153,10 @@ export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.44 (aim 
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
-// Adjusted to match the visible calibration rings on PNG (narrower and closer to center)
-export const R_DOUBLE_IN = 0.748;    // Inner edge of double ring (matches visible red rings)
-export const R_DOUBLE_OUT = 0.850;   // Outer edge of double ring (matches board edge)
-export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.799 (aim point)
+// Moved 1cm wider from center to match PNG dartboard
+export const R_DOUBLE_IN = 0.79;     // Inner edge of double ring (moved outward)
+export const R_DOUBLE_OUT = 0.88;    // Outer edge of double ring (moved outward)
+export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.835 (aim point)
 
 // === BULL ===
 // Bull dimensions adjusted to match visible calibration rings on PNG
@@ -799,8 +830,9 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
         bustReason: 'Left on 1'
       };
     }
-    
-    // Replan for remaining darts
+
+    // CRITICAL: Always replan after each dart, especially when on 40 or lower
+    // This ensures the bot checks for doubles (even numbers) or setups (odd numbers) after every dart
     plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, 2 - i);
   }
   
