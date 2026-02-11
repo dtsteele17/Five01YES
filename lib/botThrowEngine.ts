@@ -111,16 +111,16 @@ export const R_BOARD = 0.60;        // Actual visible board edge in PNG
 
 // === TREBLE RING (INNER scoring ring, closer to bull) ===
 // The treble ring is the INNER red/green ring
-// User feedback: brought in "quite a bit" from previous position
-export const R_TREBLE_IN = 0.32;    // Inner edge of treble ring
-export const R_TREBLE_OUT = 0.40;   // Outer edge of treble ring
+// Ring width narrowed for more precise calibration (~25% reduction)
+export const R_TREBLE_IN = 0.33;    // Inner edge of treble ring
+export const R_TREBLE_OUT = 0.39;   // Outer edge of treble ring (width: 0.06)
 export const R_TREBLE_CENTER = (R_TREBLE_IN + R_TREBLE_OUT) / 2;  // ~0.36 (aim point)
 
 // === DOUBLE RING (OUTER scoring ring) ===
 // The double ring is the OUTER red/green ring
-// User feedback: "exactly where the trebles are currently" (0.468-0.553)
-export const R_DOUBLE_IN = 0.47;    // Inner edge of double ring
-export const R_DOUBLE_OUT = 0.55;   // Outer edge of double ring
+// Ring width narrowed for more precise calibration (~25% reduction)
+export const R_DOUBLE_IN = 0.48;    // Inner edge of double ring
+export const R_DOUBLE_OUT = 0.54;   // Outer edge of double ring (width: 0.06)
 export const R_DOUBLE_CENTER = (R_DOUBLE_IN + R_DOUBLE_OUT) / 2;  // ~0.51 (aim point)
 
 // === BULL ===
