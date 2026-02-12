@@ -78,14 +78,13 @@ export default function DashboardPage() {
       const supabase = createClient();
 
       try {
-        const { data: playerStats, error: statsError } = await supabase
-          .from('player_stats')
-          .select('*')
-          .eq('user_id', profile.id)
-          .maybeSingle();
+        // Get dashboard stats with proper win streak calculation from match_history
+        const { data: dashboardStats, error: statsError } = await supabase.rpc('get_dashboard_stats', {
+          p_user_id: profile.id
+        });
 
         if (statsError) {
-          console.error('Error fetching player stats:', statsError);
+          console.error('Error fetching dashboard stats:', statsError);
         }
 
         const { data: rankedData, error: rankedError } = await supabase.rpc('rpc_ranked_get_my_state');
@@ -98,17 +97,14 @@ export default function DashboardPage() {
           setRankedState(rankedData.player_state);
         }
 
-        if (playerStats) {
-          const totalMatches = (playerStats.wins_total || 0) + (playerStats.losses_total || 0);
-          const winRate = totalMatches > 0 ? Math.round(((playerStats.wins_total || 0) / totalMatches) * 100) : 0;
-
+        if (dashboardStats) {
           setStats({
-            totalMatches,
-            wins: playerStats.wins_total || 0,
-            losses: playerStats.losses_total || 0,
-            winRate,
-            currentStreak: playerStats.current_win_streak || 0,
-            bestStreak: playerStats.best_win_streak || 0,
+            totalMatches: dashboardStats.total_matches || 0,
+            wins: dashboardStats.wins || 0,
+            losses: dashboardStats.losses || 0,
+            winRate: dashboardStats.win_rate || 0,
+            currentStreak: dashboardStats.current_streak || 0,
+            bestStreak: dashboardStats.best_streak || 0,
             rankedPoints: rankedData?.player_state?.rp || 0,
           });
         } else {
