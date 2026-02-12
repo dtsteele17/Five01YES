@@ -930,8 +930,9 @@ export function getCheckoutRoute(score: number): string[] | null {
 /**
  * Simulate a complete 3-dart visit with enhanced checkout tracking
  * 
- * IMPROVED: All 3 darts are always thrown (like real darts), even on bust.
- * This ensures accurate 3-dart averages that include busted visits.
+ * BEHAVIOR: When the bot busts (goes below 0, leaves 1, or doesn't finish on double),
+ * it stops throwing darts for that visit immediately - just like a real player would.
+ * The darts thrown before the bust are still counted for stats.
  */
 export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   const { level, remaining, doubleOut, formMultiplier = 1.0, tracker, debug, trackCheckoutDarts = true } = options;
@@ -1037,23 +1038,26 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
           wasCheckoutAttempt: true
         };
       }
-      // Bust - didn't finish on double (but continue throwing remaining darts)
+      // Bust - didn't finish on double - STOP throwing remaining darts
       if (!bustState) {
         bustState = { isBust: true, reason: 'Must finish on double' };
-        currentRemaining = remaining; // Reset for remaining darts
+        // Don't reset currentRemaining - keep the actual darts thrown for stats
+        break; // Stop throwing darts for this visit
       }
     }
 
-    // Check for bust (overshot) - but continue throwing all 3 darts
+    // Check for bust (overshot) - STOP throwing remaining darts
     if (currentRemaining < 0 && !bustState) {
       bustState = { isBust: true, reason: 'Overshot' };
-      currentRemaining = remaining; // Reset for remaining darts
+      // Don't reset currentRemaining - keep the actual darts thrown for stats
+      break; // Stop throwing darts for this visit
     }
 
-    // Check for left on 1 (impossible to finish in double-out)
+    // Check for left on 1 (impossible to finish in double-out) - STOP throwing
     if (doubleOut && currentRemaining === 1 && !bustState) {
       bustState = { isBust: true, reason: 'Left on 1' };
-      currentRemaining = remaining; // Reset for remaining darts
+      // Don't reset currentRemaining - keep the actual darts thrown for stats
+      break; // Stop throwing darts for this visit
     }
 
     // CRITICAL: Always replan after each dart based on ACTUAL remaining score
@@ -1098,7 +1102,7 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     }
   }
   
-  // If we busted, return bust result with all 3 darts thrown
+  // If we busted, return bust result with darts thrown before busting
   if (bustState) {
     console.log(`[DartBot❌] BUST! ${remaining}->${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
     return {
