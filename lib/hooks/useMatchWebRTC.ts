@@ -395,6 +395,100 @@ export function useMatchWebRTC({
     }
   }, [isCameraOn, startCamera, stopCamera]);
 
+  const forceTurnAndRestart = useCallback(() => {
+    console.log('[WebRTC] Forcing TURN relay and restarting connection');
+
+    // Close existing peer connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
+    // Reset state
+    setCallStatus('connecting');
+    setRemoteStream(null);
+
+    // Create new peer connection with forced TURN relay
+    if (!roomId || !myUserId || !opponentUserId) return;
+
+    try {
+      const iceServers = getIceServers();
+
+      const pc = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: 'relay' // Force TURN relay only
+      });
+
+      peerConnectionRef.current = pc;
+
+      // Re-setup connection handlers
+      pc.onconnectionstatechange = () => {
+        console.log('[WebRTC] Connection state:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          setCallStatus('connected');
+        } else if (pc.connectionState === 'connecting') {
+          setCallStatus('connecting');
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          setCallStatus('failed');
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+      };
+
+      pc.onicecandidate = async (event) => {
+        if (event.candidate) {
+          console.log('[WebRTC] Sending ICE candidate');
+          await sendSignal(roomId, myUserId, opponentUserId, 'ice', {
+            candidate: event.candidate
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        console.log('[WebRTC] Remote track received:', event.track.kind);
+        if (event.streams && event.streams[0]) {
+          console.log('[WebRTC] Setting remote stream');
+          setRemoteStream(event.streams[0]);
+          setCallStatus('connected');
+        }
+      };
+
+      pc.onnegotiationneeded = async () => {
+        if (!isPlayer1 || makingOfferRef.current) return;
+
+        try {
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON()
+          });
+          console.log('[WebRTC] Offer sent (with TURN relay)');
+        } catch (error) {
+          console.error('[WebRTC] Error creating offer:', error);
+        } finally {
+          makingOfferRef.current = false;
+        }
+      };
+
+      // Re-add local stream if camera is on
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+        });
+      }
+
+      console.log('[WebRTC] Connection restarted with TURN relay');
+    } catch (error) {
+      console.error('[WebRTC] Error restarting connection with TURN:', error);
+      setCameraError('Failed to restart connection with TURN relay');
+    }
+  }, [roomId, myUserId, opponentUserId, isPlayer1, localStream]);
+
   // ========== CLEANUP ==========
   useEffect(() => {
     return () => {
