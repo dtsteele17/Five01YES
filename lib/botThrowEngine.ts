@@ -1038,26 +1038,23 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
           wasCheckoutAttempt: true
         };
       }
-      // Bust - didn't finish on double - STOP throwing remaining darts
+      // Bust - didn't finish on double
       if (!bustState) {
         bustState = { isBust: true, reason: 'Must finish on double' };
-        // Don't reset currentRemaining - keep the actual darts thrown for stats
-        break; // Stop throwing darts for this visit
+        currentRemaining = remaining; // Reset to original
       }
     }
 
-    // Check for bust (overshot) - STOP throwing remaining darts
+    // Check for bust (overshot)
     if (currentRemaining < 0 && !bustState) {
       bustState = { isBust: true, reason: 'Overshot' };
-      // Don't reset currentRemaining - keep the actual darts thrown for stats
-      break; // Stop throwing darts for this visit
+      currentRemaining = remaining; // Reset to original
     }
 
-    // Check for left on 1 (impossible to finish in double-out) - STOP throwing
+    // Check for left on 1 (impossible to finish in double-out)
     if (doubleOut && currentRemaining === 1 && !bustState) {
       bustState = { isBust: true, reason: 'Left on 1' };
-      // Don't reset currentRemaining - keep the actual darts thrown for stats
-      break; // Stop throwing darts for this visit
+      currentRemaining = remaining; // Reset to original
     }
 
     // CRITICAL: Always replan after each dart based on ACTUAL remaining score

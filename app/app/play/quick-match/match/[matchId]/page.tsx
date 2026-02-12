@@ -3066,7 +3066,6 @@ export default function QuickMatchRoomPage() {
     }
   }
 
-  // Save match stats to database for both players
   async function saveMatchStats(
     roomId: string, 
     winnerId: string, 

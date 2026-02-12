@@ -172,7 +172,9 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-bold text-white truncate">
-                  vs {match.opponent_username}
+                  vs {match.match_format === 'dartbot' 
+                    ? `Bot (${match.bot_level || '?'})` 
+                    : match.opponent_username}
                 </span>
                 <span className="text-slate-500">•</span>
                 <span className="text-slate-400 text-sm">{match.game_mode}</span>
