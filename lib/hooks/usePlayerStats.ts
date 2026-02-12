@@ -55,6 +55,7 @@ export function usePlayerStats(userId?: string): UsePlayerStatsReturn {
       }
 
       // Fetch from player_stats table (cumulative across all matches)
+      console.log('[usePlayerStats] Fetching stats for user:', targetUserId);
       const { data, error: statsError } = await supabase
         .from('player_stats')
         .select('*')
@@ -62,11 +63,13 @@ export function usePlayerStats(userId?: string): UsePlayerStatsReturn {
         .maybeSingle();
 
       if (statsError) {
-        console.error('Error fetching player stats:', statsError);
+        console.error('[usePlayerStats] Error fetching player stats:', statsError);
         setError(statsError.message);
         setLoading(false);
         return;
       }
+      
+      console.log('[usePlayerStats] Fetched stats:', data);
 
       // If no data yet, return zeros
       if (!data) {

@@ -80,9 +80,14 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
         // Apply limit
         query = query.limit(limit);
 
+        console.log('[MatchHistoryList] Fetching matches for user:', targetUserId, 'limit:', limit);
         const { data: historyData, error } = await query;
 
-        if (error) throw error;
+        if (error) {
+          console.error('[MatchHistoryList] Error fetching matches:', error);
+          throw error;
+        }
+        console.log('[MatchHistoryList] Fetched matches:', historyData?.length || 0);
 
         // Transform data to include opponent username and avatar
         const transformedData = (historyData || []).map((match: any) => ({

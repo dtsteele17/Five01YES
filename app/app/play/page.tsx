@@ -140,6 +140,7 @@ export default function PlayPage() {
       setUserId(user.id);
 
       // Query match_history for proper stats (includes dartbot, quick, ranked, etc.)
+      console.log('[Play] Fetching recent matches for user:', user.id);
       const { data: matchesData, error } = await supabase
         .from('match_history')
         .select(`
@@ -151,9 +152,10 @@ export default function PlayPage() {
         .limit(3);
 
       if (error) {
-        console.error('Error fetching recent matches:', error);
+        console.error('[Play] Error fetching recent matches:', error);
         setRecentMatches([]);
       } else {
+        console.log('[Play] Fetched matches:', matchesData?.length || 0);
         // Transform data to match the expected format
         const transformed = (matchesData || []).map((match: any) => ({
           id: match.room_id,
