@@ -24,6 +24,8 @@ import {
   Clock,
   X,
   UserPlus,
+  Camera,
+  CameraOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -61,6 +63,7 @@ interface JoinRequest {
   requester_username: string;
   requester_avatar_url?: string;
   requester_3dart_avg?: number;
+  requester_has_camera?: boolean;
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
 }
@@ -482,6 +485,18 @@ export default function QuickMatchLobbyPage() {
         .eq('user_id', userId)
         .maybeSingle();
 
+      // Check if user has camera available (like DartCounter)
+      let hasCamera = false;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        hasCamera = videoDevices.length > 0;
+        console.log('[JOIN] Camera detection:', { hasCamera, deviceCount: videoDevices.length });
+      } catch (e) {
+        console.log('[JOIN] Camera detection failed:', e);
+        // Continue without camera - not a blocking error
+      }
+
       // Create a join request instead of directly joining
       const { data: request, error: requestError } = await supabase
         .from('quick_match_join_requests')
@@ -491,6 +506,7 @@ export default function QuickMatchLobbyPage() {
           requester_username: userProfile?.username || 'Unknown',
           requester_avatar_url: userProfile?.avatar_url,
           requester_3dart_avg: userStats?.overall_3dart_avg || 0,
+          requester_has_camera: hasCamera,
           status: 'pending'
         })
         .select()
@@ -1040,13 +1056,13 @@ export default function QuickMatchLobbyPage() {
               </p>
             </div>
 
-            <div className="bg-white/5 rounded-lg p-4 mb-6">
+            <div className="bg-white/5 rounded-lg p-4 mb-6 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Player</span>
                 <span className="text-white font-semibold">{currentJoinRequest.requester_username}</span>
               </div>
               {currentJoinRequest.requester_3dart_avg !== undefined && currentJoinRequest.requester_3dart_avg > 0 && (
-                <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center justify-between">
                   <span className="text-gray-400">3-Dart Average</span>
                   <Badge className="bg-blue-600/20 text-blue-400 border-blue-500/30">
                     <Target className="w-3 h-3 mr-1" />
@@ -1054,6 +1070,20 @@ export default function QuickMatchLobbyPage() {
                   </Badge>
                 </div>
               )}
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Camera</span>
+                {currentJoinRequest.requester_has_camera ? (
+                  <Badge className="bg-green-600/20 text-green-400 border-green-500/30">
+                    <Camera className="w-3 h-3 mr-1" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge className="bg-gray-600/20 text-gray-400 border-gray-500/30">
+                    <CameraOff className="w-3 h-3 mr-1" />
+                    No Camera
+                  </Badge>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-3">

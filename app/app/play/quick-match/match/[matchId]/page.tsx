@@ -1132,6 +1132,9 @@ export default function QuickMatchRoomPage() {
       if (localVideoRef.current.srcObject !== localStream) {
         console.log('[CAMERA] Setting local video stream');
         localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch(err => {
+          console.error('[CAMERA] Error playing local video:', err);
+        });
       }
     }
   }, [localStream]);
@@ -1142,6 +1145,9 @@ export default function QuickMatchRoomPage() {
       if (remoteVideoRef.current.srcObject !== remoteStream) {
         console.log('[CAMERA] Setting remote video stream');
         remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch(err => {
+          console.error('[CAMERA] Error playing remote video:', err);
+        });
       }
     }
   }, [remoteStream]);
@@ -1823,30 +1829,60 @@ export default function QuickMatchRoomPage() {
       )
       .subscribe();
     
-    // Send player connected signal
-    if (currentUserId && room) {
+    // Send player connected signal (with retry)
+    const sendPlayerConnectedSignal = async () => {
+      if (!currentUserId || !room) return;
+      
       const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
-      if (opponentId) {
-        console.log('[CONNECTION] Sending player connected signal');
-        supabase.from('match_signals').insert({
+      if (!opponentId) {
+        console.log('[CONNECTION] No opponent yet, waiting...');
+        return;
+      }
+      
+      console.log('[CONNECTION] Sending player connected signal');
+      try {
+        await supabase.from('match_signals').insert({
           room_id: matchId,
           from_user_id: currentUserId,
           to_user_id: opponentId,
           type: 'player_connected',
           payload: { timestamp: Date.now() }
-        }).then(() => {
-          // Mark self as connected
-          setPlayersConnected(prev => ({
-            p1: currentUserId === room.player1_id ? true : prev.p1,
-            p2: currentUserId === room.player2_id ? true : prev.p2
-          }));
         });
+        
+        // Mark self as connected
+        setPlayersConnected(prev => ({
+          p1: currentUserId === room.player1_id ? true : prev.p1,
+          p2: currentUserId === room.player2_id ? true : prev.p2
+        }));
+        
+        console.log('[CONNECTION] Player connected signal sent successfully');
+      } catch (error) {
+        console.error('[CONNECTION] Error sending player connected signal:', error);
       }
-    }
+    };
+    
+    // Send signal immediately
+    sendPlayerConnectedSignal();
+    
+    // Retry every 2 seconds until both players are connected
+    const retryInterval = setInterval(() => {
+      setPlayersConnected(prev => {
+        const bothConnected = prev.p1 && prev.p2;
+        if (!bothConnected) {
+          console.log('[CONNECTION] Retrying player connected signal...', prev);
+          sendPlayerConnectedSignal();
+        } else {
+          console.log('[CONNECTION] Both players connected!');
+          clearInterval(retryInterval);
+        }
+        return prev;
+      });
+    }, 2000);
 
     return () => {
       roomChannel.unsubscribe();
       signalsChannel.unsubscribe();
+      clearInterval(retryInterval);
     };
   }
 

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.quick_match_join_requests (
   requester_username TEXT NOT NULL,
   requester_avatar_url TEXT,
   requester_3dart_avg DECIMAL(5,2) DEFAULT 0,
+  requester_has_camera BOOLEAN DEFAULT false,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
   match_id UUID REFERENCES public.match_rooms(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),

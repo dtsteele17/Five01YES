@@ -42,6 +42,7 @@ export function MatchCameraPanel({
   // Handle remote stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
+      console.log('[CameraPanel] Setting remote stream');
       remoteVideoRef.current.srcObject = remoteStream;
       remoteVideoRef.current.play().catch(err => {
         console.error('[CameraPanel] Error playing remote video:', err);
