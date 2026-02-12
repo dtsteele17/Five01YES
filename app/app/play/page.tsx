@@ -139,21 +139,42 @@ export default function PlayPage() {
 
       setUserId(user.id);
 
-      // Query match_rooms instead of matches table
+      // Query match_history for proper stats (includes dartbot, quick, ranked, etc.)
       const { data: matchesData, error } = await supabase
-        .from('match_rooms')
-        .select('*')
-        .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
-        .eq('status', 'finished')
-        .not('finished_at', 'is', null)
-        .order('finished_at', { ascending: false })
+        .from('match_history')
+        .select(`
+          *,
+          opponent:opponent_id (username, avatar_url)
+        `)
+        .eq('user_id', user.id)
+        .order('played_at', { ascending: false })
         .limit(3);
 
       if (error) {
         console.error('Error fetching recent matches:', error);
         setRecentMatches([]);
       } else {
-        setRecentMatches(matchesData || []);
+        // Transform data to match the expected format
+        const transformed = (matchesData || []).map((match: any) => ({
+          id: match.room_id,
+          match_type: match.match_format,
+          game_mode: match.game_mode?.toString() || '501',
+          match_format: `best-of-${match.legs_won + match.legs_lost}`,
+          player1_name: 'You',
+          player2_name: match.match_format === 'dartbot' 
+            ? `Bot (${match.bot_level || '?'})`
+            : match.opponent?.username || 'Opponent',
+          player1_legs_won: match.legs_won,
+          player2_legs_won: match.legs_lost,
+          winner_id: match.result === 'win' ? user.id : match.opponent_id,
+          completed_at: match.played_at,
+          user_id: user.id,
+          // Include stats for display
+          three_dart_avg: match.three_dart_avg,
+          highest_checkout: match.highest_checkout,
+          result: match.result,
+        }));
+        setRecentMatches(transformed);
       }
     } catch (err) {
       console.error('Error in fetchRecentMatches:', err);

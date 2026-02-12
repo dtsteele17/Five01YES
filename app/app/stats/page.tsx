@@ -283,18 +283,36 @@ export default function StatsPage() {
           )}
         </div>
 
-        {/* Match History */}
+        {/* Last 5 Matches - Always shown regardless of filters */}
         <div className="mt-8">
-          <div className="flex items-center gap-3 mb-4">
-            <History className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white">Recent Matches</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <History className="w-6 h-6 text-emerald-400" />
+              <h2 className="text-xl font-bold text-white">Last 5 Matches</h2>
+            </div>
+            <span className="text-sm text-slate-400">Most recent games</span>
           </div>
           <MatchHistoryList 
-            limit={20} 
-            gameMode={gameModeFilter === 'all' ? null : parseInt(gameModeFilter)}
-            matchType={matchTypeFilter === 'all' ? null : matchTypeFilter}
+            limit={5} 
+            gameMode={null}
+            matchType={null}
           />
         </div>
+
+        {/* Filtered Match History */}
+        {(gameModeFilter !== 'all' || matchTypeFilter !== 'all') && (
+          <div className="mt-8 pt-8 border-t border-slate-700">
+            <div className="flex items-center gap-3 mb-4">
+              <Filter className="w-6 h-6 text-emerald-400" />
+              <h2 className="text-xl font-bold text-white">Filtered Matches</h2>
+            </div>
+            <MatchHistoryList 
+              limit={20} 
+              gameMode={gameModeFilter === 'all' ? null : parseInt(gameModeFilter)}
+              matchType={matchTypeFilter === 'all' ? null : matchTypeFilter}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
