@@ -1100,11 +1100,11 @@ export default function QuickMatchRoomPage() {
     }
   }, [newRematchRoomId, matchId]);
 
-  // WebRTC - only connect after coin toss is complete
+  // WebRTC - connect immediately when both players are present
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
-    coinTossComplete: coinTossCompleted,
+    coinTossComplete: true, // Always true - connect immediately
   });
   const {
     localStream,
@@ -1155,11 +1155,6 @@ export default function QuickMatchRoomPage() {
   // Auto-start camera when match is active and both players are present
   useEffect(() => {
     const initCamera = async () => {
-      // Only auto-start after coin toss is complete
-      if (!coinTossCompleted) {
-        console.log('[CAMERA] Waiting for coin toss to complete before starting camera');
-        return;
-      }
       if (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
         console.log('[CAMERA] Auto-starting camera for active match');
         cameraInitAttempted.current = true;
@@ -1174,7 +1169,48 @@ export default function QuickMatchRoomPage() {
       }
     };
     initCamera();
-  }, [room?.status, room?.player2_id, isCameraOn, toggleCamera, coinTossCompleted]);
+  }, [room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+
+  // POLLING FALLBACK: Check for opponent presence directly from DB
+  useEffect(() => {
+    if (!room || !currentUserId) return;
+    
+    // Mark self as connected immediately
+    setPlayersConnected(prev => ({
+      p1: currentUserId === room.player1_id ? true : prev.p1,
+      p2: currentUserId === room.player2_id ? true : prev.p2
+    }));
+    
+    // Poll to check if opponent is in the match
+    const checkOpponentInterval = setInterval(async () => {
+      const { data: roomData } = await supabase
+        .from('match_rooms')
+        .select('player1_id, player2_id')
+        .eq('id', matchId)
+        .maybeSingle();
+      
+      if (roomData) {
+        const opponentId = currentUserId === roomData.player1_id 
+          ? roomData.player2_id 
+          : roomData.player1_id;
+        
+        // If opponent exists in the room, mark them as connected
+        if (opponentId) {
+          setPlayersConnected(prev => {
+            const isP1 = opponentId === roomData.player1_id;
+            const newState = {
+              p1: isP1 ? true : prev.p1,
+              p2: isP1 ? prev.p2 : true
+            };
+            console.log('[POLL] Detected opponent presence:', newState);
+            return newState;
+          });
+        }
+      }
+    }, 1000);
+    
+    return () => clearInterval(checkOpponentInterval);
+  }, [room, currentUserId, matchId]);
 
 
   cleanupMatchRef.current = () => {
@@ -1839,23 +1875,29 @@ export default function QuickMatchRoomPage() {
         return;
       }
       
-      console.log('[CONNECTION] Sending player connected signal');
+      console.log('[CONNECTION] Sending player connected signal to:', opponentId);
       try {
-        await supabase.from('match_signals').insert({
-          room_id: matchId,
-          from_user_id: currentUserId,
-          to_user_id: opponentId,
-          type: 'player_connected',
-          payload: { timestamp: Date.now() }
+        // Use RPC to bypass RLS
+        const { data, error } = await supabase.rpc('rpc_send_player_connected', {
+          p_room_id: matchId,
+          p_to_user_id: opponentId
         });
         
-        // Mark self as connected
-        setPlayersConnected(prev => ({
-          p1: currentUserId === room.player1_id ? true : prev.p1,
-          p2: currentUserId === room.player2_id ? true : prev.p2
-        }));
+        if (error) {
+          console.error('[CONNECTION] RPC error:', error);
+          return;
+        }
         
-        console.log('[CONNECTION] Player connected signal sent successfully');
+        if (data?.ok) {
+          // Mark self as connected
+          setPlayersConnected(prev => ({
+            p1: currentUserId === room.player1_id ? true : prev.p1,
+            p2: currentUserId === room.player2_id ? true : prev.p2
+          }));
+          console.log('[CONNECTION] Player connected signal sent successfully');
+        } else {
+          console.error('[CONNECTION] RPC returned error:', data?.error);
+        }
       } catch (error) {
         console.error('[CONNECTION] Error sending player connected signal:', error);
       }
