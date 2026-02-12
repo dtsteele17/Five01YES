@@ -161,27 +161,27 @@ const FAVORITE_DOUBLES = [
 /**
  * REAL DARTS PLAYER THINKING:
  * 1. Score big when you can't finish
- * 2. When on ≤40 and EVEN → go for that double directly!
- * 3. When on ODD ≤40 → hit a single to leave a favorite double
- * 4. Example: 57 left → hit S17 to leave D20 (40)
- * 5. Example: 39 left → hit S7 to leave D16 (32)
+ * 2. When on <=40 and EVEN -> go for that double directly!
+ * 3. When on ODD <=40 -> hit a single to leave a favorite double
+ * 4. Example: 57 left -> hit S17 to leave D20 (40)
+ * 5. Example: 39 left -> hit S7 to leave D16 (32)
  */
 export function getSetupTarget(remaining: number, doubleOut: boolean, level: number): string {
   if (!doubleOut) {
     return remaining >= 60 ? 'T20' : remaining >= 40 ? 'D20' : remaining.toString();
   }
 
-  // === 50 LEFT → DOUBLE BULL ===
+  // === 50 LEFT -> DOUBLE BULL ===
   if (remaining === 50) return 'DB';
 
-  // === 40 OR BELOW → CHECKOUT MODE ===
+  // === 40 OR BELOW -> CHECKOUT MODE ===
   if (remaining <= 40 && remaining > 1) {
-    // EVEN → GO FOR THAT DOUBLE!
+    // EVEN -> GO FOR THAT DOUBLE!
     if (remaining % 2 === 0) {
       return `D${remaining / 2}`;
     }
     
-    // ODD → HIT SINGLE TO LEAVE FAVORITE DOUBLE
+    // ODD -> HIT SINGLE TO LEAVE FAVORITE DOUBLE
     // Try to leave D20, D16, D8, etc.
     for (const fav of FAVORITE_DOUBLES) {
       if (remaining > fav.score) {
@@ -192,13 +192,13 @@ export function getSetupTarget(remaining: number, doubleOut: boolean, level: num
     return 'S1'; // Fallback
   }
 
-  // === 41-170 → USE CHECKOUT TABLE ===
+  // === 41-170 -> USE CHECKOUT TABLE ===
   if (remaining <= 170 && !impossibleCheckouts.has(remaining)) {
     const route = checkoutRoutes[remaining];
     if (route) return route[0];
   }
 
-  // === CAN'T FINISH → SCORE BIG ===
+  // === CAN'T FINISH -> SCORE BIG ===
   if (remaining > 170 || impossibleCheckouts.has(remaining)) {
     // Try to leave a nice checkout
     for (const fav of FAVORITE_DOUBLES) {
@@ -699,7 +699,7 @@ export function testRingCalibration(): {
 
   // Log results for debugging
   console.log('[DARTBOARD CALIBRATION TEST - Updated to match actual dartboard dimensions]');
-  console.log('  Standard dartboard: Bull (0-15.9mm) → Singles → TREBLE (99-107mm) → Singles → DOUBLE (162-170mm)');
+  console.log('  Standard dartboard: Bull (0-15.9mm) -> Singles -> TREBLE (99-107mm) -> Singles -> DOUBLE (162-170mm)');
   console.log('  Scaled to visible rings: R_BOARD = 0.4675 represents 170mm');
   Object.entries(tests).forEach(([name, test]) => {
     const passed = test.hit.label === test.expected ||
@@ -770,7 +770,7 @@ export function simulateDart(
  * - "I'm on 57 with 2 darts... I'll hit S17 to leave D20"
  * - "I'm on 38... just D19 to win!"
  *
- * KEY PRINCIPLE: Once in checkout range (≤170), COMMIT to trying to finish.
+ * KEY PRINCIPLE: Once in checkout range (<=170), COMMIT to trying to finish.
  * Don't give up and go back to scoring T20s just because you missed.
  */
 export function planBotTurn(
@@ -794,15 +794,15 @@ export function planBotTurn(
     }
   }
 
-  // === 50 LEFT → BULL ===
+  // === 50 LEFT -> BULL ===
   if (remaining === 50) return ['DB'];
 
-  // === ≤40 AND EVEN → GO FOR THAT DOUBLE! ===
+  // === <=40 AND EVEN -> GO FOR THAT DOUBLE! ===
   if (remaining <= 40 && remaining > 1 && remaining % 2 === 0) {
     return [`D${remaining / 2}`];
   }
 
-  // === ≤40 AND ODD → SETUP FOR FAVORITE DOUBLE ===
+  // === <=40 AND ODD -> SETUP FOR FAVORITE DOUBLE ===
   if (remaining <= 40 && remaining > 1 && remaining % 2 === 1) {
     const setup = getSetupTarget(remaining, doubleOut, level);
     const newRemaining = remaining - scoreFromTarget(setup);
@@ -814,7 +814,7 @@ export function planBotTurn(
     return [setup];
   }
 
-  // === 41-170 → PLAN MULTI-DART CHECKOUT ===
+  // === 41-170 -> PLAN MULTI-DART CHECKOUT ===
   if (doubleOut && remaining <= 170 && !impossibleCheckouts.has(remaining)) {
     const route = checkoutRoutes[remaining];
     if (route) {
@@ -823,7 +823,7 @@ export function planBotTurn(
     }
 
     // No standard route, but we're in checkout range - try to find a way
-    // Example: 45 left with 1 dart → aim for S13 to leave D16 next visit
+    // Example: 45 left with 1 dart -> aim for S13 to leave D16 next visit
     if (remaining <= 60) {
       // Try to leave a favorite double for next turn
       for (const fav of FAVORITE_DOUBLES) {
@@ -840,7 +840,7 @@ export function planBotTurn(
     }
   }
 
-  // === CAN'T FINISH IN THIS VISIT → SET UP FOR CHECKOUT ===
+  // === CAN'T FINISH IN THIS VISIT -> SET UP FOR CHECKOUT ===
   // Real players think ahead: "I'm on 180, I'll go T20, T20, T20 to leave 0"
   // Or: "I'm on 150, I'll go T20, T20 to leave 90, then T18, D18 next visit"
   if (doubleOut && remaining > 170) {
@@ -949,29 +949,29 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   const needsSetup = remaining <= 40 && remaining > 1 && remaining % 2 === 1; // Odd, need setup
   
   if (isOnEasyDouble) {
-    console.log(`[DartBot🎯] ${remaining} left → AIMING AT D${remaining/2} TO WIN!`);
+    console.log(`[DartBot🎯] ${remaining} left -> AIMING AT D${remaining/2} TO WIN!`);
   } else if (needsSetup) {
     // Find what we're setting up for
     for (const fav of FAVORITE_DOUBLES) {
       if (remaining > fav.score) {
         const single = remaining - fav.score;
         if (single >= 1 && single <= 20) {
-          console.log(`[DartBot🎯] ${remaining} left → S${single} to leave D${fav.double} (${fav.score})`);
+          console.log(`[DartBot🎯] ${remaining} left -> S${single} to leave D${fav.double} (${fav.score})`);
           break;
         }
       }
     }
   } else if (isOnCheckout) {
-    console.log(`[DartBot🎯] ${remaining} left → Checkout attempt`);
+    console.log(`[DartBot🎯] ${remaining} left -> Checkout attempt`);
   } else {
-    console.log(`[DartBot] ${remaining} left → Scoring mode`);
+    console.log(`[DartBot] ${remaining} left -> Scoring mode`);
   }
   
   // Plan targets based on what a real player would do
   let plannedTargets: string[];
   
   if (isOnEasyDouble) {
-    // ≤40 and even - GO FOR THE DOUBLE DIRECTLY!
+    // <=40 and even - GO FOR THE DOUBLE DIRECTLY!
     plannedTargets = [`D${remaining/2}`];
     wasCheckoutAttempt = true;
   } else if (isOnCheckout && checkoutRoutes[remaining]) {
@@ -1100,7 +1100,7 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   // If we busted, return bust result with all 3 darts thrown
   if (bustState) {
-    console.log(`[DartBot❌] BUST! ${remaining}→${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
+    console.log(`[DartBot❌] BUST! ${remaining}->${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
     return {
       darts,
       visitTotal: 0,
@@ -1117,9 +1117,9 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   
   // Log result
   if (wasCheckoutAttempt) {
-    console.log(`[DartBot🎯] ${remaining}→${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
+    console.log(`[DartBot🎯] ${remaining}->${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
   } else {
-    console.log(`[DartBot] ${remaining}→${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
+    console.log(`[DartBot] ${remaining}->${currentRemaining} (${visitTotal} scored) | Darts: ${darts.map(d => d.label).join(', ')}`);
   }
   
   return {
