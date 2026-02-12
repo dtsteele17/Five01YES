@@ -763,12 +763,15 @@ export function simulateDart(
 
 /**
  * Plan the bot's turn like a REAL DARTS PLAYER
- * 
+ *
  * REAL PLAYER THINKING:
- * - "I'm on 70 with 3 darts... I'll hit S20 first (leaves 50), 
+ * - "I'm on 70 with 3 darts... I'll hit S20 first (leaves 50),
  *    then if I hit it, I'll go for DB (bull) to finish"
  * - "I'm on 57 with 2 darts... I'll hit S17 to leave D20"
  * - "I'm on 38... just D19 to win!"
+ *
+ * KEY PRINCIPLE: Once in checkout range (≤170), COMMIT to trying to finish.
+ * Don't give up and go back to scoring T20s just because you missed.
  */
 export function planBotTurn(
   remaining: number,
@@ -777,7 +780,7 @@ export function planBotTurn(
   dartsAvailable: number = 3
 ): string[] {
   if (dartsAvailable <= 0 || remaining <= 0) return [];
-  
+
   // On 1 - can only bust, try to leave something useful
   if (doubleOut && remaining === 1) {
     return ['S1'].slice(0, dartsAvailable);
@@ -803,9 +806,9 @@ export function planBotTurn(
   if (remaining <= 40 && remaining > 1 && remaining % 2 === 1) {
     const setup = getSetupTarget(remaining, doubleOut, level);
     const newRemaining = remaining - scoreFromTarget(setup);
-    
+
     // After setup, should be on a double
-    if (dartsAvailable > 1 && newRemaining > 0 && newRemaining % 2 === 0) {
+    if (dartsAvailable > 1 && newRemaining > 0 && newRemaining % 2 === 0 && newRemaining <= 40) {
       return [setup, `D${newRemaining / 2}`];
     }
     return [setup];
@@ -815,22 +818,58 @@ export function planBotTurn(
   if (doubleOut && remaining <= 170 && !impossibleCheckouts.has(remaining)) {
     const route = checkoutRoutes[remaining];
     if (route) {
-      // Plan the whole route
+      // Plan the whole route - commit to the checkout!
       return route.slice(0, dartsAvailable);
+    }
+
+    // No standard route, but we're in checkout range - try to find a way
+    // Example: 45 left with 1 dart → aim for S13 to leave D16 next visit
+    if (remaining <= 60) {
+      // Try to leave a favorite double for next turn
+      for (const fav of FAVORITE_DOUBLES) {
+        const needed = remaining - fav.score;
+        if (needed > 0 && needed <= 60) {
+          // Can we score this in the darts available?
+          if (needed <= 20) {
+            return [`S${needed}`];
+          } else if (needed <= 60 && dartsAvailable >= 2) {
+            return ['T20']; // Score big toward the checkout
+          }
+        }
+      }
     }
   }
 
-  // === CAN'T FINISH → SCORE BIG ===
+  // === CAN'T FINISH IN THIS VISIT → SET UP FOR CHECKOUT ===
+  // Real players think ahead: "I'm on 180, I'll go T20, T20, T20 to leave 0"
+  // Or: "I'm on 150, I'll go T20, T20 to leave 90, then T18, D18 next visit"
+  if (doubleOut && remaining > 170) {
+    // Try to leave a good checkout number
+    // Ideal checkouts: 170, 160, 150, 140, 130, 120, 110, 100, etc.
+    const idealCheckouts = [170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40];
+
+    for (const checkout of idealCheckouts) {
+      const needed = remaining - checkout;
+      if (needed > 0 && needed <= dartsAvailable * 60) {
+        // Try to score this amount
+        if (needed >= 60) return ['T20'];
+        if (needed >= 40) return ['D20'];
+        if (needed >= 20) return [`S${Math.min(20, needed)}`];
+      }
+    }
+  }
+
+  // === DEFAULT: SCORE BIG ===
   // Just score as much as possible
   const setup = getSetupTarget(remaining, doubleOut, level);
   const newRemaining = remaining - scoreFromTarget(setup);
-  
+
   const targets: string[] = [setup];
   if (dartsAvailable > 1 && newRemaining > 0) {
     const rest = planBotTurn(newRemaining, doubleOut, level, dartsAvailable - 1);
     targets.push(...rest);
   }
-  
+
   return targets;
 }
 
@@ -944,19 +983,23 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     plannedTargets = planBotTurn(currentRemaining, doubleOut, level, 3);
   }
   
+  // Track which dart we're on in the current plan
+  let plannedTargetIndex = 0;
+
   for (let i = 0; i < 3; i++) {
-    // Get target for this dart
-    const aimTarget = plannedTargets[i] || 'T20';
-    
+    // Get target for this dart from the current plan
+    // Always use index 0 since we replan after each dart
+    const aimTarget = plannedTargets[plannedTargetIndex] || plannedTargets[0] || 'T20';
+
     // Check if we're aiming at a double (checkout situation)
     const isAimingAtDouble = aimTarget.startsWith('D') || aimTarget === 'DB' || aimTarget === 'BULL';
     const isCheckoutAttempt = doubleOut && currentRemaining <= 170 && isAimingAtDouble;
-    
+
     if (isCheckoutAttempt && trackCheckoutDarts) {
       wasCheckoutAttempt = true;
       dartsAtDouble++;
     }
-    
+
     // Calculate sigma for this throw
     // Checkout attempts have higher pressure/scatter based on difficulty
     let checkoutPressure = 1.0;
@@ -968,14 +1011,14 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
       checkoutPressure = 1 + (basePressure - 1) * skillAdjustment;
     }
     const sigma = getBaseSigma(level) * formMultiplier * checkoutPressure;
-    
+
     // Simulate the throw
     const dart = simulateDart(aimTarget, sigma);
     darts.push(dart);
-    
+
     // Update remaining score
     currentRemaining -= dart.score;
-    
+
     // Check for finish
     if (currentRemaining === 0) {
       if (!doubleOut || dart.isDouble) {
@@ -1000,13 +1043,13 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
         currentRemaining = remaining; // Reset for remaining darts
       }
     }
-    
+
     // Check for bust (overshot) - but continue throwing all 3 darts
     if (currentRemaining < 0 && !bustState) {
       bustState = { isBust: true, reason: 'Overshot' };
       currentRemaining = remaining; // Reset for remaining darts
     }
-    
+
     // Check for left on 1 (impossible to finish in double-out)
     if (doubleOut && currentRemaining === 1 && !bustState) {
       bustState = { isBust: true, reason: 'Left on 1' };
@@ -1016,27 +1059,41 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     // CRITICAL: Always replan after each dart based on ACTUAL remaining score
     // This ensures the bot adapts to where the dart actually landed
     const dartsLeft = 2 - i;
-    
-    if (bustState) {
-      // Already busted - just continue with original targets for visual purposes
-      // (in real darts you'd still throw but the score doesn't count)
-      plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
-    } else {
-      // Check if we're now on a checkout
-      const canNowCheckout = doubleOut && isValidCheckoutScore(currentRemaining);
-      if (canNowCheckout) {
-        const newRoute = findBestCheckoutRoute(currentRemaining, dartsLeft);
-        if (newRoute) {
-          plannedTargets = newRoute;
-          wasCheckoutAttempt = true;
-          if (debug) console.log(`[DartBot] Replanning on ${currentRemaining} with ${dartsLeft} darts:`, newRoute);
-        } else {
-          // No checkout route found with remaining darts - setup for next turn
-          plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
-        }
+
+    if (dartsLeft > 0) {
+      if (bustState) {
+        // Already busted - just continue with original targets for visual purposes
+        // (in real darts you'd still throw but the score doesn't count)
+        plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
+        plannedTargetIndex = 0; // Reset to start of new plan
       } else {
-        // Not on checkout - replan normally
-        plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
+        // Check if we're now on a checkout
+        const canNowCheckout = doubleOut && isValidCheckoutScore(currentRemaining);
+        if (canNowCheckout) {
+          const newRoute = findBestCheckoutRoute(currentRemaining, dartsLeft);
+          if (newRoute) {
+            plannedTargets = newRoute;
+            plannedTargetIndex = 0; // Reset to start of new plan
+            wasCheckoutAttempt = true;
+            if (debug) console.log(`[DartBot] Replanning on ${currentRemaining} with ${dartsLeft} darts:`, newRoute);
+          } else {
+            // No checkout route found with remaining darts - try to set up for next turn
+            // BUT still commit to trying to finish if we're close
+            if (currentRemaining <= 60) {
+              // Still try to set up a good checkout position
+              plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
+              plannedTargetIndex = 0;
+            } else {
+              // Too far out, score big
+              plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
+              plannedTargetIndex = 0;
+            }
+          }
+        } else {
+          // Not on checkout - replan normally
+          plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
+          plannedTargetIndex = 0; // Reset to start of new plan
+        }
       }
     }
   }
