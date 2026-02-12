@@ -1516,19 +1516,28 @@ export default function QuickMatchRoomPage() {
   // Handle coin toss completion
   async function handleCoinTossComplete(winnerId: string) {
     console.log('[COIN TOSS] Winner determined:', winnerId);
+    console.log('[COIN TOSS] Current user:', currentUserId);
+    console.log('[COIN TOSS] I am Player 1:', currentUserId === room?.player1_id);
     
-    const { data, error } = await supabase.rpc('rpc_complete_coin_toss', {
-      p_room_id: matchId,
-      p_winner_id: winnerId
-    });
+    // Only Player 1 saves to database (to avoid race conditions)
+    if (currentUserId === room?.player1_id) {
+      console.log('[COIN TOSS] Player 1 saving result to database...');
+      const { data, error } = await supabase.rpc('rpc_complete_coin_toss', {
+        p_room_id: matchId,
+        p_winner_id: winnerId
+      });
 
-    if (error) {
-      console.error('[COIN TOSS] Error completing coin toss:', error);
-      toast.error('Failed to set starting player');
-      return;
+      if (error) {
+        console.error('[COIN TOSS] Error completing coin toss:', error);
+        toast.error('Failed to set starting player');
+        return;
+      }
+      console.log('[COIN TOSS] Saved to database:', data);
+    } else {
+      console.log('[COIN TOSS] Player 2 - result received');
     }
 
-    console.log('[COIN TOSS] Completed:', data);
+    // Both players update local state
     setCoinTossCompleted(true);
     setShowCoinToss(false);
     
@@ -1541,11 +1550,17 @@ export default function QuickMatchRoomPage() {
 
   // Trigger coin toss when both players are present and it's the first leg
   useEffect(() => {
-    if (room && profiles.length === 2 && room.current_leg === 1 && !room.coin_toss_completed && !coinTossCompleted) {
+    const shouldShowCoinToss = room && 
+      profiles.length === 2 && 
+      room.current_leg === 1 && 
+      !coinTossCompleted &&
+      room.status === 'active';
+    
+    if (shouldShowCoinToss) {
       // Check if any visits have been made (if so, don't show coin toss)
       const hasVisits = visits.length > 0;
-      if (!hasVisits && room.status === 'active') {
-        console.log('[COIN TOSS] Showing coin toss modal');
+      if (!hasVisits) {
+        console.log('[COIN TOSS] Showing coin toss modal. Winner:', room.coin_toss_winner_id);
         setShowCoinToss(true);
       }
     }
@@ -1584,6 +1599,11 @@ export default function QuickMatchRoomPage() {
           
           // Update room state
           setRoom(updatedRoom);
+          
+          // Handle coin toss completion
+          if (oldRoom && !oldRoom.coin_toss_completed && updatedRoom.coin_toss_completed) {
+            console.log('[ROOM] Coin toss completed! Winner:', updatedRoom.coin_toss_winner_id);
+          }
           
           // Handle leg change - reload visits
           if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
