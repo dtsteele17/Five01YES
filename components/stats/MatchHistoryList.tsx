@@ -3,39 +3,16 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
-import { Trophy, Calendar, Target, TrendingUp, User, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Trophy, Calendar, Target, TrendingUp, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
-import { MatchStatsModal } from '@/components/app/MatchStatsModal';
-
-interface MatchHistoryItem {
-  id: string;
-  room_id: string;
-  opponent_id: string;
-  opponent_username?: string;
-  opponent_avatar_url?: string | null;
-  game_mode: number;
-  match_format: string;
-  result: 'win' | 'loss' | 'draw';
-  legs_won: number;
-  legs_lost: number;
-  three_dart_avg: number;
-  first9_avg: number;
-  highest_checkout: number;
-  checkout_percentage: number;
-  darts_thrown: number;
-  total_score: number;
-  visits_100_plus: number;
-  visits_140_plus: number;
-  visits_180: number;
-  played_at: string;
-  bot_level?: number;
-}
+import { SimpleMatchStatsModal, MatchHistoryItem } from './SimpleMatchStatsModal';
 
 interface MatchHistoryListProps {
   userId?: string;
   limit?: number;
-  gameMode?: number | null;  // Filter by game mode (301, 501)
-  matchType?: string | null; // Filter by match type
+  gameMode?: number | null;
+  matchType?: string | null;
 }
 
 export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchType = null }: MatchHistoryListProps) {
@@ -116,7 +93,7 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
         <div className="text-center">
           <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <p className="text-slate-400">No matches found for selected filters</p>
-          <p className="text-slate-500 text-sm mt-1">Try changing your filter options</p>
+          <p className="text-slate-500 text-sm mt-1">Try changing your filter options or play some games!</p>
         </div>
       </Card>
     );
@@ -141,99 +118,116 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
   };
 
   const getMatchFormatLabel = (match: MatchHistoryItem) => {
-    if (match.match_format === 'dartbot') {
+    if (match.match_format === 'dartbot' || match.bot_level) {
       return match.bot_level ? `Bot (${match.bot_level})` : 'Bot';
     }
     // Capitalize first letter
     return match.match_format ? match.match_format.charAt(0).toUpperCase() + match.match_format.slice(1) : 'Quick';
   };
 
+  const getOpponentName = (match: MatchHistoryItem) => {
+    if (match.match_format === 'dartbot' || match.bot_level) {
+      return 'DartBot';
+    }
+    return match.opponent_username || 'Unknown';
+  };
+
   return (
     <>
-    <div className="space-y-3">
-      {matches.map((match) => (
-        <Card 
-          key={match.id} 
-          onClick={() => setSelectedMatch(match)}
-          className="bg-slate-900/50 border-slate-700 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-4">
-            {/* Result Badge */}
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center border-2 font-bold text-xl ${getResultColor(match.result)}`}>
-              {getResultLabel(match.result)}
+      <div className="space-y-3">
+        {matches.map((match) => (
+          <Card 
+            key={match.id} 
+            className="bg-slate-900/50 border-slate-700 p-4 hover:bg-slate-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              {/* Result Badge */}
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center border-2 font-bold text-xl ${getResultColor(match.result)}`}>
+                {getResultLabel(match.result)}
+              </div>
+
+              {/* Match Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-bold text-white truncate">
+                    vs {getOpponentName(match)}
+                  </span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-slate-400 text-sm">{match.game_mode}</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-slate-400 text-sm">{getMatchFormatLabel(match)}</span>
+                </div>
+                
+                <div className="flex items-center gap-4 text-sm text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {format(new Date(match.played_at), 'MMM d, yyyy')}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Trophy className="w-3 h-3" />
+                    {match.legs_won}-{match.legs_lost}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stats Summary */}
+              <div className="hidden sm:grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
+                    <TrendingUp className="w-3 h-3" />
+                    Avg
+                  </div>
+                  <div className="font-bold text-white">{match.three_dart_avg?.toFixed(1) || '-'}</div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
+                    <Target className="w-3 h-3" />
+                    Co
+                  </div>
+                  <div className="font-bold text-white">{match.highest_checkout || '-'}</div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
+                    <span className="text-xs">180s</span>
+                  </div>
+                  <div className="font-bold text-white">{match.visits_180 || '0'}</div>
+                </div>
+              </div>
+
+              {/* View Stats Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedMatch(match)}
+                className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 whitespace-nowrap"
+              >
+                <BarChart3 className="w-4 h-4 mr-1" />
+                View Stats
+              </Button>
             </div>
 
-            {/* Match Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-bold text-white truncate">
-                  vs {match.opponent_username}
-                </span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-400 text-sm">{match.game_mode}</span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-400 text-sm">{getMatchFormatLabel(match)}</span>
-              </div>
-              
-              <div className="flex items-center gap-4 text-sm text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {format(new Date(match.played_at), 'MMM d, yyyy')}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Trophy className="w-3 h-3" />
-                  {match.legs_won}-{match.legs_lost}
-                </span>
-              </div>
+            {/* Mobile Stats */}
+            <div className="sm:hidden mt-3 pt-3 border-t border-slate-800 flex justify-between text-sm">
+              <span className="text-slate-500">
+                Avg: <span className="text-white font-bold">{match.three_dart_avg?.toFixed(1) || '-'}</span>
+              </span>
+              <span className="text-slate-500">
+                Checkout: <span className="text-white font-bold">{match.highest_checkout || '-'}</span>
+              </span>
+              <span className="text-slate-500">
+                180s: <span className="text-white font-bold">{match.visits_180 || '0'}</span>
+              </span>
             </div>
+          </Card>
+        ))}
+      </div>
 
-            {/* Stats Summary */}
-            <div className="hidden sm:grid grid-cols-3 gap-3 text-center">
-              <div>
-                <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
-                  <TrendingUp className="w-3 h-3" />
-                  Avg
-                </div>
-                <div className="font-bold text-white">{match.three_dart_avg?.toFixed(1) || '-'}</div>
-              </div>
-              <div>
-                <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
-                  <Target className="w-3 h-3" />
-                  Co
-                </div>
-                <div className="font-bold text-white">{match.highest_checkout || '-'}</div>
-              </div>
-              <div>
-                <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
-                  <span className="text-xs">180s</span>
-                </div>
-                <div className="font-bold text-white">{match.visits_180 || '0'}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Stats */}
-          <div className="sm:hidden mt-3 pt-3 border-t border-slate-800 flex justify-between text-sm">
-            <span className="text-slate-500">
-              Avg: <span className="text-white font-bold">{match.three_dart_avg?.toFixed(1) || '-'}</span>
-            </span>
-            <span className="text-slate-500">
-              Checkout: <span className="text-white font-bold">{match.highest_checkout || '-'}</span>
-            </span>
-            <span className="text-slate-500">
-              180s: <span className="text-white font-bold">{match.visits_180 || '0'}</span>
-            </span>
-          </div>
-        </Card>
-      ))}
-    </div>
-
-    {/* Match Stats Modal */}
-    <MatchStatsModal
-      isOpen={!!selectedMatch}
-      onClose={() => setSelectedMatch(null)}
-      matchId={selectedMatch?.room_id || ''}
-    />
+      {/* Match Stats Modal */}
+      <SimpleMatchStatsModal
+        isOpen={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        match={selectedMatch}
+      />
     </>
   );
 }
