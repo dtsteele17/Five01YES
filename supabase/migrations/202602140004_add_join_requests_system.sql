@@ -111,6 +111,13 @@ CREATE TRIGGER update_join_requests_updated_at
   EXECUTE FUNCTION update_join_requests_updated_at();
 
 -- ============================================================================
+-- ENABLE REALTIME FOR JOIN REQUESTS
+-- ============================================================================
+
+-- Add table to realtime publication
+ALTER PUBLICATION supabase_realtime ADD TABLE public.quick_match_join_requests;
+
+-- ============================================================================
 -- VERIFY
 -- ============================================================================
 

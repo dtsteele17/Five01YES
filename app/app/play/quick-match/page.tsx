@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -106,33 +106,53 @@ export default function QuickMatchLobbyPage() {
     initializeAndSubscribe();
   }, []);
 
+  // Fetch pending join requests for the current lobby
+  const fetchPendingRequestsForLobby = useCallback(async (lobbyId: string) => {
+    console.log('[JOIN REQUEST] Fetching pending requests for lobby:', lobbyId);
+    const { data: requests, error } = await supabase
+      .from('quick_match_join_requests')
+      .select('*')
+      .eq('lobby_id', lobbyId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (error) {
+      console.error('[JOIN REQUEST] Error fetching pending requests:', error);
+      return;
+    }
+    
+    console.log('[JOIN REQUEST] Fetch result:', { count: requests?.length || 0, requests });
+    
+    if (requests && requests.length > 0) {
+      console.log('[JOIN REQUEST] Found pending request:', requests[0]);
+      setCurrentJoinRequest(requests[0] as JoinRequest);
+      setShowJoinRequestModal(true);
+    }
+  }, []);
+
   // Setup join request subscription when myLobby changes
   useEffect(() => {
-    if (!myLobby || !userId) return;
+    if (!myLobby || !userId) {
+      console.log('[JOIN REQUEST] Skipping subscription - no lobby or userId', { myLobby, userId });
+      return;
+    }
     
     // Only subscribe if I'm the creator
-    if (myLobby.created_by !== userId) return;
+    if (myLobby.created_by !== userId) {
+      console.log('[JOIN REQUEST] Skipping subscription - not creator', { 
+        created_by: myLobby.created_by, 
+        userId 
+      });
+      return;
+    }
 
     console.log('[JOIN REQUEST] Setting up subscription for lobby:', myLobby.id);
 
     // Fetch any existing pending join requests
-    const fetchPendingRequests = async () => {
-      const { data: requests } = await supabase
-        .from('quick_match_join_requests')
-        .select('*')
-        .eq('lobby_id', myLobby.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      
-      if (requests && requests.length > 0) {
-        console.log('[JOIN REQUEST] Found pending request:', requests[0]);
-        setCurrentJoinRequest(requests[0] as JoinRequest);
-        setShowJoinRequestModal(true);
-      }
-    };
-    fetchPendingRequests();
+    fetchPendingRequestsForLobby(myLobby.id);
 
+    console.log('[JOIN REQUEST] Creating realtime subscription...');
     const joinRequestChannel = supabase
       .channel(`join_requests_${myLobby.id}`)
       .on(
@@ -148,20 +168,32 @@ export default function QuickMatchLobbyPage() {
           const newRequest = payload.new as JoinRequest;
           
           if (newRequest.status === 'pending') {
+            console.log('[REALTIME] Showing join request modal for:', newRequest.requester_username);
             setCurrentJoinRequest(newRequest);
             setShowJoinRequestModal(true);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[JOIN REQUEST] Subscription status:', status);
+      });
 
     joinRequestSubscriptionRef.current = joinRequestChannel;
+
+    // Fallback: Poll every 3 seconds for new requests (in case realtime fails)
+    const pollInterval = setInterval(() => {
+      // Only poll if modal is not already showing
+      if (!showJoinRequestModal && !currentJoinRequest) {
+        fetchPendingRequestsForLobby(myLobby.id);
+      }
+    }, 3000);
 
     return () => {
       console.log('[JOIN REQUEST] Cleaning up subscription');
       joinRequestChannel.unsubscribe();
+      clearInterval(pollInterval);
     };
-  }, [myLobby?.id, userId]);
+  }, [myLobby?.id, userId, showJoinRequestModal, currentJoinRequest, fetchPendingRequestsForLobby]);
 
   useEffect(() => {
     async function handleResume() {
@@ -844,6 +876,41 @@ export default function QuickMatchLobbyPage() {
                   ) : null}
                 </div>
               </div>
+              
+              {/* Join Request Status */}
+              {currentJoinRequest ? (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                    <span className="text-sm text-amber-400">
+                      {currentJoinRequest.requester_username} wants to join
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-800/50 rounded-lg">
+                  <p className="text-xs text-gray-500 text-center">
+                    No join requests yet. Waiting for players...
+                  </p>
+                </div>
+              )}
+              
+              {/* Manual Refresh Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-white/10 text-gray-400 hover:text-white"
+                onClick={() => {
+                  if (myLobby) {
+                    fetchPendingRequestsForLobby(myLobby.id);
+                    toast.info('Checking for join requests...');
+                  }
+                }}
+              >
+                <Loader2 className="w-4 h-4 mr-2" />
+                Check for Requests
+              </Button>
+              
               <Button
                 variant="outline"
                 className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
@@ -1044,6 +1111,24 @@ export default function QuickMatchLobbyPage() {
       {showJoinRequestModal && currentJoinRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex justify-end mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowJoinRequestModal(false);
+                  // Check for more requests after a short delay
+                  setTimeout(() => {
+                    if (myLobby) {
+                      fetchPendingRequestsForLobby(myLobby.id);
+                    }
+                  }, 500);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <UserPlus className="w-8 h-8 text-emerald-400" />
