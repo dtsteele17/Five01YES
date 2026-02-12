@@ -364,12 +364,18 @@ export default function QuickMatchLobbyPage() {
       let hostStats: Record<string, number> = {};
       if (lobbiesData && lobbiesData.length > 0) {
         const hostIds = lobbiesData.map(l => l.player1_id).filter(Boolean);
-        const { data: statsData } = await supabase
+        console.log('[FETCH] Fetching stats for host IDs:', hostIds);
+        const { data: statsData, error: statsError } = await supabase
           .from('player_stats')
           .select('user_id, overall_3dart_avg')
           .in('user_id', hostIds);
         
+        if (statsError) {
+          console.error('[FETCH] Error fetching stats:', statsError);
+        }
+        
         if (statsData) {
+          console.log('[FETCH] Stats data received:', statsData);
           hostStats = statsData.reduce((acc, stat) => {
             acc[stat.user_id] = stat.overall_3dart_avg || 0;
             return acc;
@@ -393,16 +399,21 @@ export default function QuickMatchLobbyPage() {
       }
 
       console.log('[FETCH] Loaded lobbies with hosts:', lobbiesData.length);
+      console.log('[FETCH] Host stats:', hostStats);
 
       // Transform the data to ensure player1 is a single object, not an array
       // and include the 3-dart average from player_stats
-      const transformedLobbies = lobbiesData.map(lobby => ({
-        ...lobby,
-        player1: {
-          ...(Array.isArray(lobby.player1) ? lobby.player1[0] : lobby.player1),
-          overall_3dart_avg: hostStats[lobby.player1_id] || 0
-        }
-      }));
+      const transformedLobbies = lobbiesData.map(lobby => {
+        const avg = hostStats[lobby.player1_id] || 0;
+        console.log(`[FETCH] Lobby ${lobby.id}: host ${lobby.player1_id}, avg: ${avg}`);
+        return {
+          ...lobby,
+          player1: {
+            ...(Array.isArray(lobby.player1) ? lobby.player1[0] : lobby.player1),
+            overall_3dart_avg: avg
+          }
+        };
+      });
 
       setLobbies(transformedLobbies as QuickMatchLobby[]);
 
@@ -1054,12 +1065,21 @@ export default function QuickMatchLobbyPage() {
                             count={lobby.player1?.trust_rating_count || 0}
                             showTooltip={false}
                           />
-                          {lobby.player1?.overall_3dart_avg !== undefined && lobby.player1.overall_3dart_avg > 0 && (
-                            <Badge className="bg-blue-600/20 text-blue-400 border-blue-500/30 text-xs px-2 py-0.5 rounded-full border">
-                              <Target className="w-3 h-3 mr-1" />
-                              {lobby.player1.overall_3dart_avg.toFixed(1)} avg
-                            </Badge>
-                          )}
+                          {/* Always show 3-dart average */}
+                          <Badge 
+                            className={`text-xs px-2 py-0.5 rounded-full border ${
+                              (lobby.player1?.overall_3dart_avg || 0) > 0
+                                ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
+                                : 'bg-gray-600/20 text-gray-400 border-gray-500/30'
+                            }`}
+                            title="3-Dart Average"
+                          >
+                            <Target className="w-3 h-3 mr-1" />
+                            {(lobby.player1?.overall_3dart_avg || 0) > 0
+                              ? `${lobby.player1.overall_3dart_avg.toFixed(1)} avg`
+                              : 'New'
+                            }
+                          </Badge>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
