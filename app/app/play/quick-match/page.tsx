@@ -49,7 +49,19 @@ interface QuickMatchLobby {
     avatar_url?: string;
     trust_rating_letter?: string;
     trust_rating_count?: number;
+    overall_3dart_avg?: number;
   };
+}
+
+interface JoinRequest {
+  id: string;
+  lobby_id: string;
+  requester_id: string;
+  requester_username: string;
+  requester_avatar_url?: string;
+  requester_3dart_avg?: number;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
 }
 
 export default function QuickMatchLobbyPage() {
@@ -72,6 +84,13 @@ export default function QuickMatchLobbyPage() {
 
   const [realtimeStatus, setRealtimeStatus] = useState<string>('disconnected');
   const [lastRealtimeEvent, setLastRealtimeEvent] = useState<{ type: string; lobbyId: string } | null>(null);
+
+  // Join request state
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [showJoinRequestModal, setShowJoinRequestModal] = useState(false);
+  const [currentJoinRequest, setCurrentJoinRequest] = useState<JoinRequest | null>(null);
+  const [processingRequest, setProcessingRequest] = useState(false);
+  const [pendingLobbyId, setPendingLobbyId] = useState<string | null>(null);
 
   const resumeAttemptedRef = useRef(false);
 
@@ -121,6 +140,30 @@ export default function QuickMatchLobbyPage() {
 
       // Load lobbies
       await fetchLobbies();
+
+      // Subscribe to join requests for my lobby
+      const joinRequestChannel = supabase
+        .channel('join_requests_realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'quick_match_join_requests',
+            filter: `lobby_id=eq.${myLobby?.id || '00000000-0000-0000-0000-000000000000'}`,
+          },
+          (payload) => {
+            console.log('[REALTIME] Join request received:', payload.new);
+            const newRequest = payload.new as JoinRequest;
+            
+            // Only show if it's for my lobby and I'm the creator
+            if (myLobby && myLobby.created_by === user.id && newRequest.status === 'pending') {
+              setCurrentJoinRequest(newRequest);
+              setShowJoinRequestModal(true);
+            }
+          }
+        )
+        .subscribe();
 
       // Subscribe to realtime changes
       const channel = supabase
@@ -203,6 +246,7 @@ export default function QuickMatchLobbyPage() {
 
       return () => {
         channel.unsubscribe();
+        joinRequestChannel.unsubscribe();
       };
     } catch (error: any) {
       console.error('[ERROR] Initialization failed:', error);
@@ -217,7 +261,7 @@ export default function QuickMatchLobbyPage() {
       console.log('[FETCH] Loading lobbies...');
       setFetchError(null);
 
-      // Fetch open lobbies with host profile
+      // Fetch open lobbies with host profile and stats
       const { data: lobbiesData, error: lobbiesError } = await supabase
         .from('quick_match_lobbies')
         .select(`
@@ -244,6 +288,23 @@ export default function QuickMatchLobbyPage() {
         .order('created_at', { ascending: false })
         .limit(50);
 
+      // Fetch player stats separately for each lobby host
+      let hostStats: Record<string, number> = {};
+      if (lobbiesData && lobbiesData.length > 0) {
+        const hostIds = lobbiesData.map(l => l.player1_id).filter(Boolean);
+        const { data: statsData } = await supabase
+          .from('player_stats')
+          .select('user_id, overall_3dart_avg')
+          .in('user_id', hostIds);
+        
+        if (statsData) {
+          hostStats = statsData.reduce((acc, stat) => {
+            acc[stat.user_id] = stat.overall_3dart_avg || 0;
+            return acc;
+          }, {} as Record<string, number>);
+        }
+      }
+
       if (lobbiesError) {
         console.error('[FETCH] Error:', lobbiesError);
         const errorMsg = `Failed to load lobbies: ${lobbiesError.message}`;
@@ -262,9 +323,13 @@ export default function QuickMatchLobbyPage() {
       console.log('[FETCH] Loaded lobbies with hosts:', lobbiesData.length);
 
       // Transform the data to ensure player1 is a single object, not an array
+      // and include the 3-dart average from player_stats
       const transformedLobbies = lobbiesData.map(lobby => ({
         ...lobby,
-        player1: Array.isArray(lobby.player1) ? lobby.player1[0] : lobby.player1
+        player1: {
+          ...(Array.isArray(lobby.player1) ? lobby.player1[0] : lobby.player1),
+          overall_3dart_avg: hostStats[lobby.player1_id] || 0
+        }
       }));
 
       setLobbies(transformedLobbies as QuickMatchLobby[]);
@@ -355,150 +420,192 @@ export default function QuickMatchLobbyPage() {
     setJoining(lobbyId);
 
     try {
-      console.log('[JOIN] Attempting to join lobby:', lobbyId, 'as user:', userId);
+      console.log('[JOIN] Sending join request for lobby:', lobbyId, 'as user:', userId);
 
-      // First, get the lobby details
-      const { data: lobby, error: fetchError } = await supabase
-        .from('quick_match_lobbies')
-        .select('*')
-        .eq('id', lobbyId)
+      // Get current user profile
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('user_id', userId)
         .maybeSingle();
 
-      if (fetchError) {
-        console.error('[JOIN] Fetch error:', {
-          lobbyId,
-          error: fetchError,
-          message: fetchError.message,
-          details: fetchError.details,
-          hint: fetchError.hint,
-          code: fetchError.code
-        });
-        throw new Error(`Failed to fetch lobby: ${fetchError.message}`);
-      }
+      // Get user's 3-dart average
+      const { data: userStats } = await supabase
+        .from('player_stats')
+        .select('overall_3dart_avg')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (!lobby) {
-        console.error('[JOIN] No lobby data returned for lobbyId:', lobbyId);
-        throw new Error('Lobby not found');
-      }
-
-      // Check if lobby is already full
-      if (lobby.player2_id) {
-        throw new Error('Match full - lobby already has two players');
-      }
-
-      if (lobby.status !== 'open') {
-        throw new Error('Lobby is no longer available');
-      }
-
-      // Claim the lobby by updating player2_id and status
-      const { data: updatedLobby, error: updateError } = await supabase
-        .from('quick_match_lobbies')
-        .update({
-          player2_id: userId,
-          status: 'in_progress'
+      // Create a join request instead of directly joining
+      const { data: request, error: requestError } = await supabase
+        .from('quick_match_join_requests')
+        .insert({
+          lobby_id: lobbyId,
+          requester_id: userId,
+          requester_username: userProfile?.username || 'Unknown',
+          requester_avatar_url: userProfile?.avatar_url,
+          requester_3dart_avg: userStats?.overall_3dart_avg || 0,
+          status: 'pending'
         })
-        .eq('id', lobbyId)
-        .is('player2_id', null)
-        .eq('status', 'open')
         .select()
         .maybeSingle();
 
-      if (updateError) {
-        console.error('[JOIN] Update error:', {
-          lobbyId,
-          error: updateError,
-          message: updateError.message,
-          details: updateError.details,
-          hint: updateError.hint,
-          code: updateError.code
-        });
-        if (updateError.code === 'PGRST116') {
-          throw new Error('Lobby already filled or no longer available');
+      if (requestError) {
+        console.error('[JOIN] Request error:', requestError);
+        throw new Error(`Failed to send join request: ${requestError.message}`);
+      }
+
+      setPendingLobbyId(lobbyId);
+      toast.success('Join request sent! Waiting for host approval...');
+
+      // Poll for request status
+      pollJoinRequestStatus(request.id);
+    } catch (error: any) {
+      console.error('[JOIN] Failed:', error);
+      toast.error(`Failed to join: ${error.message}`);
+      setJoining(null);
+    }
+  }
+
+  async function pollJoinRequestStatus(requestId: string) {
+    const checkInterval = setInterval(async () => {
+      const { data: request } = await supabase
+        .from('quick_match_join_requests')
+        .select('*')
+        .eq('id', requestId)
+        .maybeSingle();
+
+      if (!request) {
+        clearInterval(checkInterval);
+        setJoining(null);
+        setPendingLobbyId(null);
+        return;
+      }
+
+      if (request.status === 'accepted') {
+        clearInterval(checkInterval);
+        // Request accepted - proceed to match
+        if (request.match_id) {
+          toast.success('Join request accepted! Match starting...');
+          router.push(`/app/play/quick-match/match/${request.match_id}`);
         }
-        throw new Error(`Failed to claim lobby: ${updateError.message}`);
+      } else if (request.status === 'declined') {
+        clearInterval(checkInterval);
+        setJoining(null);
+        setPendingLobbyId(null);
+        toast.error('Join request was declined by the host');
       }
+    }, 1000);
 
-      if (!updatedLobby) {
-        console.error('[JOIN] No updated lobby data returned for lobbyId:', lobbyId);
-        throw new Error('Lobby no longer available');
+    // Timeout after 60 seconds
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      if (pendingLobbyId) {
+        setJoining(null);
+        setPendingLobbyId(null);
+        toast.error('Join request timed out');
       }
+    }, 60000);
+  }
 
-      console.log('[JOIN] Lobby claimed, creating match room...');
+  async function handleAcceptJoinRequest(request: JoinRequest) {
+    if (!myLobby || processingRequest) return;
+
+    setProcessingRequest(true);
+
+    try {
+      console.log('[ACCEPT] Accepting join request:', request.id);
 
       // Parse match_format to calculate legs_to_win
-      const bestOfMatch = updatedLobby.match_format.match(/best-of-(\d+)/i);
+      const bestOfMatch = myLobby.match_format.match(/best-of-(\d+)/i);
       const bestOf = bestOfMatch ? parseInt(bestOfMatch[1]) : 3;
       const legsToWin = Math.ceil(bestOf / 2);
+      const gameMode = myLobby.starting_score;
 
-      // Use starting_score for game_mode
-      const gameMode = updatedLobby.starting_score;
-
+      // Create the match room first
       const roomPayload = {
-        lobby_id: lobbyId,
-        player1_id: updatedLobby.player1_id,
-        player2_id: userId,
+        lobby_id: myLobby.id,
+        player1_id: myLobby.player1_id,
+        player2_id: request.requester_id,
         game_mode: gameMode,
         status: 'active',
         current_leg: 1,
         legs_to_win: legsToWin,
-        match_format: updatedLobby.match_format,
+        match_format: myLobby.match_format,
         player1_remaining: gameMode,
         player2_remaining: gameMode,
-        current_turn: updatedLobby.player1_id,
+        current_turn: myLobby.player1_id,
       };
 
-      console.log('[JOIN] Inserting match room with payload:', roomPayload);
-
-      // Create the match room
       const { data: room, error: roomError } = await supabase
         .from('match_rooms')
         .insert(roomPayload)
         .select()
         .maybeSingle();
 
-      if (roomError) {
-        console.error('[JOIN] Room creation error:', {
-          lobbyId,
-          error: roomError,
-          message: roomError.message,
-          details: roomError.details,
-          hint: roomError.hint,
-          code: roomError.code
-        });
-        // Rollback: release the lobby
-        await supabase
-          .from('quick_match_lobbies')
-          .update({ player2_id: null, status: 'open' })
-          .eq('id', lobbyId);
-        throw new Error(`Failed to create match room: ${roomError.message}`);
-      }
-
-      if (!room) {
-        console.error('[JOIN] No room data returned after insert');
-        // Rollback: release the lobby
-        await supabase
-          .from('quick_match_lobbies')
-          .update({ player2_id: null, status: 'open' })
-          .eq('id', lobbyId);
+      if (roomError || !room) {
         throw new Error('Failed to create match room');
       }
 
-      // Link lobby to the room
+      // Update the join request with match_id and accepted status
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ 
+          status: 'accepted',
+          match_id: room.id
+        })
+        .eq('id', request.id);
+
+      // Update the lobby
       await supabase
         .from('quick_match_lobbies')
         .update({
+          player2_id: request.requester_id,
+          status: 'in_progress',
           match_id: room.id
         })
-        .eq('id', lobbyId);
+        .eq('id', myLobby.id);
 
-      console.log('[JOIN] Successfully joined! Room ID:', room.id);
+      // Decline all other pending requests for this lobby
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'declined' })
+        .eq('lobby_id', myLobby.id)
+        .eq('status', 'pending')
+        .neq('id', request.id);
+
+      setShowJoinRequestModal(false);
+      setCurrentJoinRequest(null);
       toast.success('Match starting!');
-
       router.push(`/app/play/quick-match/match/${room.id}`);
     } catch (error: any) {
-      console.error('[JOIN] Failed:', error);
-      toast.error(`Failed to join: ${error.message}`);
-      setJoining(null);
+      console.error('[ACCEPT] Failed:', error);
+      toast.error(`Failed to accept: ${error.message}`);
+      setProcessingRequest(false);
+    }
+  }
+
+  async function handleDeclineJoinRequest(request: JoinRequest) {
+    if (processingRequest) return;
+
+    setProcessingRequest(true);
+
+    try {
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'declined' })
+        .eq('id', request.id);
+
+      // Remove from local state
+      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+      setShowJoinRequestModal(false);
+      setCurrentJoinRequest(null);
+      toast.info('Join request declined');
+    } catch (error: any) {
+      console.error('[DECLINE] Failed:', error);
+      toast.error(`Failed to decline: ${error.message}`);
+    } finally {
+      setProcessingRequest(false);
     }
   }
 
@@ -810,6 +917,12 @@ export default function QuickMatchLobbyPage() {
                             count={lobby.player1?.trust_rating_count || 0}
                             showTooltip={false}
                           />
+                          {lobby.player1?.overall_3dart_avg !== undefined && lobby.player1.overall_3dart_avg > 0 && (
+                            <Badge className="bg-blue-600/20 text-blue-400 border-blue-500/30 text-xs px-2 py-0.5 rounded-full border">
+                              <Target className="w-3 h-3 mr-1" />
+                              {lobby.player1.overall_3dart_avg.toFixed(1)} avg
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -856,6 +969,81 @@ export default function QuickMatchLobbyPage() {
           </ScrollArea>
         </Card>
       </div>
+
+      {/* Join Request Modal - Shows when someone wants to join your lobby */}
+      {showJoinRequestModal && currentJoinRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserPlus className="w-8 h-8 text-emerald-400" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">
+                Join Request
+              </h2>
+              <p className="text-gray-400">
+                {currentJoinRequest.requester_username} wants to join your match
+              </p>
+            </div>
+
+            <div className="bg-white/5 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Player</span>
+                <span className="text-white font-semibold">{currentJoinRequest.requester_username}</span>
+              </div>
+              {currentJoinRequest.requester_3dart_avg !== undefined && currentJoinRequest.requester_3dart_avg > 0 && (
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-gray-400">3-Dart Average</span>
+                  <Badge className="bg-blue-600/20 text-blue-400 border-blue-500/30">
+                    <Target className="w-3 h-3 mr-1" />
+                    {currentJoinRequest.requester_3dart_avg.toFixed(1)}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                onClick={() => handleDeclineJoinRequest(currentJoinRequest)}
+                disabled={processingRequest}
+              >
+                {processingRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Decline'}
+              </Button>
+              <Button
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                onClick={() => handleAcceptJoinRequest(currentJoinRequest)}
+                disabled={processingRequest}
+              >
+                {processingRequest ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Accept
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Join Request Indicator */}
+      {pendingLobbyId && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-lg px-6 py-4 shadow-2xl z-40">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+            <span className="text-white">Waiting for host approval...</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setPendingLobbyId(null);
+                setJoining(null);
+              }}
+              className="text-gray-400 hover:text-white ml-2"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

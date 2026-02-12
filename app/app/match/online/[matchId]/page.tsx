@@ -413,14 +413,15 @@ export default function OnlineMatchPage() {
     const supabase = createClient();
 
     try {
-      const { error } = await supabase
-        .from('match_rooms')
-        .update({
-          status: 'forfeited',
-        })
-        .eq('id', matchId);
-
+      // Use the RPC that automatically records stats for both players
+      const { data, error } = await supabase.rpc('rpc_forfeit_match', { p_room_id: matchId });
+      
       if (error) throw error;
+      
+      if (!data?.ok) {
+        toast.error(data?.error || "Couldn't forfeit");
+        return;
+      }
 
       toast.info('Match forfeited');
       await clearMatchState(matchId);

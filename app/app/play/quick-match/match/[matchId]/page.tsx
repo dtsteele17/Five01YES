@@ -1039,7 +1039,6 @@ export default function QuickMatchRoomPage() {
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
-  const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
 
@@ -1084,6 +1083,7 @@ export default function QuickMatchRoomPage() {
   // Coin toss state
   const [showCoinToss, setShowCoinToss] = useState(false);
   const [coinTossCompleted, setCoinTossCompleted] = useState(false);
+  const [playersConnected, setPlayersConnected] = useState<{p1: boolean, p2: boolean}>({p1: false, p2: false});
 
   // Checkout dialog state for typed scores
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
@@ -1548,10 +1548,12 @@ export default function QuickMatchRoomPage() {
     toast.success(`${winnerProfile?.username || 'Player'} will throw first!`);
   }
 
-  // Trigger coin toss when both players are present and it's the first leg
+  // Trigger coin toss when both players are present, connected, and it's the first leg
   useEffect(() => {
+    const bothPlayersConnected = playersConnected.p1 && playersConnected.p2;
     const shouldShowCoinToss = room && 
       profiles.length === 2 && 
+      bothPlayersConnected &&
       room.current_leg === 1 && 
       !coinTossCompleted &&
       room.status === 'active';
@@ -1560,11 +1562,11 @@ export default function QuickMatchRoomPage() {
       // Check if any visits have been made (if so, don't show coin toss)
       const hasVisits = visits.length > 0;
       if (!hasVisits) {
-        console.log('[COIN TOSS] Showing coin toss modal. Winner:', room.coin_toss_winner_id);
+        console.log('[COIN TOSS] Both players connected, showing coin toss modal. Winner:', room.coin_toss_winner_id);
         setShowCoinToss(true);
       }
     }
-  }, [room, profiles, visits, coinTossCompleted]);
+  }, [room, profiles, visits, coinTossCompleted, playersConnected]);
 
   useEffect(() => {
     if (room && profiles.length > 0) {
@@ -1613,7 +1615,10 @@ export default function QuickMatchRoomPage() {
           
           // Handle forfeit
           if (updatedRoom.status === 'forfeited' && !didIForfeit) {
+            // Stats are automatically recorded by rpc_forfeit_match when the forfeiter called it
+            // Just show the modal to notify this player they won by forfeit
             setShowOpponentForfeitModal(true);
+            toast.success('You won by forfeit!');
           }
           
           // Handle match finished - show winner popup
@@ -1783,8 +1788,21 @@ export default function QuickMatchRoomPage() {
         (payload) => {
           const signal = payload.new as any;
           if (signal.type === 'forfeit' && signal.to_user_id === currentUserId) {
-            setShowOpponentForfeitSignalModal(true);
+            // Use the same modal as DB detection - stats are already recorded by RPC
+            setShowOpponentForfeitModal(true);
+            toast.success('You won by forfeit!');
             setTimeout(() => cleanupMatchRef.current?.(), 100);
+          }
+          // Handle player connected signals
+          if (signal.type === 'player_connected') {
+            console.log('[CONNECTION] Player connected:', signal.from_user_id);
+            setPlayersConnected(prev => {
+              const isP1 = signal.from_user_id === room?.player1_id;
+              return {
+                p1: isP1 ? true : prev.p1,
+                p2: isP1 ? prev.p2 : true
+              };
+            });
           }
           // Handle rematch ready signals
           if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
@@ -1804,6 +1822,27 @@ export default function QuickMatchRoomPage() {
         }
       )
       .subscribe();
+    
+    // Send player connected signal
+    if (currentUserId && room) {
+      const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
+      if (opponentId) {
+        console.log('[CONNECTION] Sending player connected signal');
+        supabase.from('match_signals').insert({
+          room_id: matchId,
+          from_user_id: currentUserId,
+          to_user_id: opponentId,
+          type: 'player_connected',
+          payload: { timestamp: Date.now() }
+        }).then(() => {
+          // Mark self as connected
+          setPlayersConnected(prev => ({
+            p1: currentUserId === room.player1_id ? true : prev.p1,
+            p2: currentUserId === room.player2_id ? true : prev.p2
+          }));
+        });
+      }
+    }
 
     return () => {
       roomChannel.unsubscribe();
@@ -2593,17 +2632,8 @@ export default function QuickMatchRoomPage() {
 
       toast.success('You forfeited the match');
       
-      // Save forfeit stats
-      const p1Legs = room.player1_legs || 0;
-      const p2Legs = room.player2_legs || 0;
-      await saveMatchStats(
-        matchId, 
-        opponentId, 
-        currentUserId, 
-        matchState.youArePlayer === 1 ? p2Legs : p1Legs,
-        matchState.youArePlayer === 1 ? p1Legs : p2Legs,
-        room.game_mode
-      );
+      // Stats are automatically recorded by rpc_forfeit_match
+      // No need to call saveMatchStats here - it would create duplicates
       
       cleanupMatchRef.current?.();
       await clearMatchState(matchId);
@@ -3425,34 +3455,6 @@ export default function QuickMatchRoomPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Opponent Forfeited Signal Modal - Shows when opponent sends forfeit signal */}
-      <AlertDialog open={showOpponentForfeitSignalModal} onOpenChange={(open) => {
-        if (!open) {
-          setShowOpponentForfeitSignalModal(false);
-          router.push('/app/play');
-        }
-      }}>
-        <AlertDialogContent className="bg-slate-900 border-red-500/30">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-400 flex items-center gap-2">
-              <LogOut className="w-5 h-5" />
-              Opponent Left
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              {opponentPlayer?.name || 'Your opponent'} has left the match. You win!
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction 
-              onClick={() => router.push('/app/play')} 
-              className="bg-emerald-500 hover:bg-emerald-600"
-            >
-              Return to Play
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <EditVisitModal
         open={showEditModal}
         onOpenChange={setShowEditModal}
@@ -3499,6 +3501,7 @@ export default function QuickMatchRoomPage() {
           player2Id={room.player2_id}
           currentUserId={currentUserId}
           winnerId={room.coin_toss_winner_id}
+          bothPlayersConnected={playersConnected.p1 && playersConnected.p2}
           onComplete={handleCoinTossComplete}
         />
       )}

@@ -13,6 +13,7 @@ interface CoinTossModalProps {
   player2Id: string;
   currentUserId: string;
   winnerId?: string | null; // If provided, we're just showing the result (joiner view)
+  bothPlayersConnected?: boolean; // New prop to track if both players are connected
   onComplete: (winnerId: string) => void;
 }
 
@@ -24,6 +25,7 @@ export function CoinTossModal({
   player2Id,
   currentUserId,
   winnerId: predeterminedWinner,
+  bothPlayersConnected = true, // Default to true for backward compatibility
   onComplete,
 }: CoinTossModalProps) {
   const isPlayer1 = currentUserId === player1Id;
@@ -32,6 +34,7 @@ export function CoinTossModal({
   const [winnerId, setWinnerId] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [rotation, setRotation] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
 
   // If winner is predetermined (from DB), we're the joiner - just show the result
   const isShowingResultOnly = !!predeterminedWinner;
@@ -56,11 +59,17 @@ export function CoinTossModal({
       return () => clearTimeout(timer);
     }
     
-    // Player 1 view - run the coin toss
-    if (isPlayer1 && !isSpinning && !showResult) {
-      startCoinToss();
+    // Player 1 view - wait for both players to be connected before starting
+    if (isPlayer1 && !isSpinning && !showResult && !hasStarted) {
+      if (bothPlayersConnected) {
+        console.log('[COIN TOSS] Both players connected, starting toss');
+        setHasStarted(true);
+        startCoinToss();
+      } else {
+        console.log('[COIN TOSS] Waiting for opponent to connect...');
+      }
     }
-  }, [isOpen, isShowingResultOnly, predeterminedWinner, isPlayer1]);
+  }, [isOpen, isShowingResultOnly, predeterminedWinner, isPlayer1, bothPlayersConnected, hasStarted]);
 
   const startCoinToss = () => {
     setIsSpinning(true);
@@ -248,6 +257,23 @@ export function CoinTossModal({
                 </p>
                 <p className="text-slate-400 text-sm mt-2">
                   They are tossing the coin
+                </p>
+              </motion.div>
+            ) : isPlayer1 && !bothPlayersConnected ? (
+              // Player 1 waiting for opponent to connect
+              <motion.div
+                key="waiting-connection"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center"
+              >
+                <Loader2 className="w-8 h-8 text-amber-400 mx-auto mb-3 animate-spin" />
+                <p className="text-amber-400 text-xl font-bold">
+                  Waiting for opponent...
+                </p>
+                <p className="text-slate-400 text-sm mt-2">
+                  {player2Name} is connecting
                 </p>
               </motion.div>
             ) : isSpinning ? (
