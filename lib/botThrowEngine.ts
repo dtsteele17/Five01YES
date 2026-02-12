@@ -1013,34 +1013,31 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
       currentRemaining = remaining; // Reset for remaining darts
     }
 
-    // CRITICAL: Replan after each dart - CONTINUE CHECKOUT IF WE WERE ATTEMPTING ONE!
+    // CRITICAL: Always replan after each dart based on ACTUAL remaining score
+    // This ensures the bot adapts to where the dart actually landed
     const dartsLeft = 2 - i;
     
     if (bustState) {
-      // Already busted - throw remaining darts for visuals
+      // Already busted - just continue with original targets for visual purposes
+      // (in real darts you'd still throw but the score doesn't count)
       plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
-    } else if (wasCheckoutAttempt || (doubleOut && isValidCheckoutScore(currentRemaining))) {
-      // WE ARE IN CHECKOUT MODE - Continue trying to finish!
-      wasCheckoutAttempt = true;
-      
-      // If ≤40 and even → go for that double!
-      if (currentRemaining <= 40 && currentRemaining > 1 && currentRemaining % 2 === 0) {
-        plannedTargets = [`D${currentRemaining/2}`];
-        console.log(`[DartBot🎯] Replanning: ${currentRemaining} left → D${currentRemaining/2}`);
-      } else {
-        // Find a checkout route
+    } else {
+      // Check if we're now on a checkout
+      const canNowCheckout = doubleOut && isValidCheckoutScore(currentRemaining);
+      if (canNowCheckout) {
         const newRoute = findBestCheckoutRoute(currentRemaining, dartsLeft);
         if (newRoute) {
           plannedTargets = newRoute;
-          console.log(`[DartBot🎯] Replanning: ${currentRemaining} left with ${dartsLeft} darts →`, newRoute);
+          wasCheckoutAttempt = true;
+          if (debug) console.log(`[DartBot] Replanning on ${currentRemaining} with ${dartsLeft} darts:`, newRoute);
         } else {
-          // No checkout possible - just score
+          // No checkout route found with remaining darts - setup for next turn
           plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
         }
+      } else {
+        // Not on checkout - replan normally
+        plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
       }
-    } else {
-      // Not on checkout - replan normally for scoring
-      plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
     }
   }
   
