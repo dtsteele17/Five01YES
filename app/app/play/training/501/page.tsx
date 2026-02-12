@@ -264,8 +264,97 @@ function ScoringPanel({
   );
 }
 
+// Edit Visit Modal for Dartbot
+function EditVisitModal({ 
+  isOpen, 
+  onClose, 
+  visit, 
+  onSave,
+  remainingBefore
+}: { 
+  isOpen: boolean;
+  onClose: () => void;
+  visit: Visit | null;
+  onSave: (visit: Visit, newScore: number) => void;
+  remainingBefore: number;
+}) {
+  const [scoreInput, setScoreInput] = useState('');
+
+  useEffect(() => {
+    if (visit) {
+      setScoreInput(visit.score.toString());
+    }
+  }, [visit, isOpen]);
+
+  const handleSave = () => {
+    const newScore = parseInt(scoreInput);
+    if (isNaN(newScore) || newScore < 0 || newScore > 180) {
+      toast.error('Invalid score (0-180)');
+      return;
+    }
+    if (visit) {
+      onSave(visit, newScore);
+    }
+    onClose();
+  };
+
+  if (!isOpen || !visit) return null;
+
+  const newRemaining = remainingBefore - (parseInt(scoreInput) || 0);
+
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent className="bg-slate-900 border-slate-700">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-white">Edit Visit</AlertDialogTitle>
+          <AlertDialogDescription className="text-slate-400">
+            Edit your last visit score
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <label className="text-slate-400 text-sm">New Score (0-180)</label>
+            <Input
+              type="number"
+              value={scoreInput}
+              onChange={(e) => setScoreInput(e.target.value)}
+              className="bg-slate-800 border-slate-600 text-white text-2xl text-center h-16"
+              min={0}
+              max={180}
+              autoFocus
+            />
+            <div className="text-center text-sm text-slate-400">
+              Remaining: {remainingBefore} → <span className={newRemaining < 0 ? 'text-red-400' : 'text-emerald-400'}>{newRemaining}</span>
+            </div>
+          </div>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel className="bg-slate-800 text-white border-slate-600">Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600">Save</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 // Visit History Panel
-function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Visit[]; myName: string; botName: string; currentLeg: number }) {
+function VisitHistoryPanel({ 
+  visits, 
+  myName, 
+  botName, 
+  currentLeg,
+  onEditVisit,
+  canEdit
+}: { 
+  visits: Visit[]; 
+  myName: string; 
+  botName: string; 
+  currentLeg: number;
+  onEditVisit?: (visit: Visit) => void;
+  canEdit?: boolean;
+}) {
   const currentLegVisits = useMemo(() => visits.filter(v => v.legNumber === currentLeg), [visits, currentLeg]);
 
   const myVisits = currentLegVisits.filter(v => v.player === 'player1').sort((a, b) => b.timestamp - a.timestamp);
@@ -290,13 +379,26 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Vi
           Array.from({ length: maxVisits }, (_, i) => {
             const myVisit = myVisits[i];
             const botVisit = botVisits[i];
+            const isLatest = i === 0 && canEdit;
             return (
               <div key={i} className="grid grid-cols-2 gap-2 py-1 border-b border-white/5 text-sm">
                 <div>{myVisit ? (
-                  <div className="bg-slate-800/50 rounded p-1.5">
+                  <div className="bg-slate-800/50 rounded p-1.5 relative group">
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-gray-500">#{myVisits.length - i}</span>
-                      <span className={`font-bold text-emerald-400 text-lg`}>{myVisit.score}</span>
+                      <div className="flex items-center gap-2">
+                        {isLatest && onEditVisit && (
+                          <button
+                            onClick={() => onEditVisit(myVisit)}
+                            className="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 rounded text-emerald-400 text-xs font-medium transition-colors flex items-center gap-1"
+                            title="Edit this visit"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            Edit
+                          </button>
+                        )}
+                        <span className={`font-bold text-emerald-400 text-lg`}>{myVisit.score}</span>
+                      </div>
                     </div>
                     {/* Show individual darts */}
                     {myVisit.darts && myVisit.darts.length > 0 && (
@@ -399,6 +501,10 @@ export default function DartbotMatchPage() {
   const [botPerformanceTracker, setBotPerformanceTracker] = useState<BotPerformanceTracker | null>(null);
   const dartboardAnimationTimerRef = useRef<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Edit visit state
+  const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Match end stats for WinnerPopup
   const [matchEndStats, setMatchEndStats] = useState<{
@@ -1072,6 +1178,79 @@ export default function DartbotMatchPage() {
     } finally { setSubmitting(false); }
   }
 
+  // Handle edit visit
+  const handleEditVisit = (visit: Visit) => {
+    if (visit.player !== 'player1') {
+      toast.error("You can only edit your own visits");
+      return;
+    }
+    // Only allow editing the latest visit
+    const allVisits = [...allLegs.flatMap(l => l.visits), ...currentLeg.visits];
+    const myVisits = allVisits.filter(v => v.player === 'player1' && v.legNumber === currentLeg.legNumber);
+    const latestVisit = myVisits.sort((a, b) => b.timestamp - a.timestamp)[0];
+    
+    if (visit.timestamp !== latestVisit?.timestamp) {
+      toast.error("Only the last visit can be edited");
+      return;
+    }
+    
+    setEditingVisit(visit);
+    setShowEditModal(true);
+  };
+
+  // Handle save edited visit
+  const handleSaveEditedVisit = (updatedVisit: Visit, newScore: number) => {
+    if (!config) return;
+
+    const oldScore = updatedVisit.score;
+    const remainingBefore = updatedVisit.remainingBefore || (oldScore + updatedVisit.remainingScore);
+    
+    // Check for bust conditions
+    let isBust = false;
+    let isCheckout = false;
+    let newRemaining = remainingBefore - newScore;
+    
+    if (newRemaining < 0) {
+      isBust = true;
+      newRemaining = remainingBefore;
+    } else if (newRemaining === 1) {
+      isBust = true;
+      newRemaining = remainingBefore;
+    } else if (newRemaining === 0) {
+      // For typed score, we can't validate double-out strictly
+      isCheckout = true;
+    }
+
+    // Update the visit in current leg
+    setCurrentLeg(prev => ({
+      ...prev,
+      visits: prev.visits.map(v => 
+        v.timestamp === updatedVisit.timestamp 
+          ? { 
+              ...v, 
+              score: isBust ? 0 : newScore,
+              remainingScore: newRemaining,
+              isBust,
+              isCheckout,
+              bustReason: isBust ? (newRemaining < 0 ? 'below_zero' : 'left_on_one') : undefined
+            }
+          : v
+      )
+    }));
+
+    // Update player score
+    setPlayer1Score(newRemaining);
+
+    // Recalculate stats
+    if (!isBust) {
+      setPlayer1MatchTotalScored(prev => prev - oldScore + newScore);
+    }
+
+    toast.success('Visit updated');
+    setShowEditModal(false);
+    setEditingVisit(null);
+  };
+
   if (!config) {
     return (<div className="flex items-center justify-center min-h-screen"><div className="text-white">Loading...</div></div>);
   }
@@ -1209,7 +1388,14 @@ export default function DartbotMatchPage() {
                 doubleOut={config.doubleOut}
               />
             ) : (
-              <VisitHistoryPanel visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} myName="You" botName={botName} currentLeg={currentLeg.legNumber} />
+              <VisitHistoryPanel 
+                visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} 
+                myName="You" 
+                botName={botName} 
+                currentLeg={currentLeg.legNumber}
+                onEditVisit={handleEditVisit}
+                canEdit={currentPlayer === 'player1' && !matchWinner}
+              />
             )}
           </Card>
         </div>
@@ -1258,6 +1444,15 @@ export default function DartbotMatchPage() {
           onCancel={() => setShowDartsAtDoubleModal(false)}
         />
       )}
+
+      {/* Edit Visit Modal */}
+      <EditVisitModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        visit={editingVisit}
+        onSave={handleSaveEditedVisit}
+        remainingBefore={editingVisit?.remainingBefore || 0}
+      />
     </div>
   );
 }
