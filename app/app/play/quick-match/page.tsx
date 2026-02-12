@@ -91,12 +91,73 @@ export default function QuickMatchLobbyPage() {
   const [currentJoinRequest, setCurrentJoinRequest] = useState<JoinRequest | null>(null);
   const [processingRequest, setProcessingRequest] = useState(false);
   const [pendingLobbyId, setPendingLobbyId] = useState<string | null>(null);
+  
+  // User stats for displaying in own lobby
+  const [userStats, setUserStats] = useState<{ overall_3dart_avg?: number } | null>(null);
 
   const resumeAttemptedRef = useRef(false);
+  const joinRequestSubscriptionRef = useRef<any>(null);
 
   useEffect(() => {
     initializeAndSubscribe();
   }, []);
+
+  // Setup join request subscription when myLobby changes
+  useEffect(() => {
+    if (!myLobby || !userId) return;
+    
+    // Only subscribe if I'm the creator
+    if (myLobby.created_by !== userId) return;
+
+    console.log('[JOIN REQUEST] Setting up subscription for lobby:', myLobby.id);
+
+    // Fetch any existing pending join requests
+    const fetchPendingRequests = async () => {
+      const { data: requests } = await supabase
+        .from('quick_match_join_requests')
+        .select('*')
+        .eq('lobby_id', myLobby.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (requests && requests.length > 0) {
+        console.log('[JOIN REQUEST] Found pending request:', requests[0]);
+        setCurrentJoinRequest(requests[0] as JoinRequest);
+        setShowJoinRequestModal(true);
+      }
+    };
+    fetchPendingRequests();
+
+    const joinRequestChannel = supabase
+      .channel(`join_requests_${myLobby.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'quick_match_join_requests',
+          filter: `lobby_id=eq.${myLobby.id}`,
+        },
+        (payload) => {
+          console.log('[REALTIME] Join request received:', payload.new);
+          const newRequest = payload.new as JoinRequest;
+          
+          if (newRequest.status === 'pending') {
+            setCurrentJoinRequest(newRequest);
+            setShowJoinRequestModal(true);
+          }
+        }
+      )
+      .subscribe();
+
+    joinRequestSubscriptionRef.current = joinRequestChannel;
+
+    return () => {
+      console.log('[JOIN REQUEST] Cleaning up subscription');
+      joinRequestChannel.unsubscribe();
+    };
+  }, [myLobby?.id, userId]);
 
   useEffect(() => {
     async function handleResume() {
@@ -140,30 +201,6 @@ export default function QuickMatchLobbyPage() {
 
       // Load lobbies
       await fetchLobbies();
-
-      // Subscribe to join requests for my lobby
-      const joinRequestChannel = supabase
-        .channel('join_requests_realtime')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'quick_match_join_requests',
-            filter: `lobby_id=eq.${myLobby?.id || '00000000-0000-0000-0000-000000000000'}`,
-          },
-          (payload) => {
-            console.log('[REALTIME] Join request received:', payload.new);
-            const newRequest = payload.new as JoinRequest;
-            
-            // Only show if it's for my lobby and I'm the creator
-            if (myLobby && myLobby.created_by === user.id && newRequest.status === 'pending') {
-              setCurrentJoinRequest(newRequest);
-              setShowJoinRequestModal(true);
-            }
-          }
-        )
-        .subscribe();
 
       // Subscribe to realtime changes
       const channel = supabase
@@ -246,7 +283,6 @@ export default function QuickMatchLobbyPage() {
 
       return () => {
         channel.unsubscribe();
-        joinRequestChannel.unsubscribe();
       };
     } catch (error: any) {
       console.error('[ERROR] Initialization failed:', error);
@@ -393,17 +429,26 @@ export default function QuickMatchLobbyPage() {
       // Fetch host profile for the new lobby
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, avatar_url')
-        .eq('id', user.id)
+        .select('username, avatar_url, trust_rating_letter, trust_rating_count')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      // Fetch host stats (3-dart average)
+      const { data: stats } = await supabase
+        .from('player_stats')
+        .select('overall_3dart_avg')
+        .eq('user_id', user.id)
         .maybeSingle();
 
       const lobbyWithHost = {
         ...data,
-        player1: profile || {
-          username: 'You',
+        player1: {
+          ...(profile || { username: 'You' }),
+          overall_3dart_avg: stats?.overall_3dart_avg || 0,
         },
       };
 
+      setUserStats(stats || { overall_3dart_avg: 0 });
       setMyLobby(lobbyWithHost);
       toast.success('Lobby created! Waiting for opponent...');
     } catch (error: any) {
@@ -772,6 +817,14 @@ export default function QuickMatchLobbyPage() {
                 <div className="text-xs text-gray-400 space-y-1">
                   <p>Game: {myLobby.game_type}</p>
                   <p>Format: {myLobby.match_format}</p>
+                  {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
+                    <div className="flex items-center gap-1 pt-1">
+                      <Target className="w-3 h-3 text-blue-400" />
+                      <span className="text-blue-400">
+                        Your 3-Dart Avg: {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg || 0).toFixed(1)}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <Button

@@ -144,8 +144,19 @@ export default function PlayPage() {
       const { data: matchesData, error } = await supabase
         .from('match_history')
         .select(`
-          *,
-          opponent:opponent_id (username, avatar_url)
+          id,
+          room_id,
+          user_id,
+          opponent_id,
+          game_mode,
+          match_format,
+          bot_level,
+          result,
+          legs_won,
+          legs_lost,
+          three_dart_avg,
+          highest_checkout,
+          played_at
         `)
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
@@ -156,18 +167,37 @@ export default function PlayPage() {
         setRecentMatches([]);
       } else {
         console.log('[Play] Fetched matches:', matchesData?.length || 0);
+        
+        // Fetch opponent profiles separately if needed
+        const opponentIds = (matchesData || [])
+          .filter(m => m.opponent_id && m.match_format !== 'dartbot')
+          .map(m => m.opponent_id);
+        
+        let opponentProfiles: Record<string, string> = {};
+        if (opponentIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, username')
+            .in('user_id', opponentIds);
+          
+          opponentProfiles = (profiles || []).reduce((acc, p) => {
+            acc[p.user_id] = p.username;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+        
         // Transform data to match the expected format
         const transformed = (matchesData || []).map((match: any) => ({
-          id: match.room_id,
+          id: match.room_id || match.id,
           match_type: match.match_format,
           game_mode: match.game_mode?.toString() || '501',
-          match_format: `best-of-${match.legs_won + match.legs_lost}`,
+          match_format: `best-of-${(match.legs_won || 0) + (match.legs_lost || 0)}`,
           player1_name: 'You',
           player2_name: match.match_format === 'dartbot' 
             ? `Bot (${match.bot_level || '?'})`
-            : match.opponent?.username || 'Opponent',
-          player1_legs_won: match.legs_won,
-          player2_legs_won: match.legs_lost,
+            : opponentProfiles[match.opponent_id] || 'Opponent',
+          player1_legs_won: match.legs_won || 0,
+          player2_legs_won: match.legs_lost || 0,
           winner_id: match.result === 'win' ? user.id : match.opponent_id,
           completed_at: match.played_at,
           user_id: user.id,
