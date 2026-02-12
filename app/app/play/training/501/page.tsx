@@ -613,10 +613,22 @@ export default function DartbotMatchPage() {
         winnerId: matchWinner === 'player1' ? 'player1' : 'player2',
       });
 
+      // Map difficulty to level (1-5) for database
+      const difficultyToLevel: Record<string, number> = {
+        'novice': 1,
+        'beginner': 1,
+        'casual': 2,
+        'intermediate': 2,
+        'advanced': 3,
+        'elite': 4,
+        'pro': 5,
+        'worldClass': 5,
+      };
+      
       const dartbotStats: DartbotMatchStats = {
         gameMode: normalizedConfig.mode === '301' ? 301 : 501,
         matchFormat: config.bestOf,
-        dartbotLevel: config.botAverage,
+        dartbotLevel: difficultyToLevel[config.botDifficulty] || 3,
         playerLegs: player1LegsWon,
         dartbotLegs: player2LegsWon,
         winner: matchWinner === 'player1' ? 'player' : 'dartbot',
