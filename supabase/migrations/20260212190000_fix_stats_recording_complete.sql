@@ -3,6 +3,42 @@
 -- Fixes quick match stats, dartbot stats, and player_stats aggregation
 -- ============================================================================
 
+-- Drop ALL existing versions of functions to avoid conflicts
+DO $$
+DECLARE
+  func_record TEXT;
+BEGIN
+  -- Drop all versions of record_quick_match_stats
+  FOR func_record IN 
+    SELECT oid::regprocedure::text 
+    FROM pg_proc 
+    WHERE proname = 'record_quick_match_stats'
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || func_record;
+  END LOOP;
+  
+  -- Drop all versions of update_player_stats_from_match
+  FOR func_record IN 
+    SELECT oid::regprocedure::text 
+    FROM pg_proc 
+    WHERE proname = 'update_player_stats_from_match'
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || func_record;
+  END LOOP;
+  
+  -- Drop all versions of record_dartbot_match_completion
+  FOR func_record IN 
+    SELECT oid::regprocedure::text 
+    FROM pg_proc 
+    WHERE proname = 'record_dartbot_match_completion'
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || func_record;
+  END LOOP;
+  
+  -- Drop on_match_history_insert trigger function
+  DROP FUNCTION IF EXISTS on_match_history_insert();
+END $$;
+
 -- ============================================================================
 -- PART 1: Fix the manual stats recording function for quick matches
 -- ============================================================================
@@ -181,7 +217,7 @@ BEGIN
       visits_180,
       current_win_streak,
       best_win_streak,
-      last_updated
+      updated_at
     ) VALUES (
       p_user_id,
       1,
@@ -263,7 +299,7 @@ BEGIN
       visits_180 = v_current_stats.visits_180 + p_count_180,
       current_win_streak = v_new_current_streak,
       best_win_streak = v_new_best_streak,
-      last_updated = NOW()
+      updated_at = NOW()
     WHERE user_id = p_user_id;
   END IF;
 END;
@@ -471,7 +507,7 @@ INSERT INTO player_stats (
   visits_180,
   current_win_streak,
   best_win_streak,
-  last_updated
+  updated_at
 )
 SELECT 
   mh.user_id,
@@ -498,7 +534,7 @@ SELECT
   SUM(mh.visits_180)::INTEGER as visits_180,
   0 as current_win_streak, -- Would need complex logic to calculate
   0 as best_win_streak,    -- Would need complex logic to calculate
-  NOW() as last_updated
+  NOW() as updated_at
 FROM match_history mh
 LEFT JOIN player_stats ps ON mh.user_id = ps.user_id
 WHERE ps.user_id IS NULL
@@ -526,7 +562,7 @@ SET
   visits_100_plus = stats.visits_100_plus,
   visits_140_plus = stats.visits_140_plus,
   visits_180 = stats.visits_180,
-  last_updated = NOW()
+  updated_at = NOW()
 FROM (
   SELECT 
     user_id,
