@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -1101,26 +1101,20 @@ export default function QuickMatchRoomPage() {
   }, [newRematchRoomId, matchId]);
 
   // WebRTC - only connect after coin toss is complete
-  const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
-    isMyTurn: isMyTurnForWebRTC,
     coinTossComplete: coinTossCompleted,
   });
   const {
     localStream,
     remoteStream,
-    callStatus,
     isCameraOn,
-    isMicMuted,
-    isVideoDisabled,
+    callStatus,
+    cameraError,
     toggleCamera,
-    toggleMic,
-    toggleVideo,
     stopCamera,
-    liveVideoRef,
-    forceTurnAndRestart
+    forceTurnAndRestart,
   } = webrtc;
   
   // Expose streams to window for debugging
@@ -1178,7 +1172,7 @@ export default function QuickMatchRoomPage() {
 
 
   cleanupMatchRef.current = () => {
-    stopCamera('match cleanup');
+    stopCamera();
     cameraInitAttempted.current = false;
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(`match_context_${matchId}`);

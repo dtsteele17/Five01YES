@@ -6,8 +6,7 @@ import { getIceServers } from '@/lib/webrtc/ice';
 export interface UseMatchWebRTCProps {
   roomId: string | null;
   myUserId: string | null;
-  isMyTurn: boolean; // Only for UI display
-  coinTossComplete?: boolean; // Wait for coin toss before connecting
+  coinTossComplete?: boolean; // Optional: wait for coin toss before connecting
 }
 
 export interface UseMatchWebRTCReturn {
@@ -15,42 +14,21 @@ export interface UseMatchWebRTCReturn {
   remoteStream: MediaStream | null;
   isCameraOn: boolean;
   isMicMuted: boolean;
-  isVideoDisabled: boolean;
   callStatus: 'idle' | 'connecting' | 'connected' | 'failed';
   cameraError: string | null;
   toggleCamera: () => Promise<void>;
-  toggleMic: () => void;
-  toggleVideo: () => void;
-  stopCamera: (reason?: string) => void;
-  liveVideoRef: React.RefObject<HTMLVideoElement>;
+  stopCamera: () => void;
   forceTurnAndRestart: () => void;
 }
 
 /**
  * Unified WebRTC Hook for Quick Match Camera
- *
- * Works for ALL match formats:
- * - Best of 1 (301, 501)
- * - Best of 3 (301, 501)
- * - Best of 5 (301, 501)
- * - Best of 7 (301, 501)
- *
- * Uses public.match_signals table for signaling
- * Shared ICE configuration (STUN + optional TURN)
- *
- * State Machine:
- * 1. Get ICE servers from shared config
- * 2. Fetch opponent from match_rooms
- * 3. Create RTCPeerConnection (stable across turns/legs)
- * 4. Subscribe to match_signals
- * 5. Player1 creates offer when ready
- * 6. Peer connection stays alive for entire match
+ * Handles both local and remote video streams
  */
 export function useMatchWebRTC({
   roomId,
   myUserId,
-  isMyTurn,
-  coinTossComplete = true
+  coinTossComplete = true,
 }: UseMatchWebRTCProps): UseMatchWebRTCReturn {
   const supabase = createClient();
 
@@ -58,50 +36,30 @@ export function useMatchWebRTC({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isMicMuted, setIsMicMuted] = useState(true); // Always muted by default
-  const [isVideoDisabled, setIsVideoDisabled] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(true);
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'failed'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [opponentCameraOn, setOpponentCameraOn] = useState(false);
-  const [opponentReady, setOpponentReady] = useState(false);
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const liveVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const makingOfferRef = useRef(false);
   const ignoreOfferRef = useRef(false);
   const subscriptionCleanupRef = useRef<(() => void) | null>(null);
-  const forceTurnRef = useRef(false); // Set to true to force TURN relay
-  const connectionAttemptRef = useRef(0);
-  const lastStreamRef = useRef<MediaStream | null>(null); // Keep last valid stream
-  const opponentCameraOnRef = useRef(false); // Track opponent camera state
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  console.log('[WEBRTC QS] Render with:', {
-    roomId,
-    myUserId,
-    opponentUserId,
-    isPlayer1,
-    isMyTurn: isMyTurn ? 'ME' : 'OPPONENT',
-    coinTossComplete
-  });
+  console.log('[WebRTC] State:', { roomId, myUserId, opponentUserId, isPlayer1, callStatus });
 
-  // ========== FETCH OPPONENT FROM MATCH_ROOMS ==========
+  // ========== FETCH OPPONENT ==========
   useEffect(() => {
-    if (!roomId || !myUserId) {
-      console.log('[WEBRTC QS] Waiting for roomId and myUserId');
-      return;
-    }
+    if (!roomId || !myUserId) return;
 
     const fetchOpponent = async () => {
       const opponentId = await fetchOpponentId(roomId, myUserId);
       setOpponentUserId(opponentId);
 
-      // Determine if I'm player1 (creates offer) or player2 (waits for offer)
       if (opponentId) {
         const { data } = await supabase
           .from('match_rooms')
@@ -110,9 +68,7 @@ export function useMatchWebRTC({
           .single();
 
         if (data) {
-          const amPlayer1 = data.player1_id === myUserId;
-          setIsPlayer1(amPlayer1);
-          console.log('[WEBRTC QS] I am:', amPlayer1 ? 'PLAYER1 (will create offer)' : 'PLAYER2 (will wait for offer)');
+          setIsPlayer1(data.player1_id === myUserId);
         }
       }
     };
@@ -120,755 +76,301 @@ export function useMatchWebRTC({
     fetchOpponent();
   }, [roomId, myUserId]);
 
-  // ========== VIDEO DISPLAY SWITCHING (UI ONLY) ==========
-  useEffect(() => {
-    if (!liveVideoRef.current) return;
-
-    // Determine which stream to show based on whose turn it is
-    let streamToShow: MediaStream | null = null;
-    
-    if (isMyTurn) {
-      // My turn - show my local camera
-      streamToShow = localStream;
-    } else {
-      // Opponent's turn - show their remote camera
-      streamToShow = remoteStream;
-      // Keep last remote stream as fallback while waiting for connection
-      if (remoteStream) {
-        lastStreamRef.current = remoteStream;
-      }
-    }
-    
-    const turnLabel = isMyTurn ? 'ME' : 'OPPONENT';
-    console.log('[WEBRTC QS] Video display - Turn:', turnLabel, 'Stream:', streamToShow ? 'YES' : 'NO');
-
-    if (streamToShow) {
-      // Only update if stream changed
-      if (liveVideoRef.current.srcObject !== streamToShow) {
-        liveVideoRef.current.srcObject = streamToShow;
-        liveVideoRef.current.muted = isMyTurn; // Mute own video
-        liveVideoRef.current.autoplay = true;
-        liveVideoRef.current.playsInline = true;
-        liveVideoRef.current.play().catch((err) => {
-          console.error('[WEBRTC QS] Error playing video:', err);
-        });
-      }
-    } else if (!isMyTurn && lastStreamRef.current) {
-      // Opponent's turn but no remote stream yet - show cached stream if available
-      console.log('[WEBRTC QS] Using cached remote stream');
-      liveVideoRef.current.srcObject = lastStreamRef.current;
-    } else if (isMyTurn) {
-      // My turn but no local stream - clear video
-      liveVideoRef.current.srcObject = null;
-    }
-  }, [isMyTurn, localStream, remoteStream]);
-
   // ========== CREATE PEER CONNECTION ==========
   useEffect(() => {
-    // Prerequisites check
-    if (!roomId) {
-      console.log('[WEBRTC QS] Waiting for roomId');
-      return;
-    }
-    if (!myUserId) {
-      console.log('[WEBRTC QS] Waiting for myUserId');
-      return;
-    }
-    if (!opponentUserId) {
-      console.log('[WEBRTC QS] Waiting for opponentUserId');
-      return;
-    }
-    
-    if (!coinTossComplete) {
-      console.log('[WEBRTC QS] Waiting for coin toss to complete');
-      return;
-    }
+    if (!roomId || !myUserId || !opponentUserId) return;
+    if (!coinTossComplete) return; // Wait for coin toss
+    if (peerConnectionRef.current) return; // Already exists
 
-    // Only create once
-    if (peerConnectionRef.current) {
-      console.log('[WEBRTC QS] Peer connection already exists');
-      return;
-    }
-
-    console.log('[WEBRTC QS] ========== CREATING PEER CONNECTION ==========');
-    console.log('[WEBRTC QS] Prerequisites resolved:', {
-      roomId,
-      myUserId,
-      opponentUserId,
-      isPlayer1
-    });
+    console.log('[WebRTC] Creating peer connection');
 
     try {
       const iceServers = getIceServers();
-      connectionAttemptRef.current++;
-      
-      // If previous attempts failed, force TURN relay
-      const shouldForceTurn = forceTurnRef.current || connectionAttemptRef.current > 1;
       
       const pc = new RTCPeerConnection({
         iceServers,
         iceCandidatePoolSize: 10,
-        iceTransportPolicy: shouldForceTurn ? 'relay' : 'all'
+        iceTransportPolicy: 'all'
       });
-      
-      console.log('[WEBRTC QS] ICE transport policy:', shouldForceTurn ? 'relay (forced)' : 'all');
 
       peerConnectionRef.current = pc;
-      console.log('[WEBRTC QS] ✅ RTCPeerConnection created');
-
-      // Log ICE configuration for debugging
-      console.log('[WEBRTC QS] ICE servers count:', iceServers.length);
-      const hasTurn = iceServers.some(s => 
-        Array.isArray(s.urls) 
-          ? s.urls.some((u: string) => u.startsWith('turn'))
-          : (s.urls as string).startsWith('turn')
-      );
-      console.log('[WEBRTC QS] TURN configured:', hasTurn);
 
       // Connection state handlers
       pc.onconnectionstatechange = () => {
-        console.log('[WEBRTC QS] 🌐 connectionState:', pc.connectionState);
+        console.log('[WebRTC] Connection state:', pc.connectionState);
         if (pc.connectionState === 'connected') {
           setCallStatus('connected');
-          console.log('[WEBRTC QS] ✅ PEER CONNECTION ESTABLISHED');
-          
-          // Check if we have senders but no remote stream - may need to renegotiate
-          setTimeout(() => {
-            const senders = pc.getSenders();
-            console.log('[WEBRTC QS] Connection established - senders:', senders.length, 'receivers:', pc.getReceivers().length);
-          }, 1000);
         } else if (pc.connectionState === 'connecting') {
           setCallStatus('connecting');
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          console.error('[WEBRTC QS] ❌ Connection failed/disconnected');
-          setCallStatus(pc.connectionState === 'failed' ? 'failed' : 'idle');
-          
-          // If connection failed and we have TURN, suggest checking credentials
-          if (pc.connectionState === 'failed' && hasTurn) {
-            console.warn('[WEBRTC QS] 💡 Connection failed despite TURN. Check:');
-            console.warn('   1. Xirsys credentials are correct in .env.local');
-            console.warn('   2. Xirsys account is active (not expired)');
-            console.warn('   3. Try refreshing Xirsys token if using dynamic credentials');
-          }
-          
-          // Auto-retry with forced TURN relay on next connection attempt
-          if (pc.connectionState === 'failed' && !forceTurnRef.current && connectionAttemptRef.current < 3) {
-            console.log('[WEBRTC QS] 🔄 Will retry with forced TURN relay on next camera start');
-            forceTurnRef.current = true;
-          }
+          setCallStatus('failed');
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log('[WEBRTC QS] 🧊 iceConnectionState:', pc.iceConnectionState);
-      };
-
-      pc.onsignalingstatechange = () => {
-        console.log('[WEBRTC QS] 📡 signalingState:', pc.signalingState);
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
       };
 
       // ICE candidate handler
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
-          console.log('[WEBRTC QS] 🧊 Local ICE candidate generated:', event.candidate.type);
+          console.log('[WebRTC] Sending ICE candidate');
           await sendSignal(roomId, myUserId, opponentUserId, 'ice', {
             candidate: event.candidate
           });
-        } else {
-          console.log('[WEBRTC QS] 🧊 All ICE candidates generated');
         }
       };
 
-      // Remote track handler - CRITICAL for receiving opponent video
+      // Remote track handler - CRITICAL
       pc.ontrack = (event) => {
-        console.log('[WEBRTC QS] ========== ONTRACK FIRED ==========');
-        console.log('[WEBRTC QS] Track kind:', event.track.kind);
-        console.log('[WEBRTC QS] Track readyState:', event.track.readyState);
-        console.log('[WEBRTC QS] Track enabled:', event.track.enabled);
-        console.log('[WEBRTC QS] Streams count:', event.streams.length);
-
+        console.log('[WebRTC] Remote track received:', event.track.kind);
         if (event.streams && event.streams[0]) {
-          console.log('[WEBRTC QS] ✅ Setting remote stream from event.streams[0]');
+          console.log('[WebRTC] Setting remote stream');
           setRemoteStream(event.streams[0]);
-
-          // Also set on hidden remote video element for stability
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            remoteVideoRef.current.autoplay = true;
-            remoteVideoRef.current.playsInline = true;
-            remoteVideoRef.current.play().catch(err => {
-              console.error('[WEBRTC QS] Error playing remote video:', err);
-            });
-          }
-        } else {
-          console.warn('[WEBRTC QS] ⚠️ No streams in ontrack event');
+          setCallStatus('connected');
         }
       };
 
-      // Handle renegotiation when tracks are added/removed
+      // Negotiation needed
       pc.onnegotiationneeded = async () => {
-        console.log('[WEBRTC QS] ========== RENEGOTIATION NEEDED ==========');
-        
-        // Only Player 1 (who creates the initial offer) handles renegotiation
-        if (!isPlayer1) {
-          console.log('[WEBRTC QS] Ignoring negotiationneeded - not Player 1');
-          return;
-        }
-        
-        // Must be in stable state to create offer
-        if (pc.signalingState !== 'stable') {
-          console.log('[WEBRTC QS] Cannot renegotiate, signaling state:', pc.signalingState);
-          return;
-        }
-        
-        // Prevent duplicate offers
-        if (makingOfferRef.current) {
-          console.log('[WEBRTC QS] Already making offer, skipping');
-          return;
-        }
+        if (!isPlayer1 || makingOfferRef.current) return;
         
         try {
           makingOfferRef.current = true;
-          offerCreatedRef.current = true;
-          
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          
-          console.log('[WEBRTC QS] ✅ Renegotiation offer created');
           
           await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
             offer: pc.localDescription?.toJSON()
           });
-          
-          console.log('[WEBRTC QS] ✅ Renegotiation offer sent');
+          console.log('[WebRTC] Offer sent');
         } catch (error) {
-          console.error('[WEBRTC QS] ❌ Error during renegotiation:', error);
-          offerCreatedRef.current = false;
+          console.error('[WebRTC] Error creating offer:', error);
         } finally {
           makingOfferRef.current = false;
         }
       };
 
-      console.log('[WEBRTC QS] ✅ Peer connection setup complete');
-
     } catch (error) {
-      console.error('[WEBRTC QS] ❌ Error creating peer connection:', error);
+      console.error('[WebRTC] Error creating peer connection:', error);
       setCameraError('Failed to initialize connection');
     }
 
-    // Cleanup on unmount only
     return () => {
-      console.log('[WEBRTC QS] ========== PEER CONNECTION CLEANUP ==========');
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
-        console.log('[WEBRTC QS] Peer connection closed');
       }
     };
   }, [roomId, myUserId, opponentUserId, isPlayer1, coinTossComplete]);
 
   // ========== SIGNALING SUBSCRIPTION ==========
   useEffect(() => {
-    // Prerequisites check
-    if (!roomId) {
-      console.log('[WEBRTC QS] Subscription waiting for roomId');
-      return;
-    }
-    if (!myUserId) {
-      console.log('[WEBRTC QS] Subscription waiting for myUserId');
-      return;
-    }
-    if (!opponentUserId) {
-      console.log('[WEBRTC QS] Subscription waiting for opponentUserId');
-      return;
-    }
-    
-    if (!coinTossComplete) {
-      console.log('[WEBRTC QS] Subscription waiting for coin toss');
-      return;
-    }
+    if (!roomId || !myUserId || !opponentUserId) return;
+    if (!coinTossComplete) return; // Wait for coin toss
 
-    // Signal handlers
     const handleOffer = async (offer: RTCSessionDescriptionInit) => {
-      console.log('[WEBRTC QS] 📥 Processing OFFER');
-
       const pc = peerConnectionRef.current;
-      if (!pc) {
-        console.error('[WEBRTC QS] ❌ No peer connection');
-        return;
-      }
+      if (!pc) return;
 
       try {
-        // Perfect negotiation: detect offer collision
-        const offerCollision =
-          offer.type === 'offer' &&
+        // Perfect negotiation: detect collision
+        const offerCollision = offer.type === 'offer' && 
           (makingOfferRef.current || pc.signalingState !== 'stable');
 
-        console.log('[WEBRTC QS] Collision check:', {
-          offerCollision,
-          makingOffer: makingOfferRef.current,
-          signalingState: pc.signalingState,
-          isPlayer1
-        });
-
-        // Player1 is impolite (rejects collision), Player2 is polite (accepts)
         ignoreOfferRef.current = isPlayer1 && offerCollision;
+        if (ignoreOfferRef.current) return;
 
-        if (ignoreOfferRef.current) {
-          console.log('[WEBRTC QS] ⛔ Ignoring offer (player1 in collision)');
-          return;
-        }
-
-        console.log('[WEBRTC QS] Setting remote description (offer)');
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        console.log('[WEBRTC QS] ✅ Remote description set');
 
         // Process pending ICE candidates
         if (pendingIceCandidatesRef.current.length > 0) {
-          console.log('[WEBRTC QS] Processing', pendingIceCandidatesRef.current.length, 'pending ICE candidates');
           for (const candidate of pendingIceCandidatesRef.current) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (error) {
-              console.error('[WEBRTC QS] Error adding pending ICE candidate:', error);
+              console.error('[WebRTC] Error adding pending ICE:', error);
             }
           }
           pendingIceCandidatesRef.current = [];
         }
 
-        // Create and send answer
-        console.log('[WEBRTC QS] Creating answer');
+        // Create answer
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        console.log('[WEBRTC QS] ✅ Local description set (answer)');
 
         await sendSignal(roomId, myUserId, opponentUserId, 'answer', {
           answer: pc.localDescription?.toJSON()
         });
-        console.log('[WEBRTC QS] ✅ Answer sent');
+        console.log('[WebRTC] Answer sent');
 
       } catch (error) {
-        console.error('[WEBRTC QS] ❌ Error handling offer:', error);
+        console.error('[WebRTC] Error handling offer:', error);
       }
     };
 
     const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
-      console.log('[WEBRTC QS] 📥 Processing ANSWER');
-
       const pc = peerConnectionRef.current;
-      if (!pc) {
-        console.error('[WEBRTC QS] ❌ No peer connection');
-        return;
-      }
+      if (!pc) return;
 
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('[WEBRTC QS] ✅ Answer applied');
+        console.log('[WebRTC] Answer applied');
 
         // Process pending ICE candidates
         if (pendingIceCandidatesRef.current.length > 0) {
-          console.log('[WEBRTC QS] Processing', pendingIceCandidatesRef.current.length, 'pending ICE candidates');
           for (const candidate of pendingIceCandidatesRef.current) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (error) {
-              console.error('[WEBRTC QS] Error adding pending ICE candidate:', error);
+              console.error('[WebRTC] Error adding pending ICE:', error);
             }
           }
           pendingIceCandidatesRef.current = [];
         }
       } catch (error) {
-        console.error('[WEBRTC QS] ❌ Error handling answer:', error);
-      }
-      
-      // After answer is applied, if we're Player 1 and have local stream but no remote,
-      // we may need to renegotiate
-      if (isPlayer1 && localStream && !remoteStream) {
-        console.log('[WEBRTC QS] 🔄 Answer applied but no remote stream - will renegotiate');
-        setTimeout(() => {
-          offerCreatedRef.current = false; // Allow new offer
-        }, 500);
+        console.error('[WebRTC] Error handling answer:', error);
       }
     };
 
     const handleIce = async (candidate: RTCIceCandidateInit) => {
-      console.log('[WEBRTC QS] 🧊 Processing ICE candidate');
-
-      if (!peerConnectionRef.current) {
-        console.warn('[WEBRTC QS] No PC yet, queueing ICE candidate');
+      const pc = peerConnectionRef.current;
+      if (!pc) {
         pendingIceCandidatesRef.current.push(candidate);
         return;
       }
 
-      if (!peerConnectionRef.current.remoteDescription) {
-        console.warn('[WEBRTC QS] Remote description not set yet, queueing ICE candidate');
+      if (!pc.remoteDescription) {
         pendingIceCandidatesRef.current.push(candidate);
         return;
       }
 
       try {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log('[WEBRTC QS] ✅ ICE candidate added');
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (error) {
-        console.error('[WEBRTC QS] ❌ Error adding ICE candidate:', error);
+        console.error('[WebRTC] Error adding ICE candidate:', error);
       }
     };
 
-    const handleState = async (state: any) => {
-      console.log('[WEBRTC QS] 📊 State update from opponent:', state);
-      
-      // Track opponent camera state
-      if (state.camera !== undefined) {
-        opponentCameraOnRef.current = state.camera;
-        setOpponentCameraOn(state.camera);
-        console.log('[WEBRTC QS] Opponent camera state:', state.camera);
-      }
-      
-      // If opponent camera is on but we have no remote stream, request reconnection
-      if (state.camera === true && !remoteStream && !isPlayer1 && roomId && myUserId && opponentUserId) {
-        console.log('[WEBRTC QS] 🔄 Opponent camera on but no remote stream - requesting reconnect');
-        // Small delay to avoid signal storm
-        setTimeout(() => {
-          if (roomId && myUserId && opponentUserId) {
-            sendSignal(roomId, myUserId, opponentUserId, 'state', { requestReconnect: true });
-          }
-        }, 500);
-      }
-      
-      // Player 1 receives reconnect request - reset offerCreatedRef to trigger new offer
-      if (state.requestReconnect === true && isPlayer1) {
-        console.log('[WEBRTC QS] 🔄 Received reconnect request - resetting offerCreatedRef');
-        offerCreatedRef.current = false;
-      }
-      
-      // Player 2 sends ready signal - Player 1 receives it
-      if (state.ready === true && isPlayer1) {
-        console.log('[WEBRTC QS] ✅ Opponent (Player 2) is ready');
-        setOpponentReady(true);
-      }
-    };
-
-    // Subscribe to signals
     const cleanup = subscribeSignals(roomId, myUserId, {
       onOffer: handleOffer,
       onAnswer: handleAnswer,
-      onIce: handleIce,
-      onState: handleState
+      onIce: handleIce
     });
 
     subscriptionCleanupRef.current = cleanup;
-    setIsSubscribed(true);
-    console.log('[WEBRTC QS] ✅ Subscription active');
-    
-    // Player 2 sends ready signal to Player 1
-    if (!isPlayer1 && roomId && myUserId && opponentUserId) {
-      console.log('[WEBRTC QS] 📢 Sending ready signal to Player 1');
-      sendSignal(roomId, myUserId, opponentUserId, 'state', { ready: true });
-    }
 
     return () => {
       if (subscriptionCleanupRef.current) {
         subscriptionCleanupRef.current();
         subscriptionCleanupRef.current = null;
       }
-      setIsSubscribed(false);
     };
   }, [roomId, myUserId, opponentUserId, isPlayer1, coinTossComplete]);
 
-  // Refs to prevent duplicate operations
-  const offerCreatedRef = useRef(false);
-  
-  // Reset offerCreatedRef when local stream changes (for renegotiation)
-  useEffect(() => {
-    if (!localStream) {
-      offerCreatedRef.current = false;
-      console.log('[WEBRTC QS] Reset offerCreatedRef - no local stream');
-    }
-  }, [localStream]);
-
   // ========== CREATE OFFER (PLAYER1 ONLY) ==========
   useEffect(() => {
-    // Only player1 creates the offer, and only when:
-    // 1. Peer connection exists
-    // 2. Local stream is ready (tracks added)
-    // 3. Subscription is active
-    // 4. Offer hasn't been created yet
+    if (!isPlayer1 || !localStream || !peerConnectionRef.current) return;
 
-    console.log('[WEBRTC QS] Offer creation check:', {
-      isPlayer1,
-      hasPeerConnection: !!peerConnectionRef.current,
-      hasLocalStream: !!localStream,
-      isSubscribed,
-      offerCreated: offerCreatedRef.current,
-      opponentCameraOn,
-      opponentReady
-    });
-
-    if (!isPlayer1) {
-      console.log('[WEBRTC QS] Not player1, waiting for offer');
-      return;
-    }
-
-    if (!peerConnectionRef.current) {
-      console.log('[WEBRTC QS] No peer connection yet');
-      return;
-    }
-
-    if (!localStream) {
-      console.log('[WEBRTC QS] No local stream yet, waiting to create offer');
-      return;
-    }
-
-    if (!isSubscribed) {
-      console.log('[WEBRTC QS] Subscription not ready yet');
-      return;
-    }
+    const pc = peerConnectionRef.current;
     
-    // Wait for Player 2 to be ready (subscribed) before creating first offer
-    if (!opponentReady && !opponentCameraOn) {
-      console.log('[WEBRTC QS] Waiting for Player 2 to be ready...');
-      return;
+    // Add tracks if not already added
+    const senders = pc.getSenders();
+    const hasVideo = senders.some(s => s.track?.kind === 'video');
+    
+    if (!hasVideo) {
+      localStream.getTracks().forEach(track => {
+        console.log('[WebRTC] Adding track:', track.kind);
+        pc.addTrack(track, localStream);
+      });
     }
-
-    // CRITICAL: Prevent duplicate offer creation
-    if (offerCreatedRef.current) {
-      console.log('[WEBRTC QS] Offer already created, skipping');
-      return;
-    }
-
-    const createOffer = async () => {
-      const pc = peerConnectionRef.current;
-      if (!pc) {
-        console.log('[WEBRTC QS] No peer connection in createOffer');
-        return;
-      }
-
-      // Handle stuck state - if we have local offer but no answer after timeout
-      // We need to restart the connection completely since rollback doesn't work reliably
-      if (pc.signalingState === 'have-local-offer') {
-        console.log('[WEBRTC QS] Stuck in have-local-offer, need to restart...');
-        
-        // Check if we already tried creating an offer recently
-        const timeSinceLastOffer = Date.now() - (pc as any).lastOfferTime;
-        if (timeSinceLastOffer < 5000) {
-          console.log('[WEBRTC QS] Recent offer attempt, waiting...');
-          return;
-        }
-        
-        // Mark this attempt
-        (pc as any).lastOfferTime = Date.now();
-        
-        // Don't try to rollback - it causes m-line order issues
-        // Instead, just wait for the opponent to respond or timeout
-        console.log('[WEBRTC QS] Waiting for opponent answer or timeout...');
-        return;
-      }
-
-      // Double-check signaling state
-      if (pc.signalingState !== 'stable') {
-        console.log('[WEBRTC QS] Cannot create offer, signaling state:', pc.signalingState);
-        return;
-      }
-
-      // Mark as created BEFORE async operations to prevent race conditions
-      offerCreatedRef.current = true;
-
-      console.log('[WEBRTC QS] ========== CREATING OFFER (PLAYER1) ==========');
-
-      try {
-        makingOfferRef.current = true;
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        console.log('[WEBRTC QS] ✅ Local description set (offer)');
-
-        // Only send if we still have all required data
-        if (roomId && myUserId && opponentUserId) {
-          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
-            offer: pc.localDescription?.toJSON()
-          });
-          console.log('[WEBRTC QS] ✅ Offer sent to player2');
-        } else {
-          console.warn('[WEBRTC QS] Missing required IDs for sending offer');
-        }
-
-      } catch (error) {
-        console.error('[WEBRTC QS] ❌ Error creating offer:', error);
-        // Reset on error so we can retry
-        offerCreatedRef.current = false;
-      } finally {
-        makingOfferRef.current = false;
-      }
-    };
-
-    // Small delay to ensure subscription is fully ready
-    const timer = setTimeout(createOffer, 1000);
-    return () => clearTimeout(timer);
-
-  }, [isPlayer1, localStream, roomId, myUserId, opponentUserId, isSubscribed, opponentCameraOn, opponentReady]);
+  }, [isPlayer1, localStream]);
 
   // ========== CAMERA CONTROLS ==========
   
   const startCamera = useCallback(async () => {
-    console.log('[WEBRTC QS] ========== START CAMERA ==========');
+    console.log('[WebRTC] Starting camera');
 
     try {
-      // VIDEO ONLY - no audio for privacy
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           width: { ideal: 640 },
           height: { ideal: 480 },
           facingMode: 'user'
         },
-        audio: false  // Always disabled
+        audio: false
       });
 
-      console.log('[WEBRTC QS] ✅ Camera stream obtained');
-      console.log('[WEBRTC QS] Tracks:', stream.getTracks().map(t => ({
-        kind: t.kind,
-        enabled: t.enabled,
-        readyState: t.readyState
-      })));
-
+      console.log('[WebRTC] Camera stream obtained');
       setLocalStream(stream);
       setIsCameraOn(true);
       setCameraError(null);
 
-      // Add/replace tracks in peer connection if it exists
+      // Add tracks to peer connection
       const pc = peerConnectionRef.current;
       if (pc) {
-        console.log('[WEBRTC QS] Adding/replacing tracks in peer connection');
-        console.log('[WEBRTC QS] PC signaling state:', pc.signalingState);
-        console.log('[WEBRTC QS] PC connection state:', pc.connectionState);
-
-        // Get existing video sender (if any)
-        const videoSender = pc.getSenders().find(s => 
-          s.track && s.track.kind === 'video'
-        );
-
-        const videoTrack = stream.getVideoTracks()[0];
-        
-        if (videoSender && videoTrack) {
-          // Replace track to preserve m-line order (prevents SDP mismatch)
-          console.log('[WEBRTC QS] Replacing existing video track');
-          await videoSender.replaceTrack(videoTrack);
-        } else if (videoTrack) {
-          // No existing sender, add new track
-          console.log('[WEBRTC QS] Adding new video track');
-          pc.addTrack(videoTrack, stream);
-        }
-
-        console.log('[WEBRTC QS] ✅ Track added/replaced in peer connection');
-        console.log('[WEBRTC QS] Current senders:', pc.getSenders().length);
-
-        // Note: onnegotiationneeded will fire automatically when track is added/replaced
-        // This triggers the renegotiation handler above
-        if (isPlayer1) {
-          console.log('[WEBRTC QS] Track added, onnegotiationneeded should fire shortly');
-        }
+        stream.getTracks().forEach(track => {
+          console.log('[WebRTC] Adding track to PC:', track.kind);
+          pc.addTrack(track, stream);
+        });
       }
 
-      // Send camera state to opponent
+      // Send state signal
       if (roomId && myUserId && opponentUserId) {
         await sendSignal(roomId, myUserId, opponentUserId, 'state', { camera: true });
       }
 
     } catch (error: any) {
-      console.error('[WEBRTC QS] ❌ Error starting camera:', error);
+      console.error('[WebRTC] Error starting camera:', error);
       setCameraError(error.message || 'Failed to access camera');
       setIsCameraOn(false);
-      throw error;  // Re-throw so caller knows it failed
     }
-  }, [roomId, myUserId, opponentUserId, isPlayer1]);
+  }, [roomId, myUserId, opponentUserId]);
 
-  const stopCamera = useCallback((reason?: string) => {
-    console.log('[WEBRTC QS] ========== STOP CAMERA ==========');
-    console.log('[WEBRTC QS] Reason:', reason || 'user request');
+  const stopCamera = useCallback(() => {
+    console.log('[WebRTC] Stopping camera');
 
     if (localStream) {
-      localStream.getTracks().forEach(track => {
-        track.stop();
-        console.log('[WEBRTC QS] Stopped track:', track.kind);
-      });
+      localStream.getTracks().forEach(track => track.stop());
       setLocalStream(null);
     }
 
-    setIsCameraOn(false);
-    setCallStatus('idle');
+    // Remove tracks from peer connection
+    const pc = peerConnectionRef.current;
+    if (pc) {
+      pc.getSenders().forEach(sender => {
+        if (sender.track) {
+          pc.removeTrack(sender);
+        }
+      });
+    }
 
-    // Send camera state to opponent
+    setIsCameraOn(false);
+
     if (roomId && myUserId && opponentUserId) {
       sendSignal(roomId, myUserId, opponentUserId, 'state', { camera: false });
     }
-
-    console.log('[WEBRTC QS] Camera stopped, peer connection stays alive');
   }, [localStream, myUserId, opponentUserId, roomId]);
 
-  // Define toggleCamera AFTER startCamera and stopCamera
   const toggleCamera = useCallback(async () => {
     if (isCameraOn) {
-      console.log('[WEBRTC QS] 📹 User toggling camera OFF');
-      stopCamera('user turned off camera');
+      stopCamera();
     } else {
-      console.log('[WEBRTC QS] 📹 User toggling camera ON');
       await startCamera();
     }
   }, [isCameraOn, startCamera, stopCamera]);
 
-  const toggleMic = useCallback(() => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMicMuted(!audioTrack.enabled);
-        console.log('[WEBRTC QS] 🎤 Mic', audioTrack.enabled ? 'unmuted' : 'muted');
-      }
-    }
-  }, [localStream]);
-
-  const toggleVideo = useCallback(() => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoDisabled(!videoTrack.enabled);
-        console.log('[WEBRTC QS] 📹 Video', videoTrack.enabled ? 'enabled' : 'disabled');
-      }
-    }
-  }, [localStream]);
-
-  // Force TURN relay and restart connection
-  const forceTurnAndRestart = useCallback(() => {
-    console.log('[WEBRTC QS] ========== FORCE TURN RESTART ==========');
-    forceTurnRef.current = true;
-    
-    // Close existing connection
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-      console.log('[WEBRTC QS] Closed existing peer connection');
-    }
-    
-    // Reset state
-    setRemoteStream(null);
-    setCallStatus('idle');
-    connectionAttemptRef.current = 0;
-    
-    console.log('[WEBRTC QS] Will create new connection with TURN relay forced on next camera start');
-    
-    // Restart camera if it was on
-    if (isCameraOn && localStream) {
-      console.log('[WEBRTC QS] Restarting camera with TURN relay...');
-      // The peer connection will be recreated on the next effect run
-    }
-  }, [isCameraOn, localStream]);
-
-  // ========== CLEANUP ON UNMOUNT ==========
+  // ========== CLEANUP ==========
   useEffect(() => {
     return () => {
-      console.log('[WEBRTC QS] Component unmounting, cleaning up');
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
+      }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
       }
     };
   }, []);
@@ -878,14 +380,10 @@ export function useMatchWebRTC({
     remoteStream,
     isCameraOn,
     isMicMuted,
-    isVideoDisabled,
     callStatus,
     cameraError,
     toggleCamera,
-    toggleMic,
-    toggleVideo,
     stopCamera,
-    liveVideoRef,
-    forceTurnAndRestart
+    forceTurnAndRestart,
   };
 }

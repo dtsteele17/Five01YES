@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Trophy, Home, LogOut, Wifi, WifiOff, UserPlus, Video, VideoOff, Mic, MicOff, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
+import { Trophy, Home, LogOut, Wifi, WifiOff, UserPlus, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -33,6 +33,7 @@ import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchState } from '@/lib/utils/match-resume';
 import { getTrustRatingDescription, getUnratedLabel } from '@/lib/utils/trust-rating';
 import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
+import { MatchCameraPanel } from '@/components/match/MatchCameraPanel';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
@@ -868,27 +869,22 @@ export default function QuickMatchRoomPage() {
   const cleanupMatchRef = useRef<() => void>();
 
   // WebRTC
-  const isMyTurnForWebRTC = matchState ? matchState.currentTurnPlayer === matchState.youArePlayer : false;
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
-    isMyTurn: isMyTurnForWebRTC,
   });
   const {
     localStream,
-    callStatus,
+    remoteStream,
     isCameraOn,
-    isMicMuted,
-    isVideoDisabled,
+    callStatus,
+    cameraError,
     toggleCamera,
-    toggleMic,
-    toggleVideo,
     stopCamera,
-    liveVideoRef
   } = webrtc;
 
   cleanupMatchRef.current = () => {
-    stopCamera('match cleanup');
+    stopCamera();
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(`match_context_${matchId}`);
       sessionStorage.removeItem(`lobby_id_${matchId}`);
@@ -1706,25 +1702,19 @@ export default function QuickMatchRoomPage() {
         </Button>
       </div>
 
-      {/* Main Content - LAYOUT CHANGE: Camera on left full height, Player cards and scoring/visit history on right */}
+      {/* Main Content - Camera on left, Player cards and scoring/visit history on right */}
       <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
-        {/* LEFT: Camera - Full height like in screenshot 2 */}
-        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between p-2 border-b border-white/5">
-            <span className="text-xs text-gray-400">Camera</span>
-            <div className="flex gap-1">
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleCamera}>
-                {isCameraOn ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
-              </Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={toggleMic}>
-                {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-              </Button>
-            </div>
-          </div>
-          <div className="flex-1 relative">
-            <video ref={liveVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          </div>
-        </Card>
+        {/* LEFT: Camera Panel with both local and remote streams */}
+        <MatchCameraPanel
+          localStream={localStream}
+          remoteStream={remoteStream}
+          isCameraOn={isCameraOn}
+          callStatus={callStatus}
+          cameraError={cameraError}
+          toggleCamera={toggleCamera}
+          myName={myPlayer.name}
+          opponentName={opponentPlayer.name}
+        />
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
