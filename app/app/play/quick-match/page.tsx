@@ -23,6 +23,7 @@ import {
   Loader2,
   Clock,
   X,
+  UserPlus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
