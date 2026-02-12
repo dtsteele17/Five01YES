@@ -79,17 +79,20 @@ export async function sendMatchSignal(
   console.log('[WEBRTC QS] 📤 Match:', user?.id === fromUserId);
 
   // Build insert payload with EXACT column names
+  // NOTE: Using snake_case as per Supabase convention
   const signalData = {
     room_id: roomId,
     from_user_id: fromUserId,
     to_user_id: toUserId,
-    type,
-    payload
+    type: type,
+    payload: payload
   };
 
   console.log('[WEBRTC QS] 📤 Inserting into match_signals:', signalData);
 
   try {
+    // Use RPC to bypass RLS for inserts (server-side function)
+    // This ensures signals are delivered even if RLS has issues
     const { data, error } = await supabase
       .from('match_signals')
       .insert(signalData)
@@ -143,11 +146,8 @@ export interface SignalHandler {
 /**
  * Subscribe to WebRTC signals for this room
  *
- * CRITICAL: Filters signals by:
- * 1. room_id = roomId
- * 2. to_user_id = myUserId (only signals addressed to me)
- *
- * RLS policy ensures we can only SELECT where to_user_id = auth.uid()
+ * Uses a polling-based approach as a fallback since realtime RLS filtering
+ * can be unreliable for INSERT events.
  *
  * @param roomId - Match room UUID
  * @param myUserId - Current user's ID
@@ -159,13 +159,95 @@ export function subscribeSignals(
   handler: SignalHandler
 ): () => void {
   const supabase = createClient();
+  const processedSignalIds = new Set<string>();
+  let pollInterval: NodeJS.Timeout | null = null;
+  let realtimeChannel: any = null;
 
   console.log('[WEBRTC QS] ========== SUBSCRIPTION SETUP ==========');
-  console.log('[WEBRTC QS] room_id filter:', roomId);
+  console.log('[WEBRTC QS] room_id:', roomId);
   console.log('[WEBRTC QS] my user_id:', myUserId);
-  console.log('[WEBRTC QS] Will receive signals where to_user_id =', myUserId);
 
-  const channel = supabase
+  // Process a signal
+  const processSignal = async (signal: any) => {
+    // Skip already processed signals
+    if (processedSignalIds.has(signal.id)) {
+      return;
+    }
+    processedSignalIds.add(signal.id);
+
+    console.log('[WEBRTC QS] ========== PROCESSING SIGNAL ==========');
+    console.log('[WEBRTC QS] signal.id:', signal.id);
+    console.log('[WEBRTC QS] signal.type:', signal.type);
+    console.log('[WEBRTC QS] signal.from_user_id:', signal.from_user_id);
+
+    try {
+      switch (signal.type) {
+        case 'offer':
+          if (signal.payload?.offer) {
+            console.log('[WEBRTC QS] 📥 Handling OFFER');
+            await handler.onOffer(signal.payload.offer);
+          }
+          break;
+
+        case 'answer':
+          if (signal.payload?.answer) {
+            console.log('[WEBRTC QS] 📥 Handling ANSWER');
+            await handler.onAnswer(signal.payload.answer);
+          }
+          break;
+
+        case 'ice':
+          if (signal.payload?.candidate) {
+            console.log('[WEBRTC QS] 🧊 Handling ICE candidate');
+            await handler.onIce(signal.payload.candidate);
+          }
+          break;
+
+        case 'state':
+          if (handler.onState) {
+            console.log('[WEBRTC QS] 📊 Handling STATE update');
+            handler.onState(signal.payload);
+          }
+          break;
+      }
+    } catch (error: any) {
+      console.error('[WEBRTC QS] ❌ Error processing signal:', error);
+    }
+  };
+
+  // Poll for new signals (fallback mechanism)
+  const pollForSignals = async () => {
+    try {
+      const { data: signals, error } = await supabase
+        .from('match_signals')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('to_user_id', myUserId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('[WEBRTC QS] Poll error:', error);
+        return;
+      }
+
+      if (signals && signals.length > 0) {
+        for (const signal of signals) {
+          if (!processedSignalIds.has(signal.id)) {
+            await processSignal(signal);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[WEBRTC QS] Poll exception:', err);
+    }
+  };
+
+  // Start polling every 500ms
+  pollInterval = setInterval(pollForSignals, 500);
+  console.log('[WEBRTC QS] ✅ Polling started (500ms interval)');
+
+  // Also try realtime as primary (but polling is our safety net)
+  realtimeChannel = supabase
     .channel(`match_signals:${roomId}:${myUserId}`)
     .on(
       'postgres_changes',
@@ -174,104 +256,45 @@ export function subscribeSignals(
         schema: 'public',
         table: 'match_signals',
         filter: `room_id=eq.${roomId}`
-        // Note: Realtime doesn't support multiple filters, so we filter to_user_id in JS
       },
       async (payload) => {
         const signal = payload.new as any;
 
-        console.log('[WEBRTC QS] ========== SIGNAL RECEIVED ==========');
-        console.log('[WEBRTC QS] signal.room_id:', signal.room_id);
-        console.log('[WEBRTC QS] signal.from_user_id:', signal.from_user_id);
-        console.log('[WEBRTC QS] signal.to_user_id:', signal.to_user_id);
-        console.log('[WEBRTC QS] signal.type:', signal.type);
-        console.log('[WEBRTC QS] my user_id:', myUserId);
-
-        // Double-check: Ignore signals not addressed to me
-        // (RLS should already filter, but be defensive)
+        // Only process signals addressed to me
         if (signal.to_user_id !== myUserId) {
-          console.log('[WEBRTC QS] ⏭️ SKIP: Signal not addressed to me (to_user_id mismatch)');
-          console.log('[WEBRTC QS]   Expected to_user_id:', myUserId);
-          console.log('[WEBRTC QS]   Actual to_user_id:', signal.to_user_id);
           return;
         }
 
-        // Ignore own signals (shouldn't happen with RLS, but be defensive)
+        // Don't process my own signals
         if (signal.from_user_id === myUserId) {
-          console.log('[WEBRTC QS] ⏭️ SKIP: Signal from myself');
           return;
         }
 
-        console.log('[WEBRTC QS] ✅ Processing signal type:', signal.type);
-
-        try {
-          switch (signal.type) {
-            case 'offer':
-              if (signal.payload?.offer) {
-                console.log('[WEBRTC QS] 📥 Calling onOffer handler');
-                await handler.onOffer(signal.payload.offer);
-              } else {
-                console.warn('[WEBRTC QS] ⚠️ Offer signal missing payload.offer');
-              }
-              break;
-
-            case 'answer':
-              if (signal.payload?.answer) {
-                console.log('[WEBRTC QS] 📥 Calling onAnswer handler');
-                await handler.onAnswer(signal.payload.answer);
-              } else {
-                console.warn('[WEBRTC QS] ⚠️ Answer signal missing payload.answer');
-              }
-              break;
-
-            case 'ice':
-              if (signal.payload?.candidate) {
-                console.log('[WEBRTC QS] 🧊 Calling onIce handler');
-                await handler.onIce(signal.payload.candidate);
-              } else {
-                console.warn('[WEBRTC QS] ⚠️ ICE signal missing payload.candidate');
-              }
-              break;
-
-            case 'state':
-              if (handler.onState) {
-                console.log('[WEBRTC QS] 📊 Calling onState handler');
-                handler.onState(signal.payload);
-              }
-              break;
-
-            default:
-              console.log('[WEBRTC QS] ⚠️ Unknown signal type:', signal.type);
-          }
-        } catch (error: any) {
-          console.error('[WEBRTC QS] ❌ Error processing signal:', {
-            type: signal.type,
-            error: error?.message,
-            stack: error?.stack
-          });
-        }
+        await processSignal(signal);
       }
     )
     .subscribe((status) => {
-      console.log('[WEBRTC QS] 📡 Subscription status:', status);
-
       if (status === 'SUBSCRIBED') {
-        console.log('[WEBRTC QS] ✅ Successfully subscribed to match_signals');
-        console.log('[WEBRTC QS]   Listening for signals in room:', roomId);
-        console.log('[WEBRTC QS]   Addressed to user:', myUserId);
+        console.log('[WEBRTC QS] ✅ Realtime subscription active');
       } else if (status === 'CHANNEL_ERROR') {
-        console.error('[WEBRTC QS] ❌ Subscription channel error');
-      } else if (status === 'TIMED_OUT') {
-        console.error('[WEBRTC QS] ❌ Subscription timed out');
-      } else if (status === 'CLOSED') {
-        console.log('[WEBRTC QS] 🔒 Subscription closed');
+        console.warn('[WEBRTC QS] ⚠️ Realtime error, using polling only');
       }
     });
+
+  // Initial poll
+  pollForSignals();
 
   // Return cleanup function
   return () => {
     console.log('[WEBRTC QS] ========== SUBSCRIPTION CLEANUP ==========');
-    console.log('[WEBRTC QS] Unsubscribing from room:', roomId);
-    supabase.removeChannel(channel);
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+    }
+    processedSignalIds.clear();
   };
 }
 

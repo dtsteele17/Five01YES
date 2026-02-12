@@ -170,16 +170,27 @@ export function useMatchWebRTC({
     if (!coinTossComplete) return; // Wait for coin toss
 
     const handleOffer = async (offer: RTCSessionDescriptionInit) => {
+      console.log('[WebRTC] ========== RECEIVED OFFER ==========');
+      console.log('[WebRTC] I am Player 1:', isPlayer1);
+
       const pc = peerConnectionRef.current;
-      if (!pc) return;
+      if (!pc) {
+        console.error('[WebRTC] ❌ No peer connection');
+        return;
+      }
 
       try {
         // Perfect negotiation: detect collision
         const offerCollision = offer.type === 'offer' && 
           (makingOfferRef.current || pc.signalingState !== 'stable');
 
+        console.log('[WebRTC] Signaling state:', pc.signalingState, 'Offer collision:', offerCollision);
+
         ignoreOfferRef.current = isPlayer1 && offerCollision;
-        if (ignoreOfferRef.current) return;
+        if (ignoreOfferRef.current) {
+          console.log('[WebRTC] ⛔ Ignoring offer (collision)');
+          return;
+        }
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
@@ -196,13 +207,17 @@ export function useMatchWebRTC({
         }
 
         // Create answer
+        console.log('[WebRTC] Creating answer...');
         const answer = await pc.createAnswer();
+        console.log('[WebRTC] Setting local description (answer)...');
         await pc.setLocalDescription(answer);
+        console.log('[WebRTC] Local description set');
 
+        console.log('[WebRTC] Sending answer...');
         await sendSignal(roomId, myUserId, opponentUserId, 'answer', {
           answer: pc.localDescription?.toJSON()
         });
-        console.log('[WebRTC] Answer sent');
+        console.log('[WebRTC] ✅ Answer sent successfully');
 
       } catch (error) {
         console.error('[WebRTC] Error handling offer:', error);
@@ -252,6 +267,9 @@ export function useMatchWebRTC({
       }
     };
 
+    console.log('[WebRTC] Setting up signal subscription...');
+    console.log('[WebRTC] Room:', roomId, 'My ID:', myUserId, 'Opponent:', opponentUserId);
+
     const cleanup = subscribeSignals(roomId, myUserId, {
       onOffer: handleOffer,
       onAnswer: handleAnswer,
@@ -259,6 +277,7 @@ export function useMatchWebRTC({
     });
 
     subscriptionCleanupRef.current = cleanup;
+    console.log('[WebRTC] ✅ Signal subscription set up');
 
     return () => {
       if (subscriptionCleanupRef.current) {
@@ -306,13 +325,29 @@ export function useMatchWebRTC({
       setIsCameraOn(true);
       setCameraError(null);
 
-      // Add tracks to peer connection
+      // Add tracks to peer connection and create offer if Player 1
       const pc = peerConnectionRef.current;
       if (pc) {
         stream.getTracks().forEach(track => {
           console.log('[WebRTC] Adding track to PC:', track.kind);
           pc.addTrack(track, stream);
         });
+
+        // Player 1 creates offer after adding tracks
+        if (isPlayer1 && roomId && myUserId && opponentUserId) {
+          console.log('[WebRTC] Player 1 creating offer...');
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+              offer: pc.localDescription?.toJSON()
+            });
+            console.log('[WebRTC] ✅ Offer sent to Player 2');
+          } catch (err) {
+            console.error('[WebRTC] Error creating offer:', err);
+          }
+        }
       }
 
       // Send state signal
@@ -325,7 +360,7 @@ export function useMatchWebRTC({
       setCameraError(error.message || 'Failed to access camera');
       setIsCameraOn(false);
     }
-  }, [roomId, myUserId, opponentUserId]);
+  }, [roomId, myUserId, opponentUserId, isPlayer1]);
 
   const stopCamera = useCallback(() => {
     console.log('[WebRTC] Stopping camera');
