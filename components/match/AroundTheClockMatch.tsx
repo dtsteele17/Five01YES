@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Undo2, Trophy, Home, Bot } from 'lucide-react';
+import { Target, Undo2, Trophy, Home, Bot, History } from 'lucide-react';
 
 const TARGETS = Array.from({ length: 20 }, (_, i) => i + 1).concat(['BULL'] as any);
 
@@ -445,94 +445,120 @@ export function AroundTheClockMatch({
   const currentPlayer = playerStates[currentTurn];
   const currentTarget = getTargetLabel(currentPlayer.targetIndex);
 
+  // Build visit history for display
+  const buildVisitHistory = (player: PlayerState) => {
+    const history = [];
+    let visitIndex = 0;
+    for (let i = 0; i < player.history.length; i++) {
+      const state = player.history[i];
+      if (state.dartsThisVisit.length === 3 || (i === player.history.length - 1 && player.dartsThisVisit.length < 3)) {
+        const darts = state.dartsThisVisit;
+        const totalAdvance = darts.reduce((sum, d) => sum + d.valueAdvance, 0);
+        history.push({
+          visitNumber: visitIndex + 1,
+          darts,
+          totalAdvance,
+          target: TARGETS[state.targetIndex],
+        });
+        visitIndex++;
+      }
+    }
+    // Add current incomplete visit
+    if (player.dartsThisVisit.length > 0 && player.dartsThisVisit.length < 3) {
+      const totalAdvance = player.dartsThisVisit.reduce((sum, d) => sum + d.valueAdvance, 0);
+      history.push({
+        visitNumber: visitIndex + 1,
+        darts: player.dartsThisVisit,
+        totalAdvance,
+        target: TARGETS[player.targetIndex - player.dartsThisVisit.reduce((sum, d) => sum + d.valueAdvance, 0)],
+        current: true,
+      });
+    }
+    return history.slice(-10).reverse(); // Show last 10 visits
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="max-w-6xl mx-auto space-y-4">
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <Target className="w-6 h-6 text-emerald-400" />
-                <span className="text-xl font-bold text-white">
-                  AROUND<span className="text-emerald-400"> THE CLOCK</span>
-                </span>
-              </div>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                {context}
-              </Badge>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowEndMatchDialog(true)}
-                className="border-white/10 text-white hover:bg-white/5"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                End Match
-              </Button>
-            </div>
+    <div className="h-screen w-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="flex-none px-4 py-3 bg-slate-900/80 backdrop-blur-sm border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Target className="w-6 h-6 text-emerald-400" />
+            <span className="text-lg font-bold text-white">
+              AROUND<span className="text-emerald-400">THE CLOCK</span>
+            </span>
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+              {context}
+            </Badge>
           </div>
-        </Card>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEndMatchDialog(true)}
+            className="border-white/10 text-white hover:bg-white/5"
+          >
+            <Home className="w-4 h-4 mr-2" />
+            End Match
+          </Button>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(['p1', 'p2'] as const).map((playerId, idx) => {
-            const player = playerStates[playerId];
-            const isCurrentPlayer = currentTurn === playerId;
-            const progress = (player.targetIndex / (TARGETS.length - 1)) * 100;
+      {/* Main Content */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left Side - Game Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Player Cards */}
+          <div className="flex-none grid grid-cols-2 gap-2 p-3">
+            {(['p1', 'p2'] as const).map((playerId, idx) => {
+              const player = playerStates[playerId];
+              const isCurrentPlayer = currentTurn === playerId;
+              const progress = (player.targetIndex / (TARGETS.length - 1)) * 100;
 
-            return (
-              <Card
-                key={playerId}
-                className={`bg-slate-900/50 backdrop-blur-sm border-2 transition-all ${
-                  isCurrentPlayer
-                    ? 'border-emerald-500 shadow-lg shadow-emerald-500/20'
-                    : 'border-white/10'
-                }`}
-              >
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-12 h-12 border-2 border-emerald-500/30">
-                        <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold">
+              return (
+                <Card
+                  key={playerId}
+                  className={`bg-slate-900/50 backdrop-blur-sm border-2 transition-all ${
+                    isCurrentPlayer
+                      ? 'border-emerald-500 shadow-lg shadow-emerald-500/20'
+                      : 'border-white/10'
+                  }`}
+                >
+                  <div className="p-3">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Avatar className="w-10 h-10 border-2 border-emerald-500/30">
+                        <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold text-sm">
                           {player.name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center space-x-2">
-                          <h3 className="text-lg font-bold text-white">{player.name}</h3>
+                          <h3 className="text-sm font-bold text-white truncate">{player.name}</h3>
                           {isCurrentPlayer && (
-                            <Badge className="bg-emerald-500 text-white text-xs">
-                              Your Turn
+                            <Badge className="bg-emerald-500 text-white text-xs px-1.5 py-0">
+                              Turn
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs text-gray-400">
                           {player.visits} visits • {player.dartsThrown} darts
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-gray-400">Current Target</span>
-                        <span className="text-2xl font-bold text-emerald-400">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Target</span>
+                        <span className="text-xl font-bold text-emerald-400">
                           {getTargetLabel(player.targetIndex)}
                         </span>
                       </div>
-                      <Progress value={progress} className="h-2" />
-                    </div>
+                      <Progress value={progress} className="h-1.5" />
 
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-gray-400 mb-2">Darts this visit</p>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
                         {[0, 1, 2].map(i => (
                           <div
                             key={i}
-                            className={`flex-1 h-12 rounded border-2 flex items-center justify-center text-sm font-bold ${
+                            className={`flex-1 h-8 rounded border-2 flex items-center justify-center text-xs font-bold ${
                               player.dartsThisVisit[i]
                                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
                                 : 'border-dashed border-white/10 text-gray-600'
@@ -544,32 +570,31 @@ export function AroundTheClockMatch({
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                </Card>
+              );
+            })}
+          </div>
 
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-          <div className="space-y-6">
+          {/* Score Buttons Area */}
+          <div className="flex-1 flex flex-col justify-center px-4 pb-4 min-h-0">
             {botThinking && (
-              <Card className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30 p-4">
-                <div className="flex items-center justify-center space-x-3">
+              <Card className="flex-none bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30 p-3 mb-4">
+                <div className="flex items-center justify-center space-x-2">
                   <Bot className="w-5 h-5 text-blue-400 animate-pulse" />
-                  <span className="text-blue-400 font-semibold">
+                  <span className="text-blue-400 font-semibold text-sm">
                     {dartBot?.name || 'DartBot'} is thinking...
                   </span>
                 </div>
               </Card>
             )}
 
-            <div className="text-center">
-              <h2 className="text-3xl font-bold text-white mb-2">
-                Current Target: <span className="text-emerald-400">{currentTarget}</span>
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-white mb-1">
+                Target: <span className="text-emerald-400">{currentTarget}</span>
               </h2>
-              <p className="text-gray-400">
+              <p className="text-sm text-gray-400">
                 {botThinking
-                  ? 'Bot is throwing darts...'
+                  ? 'Bot is throwing...'
                   : currentPlayer.dartsThisVisit.length === 0
                   ? 'Select your dart'
                   : `${3 - currentPlayer.dartsThisVisit.length} dart${
@@ -579,12 +604,12 @@ export function AroundTheClockMatch({
             </div>
 
             {currentTarget === 'BULL' ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex gap-2 justify-center">
                 <Button
                   size="lg"
                   onClick={() => handleDart('S')}
                   disabled={currentPlayer.dartsThisVisit.length >= 3 || !!winner || botThinking}
-                  className="h-20 text-xl font-bold bg-gradient-to-br from-emerald-500 to-teal-500 hover:opacity-90 text-white disabled:opacity-50"
+                  className="h-24 w-40 text-2xl font-bold bg-gradient-to-br from-emerald-500 to-teal-500 hover:opacity-90 text-white disabled:opacity-50 rounded-xl"
                 >
                   BULL
                 </Button>
@@ -592,18 +617,18 @@ export function AroundTheClockMatch({
                   size="lg"
                   onClick={() => handleDart('MISS')}
                   disabled={currentPlayer.dartsThisVisit.length >= 3 || !!winner || botThinking}
-                  className="h-20 text-xl font-bold bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-50"
+                  className="h-24 w-40 text-2xl font-bold bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-50 rounded-xl"
                 >
                   MISS
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="flex gap-2 justify-center flex-wrap">
                 <Button
                   size="lg"
                   onClick={() => handleDart('S')}
                   disabled={currentPlayer.dartsThisVisit.length >= 3 || !!winner || botThinking}
-                  className="h-20 text-xl font-bold bg-gradient-to-br from-emerald-500 to-teal-500 hover:opacity-90 text-white disabled:opacity-50"
+                  className="h-24 w-28 text-2xl font-bold bg-gradient-to-br from-emerald-500 to-teal-500 hover:opacity-90 text-white disabled:opacity-50 rounded-xl"
                 >
                   S{currentTarget}
                 </Button>
@@ -611,7 +636,7 @@ export function AroundTheClockMatch({
                   size="lg"
                   onClick={() => handleDart('D')}
                   disabled={currentPlayer.dartsThisVisit.length >= 3 || !!winner || botThinking}
-                  className="h-20 text-xl font-bold bg-gradient-to-br from-blue-500 to-cyan-500 hover:opacity-90 text-white disabled:opacity-50"
+                  className="h-24 w-28 text-2xl font-bold bg-gradient-to-br from-blue-500 to-cyan-500 hover:opacity-90 text-white disabled:opacity-50 rounded-xl"
                 >
                   D{currentTarget}
                 </Button>
@@ -619,7 +644,7 @@ export function AroundTheClockMatch({
                   size="lg"
                   onClick={() => handleDart('T')}
                   disabled={currentPlayer.dartsThisVisit.length >= 3 || !!winner || botThinking}
-                  className="h-20 text-xl font-bold bg-gradient-to-br from-purple-500 to-pink-500 hover:opacity-90 text-white disabled:opacity-50"
+                  className="h-24 w-28 text-2xl font-bold bg-gradient-to-br from-purple-500 to-pink-500 hover:opacity-90 text-white disabled:opacity-50 rounded-xl"
                 >
                   T{currentTarget}
                 </Button>
@@ -627,14 +652,14 @@ export function AroundTheClockMatch({
                   size="lg"
                   onClick={() => handleDart('MISS')}
                   disabled={currentPlayer.dartsThisVisit.length >= 3 || !!winner || botThinking}
-                  className="h-20 text-xl font-bold bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-50"
+                  className="h-24 w-28 text-2xl font-bold bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-50 rounded-xl"
                 >
                   MISS
                 </Button>
               </div>
             )}
 
-            <div className="flex justify-center">
+            <div className="flex justify-center mt-4">
               <Button
                 variant="outline"
                 onClick={handleUndo}
@@ -642,13 +667,102 @@ export function AroundTheClockMatch({
                 className="border-white/10 text-white hover:bg-white/5"
               >
                 <Undo2 className="w-4 h-4 mr-2" />
-                Undo Last Dart
+                Undo
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
+
+        {/* Right Side - Visit History */}
+        <div className="w-72 flex-none bg-slate-900/50 border-l border-white/10 flex flex-col">
+          <div className="flex-none p-3 border-b border-white/10">
+            <div className="flex items-center space-x-2">
+              <History className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm font-bold text-white">Visit History</span>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {/* P1 History */}
+            <div className="space-y-1">
+              <p className="text-xs text-emerald-400 font-semibold px-1">{playerStates.p1.name}</p>
+              {buildVisitHistory(playerStates.p1).map((visit, idx) => (
+                <div
+                  key={idx}
+                  className={`p-2 rounded text-xs ${
+                    visit.current
+                      ? 'bg-emerald-500/20 border border-emerald-500/30'
+                      : 'bg-slate-800/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-gray-400">#{visit.visitNumber}</span>
+                    <span className="text-emerald-400 font-bold">+{visit.totalAdvance}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {visit.darts.map((dart: any, i: number) => (
+                      <span
+                        key={i}
+                        className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                          dart.valueAdvance > 0
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-slate-700 text-gray-500'
+                        }`}
+                      >
+                        {dart.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {buildVisitHistory(playerStates.p1).length === 0 && (
+                <p className="text-xs text-gray-500 px-1 italic">No visits yet</p>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 my-2" />
+
+            {/* P2 History */}
+            <div className="space-y-1">
+              <p className="text-xs text-blue-400 font-semibold px-1">{playerStates.p2.name}</p>
+              {buildVisitHistory(playerStates.p2).map((visit, idx) => (
+                <div
+                  key={idx}
+                  className={`p-2 rounded text-xs ${
+                    visit.current
+                      ? 'bg-blue-500/20 border border-blue-500/30'
+                      : 'bg-slate-800/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-gray-400">#{visit.visitNumber}</span>
+                    <span className="text-blue-400 font-bold">+{visit.totalAdvance}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {visit.darts.map((dart: any, i: number) => (
+                      <span
+                        key={i}
+                        className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                          dart.valueAdvance > 0
+                            ? 'bg-blue-500/20 text-blue-400'
+                            : 'bg-slate-700 text-gray-500'
+                        }`}
+                      >
+                        {dart.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {buildVisitHistory(playerStates.p2).length === 0 && (
+                <p className="text-xs text-gray-500 px-1 italic">No visits yet</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Match Complete Dialog */}
       <Dialog open={showMatchComplete} onOpenChange={setShowMatchComplete}>
         <DialogContent className="bg-slate-900 border-emerald-500/30">
           <DialogHeader>
@@ -706,6 +820,7 @@ export function AroundTheClockMatch({
         </DialogContent>
       </Dialog>
 
+      {/* End Match Dialog */}
       <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
         <AlertDialogContent className="bg-slate-900 border-white/10">
           <AlertDialogHeader>
@@ -725,7 +840,7 @@ export function AroundTheClockMatch({
               End Match
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogContent>
+        </AlertContent>
       </AlertDialog>
     </div>
   );
