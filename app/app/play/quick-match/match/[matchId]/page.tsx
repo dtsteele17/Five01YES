@@ -1091,6 +1091,52 @@ export default function QuickMatchRoomPage() {
   const [readyCount, setReadyCount] = useState(0);
   const rematchCheckCountRef = useRef(0);
   const rematchPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Restore rematch state on mount (for page refreshes during rematch)
+  useEffect(() => {
+    if (!room || !currentUserId || room.status !== 'finished') return;
+    
+    const restoreRematchState = async () => {
+      // Check if rematch room already exists - navigate to it
+      if (room.rematch_room_id) {
+        console.log('[REMATCH] Room already exists on load, navigating:', room.rematch_room_id);
+        setNewRematchRoomId(room.rematch_room_id);
+        return;
+      }
+      
+      // Check if player already requested rematch (page refresh scenario)
+      const isPlayer1 = room.player1_id === currentUserId;
+      const iRequested = isPlayer1 ? room.player1_rematch : room.player2_rematch;
+      const opponentRequested = isPlayer1 ? room.player2_rematch : room.player1_rematch;
+      
+      if (iRequested || opponentRequested) {
+        console.log('[REMATCH] Restoring state - me:', iRequested, 'opponent:', opponentRequested);
+        
+        const currentReadyCount = (room.player1_rematch ? 1 : 0) + (room.player2_rematch ? 1 : 0);
+        setReadyCount(currentReadyCount);
+        
+        if (opponentRequested) {
+          setOpponentRematchReady(true);
+        }
+        
+        if (iRequested && opponentRequested) {
+          // Both ready - room should be created soon
+          setRematchStatus('ready');
+          setReadyCount(2);
+          // Start polling for room
+          pollForRematchRoomV2();
+        } else if (iRequested) {
+          // Only I requested - continue waiting
+          setRematchStatus('waiting');
+          pollForRematchStatusV2();
+        }
+        // If only opponent requested, show "Join Rematch" button (opponentRematchReady is true)
+      }
+    };
+    
+    restoreRematchState();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.id, currentUserId, room?.status, room?.rematch_room_id, room?.player1_rematch, room?.player2_rematch]);
 
   // Coin toss state
   const [showCoinToss, setShowCoinToss] = useState(false);
@@ -1730,6 +1776,19 @@ export default function QuickMatchRoomPage() {
         return;
       }
 
+      // Check if match is already finished (page refresh scenario)
+      // Need to fetch room data again since loadMatchData sets it in state
+      const { data: roomData } = await supabase
+        .from('match_rooms')
+        .select('*')
+        .eq('id', matchId)
+        .maybeSingle();
+      
+      if (roomData?.status === 'finished' && roomData?.winner_id && !matchEndStats) {
+        console.log('[INIT] Match already finished, showing winner popup');
+        await showMatchEndPopup(roomData);
+      }
+
       return setupRealtimeSubscriptions();
     } catch (error: any) {
       toast.error(`Error: ${error.message}`);
@@ -1738,6 +1797,101 @@ export default function QuickMatchRoomPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Show match end popup with stats - used both on init (page refresh) and when match ends
+  async function showMatchEndPopup(roomData: MatchRoom) {
+    if (!roomData.winner_id) return;
+    
+    console.log('[MATCH END] Showing popup for finished match');
+    
+    const winnerId = roomData.winner_id;
+    const isPlayer1Winner = winnerId === roomData.player1_id;
+    const loserId = isPlayer1Winner ? roomData.player2_id : roomData.player1_id;
+
+    // Ensure we have profiles loaded - fetch if needed
+    let currentProfiles = profiles;
+    if (currentProfiles.length === 0 || !currentProfiles.find(p => p.user_id === winnerId)) {
+      console.log('[MATCH END] Fetching profiles...');
+      const { data: freshProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, username, trust_rating_letter')
+        .in('user_id', [roomData.player1_id, roomData.player2_id]);
+      if (freshProfiles) {
+        currentProfiles = freshProfiles as Profile[];
+        setProfiles(currentProfiles);
+      }
+    }
+
+    const winnerProfile = currentProfiles.find(p => p.user_id === winnerId);
+    const loserProfile = currentProfiles.find(p => p.user_id === loserId);
+
+    // Fetch ALL visits from database to ensure we have complete data for both players
+    console.log('[MATCH END] Fetching all visits for room:', matchId);
+    const { data: allVisits, error: visitsError } = await supabase
+      .from('quick_match_visits')
+      .select('*')
+      .eq('room_id', matchId)
+      .order('leg', { ascending: true })
+      .order('turn_no', { ascending: true });
+    
+    if (visitsError) {
+      console.error('[MATCH END] Error fetching visits:', visitsError);
+    }
+    
+    console.log('[MATCH END] Fetched visits:', { 
+      count: allVisits?.length || 0, 
+      p1Visits: allVisits?.filter(v => v.player_id === roomData.player1_id).length || 0,
+      p2Visits: allVisits?.filter(v => v.player_id === roomData.player2_id).length || 0
+    });
+    
+    const completeVisits = (allVisits as QuickMatchVisit[]) || visits;
+    
+    // Use the room's leg counts as the source of truth
+    const p1Legs = roomData.player1_legs || 0;
+    const p2Legs = roomData.player2_legs || 0;
+    
+    // Debug: Log all visits before calculating stats
+    logVisitsDebug('MATCH_END_STATS', completeVisits, roomData.player1_id, roomData.player2_id);
+    
+    // Calculate stats for BOTH players
+    console.log('[MATCH_END] Calculating winner stats:', { winnerId, name: winnerProfile?.username });
+    const wStats = calculatePlayerStatsFromVisits(
+      completeVisits,
+      winnerId,
+      winnerProfile?.username || 'Winner',
+      isPlayer1Winner ? p1Legs : p2Legs
+    );
+    
+    console.log('[MATCH_END] Calculating loser stats:', { loserId, name: loserProfile?.username });
+    const lStats = calculatePlayerStatsFromVisits(
+      completeVisits,
+      loserId,
+      loserProfile?.username || 'Loser',
+      isPlayer1Winner ? p2Legs : p1Legs
+    );
+    
+    // Update visits state to match
+    setVisits(completeVisits);
+    
+    // Determine player1 and player2 based on room data
+    const p1Id = roomData.player1_id;
+    const p2Id = roomData.player2_id;
+    const p1Profile = currentProfiles.find(p => p.user_id === p1Id);
+    const p2Profile = currentProfiles.find(p => p.user_id === p2Id);
+    
+    console.log('[MATCH END] Setting match end stats:', { p1Legs, p2Legs, winnerId, p1Name: p1Profile?.username, p2Name: p2Profile?.username });
+    
+    setMatchEndStats({
+      player1: { id: p1Id, name: p1Profile?.username || roomData.player1_id?.substring(0, 8) || 'Player 1', legs: p1Legs },
+      player2: { id: p2Id, name: p2Profile?.username || roomData.player2_id?.substring(0, 8) || 'Player 2', legs: p2Legs },
+      player1FullStats: p1Id === winnerId ? wStats : lStats,
+      player2FullStats: p2Id === winnerId ? wStats : lStats,
+      winnerId: winnerId,
+    });
+    
+    // Save stats to database
+    await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, roomData.game_mode);
   }
 
   async function loadMatchData(): Promise<boolean> {
@@ -1915,107 +2069,7 @@ export default function QuickMatchRoomPage() {
           
           // Handle match finished - show winner popup
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
-            (async () => {
-              console.log('[ROOM] Match finished detected, showing winner popup');
-              
-              const winnerId = updatedRoom.winner_id;
-              const isPlayer1Winner = winnerId === updatedRoom.player1_id;
-              const loserId = isPlayer1Winner ? updatedRoom.player2_id : updatedRoom.player1_id;
-
-              // Safety check - should not happen due to outer condition, but TypeScript needs this
-              if (!winnerId || !loserId) {
-                console.error('[MATCH END] Missing winner or loser ID');
-                return;
-              }
-
-              // Ensure we have profiles loaded - fetch if needed
-              let currentProfiles = profiles;
-              if (currentProfiles.length === 0 || !currentProfiles.find(p => p.user_id === winnerId)) {
-                console.log('[MATCH END] Fetching profiles...');
-                const { data: freshProfiles } = await supabase
-                  .from('profiles')
-                  .select('user_id, username, trust_rating_letter')
-                  .in('user_id', [updatedRoom.player1_id, updatedRoom.player2_id]);
-                if (freshProfiles) {
-                  currentProfiles = freshProfiles as Profile[];
-                  setProfiles(currentProfiles);
-                }
-              }
-
-              const winnerProfile = currentProfiles.find(p => p.user_id === winnerId);
-              const loserProfile = currentProfiles.find(p => p.user_id === loserId);
-
-              // Fetch ALL visits from database to ensure we have complete data for both players
-              console.log('[MATCH END] Fetching all visits for room:', matchId);
-              const { data: allVisits, error: visitsError } = await supabase
-                .from('quick_match_visits')
-                .select('*')
-                .eq('room_id', matchId)
-                .order('leg', { ascending: true })
-                .order('turn_no', { ascending: true });
-              
-              if (visitsError) {
-                console.error('[MATCH END] Error fetching visits:', visitsError);
-              }
-              
-              console.log('[MATCH END] Fetched visits:', { 
-                count: allVisits?.length || 0, 
-                p1Visits: allVisits?.filter(v => v.player_id === updatedRoom.player1_id).length || 0,
-                p2Visits: allVisits?.filter(v => v.player_id === updatedRoom.player2_id).length || 0
-              });
-              
-              // Temporarily update visits state for accurate calculation
-              const completeVisits = (allVisits as QuickMatchVisit[]) || visits;
-              
-              // Use the room's leg counts as the source of truth
-              // The database has already determined the correct leg counts via the RPC
-              const p1Legs = updatedRoom.player1_legs || 0;
-              const p2Legs = updatedRoom.player2_legs || 0;
-              
-              console.log('[MATCH END] Legs calculated:', { p1Legs, p2Legs, roomP1Legs: updatedRoom.player1_legs, roomP2Legs: updatedRoom.player2_legs });
-              
-              // Debug: Log all visits before calculating stats
-              logVisitsDebug('MATCH_END_STATS', completeVisits, updatedRoom.player1_id, updatedRoom.player2_id);
-              
-              // Calculate stats for BOTH players - pass ALL visits and let the function filter
-              console.log('[MATCH_END] Calculating winner stats:', { winnerId, name: winnerProfile?.username });
-              const wStats = calculatePlayerStatsFromVisits(
-                completeVisits,
-                winnerId,
-                winnerProfile?.username || 'Winner',
-                isPlayer1Winner ? p1Legs : p2Legs
-              );
-              
-              console.log('[MATCH_END] Calculating loser stats:', { loserId, name: loserProfile?.username });
-              const lStats = calculatePlayerStatsFromVisits(
-                completeVisits,
-                loserId,
-                loserProfile?.username || 'Loser',
-                isPlayer1Winner ? p2Legs : p1Legs
-              );
-              
-              // Update visits state to match
-              setVisits(completeVisits);
-              
-              // Determine player1 and player2 based on room data
-              const p1Id = updatedRoom.player1_id;
-              const p2Id = updatedRoom.player2_id;
-              const p1Profile = currentProfiles.find(p => p.user_id === p1Id);
-              const p2Profile = currentProfiles.find(p => p.user_id === p2Id);
-              
-              console.log('[MATCH END] Setting match end stats:', { p1Legs, p2Legs, winnerId, p1Name: p1Profile?.username, p2Name: p2Profile?.username });
-              
-              setMatchEndStats({
-                player1: { id: p1Id, name: p1Profile?.username || updatedRoom.player1_id?.substring(0, 8) || 'Player 1', legs: p1Legs },
-                player2: { id: p2Id, name: p2Profile?.username || updatedRoom.player2_id?.substring(0, 8) || 'Player 2', legs: p2Legs },
-                player1FullStats: p1Id === winnerId ? wStats : lStats,
-                player2FullStats: p2Id === winnerId ? wStats : lStats,
-                winnerId: winnerId,
-              });
-              
-              // Save stats to database (for opponent who detected via realtime)
-              await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, updatedRoom.game_mode);
-            })();
+            showMatchEndPopup(updatedRoom);
           }
         }
       )
