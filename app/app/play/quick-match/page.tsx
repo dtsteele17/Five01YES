@@ -1056,16 +1056,17 @@ export default function QuickMatchLobbyPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 {filteredLobbies.map((lobby) => (
                   <div
                     key={lobby.id}
                     className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-3">
-                          <h3 className="text-white font-semibold">
+                    <div className="flex flex-col h-full">
+                      {/* Player Header - Bigger */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="text-white font-bold text-lg truncate">
                             {lobby.player1?.username ?? 'Player'}
                           </h3>
                           <TrustRatingBadge
@@ -1073,59 +1074,73 @@ export default function QuickMatchLobbyPage() {
                             count={lobby.player1?.trust_rating_count || 0}
                             showTooltip={false}
                           />
-                          {/* Always show 3-dart average */}
-                          <Badge 
-                            className={`text-xs px-2 py-0.5 rounded-full border ${
-                              (lobby.player1?.overall_3dart_avg || 0) > 0
-                                ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
-                                : 'bg-gray-600/20 text-gray-400 border-gray-500/30'
-                            }`}
-                            title="3-Dart Average"
-                          >
-                            <Target className="w-3 h-3 mr-1" />
-                            {(lobby.player1?.overall_3dart_avg || 0) > 0
-                              ? `${(lobby.player1?.overall_3dart_avg || 0).toFixed(1)} avg`
-                              : 'New'
-                            }
-                          </Badge>
                         </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge
-                            className={`${getGameModeClass(lobby.game_type)} text-base font-bold px-3 py-1 rounded-full border`}
-                          >
-                            {lobby.game_type}
-                          </Badge>
-                          <Badge className="bg-purple-600/20 text-purple-400 border-purple-500/30 text-base font-bold px-3 py-1 rounded-full border">
-                            {formatMatchFormat(lobby.match_format)}
-                          </Badge>
-                          <Badge
-                            className={`${lobby.double_out
-                              ? 'bg-green-600/20 text-green-400 border-green-500/30'
-                              : 'bg-slate-600/20 text-slate-400 border-slate-500/30'
-                            } text-xs px-2 py-0.5 rounded-full border`}
-                          >
-                            Double Out: {lobby.double_out ? 'ON' : 'OFF'}
-                          </Badge>
-                          {!lobby.double_in && (
-                            <Badge className="bg-green-600/20 text-green-400 border-green-500/30 text-xs px-2 py-0.5 rounded-full border">
-                              Straight In
-                            </Badge>
-                          )}
-                        </div>
+                        {/* Bigger Average Badge */}
+                        <Badge 
+                          className={`text-sm px-3 py-1 rounded-full border font-semibold ${
+                            (lobby.player1?.overall_3dart_avg || 0) > 0
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                              : 'bg-gray-600/20 text-gray-400 border-gray-500/30'
+                          }`}
+                          title="3-Dart Average"
+                        >
+                          <Target className="w-4 h-4 mr-1" />
+                          {(lobby.player1?.overall_3dart_avg || 0) > 0
+                            ? `${(lobby.player1?.overall_3dart_avg || 0).toFixed(1)}`
+                            : 'New'
+                          }
+                        </Badge>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => joinLobby(lobby.id)}
-                        disabled={joining === lobby.id}
-                        className="bg-emerald-500 hover:bg-emerald-600 shrink-0"
-                      >
-                        {joining === lobby.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          'Join'
+
+                      {/* Settings Row - Subtly Color Coded */}
+                      <div className="flex flex-wrap items-center gap-2 mb-4">
+                        {/* Game Mode - Blue */}
+                        <Badge
+                          className={`text-sm font-bold px-3 py-1 rounded-md border ${
+                            lobby.game_type === '501' 
+                              ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
+                              : 'bg-cyan-600/20 text-cyan-400 border-cyan-500/40'
+                          }`}
+                        >
+                          {lobby.game_type}
+                        </Badge>
+                        {/* Match Format - Purple */}
+                        <Badge className="bg-purple-600/20 text-purple-400 border-purple-500/40 text-sm font-bold px-3 py-1 rounded-md border">
+                          {formatMatchFormat(lobby.match_format)}
+                        </Badge>
+                        {/* Double Out - Green when on, Slate when off */}
+                        <Badge
+                          className={`text-xs px-2 py-0.5 rounded-md border ${
+                            lobby.double_out
+                              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                              : 'bg-slate-600/20 text-slate-400 border-slate-500/30'
+                          }`}
+                        >
+                          {lobby.double_out ? 'Double Out' : 'Straight Out'}
+                        </Badge>
+                        {/* Straight In badge only when applicable */}
+                        {!lobby.double_in && (
+                          <Badge className="bg-orange-600/20 text-orange-400 border-orange-500/40 text-xs px-2 py-0.5 rounded-md border">
+                            Straight In
+                          </Badge>
                         )}
-                      </Button>
+                      </div>
+
+                      {/* Join Button - At bottom */}
+                      <div className="mt-auto">
+                        <Button
+                          size="sm"
+                          onClick={() => joinLobby(lobby.id)}
+                          disabled={joining === lobby.id}
+                          className="w-full bg-emerald-500 hover:bg-emerald-600"
+                        >
+                          {joining === lobby.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'Join'
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

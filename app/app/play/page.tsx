@@ -50,6 +50,15 @@ interface RecentMatch {
   winner_id: string | null;
   completed_at: string;
   user_id: string;
+  result: 'win' | 'loss' | 'draw';
+  three_dart_avg: number | null;
+  first9_avg: number | null;
+  highest_checkout: number | null;
+  checkout_percentage: number | null;
+  darts_thrown: number | null;
+  visits_100_plus: number | null;
+  visits_140_plus: number | null;
+  visits_180: number | null;
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -155,7 +164,13 @@ export default function PlayPage() {
           legs_won,
           legs_lost,
           three_dart_avg,
+          first9_avg,
           highest_checkout,
+          checkout_percentage,
+          darts_thrown,
+          visits_100_plus,
+          visits_140_plus,
+          visits_180,
           played_at
         `)
         .eq('user_id', user.id)
@@ -187,25 +202,35 @@ export default function PlayPage() {
         }
         
         // Transform data to match the expected format
-        const transformed = (matchesData || []).map((match: any) => ({
-          id: match.room_id || match.id,
-          match_type: match.match_format,
-          game_mode: match.game_mode?.toString() || '501',
-          match_format: `best-of-${(match.legs_won || 0) + (match.legs_lost || 0)}`,
-          player1_name: 'You',
-          player2_name: match.match_format === 'dartbot' 
-            ? `Dartbot(${match.bot_level || '?'})`
-            : opponentProfiles[match.opponent_id] || 'Opponent',
-          player1_legs_won: match.legs_won || 0,
-          player2_legs_won: match.legs_lost || 0,
-          winner_id: match.result === 'win' ? user.id : match.opponent_id,
-          completed_at: match.played_at,
-          user_id: user.id,
-          // Include stats for display
-          three_dart_avg: match.three_dart_avg,
-          highest_checkout: match.highest_checkout,
-          result: match.result,
-        }));
+        const transformed = (matchesData || []).map((match: any) => {
+          const isWin = match.result === 'win';
+          const totalLegs = (match.legs_won || 0) + (match.legs_lost || 0);
+          
+          return {
+            id: match.room_id || match.id,
+            match_type: match.match_format,
+            game_mode: match.game_mode?.toString() || '501',
+            match_format: totalLegs > 0 ? `Best of ${totalLegs}` : 'Best of 1',
+            player1_name: 'You',
+            player2_name: match.match_format === 'dartbot' 
+              ? `Dartbot(${match.bot_level || '?'})`
+              : opponentProfiles[match.opponent_id] || 'Opponent',
+            player1_legs_won: match.legs_won || 0,
+            player2_legs_won: match.legs_lost || 0,
+            winner_id: isWin ? user.id : match.opponent_id,
+            completed_at: match.played_at,
+            user_id: user.id,
+            result: match.result,
+            three_dart_avg: match.three_dart_avg,
+            first9_avg: match.first9_avg,
+            highest_checkout: match.highest_checkout,
+            checkout_percentage: match.checkout_percentage,
+            darts_thrown: match.darts_thrown,
+            visits_100_plus: match.visits_100_plus,
+            visits_140_plus: match.visits_140_plus,
+            visits_180: match.visits_180,
+          };
+        });
         setRecentMatches(transformed);
       }
     } catch (err) {
@@ -950,31 +975,90 @@ export default function PlayPage() {
         ) : (
           <div className="space-y-4">
             {recentMatches.map((match) => {
-              const isPlayer1 = match.user_id === userId;
-              const opponentName = isPlayer1 ? match.player2_name : match.player1_name;
-              const userLegs = isPlayer1 ? match.player1_legs_won : match.player2_legs_won;
-              const opponentLegs = isPlayer1 ? match.player2_legs_won : match.player1_legs_won;
+              const isWin = match.result === 'win';
+              const isLoss = match.result === 'loss';
+              const userLegs = match.player1_legs_won;
+              const opponentLegs = match.player2_legs_won;
+              const avg = match.three_dart_avg ? Number(match.three_dart_avg).toFixed(1) : '-';
+              const first9 = match.first9_avg ? Number(match.first9_avg).toFixed(1) : null;
+              const checkout = match.highest_checkout || '-';
+              const checkoutPct = match.checkout_percentage ? Math.round(match.checkout_percentage) : null;
 
               return (
                 <div
                   key={match.id}
-                  className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-colors"
+                  className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                    isWin 
+                      ? 'bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40' 
+                      : isLoss 
+                        ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40'
+                        : 'bg-white/5 border-white/5 hover:border-emerald-500/30'
+                  }`}
                 >
                   <div className="flex items-center space-x-4">
-                    <Avatar className="w-12 h-12 bg-gradient-to-br from-gray-600 to-gray-700">
-                      <div className="w-full h-full flex items-center justify-center text-white font-bold">
-                        {opponentName.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <Avatar className={`w-12 h-12 ${
+                        isWin 
+                          ? 'bg-gradient-to-br from-emerald-600 to-emerald-700' 
+                          : isLoss 
+                            ? 'bg-gradient-to-br from-red-600 to-red-700'
+                            : 'bg-gradient-to-br from-gray-600 to-gray-700'
+                      }`}>
+                        <div className="w-full h-full flex items-center justify-center text-white font-bold">
+                          {match.player2_name.charAt(0).toUpperCase()}
+                        </div>
+                      </Avatar>
+                      {/* Win/Loss Badge */}
+                      <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                        isWin 
+                          ? 'bg-emerald-500 text-white' 
+                          : isLoss 
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-500 text-white'
+                      }`}>
+                        {isWin ? 'W' : isLoss ? 'L' : 'D'}
                       </div>
-                    </Avatar>
+                    </div>
                     <div>
-                      <p className="text-white font-medium">{opponentName}</p>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <span className="text-gray-400">
-                          {MODE_LABELS[match.match_type] || match.match_type} • {match.game_mode} • {match.match_format.replace('best-of-', 'Best of ')}
+                      <div className="flex items-center space-x-2">
+                        <p className="text-white font-medium">{match.player2_name}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${
+                          isWin 
+                            ? 'bg-emerald-500/20 text-emerald-400' 
+                            : isLoss 
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {isWin ? 'WIN' : isLoss ? 'LOSS' : 'DRAW'}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-2 text-sm mt-1">
-                        <span className="text-gray-400">Score: {userLegs}-{opponentLegs}</span>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <span className="text-gray-400">
+                          {MODE_LABELS[match.match_type] || match.match_type} • {match.game_mode}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 text-sm mt-1">
+                        <span className="text-gray-400">Legs: {userLegs}-{opponentLegs}</span>
+                        <span className="text-gray-600">|</span>
+                        <span className="text-emerald-400">Avg: {avg}</span>
+                        {first9 && (
+                          <>
+                            <span className="text-gray-600">|</span>
+                            <span className="text-cyan-400">First9: {first9}</span>
+                          </>
+                        )}
+                        {(match.highest_checkout ?? 0) > 0 && (
+                          <>
+                            <span className="text-gray-600">|</span>
+                            <span className="text-amber-400">Best: {checkout}</span>
+                          </>
+                        )}
+                        {checkoutPct && (
+                          <>
+                            <span className="text-gray-600">|</span>
+                            <span className="text-purple-400">Checkout: {checkoutPct}%</span>
+                          </>
+                        )}
                         <span className="text-gray-600">•</span>
                         <span className="text-gray-500">{getTimeAgo(match.completed_at)}</span>
                       </div>
@@ -992,7 +1076,7 @@ export default function PlayPage() {
                   </div>
                 </div>
               );
-            })}
+            })};
           </div>
         )}
       </Card>

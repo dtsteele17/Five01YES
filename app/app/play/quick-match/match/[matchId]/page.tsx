@@ -76,6 +76,9 @@ interface MatchRoom {
   player1_ready?: boolean;
   player2_ready?: boolean;
   pregame_status?: 'waiting' | 'ready' | 'timeout' | 'cancelled';
+  player1_rematch?: boolean;
+  player2_rematch?: boolean;
+  rematch_room_id?: string | null;
 }
 
 interface Profile {
@@ -1807,6 +1810,12 @@ export default function QuickMatchRoomPage() {
             setPlayer2Ready(true);
           }
           
+          // Handle rematch room created
+          if (oldRoom && !oldRoom.rematch_room_id && updatedRoom.rematch_room_id) {
+            console.log('[ROOM] Rematch room created:', updatedRoom.rematch_room_id);
+            setNewRematchRoomId(updatedRoom.rematch_room_id);
+          }
+          
           // Handle leg change - reload visits
           if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
             console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
@@ -2012,6 +2021,11 @@ export default function QuickMatchRoomPage() {
           // Handle rematch ready signals
           if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
             console.log('[REMATCH] Opponent is ready for rematch');
+            setOpponentRematchReady(true);
+          }
+          // Handle new rematch requested signals
+          if (signal.type === 'rematch_requested' && signal.from_user_id !== currentUserId) {
+            console.log('[REMATCH] Opponent requested rematch (new system)');
             setOpponentRematchReady(true);
           }
           // Handle rematch room created - both players get this and navigate
@@ -3110,283 +3124,182 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Rematch - both players click, wait 2s, then Player 1 creates room, Player 2 joins
+  // Rematch v2 - Database-driven like ready up system
   const handleRematch = async () => {
     if (!room || !currentUserId || rematchAttemptedRef.current) return;
     
-    // Get opponent ID from matchEndStats or fall back to room
-    let opponentId: string;
-    if (matchEndStats) {
-      opponentId = matchEndStats.player1.id === currentUserId 
-        ? matchEndStats.player2.id 
-        : matchEndStats.player1.id;
-    } else {
-      opponentId = room.player1_id === currentUserId ? room.player2_id : room.player1_id;
-    }
-    
-    if (!opponentId) {
-      console.error('[REMATCH] Cannot determine opponent ID');
-      toast.error('Cannot start rematch - opponent not found');
-      return;
-    }
-    
     const isPlayer1 = room.player1_id === currentUserId;
-    console.log('[REMATCH] Starting rematch. isPlayer1:', isPlayer1, 'opponentId:', opponentId, 'currentUserId:', currentUserId);
+    console.log('[REMATCH] Requesting rematch. isPlayer1:', isPlayer1);
     
     // Prevent double-clicks
     rematchAttemptedRef.current = true;
-    rematchCheckCountRef.current = 0; // Reset retry counter
     setRematchStatus('waiting');
     
     try {
-      // Send ready signal with persistent flag for reliability
-      const { error: signalError } = await supabase.rpc('rpc_send_match_signal', {
-        p_room_id: matchId,
-        p_to_user_id: opponentId,
-        p_type: 'rematch_ready',
-        p_payload: { 
-          ready: true, 
-          timestamp: Date.now(), 
-          isPlayer1,
-          room_settings: {
-            game_mode: room.game_mode,
-            match_format: room.match_format,
-            match_type: room.match_type,
-            legs_to_win: room.legs_to_win,
-            double_out: room.double_out,
-            source: room.source,
-          }
-        }
+      // Call RPC to set rematch flag in database
+      const { data, error } = await supabase.rpc('rpc_request_rematch', {
+        p_room_id: matchId
       });
       
-      if (signalError) {
-        console.error('[REMATCH] Signal send error:', signalError);
-        throw signalError;
+      if (error) {
+        console.error('[REMATCH] RPC error:', error);
+        throw error;
       }
       
-      console.log('[REMATCH] Ready signal sent, isPlayer1:', isPlayer1);
+      console.log('[REMATCH] RPC response:', data);
       
-      // Verify signal was stored by querying immediately
-      const { data: verifySignals } = await supabase
-        .from('match_signals')
-        .select('*')
-        .eq('room_id', matchId)
-        .eq('type', 'rematch_ready')
-        .eq('from_user_id', currentUserId);
-      console.log('[REMATCH] Verified own signal exists:', verifySignals?.length || 0, 'signals');
-      
-      // Only Player 1 checks and creates the room
-      // Player 2 waits for the rematch_room_created signal
-      if (isPlayer1) {
-        await checkAndCreateRematchRoom(opponentId);
-      } else {
-        // Player 2 waits for the room created signal with fallback polling
-        console.log('[REMATCH] Player 2 waiting for room...');
-        toast.info('Waiting for opponent to create rematch...');
+      if (data?.both_ready) {
+        // Both players are ready - room will be created by trigger or player 1
+        console.log('[REMATCH] Both players ready!');
+        setRematchStatus('ready');
         
-        // Start polling as fallback in case signal is missed
-        startPlayer2RematchPolling(opponentId);
+        // Player 1 creates the room
+        if (isPlayer1) {
+          await createRematchRoomV2();
+        } else {
+          // Player 2 polls for the new room
+          pollForRematchRoomV2();
+        }
+      } else {
+        // Waiting for opponent
+        console.log('[REMATCH] Waiting for opponent...');
+        toast.info('Waiting for opponent to accept rematch...');
+        
+        // Start polling for rematch status
+        pollForRematchStatusV2();
       }
       
     } catch (error: any) {
       console.error('[REMATCH] Error:', error);
       setRematchStatus('none');
       rematchAttemptedRef.current = false;
-      rematchCheckCountRef.current = 0;
       toast.error('Failed to start rematch');
     }
   };
   
-  // Player 2 polling fallback - checks for rematch_room_created signal
-  function startPlayer2RematchPolling(opponentId: string) {
-    let pollCount = 0;
-    const maxPolls = 20; // Poll for 30 seconds (20 * 1500ms)
+  // Poll for rematch status (called by both players when waiting)
+  async function pollForRematchStatusV2() {
+    if (!room || !currentUserId) return;
     
-    const pollForRoom = async () => {
-      pollCount++;
+    const isPlayer1 = room.player1_id === currentUserId;
+    
+    try {
+      const { data, error } = await supabase.rpc('rpc_check_rematch_status', {
+        p_room_id: matchId
+      });
       
-      if (pollCount > maxPolls) {
-        console.log('[REMATCH] Player 2 polling timeout');
-        toast.error('Rematch timed out. Please try again.');
+      if (error) {
+        console.error('[REMATCH] Poll error:', error);
+        return;
+      }
+      
+      console.log('[REMATCH] Status poll:', data);
+      
+      // If rematch room already exists, navigate to it
+      if (data?.rematch_room_id) {
+        console.log('[REMATCH] Room already exists:', data.rematch_room_id);
+        setNewRematchRoomId(data.rematch_room_id);
+        return;
+      }
+      
+      // If both ready
+      if (data?.both_ready) {
+        console.log('[REMATCH] Both ready detected via poll!');
+        setRematchStatus('ready');
+        
+        if (isPlayer1) {
+          await createRematchRoomV2();
+        } else {
+          pollForRematchRoomV2();
+        }
+        return;
+      }
+      
+      // Continue polling
+      setTimeout(pollForRematchStatusV2, 1000);
+      
+    } catch (err) {
+      console.error('[REMATCH] Poll error:', err);
+      setTimeout(pollForRematchStatusV2, 2000);
+    }
+  }
+  
+  // Player 1 creates the rematch room
+  async function createRematchRoomV2() {
+    if (!room || room.player1_id !== currentUserId) return;
+    
+    setRematchStatus('creating');
+    console.log('[REMATCH] Player 1 creating room...');
+    
+    try {
+      const { data, error } = await supabase.rpc('rpc_create_rematch_room', {
+        p_original_room_id: matchId
+      });
+      
+      if (error) {
+        console.error('[REMATCH] Create room error:', error);
+        throw error;
+      }
+      
+      console.log('[REMATCH] Room created:', data);
+      
+      if (data?.room_id) {
+        toast.success('Rematch starting!');
+        setNewRematchRoomId(data.room_id);
+      } else if (data?.existing && data?.room_id) {
+        // Room was already created
+        setNewRematchRoomId(data.room_id);
+      }
+      
+    } catch (error: any) {
+      console.error('[REMATCH] Error creating room:', error);
+      // Retry after delay
+      setTimeout(createRematchRoomV2, 2000);
+    }
+  }
+  
+  // Player 2 polls for the rematch room to be created
+  function pollForRematchRoomV2() {
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds
+    
+    const doPoll = async () => {
+      attempts++;
+      
+      if (attempts > maxAttempts) {
+        console.log('[REMATCH] Timeout waiting for room');
+        toast.error('Rematch timed out');
         setRematchStatus('none');
         rematchAttemptedRef.current = false;
         return;
       }
       
-      // Check if we already have the room ID (from signal handler)
-      if (newRematchRoomId) return;
-      
       try {
-        // Poll for rematch_room_created signal
-        const { data: signals, error } = await supabase
-          .from('match_signals')
-          .select('*')
-          .eq('room_id', matchId)
-          .eq('type', 'rematch_room_created')
-          .eq('to_user_id', currentUserId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+        // Check if rematch_room_id is set on the original room
+        const { data: roomData, error } = await supabase
+          .from('match_rooms')
+          .select('rematch_room_id, player1_rematch, player2_rematch')
+          .eq('id', matchId)
+          .single();
         
-        if (error) throw error;
-        
-        if (signals && signals.length > 0) {
-          const newRoomId = signals[0].payload?.new_room_id;
-          if (newRoomId) {
-            console.log('[REMATCH] Player 2 found room via polling:', newRoomId);
-            setNewRematchRoomId(newRoomId);
-            return;
-          }
+        if (error) {
+          console.error('[REMATCH] Poll error:', error);
+        } else if (roomData?.rematch_room_id) {
+          console.log('[REMATCH] Found room:', roomData.rematch_room_id);
+          setNewRematchRoomId(roomData.rematch_room_id);
+          return;
         }
         
         // Continue polling
-        setTimeout(pollForRoom, 1500);
+        setTimeout(doPoll, 1000);
         
       } catch (err) {
-        console.error('[REMATCH] Polling error:', err);
-        setTimeout(pollForRoom, 1500);
+        console.error('[REMATCH] Poll error:', err);
+        setTimeout(doPoll, 2000);
       }
     };
     
-    // Start polling after initial delay
-    setTimeout(pollForRoom, 2000);
-  }
-  
-  // Check if both players are ready and create room (Player 1 only)
-  async function checkAndCreateRematchRoom(opponentId: string) {
-    if (!room || !currentUserId) return;
-    
-    // Max retry limit
-    rematchCheckCountRef.current++;
-    if (rematchCheckCountRef.current > 12) { // 12 retries * 500ms = 6 seconds max
-      console.log('[REMATCH] Max retries reached, giving up');
-      toast.error('Opponent did not respond to rematch');
-      setRematchStatus('none');
-      rematchAttemptedRef.current = false;
-      rematchCheckCountRef.current = 0;
-      return;
-    }
-    
-    // Wait a moment for the other player's signal to be recorded
-    // Increased delay to ensure database consistency
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    try {
-      // Check how many rematch_ready signals exist for this room
-      // Only look at signals from the last 2 minutes to avoid stale data
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-      const { data: signals, error: sigError } = await supabase
-        .from('match_signals')
-        .select('*')
-        .eq('room_id', matchId)
-        .eq('type', 'rematch_ready')
-        .gte('created_at', twoMinutesAgo)
-        .order('created_at', { ascending: false });
-      
-      if (sigError) {
-        console.error('[REMATCH] Database error:', sigError);
-        throw sigError;
-      }
-      
-      console.log('[REMATCH] Room ID:', matchId, 'Current User:', currentUserId);
-      console.log('[REMATCH] Found signals:', signals?.length || 0, 'signals:', JSON.stringify(signals));
-      const uniquePlayers = new Set(signals?.map(s => s.from_user_id));
-      console.log('[REMATCH] Ready players:', uniquePlayers.size, 'unique IDs:', Array.from(uniquePlayers), 'expected:', [currentUserId, opponentId]);
-      
-      // If both players are ready (2 unique players)
-      if (uniquePlayers.size >= 2) {
-        setRematchStatus('creating');
-        console.log('[REMATCH] Both ready! Waiting 2 seconds before creating...');
-        
-        // Wait 2 seconds as requested by user
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Double-check we haven't already created a room (race condition protection)
-        const { data: existingSignals } = await supabase
-          .from('match_signals')
-          .select('*')
-          .eq('room_id', matchId)
-          .eq('type', 'rematch_room_created')
-          .limit(1);
-        
-        if (existingSignals && existingSignals.length > 0) {
-          console.log('[REMATCH] Room already created by another process');
-          const existingRoomId = existingSignals[0].payload?.new_room_id;
-          if (existingRoomId) {
-            setNewRematchRoomId(existingRoomId);
-            return;
-          }
-        }
-        
-        // Create new room with same settings
-        const { data: newRoom, error } = await supabase
-          .from('match_rooms')
-          .insert({
-            player1_id: room.player1_id, // Same Player 1 creates
-            player2_id: room.player2_id, // Same Player 2 joins
-            game_mode: room.game_mode,
-            match_format: room.match_format,
-            match_type: room.match_type,
-            status: 'active',
-            current_leg: 1,
-            legs_to_win: room.legs_to_win,
-            player1_remaining: room.game_mode,
-            player2_remaining: room.game_mode,
-            current_turn: room.player1_id, // Player 1 starts
-            double_out: room.double_out,
-            source: room.source,
-          })
-          .select()
-          .single();
-        
-        if (error) throw error;
-        
-        console.log('[REMATCH] Room created:', newRoom.id);
-        
-        // Send room created signal to opponent (Player 2) - send multiple for reliability
-        const signalPayload = { 
-          new_room_id: newRoom.id, 
-          created_by: currentUserId,
-          created_at: Date.now()
-        };
-        
-        // Send primary signal
-        await supabase.rpc('rpc_send_match_signal', {
-          p_room_id: matchId,
-          p_to_user_id: opponentId,
-          p_type: 'rematch_room_created',
-          p_payload: signalPayload
-        });
-        
-        // Send backup signal after short delay
-        setTimeout(async () => {
-          await supabase.rpc('rpc_send_match_signal', {
-            p_room_id: matchId,
-            p_to_user_id: opponentId,
-            p_type: 'rematch_room_created',
-            p_payload: { ...signalPayload, backup: true }
-          });
-        }, 500);
-        
-        // Navigate to new room (Player 1) - use state for consistent navigation
-        toast.success('Rematch starting!');
-        setNewRematchRoomId(newRoom.id);
-        
-      } else {
-        // Only one player ready, wait for the other
-        console.log('[REMATCH] Waiting for opponent...');
-        toast.info('Waiting for opponent to accept rematch...');
-        
-        // Poll for the other player
-        setTimeout(() => checkAndCreateRematchRoom(opponentId), 500);
-      }
-      
-    } catch (error: any) {
-      console.error('[REMATCH] Error:', error);
-      setRematchStatus('none');
-      rematchAttemptedRef.current = false;
-      rematchCheckCountRef.current = 0;
-      toast.error('Failed to create rematch room');
-    }
+    doPoll();
   }
 
   async function saveMatchStats(
