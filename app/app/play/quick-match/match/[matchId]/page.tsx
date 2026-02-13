@@ -3112,13 +3112,26 @@ export default function QuickMatchRoomPage() {
 
   // Rematch - both players click, wait 2s, then Player 1 creates room, Player 2 joins
   const handleRematch = async () => {
-    if (!room || !currentUserId || !matchEndStats || rematchAttemptedRef.current) return;
+    if (!room || !currentUserId || rematchAttemptedRef.current) return;
     
-    const opponentId = matchEndStats.player1.id === currentUserId 
-      ? matchEndStats.player2.id 
-      : matchEndStats.player1.id;
+    // Get opponent ID from matchEndStats or fall back to room
+    let opponentId: string;
+    if (matchEndStats) {
+      opponentId = matchEndStats.player1.id === currentUserId 
+        ? matchEndStats.player2.id 
+        : matchEndStats.player1.id;
+    } else {
+      opponentId = room.player1_id === currentUserId ? room.player2_id : room.player1_id;
+    }
+    
+    if (!opponentId) {
+      console.error('[REMATCH] Cannot determine opponent ID');
+      toast.error('Cannot start rematch - opponent not found');
+      return;
+    }
     
     const isPlayer1 = room.player1_id === currentUserId;
+    console.log('[REMATCH] Starting rematch. isPlayer1:', isPlayer1, 'opponentId:', opponentId, 'currentUserId:', currentUserId);
     
     // Prevent double-clicks
     rematchAttemptedRef.current = true;
@@ -3152,6 +3165,15 @@ export default function QuickMatchRoomPage() {
       }
       
       console.log('[REMATCH] Ready signal sent, isPlayer1:', isPlayer1);
+      
+      // Verify signal was stored by querying immediately
+      const { data: verifySignals } = await supabase
+        .from('match_signals')
+        .select('*')
+        .eq('room_id', matchId)
+        .eq('type', 'rematch_ready')
+        .eq('from_user_id', currentUserId);
+      console.log('[REMATCH] Verified own signal exists:', verifySignals?.length || 0, 'signals');
       
       // Only Player 1 checks and creates the room
       // Player 2 waits for the rematch_room_created signal
@@ -3245,20 +3267,30 @@ export default function QuickMatchRoomPage() {
     }
     
     // Wait a moment for the other player's signal to be recorded
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Increased delay to ensure database consistency
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     try {
       // Check how many rematch_ready signals exist for this room
+      // Only look at signals from the last 2 minutes to avoid stale data
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
       const { data: signals, error: sigError } = await supabase
         .from('match_signals')
         .select('*')
         .eq('room_id', matchId)
-        .eq('type', 'rematch_ready');
+        .eq('type', 'rematch_ready')
+        .gte('created_at', twoMinutesAgo)
+        .order('created_at', { ascending: false });
       
-      if (sigError) throw sigError;
+      if (sigError) {
+        console.error('[REMATCH] Database error:', sigError);
+        throw sigError;
+      }
       
+      console.log('[REMATCH] Room ID:', matchId, 'Current User:', currentUserId);
+      console.log('[REMATCH] Found signals:', signals?.length || 0, 'signals:', JSON.stringify(signals));
       const uniquePlayers = new Set(signals?.map(s => s.from_user_id));
-      console.log('[REMATCH] Ready players:', uniquePlayers.size, 'check:', rematchCheckCountRef.current);
+      console.log('[REMATCH] Ready players:', uniquePlayers.size, 'unique IDs:', Array.from(uniquePlayers), 'expected:', [currentUserId, opponentId]);
       
       // If both players are ready (2 unique players)
       if (uniquePlayers.size >= 2) {
