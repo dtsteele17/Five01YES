@@ -162,12 +162,12 @@ BEGIN
       total_score = total_score + COALESCE(p_player_three_dart_avg * p_player_total_darts / 3, 0),
       overall_3dart_avg = CASE 
         WHEN (total_darts_thrown + p_player_total_darts) > 0 
-        THEN ROUND(((total_score + COALESCE(p_player_three_dart_avg * p_player_total_darts / 3, 0))::DECIMAL / (total_darts_thrown + p_player_total_darts) * 3)::DECIMAL, 2)
+        THEN ROUND(((total_score + COALESCE(p_player_three_dart_avg * p_player_total_darts / 3, 0))::DECIMAL / (total_darts_thrown + p_player_total_darts)) * 3, 2)
         ELSE 0 
       END,
       overall_first9_avg = CASE 
         WHEN (total_darts_thrown + p_player_total_darts) > 0 
-        THEN ROUND(((total_score + COALESCE(p_player_three_dart_avg * p_player_total_darts / 3, 0))::DECIMAL / (total_darts_thrown + p_player_total_darts) * 3)::DECIMAL, 2)
+        THEN ROUND(((total_score + COALESCE(p_player_three_dart_avg * p_player_total_darts / 3, 0))::DECIMAL / (total_darts_thrown + p_player_total_darts)) * 3, 2)
         ELSE 0 
       END,
       highest_checkout = GREATEST(COALESCE(highest_checkout, 0), p_player_highest_checkout),
