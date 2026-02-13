@@ -93,7 +93,7 @@ export default function OneTwentyOnePage() {
     const newVisitScore = currentVisitScore + hit.value;
 
     setCurrentDarts(newDarts);
-    setTotalDarts(prev => prev + 1);
+    setTotalDartsThrown(prev => prev + 1);
 
     // Check for win (checkout on double)
     if (newRemaining === 0 && (hit.segment === 'D' || hit.segment === 'DB')) {
@@ -233,7 +233,7 @@ export default function OneTwentyOnePage() {
         if (newStreak > bestStreak) setBestStreak(newStreak);
         return newStreak;
       });
-      setTotalDarts(prev => prev + dartsNeeded);
+      setTotalDartsThrown(prev => prev + dartsNeeded);
 
       toast.success(`CHECKOUT! ${currentTarget} completed!`);
 
@@ -255,7 +255,7 @@ export default function OneTwentyOnePage() {
       // Continue to next visit
       setCurrentDarts(newDarts);
       setRemaining(newRemaining);
-      setTotalDarts(prev => prev + dartsNeeded);
+      setTotalDartsThrown(prev => prev + dartsNeeded);
       
       if (visitNumber >= 3) {
         handleRoundFail(newDarts, false);
