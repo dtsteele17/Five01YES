@@ -1140,30 +1140,23 @@ export default function QuickMatchRoomPage() {
     }
   }, [localStream, remoteStream]);
   
-  // Sync local video with localStream (stable ref - prevents flicker on re-render)
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      if (localVideoRef.current.srcObject !== localStream) {
-        console.log('[CAMERA] Setting local video stream');
-        localVideoRef.current.srcObject = localStream;
-        localVideoRef.current.play().catch(err => {
-          console.error('[CAMERA] Error playing local video:', err);
-        });
-      }
+  // Callback refs that attach stream immediately when element mounts
+  const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    if (el && localStream) {
+      console.log('[CAMERA] Attaching local stream to video element');
+      el.srcObject = localStream;
+      el.play().catch(err => console.error('[CAMERA] Error playing local:', err));
     }
+    localVideoRef.current = el;
   }, [localStream]);
-  
-  // Sync remote video with remoteStream (stable ref - prevents flicker on re-render)
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      if (remoteVideoRef.current.srcObject !== remoteStream) {
-        console.log('[CAMERA] Setting remote video stream');
-        remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.play().catch(err => {
-          console.error('[CAMERA] Error playing remote video:', err);
-        });
-      }
+
+  const setRemoteVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    if (el && remoteStream) {
+      console.log('[CAMERA] Attaching remote stream to video element');
+      el.srcObject = remoteStream;
+      el.play().catch(err => console.error('[CAMERA] Error playing remote:', err));
     }
+    remoteVideoRef.current = el;
   }, [remoteStream]);
 
   // Auto-start camera when both players are ready (after pregame lobby)
@@ -3553,7 +3546,7 @@ export default function QuickMatchRoomPage() {
               {isMyTurn ? (
                 localStream ? (
                   <video 
-                    ref={localVideoRef}
+                    ref={setLocalVideoRef}
                     autoPlay 
                     playsInline 
                     muted 
@@ -3579,7 +3572,7 @@ export default function QuickMatchRoomPage() {
                 /* OPPONENT'S TURN: Show THEIR remote camera */
                 remoteStream ? (
                   <video 
-                    ref={remoteVideoRef}
+                    ref={setRemoteVideoRef}
                     autoPlay 
                     playsInline 
                     className="w-full h-full object-cover"

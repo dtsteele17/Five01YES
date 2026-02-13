@@ -42,6 +42,21 @@ interface MatchHistoryData {
   visits_140_plus: number | null;
   visits_180: number | null;
   played_at: string;
+  // For DartBot matches
+  metadata?: {
+    bot_stats?: {
+      three_dart_avg: number;
+      first9_avg: number;
+      checkout_pct: number;
+      highest_checkout: number;
+      darts_at_double: number;
+      total_darts: number;
+      visits_100_plus: number;
+      visits_140_plus: number;
+      visits_180: number;
+      total_score: number;
+    };
+  };
 }
 
 interface MatchStats {
@@ -174,22 +189,27 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
         
         setOpponentProfile(oppProf || { username: 'Opponent' });
       } else if (userMatchData.match_format === 'dartbot') {
-        // For dartbot matches, set opponent as DartBot
-        setOpponentProfile({ username: `DartBot (Level ${userMatchData.bot_level || '?'})` });
+        // For dartbot matches, show opponent as Dartbot(X) where X is the bot average
+        setOpponentProfile({ username: `Dartbot(${userMatchData.bot_level || '?'})` });
+        
+        // Extract bot stats from metadata (stored by record_dartbot_match_completion)
+        const botStats = (userMatchData as any).metadata?.bot_stats || {};
+        const botLegsWon = userMatchData.legs_lost || 0;
+        
         setOpponentStats({
-          three_dart_average: 0,
-          first_9_dart_avg: 0,
-          highest_checkout: 0,
-          checkout_percentage: 0,
-          checkout_hits: userMatchData.legs_lost || 0,
-          checkout_attempts: 0,
-          count_100_plus: 0,
-          count_140_plus: 0,
-          count_180: 0,
-          legs_won: userMatchData.legs_lost || 0,
+          three_dart_average: botStats.three_dart_avg || botStats.avg || 0,
+          first_9_dart_avg: botStats.first9_avg || 0,
+          highest_checkout: botStats.highest_checkout || 0,
+          checkout_percentage: botStats.checkout_pct || 0,
+          checkout_hits: botLegsWon, // Bot wins legs via checkout
+          checkout_attempts: botStats.darts_at_double || botLegsWon * 3,
+          count_100_plus: botStats.visits_100_plus || 0,
+          count_140_plus: botStats.visits_140_plus || 0,
+          count_180: botStats.visits_180 || 0,
+          legs_won: botLegsWon,
           legs_lost: userMatchData.legs_won || 0,
-          darts_thrown: 0,
-          total_score: 0,
+          darts_thrown: botStats.total_darts || 0,
+          total_score: botStats.total_score || 0,
         });
       }
     } catch (error) {

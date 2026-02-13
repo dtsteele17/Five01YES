@@ -624,16 +624,13 @@ export default function DartbotMatchPage() {
         winnerId: currentMatchWinner === 'player1' ? 'player1' : 'player2',
       });
 
-      // Map difficulty to level (1-5) for database
-      const difficultyToLevel: Record<string, number> = {
-        'novice': 1, 'beginner': 1, 'casual': 2, 'intermediate': 2,
-        'advanced': 3, 'elite': 4, 'pro': 5, 'worldClass': 5,
-      };
+      // Store the actual bot average (25, 35, 45, 55, 65, 75, 85, 95) for display
+      const botAvg = config?.botAverage || 50;
       
       const dartbotStats: DartbotMatchStats = {
         gameMode: normalizedConfig.mode === '301' ? 301 : 501,
         matchFormat: currentConfig.bestOf,
-        dartbotLevel: difficultyToLevel[currentConfig.botDifficulty] || 3,
+        dartbotLevel: botAvg, // Store actual average instead of level 1-5
         playerLegsWon: p1Legs,
         botLegsWon: p2Legs,
         winner: currentMatchWinner === 'player1' ? 'player' : 'dartbot',
@@ -647,6 +644,19 @@ export default function DartbotMatchPage() {
           visits100Plus: userStats.count100Plus,
           visits140Plus: userStats.count140Plus,
           visits180: userStats.oneEighties,
+        },
+        // Include bot stats for display in match history
+        botStats: {
+          threeDartAverage: opponentStats.threeDartAverage,
+          first9Average: opponentStats.first9Average,
+          checkoutPercentage: opponentStats.checkoutPercent,
+          highestCheckout: opponentStats.highestCheckout,
+          dartsAtDouble: opponentStats.checkoutDartsAttempted,
+          totalDartsThrown: opponentStats.totalDartsThrown,
+          visits100Plus: opponentStats.count100Plus,
+          visits140Plus: opponentStats.count140Plus,
+          visits180: opponentStats.oneEighties,
+          totalScore: opponentStats.totalPointsScored,
         },
       };
       

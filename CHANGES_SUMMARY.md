@@ -1,167 +1,75 @@
-# DartBot Stats Integration - Changes Summary
+# Summary of Changes
 
-## Problem Statement
-DartBot match stats were not being properly recorded and displayed on the Stats page like QuickMatch stats.
+## 1. Camera Alternation Fix (Quick Match)
+**Files Modified:**
+- `lib/hooks/useMatchWebRTC.ts`
+- `app/app/play/quick-match/match/[matchId]/page.tsx`
 
-## Solution Overview
-Enhanced the existing stats recording system to properly categorize and display dartbot matches with bot level information.
-
----
-
-## Files Modified
-
-### 1. `lib/match/recordMatchCompletion.ts`
 **Changes:**
-- Added `botLevel?: number` to `RecordMatchInput.opponent` interface
-- Updated `dartbot_level` field to use `input.opponent.botLevel` instead of hardcoded `3`
-- Updated `bot_level` field in `opponentPlayerData` to use the passed bot level
+- Changed from conditional rendering (which broke refs) to using callback refs
+- Callback refs attach streams immediately when video elements mount
+- Only the active player's camera is rendered at a time for bandwidth efficiency
+- When it's your turn, you see your local camera; when it's opponent's turn, you see their remote camera
 
-**Purpose:** Allow dartbot matches to record the bot's target average (25, 35, 45, 55, 65, 75, 85, 95)
+## 2. Forfeit Button Restoration
+**Files Modified:**
+- `app/app/play/quick-match/match/[matchId]/page.tsx`
 
-### 2. `app/app/play/training/501/page.tsx`
 **Changes:**
-- Updated `recordMatchCompletion` call to pass `botLevel: config.botAverage`
+- Added forfeit button back to top-left of quick-match interface
+- Removed the "only on your turn" restriction
+- Players can now forfeit at any time during the match
 
-**Purpose:** Pass the actual bot difficulty level when saving match stats
+## 3. SQL Syntax Error Fix
+**Files Modified:**
+- `supabase/migrations/20260213000007_fix_dartbot_rpc_params.sql`
 
-### 3. `components/stats/MatchHistoryList.tsx`
+**Fix:**
+- Fixed missing parenthesis at line 166 in the `overall_first9_avg` calculation
+- Changed from `... )::DECIMAL / (total_darts_thrown + p_player_total_darts) * 3)::DECIMAL` 
+- To: `... )::DECIMAL / (total_darts_thrown + p_player_total_darts)) * 3, 2)`
+
+## 4. DartBot Stats Recording & Display
+**Files Modified:**
+- `lib/dartbot.ts` - Added `botStats` field to `DartbotMatchStats` interface and updated `recordDartbotMatchCompletion`
+- `app/app/play/training/501/page.tsx` - Pass bot stats when recording match completion
+- `components/app/MatchStatsModal.tsx` - Display bot stats from metadata
+- `supabase/migrations/20260213000008_add_dartbot_stats_params.sql` - New migration
+
 **Changes:**
-- Added `bot_level?: number` to `MatchHistoryItem` interface
-- Enhanced the Supabase query to fetch `opponent:opponent_id (username, avatar_url)`
-- Added `getMatchFormatLabel()` helper function that displays "Bot (55)" for dartbot matches
-- Updated match format display to use the new helper
+- Added `metadata` JSONB column to `match_history` table
+- RPC function now accepts bot stats parameters
+- Bot stats stored in metadata: `three_dart_avg`, `first9_avg`, `checkout_pct`, `highest_checkout`, `darts_at_double`, `total_darts`, `visits_100_plus`, `visits_140_plus`, `visits_180`, `total_score`
+- MatchStatsModal reads bot stats from metadata and displays them in the opponent stats panel
+- For DartBot matches, opponent name shows as "DartBot (Level X)"
 
-**Purpose:** Show bot level in match history list (e.g., "301 • Bot (55)")
+## Testing Notes
 
----
+### Camera Alternation
+1. Start a quick match with another player
+2. Verify your camera shows when it's your turn
+3. Verify opponent's camera shows when it's their turn
+4. Check browser console for `[CAMERA]` debug messages
 
-## New Migration File
+### Forfeit Button
+1. Start a quick match
+2. Click forfeit button at any time (not just your turn)
+3. Confirm match ends and stats are recorded
 
-### `supabase/migrations/040_update_dartbot_stats_sync_with_level.sql`
-**Contains:**
-1. Drops existing trigger `trg_sync_dartbot_matches`
-2. Recreates `sync_matches_to_history()` function with:
-   - Proper null handling with COALESCE
-   - Cleaner SELECT into RECORD
-   - Better error handling
-3. Recreates trigger
-4. Adds `bot_level` column to `match_history` if not exists
-5. Creates index on `bot_level` for faster filtering
-6. Backfills any missing dartbot matches
+### DartBot Stats
+1. Play a training match against DartBot
+2. After match ends, click to view match stats
+3. Verify both player and DartBot stats are displayed
+4. Check that DartBot's 3-dart average, checkouts, and visit counts are shown
 
-**Purpose:** Ensure dartbot matches are properly synced to match_history with bot level
+## Remaining Issues
 
----
+### Rematch System
+The rematch system in quick-match needs to be fixed:
+- Detect when both users click rematch
+- Player 1 creates lobby with same settings
+- Player 2 auto-joins
+- Restart match with coin toss
 
-## How Stats Flow Works
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  DARTBOT MATCH ENDS                                             │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  saveMatchStats() called                                        │
-│  - Formats visit data                                           │
-│  - Computes user & opponent stats                               │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  recordMatchCompletion()                                        │
-│  - Inserts into 'matches' table (match_type='dartbot')          │
-│  - Inserts into 'match_players' table (user + bot stats)        │
-│  - Inserts into 'match_history' table (via trigger)             │
-│  - Updates 'user_stats' aggregate table                         │
-│  - Updates 'player_stats' dashboard table                       │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Database Trigger: trg_sync_dartbot_matches                     │
-│  - Syncs matches → match_history                                │
-│  - Sets match_format = 'dartbot'                                │
-│  - Copies bot_level from matches.dartbot_level                  │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  STATS PAGE displays data                                       │
-│  - Filter: "Training (vs Bot)" queries match_format='dartbot'   │
-│  - Shows: "Bot (55)" with bot_level from match_history          │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Stats Page Filters
-
-### Game Mode Filter
-- All Games
-- 301
-- 501
-
-### Match Type Filter
-- All Types
-- Quick Match (`match_format = 'quick'`)
-- Ranked Match (`match_format = 'ranked'`)
-- Private Match (`match_format = 'private'`)
-- Local Match (`match_format = 'local'`)
-- **Training (vs Bot)** (`match_format = 'dartbot'`)
-
----
-
-## Stats Tracked for DartBot Matches
-
-### Per-Match Stats (in match_history)
-- `game_mode`: 301 or 501
-- `match_format`: 'dartbot'
-- `bot_level`: Bot target average (25-95)
-- `result`: win/loss
-- `legs_won`, `legs_lost`
-- `three_dart_avg`, `first9_avg`
-- `highest_checkout`, `checkout_percentage`
-- `darts_thrown`, `total_score`
-- `visits_100_plus`, `visits_140_plus`, `visits_180`
-- `played_at`: Timestamp
-
-### Aggregate Stats
-All dartbot stats contribute to:
-- Overall averages
-- Total matches/wins/losses
-- Total 180s
-- Best checkout
-- etc.
-
----
-
-## Testing Checklist
-
-- [ ] Play a 501 match against dartbot
-- [ ] Win or lose the match
-- [ ] Check browser console for "📊 DARTBOT MATCH SAVED"
-- [ ] Go to Stats page
-- [ ] Select "Training (vs Bot)" filter
-- [ ] Verify match appears in history
-- [ ] Verify "Bot (55)" shows the correct level
-- [ ] Select "501" game mode + "Training (vs Bot)"
-- [ ] Verify correct filtered stats
-- [ ] Check overall stats include dartbot matches
-
----
-
-## Database Schema Notes
-
-### matches table
-- `match_type`: 'dartbot' for bot matches
-- `dartbot_level`: Bot target average
-
-### match_history table
-- `match_format`: 'dartbot' for filtering
-- `bot_level`: Bot target average (new column)
-- `game_mode`: 301 or 501 as integer
-
-### match_players table
-- `bot_level`: Bot target average
-- `is_bot`: true for bot player
+### Quick Match Stats Recording
+Need to verify that quick matches properly record stats to match_history for both players. Currently the system appears to use database triggers rather than explicit function calls.

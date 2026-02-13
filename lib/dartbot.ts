@@ -619,6 +619,18 @@ export interface DartbotMatchStats {
     visits140Plus: number;
     visits180: number;
   };
+  botStats?: {
+    threeDartAverage: number;
+    first9Average: number;
+    checkoutPercentage: number;
+    highestCheckout: number;
+    dartsAtDouble: number;
+    totalDartsThrown: number;
+    visits100Plus: number;
+    visits140Plus: number;
+    visits180: number;
+    totalScore: number;
+  };
 }
 
 /**
@@ -632,9 +644,8 @@ export async function recordDartbotMatchCompletion(
     legsWon: stats.playerLegsWon,
     botLegsWon: stats.botLegsWon,
     winner: stats.winner,
-    avg: stats.playerStats.threeDartAverage,
-    checkoutPct: stats.playerStats.checkoutPercentage,
-    bestCheckout: stats.playerStats.highestCheckout,
+    playerAvg: stats.playerStats.threeDartAverage,
+    botAvg: stats.botStats?.threeDartAverage ?? 0,
   });
 
   const { data, error } = await supabase.rpc('record_dartbot_match_completion', {
@@ -653,6 +664,17 @@ export async function recordDartbotMatchCompletion(
     p_player_100_plus: stats.playerStats.visits100Plus,
     p_player_140_plus: stats.playerStats.visits140Plus,
     p_player_180s: stats.playerStats.visits180,
+    // Bot stats (optional)
+    p_bot_three_dart_avg: stats.botStats?.threeDartAverage ?? 0,
+    p_bot_first9_avg: stats.botStats?.first9Average ?? 0,
+    p_bot_checkout_pct: stats.botStats?.checkoutPercentage ?? 0,
+    p_bot_highest_checkout: stats.botStats?.highestCheckout ?? 0,
+    p_bot_darts_at_double: stats.botStats?.dartsAtDouble ?? 0,
+    p_bot_total_darts: stats.botStats?.totalDartsThrown ?? 0,
+    p_bot_100_plus: stats.botStats?.visits100Plus ?? 0,
+    p_bot_140_plus: stats.botStats?.visits140Plus ?? 0,
+    p_bot_180s: stats.botStats?.visits180 ?? 0,
+    p_bot_total_score: stats.botStats?.totalScore ?? 0,
   });
 
   if (error) {

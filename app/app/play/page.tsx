@@ -194,7 +194,7 @@ export default function PlayPage() {
           match_format: `best-of-${(match.legs_won || 0) + (match.legs_lost || 0)}`,
           player1_name: 'You',
           player2_name: match.match_format === 'dartbot' 
-            ? `Bot (${match.bot_level || '?'})`
+            ? `Dartbot(${match.bot_level || '?'})`
             : opponentProfiles[match.opponent_id] || 'Opponent',
           player1_legs_won: match.legs_won || 0,
           player2_legs_won: match.legs_lost || 0,
