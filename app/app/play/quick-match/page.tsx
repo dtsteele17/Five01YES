@@ -312,7 +312,7 @@ export default function QuickMatchLobbyPage() {
 
             setLobbies((prev) => {
               if (updatedLobby.status !== 'open') {
-                // Remove if no longer open
+                // Remove if no longer open (includes cancelled, in_progress, etc.)
                 return prev.filter(l => l.id !== updatedLobby.id);
               }
               // Update existing
@@ -474,9 +474,18 @@ export default function QuickMatchLobbyPage() {
 
       setLobbies(transformedLobbies as QuickMatchLobby[]);
 
-      const myOpenLobby = transformedLobbies.find(l => l.created_by === userId && l.status === 'open');
-      if (myOpenLobby) {
-        setMyLobby(myOpenLobby as QuickMatchLobby);
+      // Only update myLobby if not currently cancelling (to prevent race conditions)
+      if (!isCancelling) {
+        const myOpenLobby = transformedLobbies.find(l => l.created_by === userId && l.status === 'open');
+        if (myOpenLobby) {
+          setMyLobby(myOpenLobby as QuickMatchLobby);
+        } else if (myLobby) {
+          // My lobby no longer exists in the database, clear it
+          console.log('[FETCH] My lobby no longer in database, clearing state');
+          setMyLobby(null);
+        }
+      } else {
+        console.log('[FETCH] Skipping myLobby update - cancellation in progress');
       }
     } catch (error: any) {
       console.error('[FETCH] Exception:', error);
@@ -784,6 +793,7 @@ export default function QuickMatchLobbyPage() {
     // Set cancelling flag to prevent polling from interfering
     setIsCancelling(true);
     
+    // Immediately remove from lobbies list for all users via realtime
     // Optimistically update UI first for immediate feedback
     setMyLobby(null);
     setLobbies((prev) => prev.filter(l => l.id !== lobbyIdToCancel));
@@ -791,7 +801,15 @@ export default function QuickMatchLobbyPage() {
     try {
       console.log('[CANCEL] Cancelling lobby:', lobbyIdToCancel);
 
-      // Delete the lobby - use created_by to verify ownership
+      // First, update status to 'cancelled' to trigger realtime removal
+      // This ensures other users see it disappear immediately
+      await supabase
+        .from('quick_match_lobbies')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', lobbyIdToCancel)
+        .eq('created_by', userId);
+
+      // Then delete the lobby
       const { error } = await supabase
         .from('quick_match_lobbies')
         .delete()
@@ -806,10 +824,14 @@ export default function QuickMatchLobbyPage() {
       toast.info('Lobby cancelled');
       console.log('[CANCEL] Lobby deleted successfully');
       
-      // Wait a moment for the realtime event to propagate before allowing refresh
+      // Keep isCancelling true for a bit longer to ensure any pending fetches don't interfere
+      // This prevents the race condition where fetchLobbies runs before DB deletion propagates
       setTimeout(() => {
+        console.log('[CANCEL] Clearing cancellation flag');
         setIsCancelling(false);
-      }, 1000);
+        // Do a final fetch to ensure consistency
+        fetchLobbies();
+      }, 2000);
       
     } catch (error: any) {
       console.error('[CANCEL] Failed:', error);
