@@ -3481,25 +3481,16 @@ export default function QuickMatchRoomPage() {
         {/* Top Bar -->
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => isMyTurn ? setShowEndMatchDialog(true) : toast.error("You can only forfeit on your turn")}
-                  disabled={forfeitLoading || !isMyTurn}
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Forfeit
-                </Button>
-              </TooltipTrigger>
-              {!isMyTurn && (
-                <TooltipContent><p>You can only forfeit on your turn</p></TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEndMatchDialog(true)}
+            disabled={forfeitLoading}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Forfeit
+          </Button>
           <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
             {isConnected ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
             {matchState.matchFormat.replace('best-of-', 'Best of ')}
