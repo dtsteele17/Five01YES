@@ -83,14 +83,6 @@ export function WinnerPopup({
         </>
       );
     }
-    if (rematchStatus === 'waiting') {
-      return (
-        <>
-          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Rematch {readyCount}/2
-        </>
-      );
-    }
     if (rematchStatus === 'ready') {
       return (
         <>
@@ -99,18 +91,29 @@ export function WinnerPopup({
         </>
       );
     }
+    // Show waiting state with spinner when waiting for opponent (I clicked, they haven't)
+    if (rematchStatus === 'waiting') {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          Rematch {readyCount}/2
+        </>
+      );
+    }
+    // Show "Join Rematch" when opponent already clicked (they clicked, I haven't)
     if (opponentRematchReady) {
       return (
         <>
           <RotateCcw className="w-4 h-4 mr-1" />
-          Join Rematch
+          Join Rematch (1/2)
         </>
       );
     }
+    // Initial state - show "Rematch 0/2"
     return (
       <>
         <RotateCcw className="w-4 h-4 mr-1" />
-        Rematch {readyCount}/2
+        Rematch 0/2
       </>
     );
   };
@@ -297,7 +300,7 @@ export function WinnerPopup({
           <div className="flex gap-3">
             <Button
               onClick={onRematch}
-              disabled={rematchStatus === 'waiting' || rematchStatus === 'creating' || rematchStatus === 'ready'}
+              disabled={rematchStatus === 'creating' || rematchStatus === 'ready'}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold disabled:opacity-70"
             >
               {getRematchButtonContent()}

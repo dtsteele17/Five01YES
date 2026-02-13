@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -1085,7 +1085,6 @@ export default function QuickMatchRoomPage() {
   const [opponentRematchReady, setOpponentRematchReady] = useState(false);
   const [newRematchRoomId, setNewRematchRoomId] = useState<string | null>(null);
   const [readyCount, setReadyCount] = useState(0);
-  const rematchAttemptedRef = useRef(false);
   const rematchCheckCountRef = useRef(0);
   const rematchPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -2058,6 +2057,8 @@ export default function QuickMatchRoomPage() {
           if (signal.type === 'rematch_requested' && signal.from_user_id !== currentUserId) {
             console.log('[REMATCH] Opponent requested rematch (new system)');
             setOpponentRematchReady(true);
+            // Update ready count: if I'm already waiting, show 2/2, otherwise show 1/2
+            setReadyCount(prev => prev >= 1 ? 2 : 1);
           }
           // Handle rematch room created - both players get this and navigate
           if (signal.type === 'rematch_room_created') {
@@ -3171,15 +3172,20 @@ export default function QuickMatchRoomPage() {
 
   // Rematch v2 - Database-driven like ready up system
   const handleRematch = async () => {
-    if (!room || !currentUserId || rematchAttemptedRef.current) return;
+    if (!room || !currentUserId) return;
+    
+    // Don't allow multiple clicks if already processing
+    if (rematchStatus === 'waiting' || rematchStatus === 'creating' || rematchStatus === 'ready') {
+      console.log('[REMATCH] Already processing, ignoring click');
+      return;
+    }
     
     const isPlayer1 = room.player1_id === currentUserId;
     console.log('[REMATCH] Requesting rematch. isPlayer1:', isPlayer1);
     
-    // Prevent double-clicks and set UI state
-    rematchAttemptedRef.current = true;
+    // Set UI state to waiting (shows 1/2)
     setRematchStatus('waiting');
-    setReadyCount(1); // I'm ready (at least)
+    setReadyCount(1); // I'm ready
     
     try {
       // Call RPC to set rematch flag in database
@@ -3194,42 +3200,34 @@ export default function QuickMatchRoomPage() {
       
       console.log('[REMATCH] RPC response:', data);
       
-      // Update ready count from server
-      const count = data?.ready_count || 1;
-      setReadyCount(count);
-      
-      // Check if opponent is already ready
-      if (count >= 2) {
-        setOpponentRematchReady(true);
-      }
-      
+      // Check current status - if both ready, the trigger may have already created the room
       if (data?.both_ready) {
-        // Both players are ready - room will be created by trigger or player 1
-        console.log('[REMATCH] Both players ready!');
-        setRematchStatus('ready');
+        console.log('[REMATCH] Both players already ready!');
+        setOpponentRematchReady(true);
         setReadyCount(2);
+        setRematchStatus('ready');
         
-        // Player 1 creates the room
+        // Player 1 creates the room (or polls for it)
         if (isPlayer1) {
           await createRematchRoomV2();
         } else {
           // Player 2 polls for the new room
           pollForRematchRoomV2();
         }
-      } else {
-        // Waiting for opponent - show "Rematch 1/2"
-        console.log('[REMATCH] Waiting for opponent...');
-        toast.info('Waiting for opponent to accept rematch...');
-        
-        // Start polling for rematch status
-        pollForRematchStatusV2();
+        return;
       }
+      
+      // Waiting for opponent - show "Rematch 1/2"
+      console.log('[REMATCH] Waiting for opponent... (1/2)');
+      toast.info('Waiting for opponent to accept rematch...');
+      
+      // Start polling for rematch status
+      pollForRematchStatusV2();
       
     } catch (error: any) {
       console.error('[REMATCH] Error:', error);
       setRematchStatus('none');
       setReadyCount(0);
-      rematchAttemptedRef.current = false;
       toast.error('Failed to start rematch');
     }
   };
@@ -3268,11 +3266,14 @@ export default function QuickMatchRoomPage() {
         
         console.log('[REMATCH] Status poll:', data);
         
-        // Update ready count for UI
-        setReadyCount(data?.ready_count || 1);
+        // Calculate ready count from individual flags
+        const p1Ready = data?.player1_rematch || false;
+        const p2Ready = data?.player2_rematch || false;
+        const currentReadyCount = (p1Ready ? 1 : 0) + (p2Ready ? 1 : 0);
+        setReadyCount(currentReadyCount);
         
         // Check if opponent is ready
-        const opponentReady = isPlayer1 ? data?.player2_ready : data?.player1_ready;
+        const opponentReady = isPlayer1 ? p2Ready : p1Ready;
         if (opponentReady) {
           setOpponentRematchReady(true);
         }
@@ -3363,7 +3364,6 @@ export default function QuickMatchRoomPage() {
         console.log('[REMATCH] Timeout waiting for room');
         toast.error('Rematch timed out');
         setRematchStatus('none');
-        rematchAttemptedRef.current = false;
         return;
       }
       
