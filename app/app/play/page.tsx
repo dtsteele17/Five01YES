@@ -178,7 +178,15 @@ export default function PlayPage() {
           visits_140_plus,
           visits_180,
           played_at,
-          metadata
+          metadata,
+          opponent_three_dart_avg,
+          opponent_first9_avg,
+          opponent_highest_checkout,
+          opponent_checkout_percentage,
+          opponent_darts_thrown,
+          opponent_visits_100_plus,
+          opponent_visits_140_plus,
+          opponent_visits_180
         `)
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
@@ -190,13 +198,12 @@ export default function PlayPage() {
       } else {
         console.log('[Play] Fetched matches:', matchesData?.length || 0);
         
-        // Fetch opponent profiles and opponent stats
+        // Fetch opponent profiles only (names/avatars - not stats since those are now stored in our row)
         const opponentIds = (matchesData || [])
           .filter(m => m.opponent_id && m.match_format !== 'dartbot')
           .map(m => m.opponent_id);
         
         let opponentProfiles: Record<string, string> = {};
-        let opponentStatsMap: Record<string, any> = {};
         
         if (opponentIds.length > 0) {
           // Fetch opponent profiles
@@ -209,20 +216,6 @@ export default function PlayPage() {
             acc[p.user_id] = p.username;
             return acc;
           }, {} as Record<string, string>);
-          
-          // Fetch opponent's match history entries for the same matches
-          const roomIds = (matchesData || []).map(m => m.room_id).filter(Boolean);
-          const { data: opponentMatchData } = await supabase
-            .from('match_history')
-            .select('room_id, user_id, three_dart_avg, first9_avg, highest_checkout, checkout_percentage')
-            .in('room_id', roomIds)
-            .in('user_id', opponentIds);
-          
-          // Map opponent stats by room_id
-          opponentStatsMap = (opponentMatchData || []).reduce((acc, om) => {
-            acc[om.room_id] = om;
-            return acc;
-          }, {} as Record<string, any>);
         }
         
         // Transform data to match the expected format
@@ -232,9 +225,8 @@ export default function PlayPage() {
           const userLegs = match.legs_won ?? 0;
           const opponentLegs = match.legs_lost ?? 0;
           const totalLegs = userLegs + opponentLegs;
-          const opponentData = opponentStatsMap[match.room_id];
           
-          // For dartbot matches, get bot stats from metadata
+          // For dartbot matches, get bot stats from metadata if available, otherwise use stored opponent stats
           const botStats = match.metadata?.bot_stats || {};
           const isDartbot = match.match_format === 'dartbot';
           
@@ -245,9 +237,30 @@ export default function PlayPage() {
               user_legs: userLegs,
               bot_legs: opponentLegs,
               result: match.result,
-              bot_stats: botStats
+              bot_stats: botStats,
+              stored_opponent_stats: {
+                avg: match.opponent_three_dart_avg,
+                first9: match.opponent_first9_avg,
+                checkout: match.opponent_highest_checkout,
+                checkout_pct: match.opponent_checkout_percentage
+              }
             });
           }
+          
+          // Use metadata bot_stats for dartbot if available (for backward compatibility),
+          // otherwise use the stored opponent stats columns
+          const opponentAvg = isDartbot && botStats.three_dart_avg 
+            ? botStats.three_dart_avg 
+            : match.opponent_three_dart_avg;
+          const opponentFirst9 = isDartbot && botStats.first9_avg 
+            ? botStats.first9_avg 
+            : match.opponent_first9_avg;
+          const opponentCheckout = isDartbot && botStats.highest_checkout 
+            ? botStats.highest_checkout 
+            : match.opponent_highest_checkout;
+          const opponentCheckoutPct = isDartbot && botStats.checkout_pct 
+            ? botStats.checkout_pct 
+            : match.opponent_checkout_percentage;
           
           return {
             id: match.room_id || match.id,
@@ -273,11 +286,11 @@ export default function PlayPage() {
             visits_100_plus: match.visits_100_plus,
             visits_140_plus: match.visits_140_plus,
             visits_180: match.visits_180,
-            // Opponent stats (from opponent match history entry for human opponents, from metadata for dartbot)
-            opponent_three_dart_avg: isDartbot ? botStats.three_dart_avg : opponentData?.three_dart_avg || null,
-            opponent_first9_avg: isDartbot ? botStats.first9_avg : opponentData?.first9_avg || null,
-            opponent_highest_checkout: isDartbot ? botStats.highest_checkout : opponentData?.highest_checkout || null,
-            opponent_checkout_percentage: isDartbot ? botStats.checkout_pct : opponentData?.checkout_percentage || null,
+            // Opponent stats (now stored directly in the user's match_history row)
+            opponent_three_dart_avg: opponentAvg,
+            opponent_first9_avg: opponentFirst9,
+            opponent_highest_checkout: opponentCheckout,
+            opponent_checkout_percentage: opponentCheckoutPct,
           };
         });
         setRecentMatches(transformed);
