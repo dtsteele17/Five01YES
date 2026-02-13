@@ -22,13 +22,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Trophy, TrendingUp, Clock, RotateCcw, Home, Undo2, Darts, Target2, Zap } from 'lucide-react';
+import { Target, Trophy, TrendingUp, Clock, RotateCcw, Home, Undo2, Activity, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ATCScoring } from '@/components/app/ATCScoring';
 import {
   ATCSettings,
   ATCPlayerState,
   ATCDart,
+  ATCVisit,
   processVisit,
   calculateATCStats,
   getInitialTarget,
@@ -405,7 +406,7 @@ export function ATCMatchPage({ matchConfig, matchId }: ATCMatchPageProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="Visits" value={player1Stats.totalVisits} icon={Darts} color="text-blue-400" />
+                  <StatBox label="Visits" value={player1Stats.totalVisits} icon={Activity} color="text-blue-400" />
                   <StatBox label="Total Darts" value={player1Stats.totalDarts} icon={Target} color="text-emerald-400" />
                   <StatBox label="Hit Rate" value={`${player1Stats.hitRate.toFixed(1)}%`} icon={Target} color="text-amber-400" />
                   <StatBox label="Avg Progress" value={player1Stats.avgProgressPerVisit.toFixed(1)} icon={TrendingUp} color="text-purple-400" />
@@ -430,7 +431,7 @@ export function ATCMatchPage({ matchConfig, matchId }: ATCMatchPageProps) {
                 <div className="flex items-center gap-3 mb-6">
                   <Avatar className="w-14 h-14">
                     <AvatarFallback className={`text-lg font-bold ${matchWinner === 2 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'} text-white`}>
-                      {player2.name.charAt(0, 2).toUpperCase()}
+                      {player2.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
@@ -450,7 +451,7 @@ export function ATCMatchPage({ matchConfig, matchId }: ATCMatchPageProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="Visits" value={player2Stats.totalVisits} icon={Darts} color="text-blue-400" />
+                  <StatBox label="Visits" value={player2Stats.totalVisits} icon={Activity} color="text-blue-400" />
                   <StatBox label="Total Darts" value={player2Stats.totalDarts} icon={Target} color="text-emerald-400" />
                   <StatBox label="Hit Rate" value={`${player2Stats.hitRate.toFixed(1)}%`} icon={Target} color="text-amber-400" />
                   <StatBox label="Avg Progress" value={player2Stats.avgProgressPerVisit.toFixed(1)} icon={TrendingUp} color="text-purple-400" />
