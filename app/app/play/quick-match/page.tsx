@@ -387,11 +387,32 @@ export default function QuickMatchLobbyPage() {
 
       console.log('[FETCH] Loaded lobbies with hosts:', lobbiesData.length);
 
+      // Get all host IDs to fetch their stats (for lobbies created before migration)
+      const hostIds = lobbiesData.map(l => l.player1_id).filter(Boolean);
+      let hostStats: Record<string, number> = {};
+      
+      // Fetch player stats for all hosts
+      const { data: statsData } = await supabase
+        .from('player_stats')
+        .select('user_id, overall_3dart_avg')
+        .in('user_id', hostIds);
+      
+      if (statsData) {
+        hostStats = statsData.reduce((acc, stat) => {
+          acc[stat.user_id] = stat.overall_3dart_avg || 0;
+          return acc;
+        }, {} as Record<string, number>);
+      }
+
       // Transform the data to ensure player1 is a single object, not an array
-      // and include the 3-dart average stored in the lobby
+      // and include the 3-dart average (prefer stored value, fallback to live stats)
       const transformedLobbies = lobbiesData.map(lobby => {
-        const avg = lobby.player1_3dart_avg || 0;
-        console.log(`[FETCH] Lobby ${lobby.id}: host ${lobby.player1_id}, avg: ${avg}`);
+        // Use stored avg from lobby, or fallback to live stats query
+        const storedAvg = lobby.player1_3dart_avg || 0;
+        const liveAvg = hostStats[lobby.player1_id] || 0;
+        const avg = storedAvg > 0 ? storedAvg : liveAvg;
+        
+        console.log(`[FETCH] Lobby ${lobby.id}: host ${lobby.player1_id}, storedAvg: ${storedAvg}, liveAvg: ${liveAvg}, final: ${avg}`);
         return {
           ...lobby,
           player1: {
