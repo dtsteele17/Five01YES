@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Target, Trophy, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Target, Trophy, ArrowLeft, RotateCcw, Clock, Zap, Crosshair, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -214,95 +216,99 @@ export default function AroundTheClockPage() {
 
     if (state.isComplete) {
       return (
-        <div className="text-center py-8 text-slate-400">
-          Session completed! View your stats in the summary.
+        <div className="text-center py-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="inline-block p-6 rounded-full bg-emerald-500/20 mb-4"
+          >
+            <CheckCircle2 className="h-12 w-12 text-emerald-400" />
+          </motion.div>
+          <p className="text-slate-400 text-lg">Session completed! Great job!</p>
         </div>
       );
     }
+
+    const buttonVariants = {
+      initial: { scale: 0.8, opacity: 0 },
+      animate: { scale: 1, opacity: 1 },
+      hover: { scale: 1.05 },
+      tap: { scale: 0.95 }
+    };
 
     // Mode-specific buttons
     if (currentTarget === 'bull') {
       // Bull target
       if (segmentRule === 'singles_only') {
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => handleDart('SB')}
-              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              SBull
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('SB')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
+              >
+                Single Bull
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       } else if (segmentRule === 'doubles_only') {
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => handleDart('DB')}
-              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-            >
-              DBull
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
-          </div>
-        );
-      } else if (segmentRule === 'trebles_only') {
-        // Treble bull doesn't exist, show SBull and DBull
-        return (
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              onClick={() => handleDart('SB')}
-              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              SBull
-            </Button>
-            <Button
-              onClick={() => handleDart('DB')}
-              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-            >
-              DBull
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('DB')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
+              >
+                Double Bull
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       } else {
-        // increase_by_segment
+        // increase_by_segment or trebles (bull doesn't have treble)
         return (
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              onClick={() => handleDart('SB')}
-              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              SBull
-            </Button>
-            <Button
-              onClick={() => handleDart('DB')}
-              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-            >
-              DBull
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-3 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('SB')}
+                className="h-20 text-lg font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
+              >
+                SB
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
+              <Button
+                onClick={() => handleDart('DB')}
+                className="h-20 text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
+              >
+                DB
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-20 text-lg font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       }
@@ -312,83 +318,103 @@ export default function AroundTheClockPage() {
 
       if (segmentRule === 'singles_only') {
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => handleDart('S', targetNumber)}
-              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              S{targetNumber}
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('S', targetNumber)}
+                className="h-20 text-2xl font-black bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white shadow-lg shadow-blue-500/25 border-2 border-blue-400/50"
+              >
+                S{targetNumber}
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       } else if (segmentRule === 'doubles_only') {
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => handleDart('D', targetNumber)}
-              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-            >
-              D{targetNumber}
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('D', targetNumber)}
+                className="h-20 text-2xl font-black bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
+              >
+                D{targetNumber}
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       } else if (segmentRule === 'trebles_only') {
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => handleDart('T', targetNumber)}
-              className="h-16 text-lg bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              T{targetNumber}
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('T', targetNumber)}
+                className="h-20 text-2xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25 border-2 border-amber-400/50"
+              >
+                T{targetNumber}
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       } else {
-        // increase_by_segment
+        // increase_by_segment - show all options
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => handleDart('S', targetNumber)}
-              className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              S{targetNumber}
-            </Button>
-            <Button
-              onClick={() => handleDart('D', targetNumber)}
-              className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
-            >
-              D{targetNumber}
-            </Button>
-            <Button
-              onClick={() => handleDart('T', targetNumber)}
-              className="h-16 text-lg bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              T{targetNumber}
-            </Button>
-            <Button
-              onClick={() => handleDart('MISS')}
-              className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
-            >
-              Miss
-            </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+              <Button
+                onClick={() => handleDart('S', targetNumber)}
+                className="h-16 text-xl font-bold bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white shadow-lg shadow-blue-500/25 border-2 border-blue-400/50"
+              >
+                S{targetNumber}
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
+              <Button
+                onClick={() => handleDart('D', targetNumber)}
+                className="h-16 text-xl font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
+              >
+                D{targetNumber}
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+              <Button
+                onClick={() => handleDart('T', targetNumber)}
+                className="h-16 text-xl font-bold bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25 border-2 border-amber-400/50"
+              >
+                T{targetNumber}
+              </Button>
+            </motion.div>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
+              <Button
+                onClick={() => handleDart('MISS')}
+                className="h-16 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+              >
+                Miss
+              </Button>
+            </motion.div>
           </div>
         );
       }
@@ -417,161 +443,303 @@ export default function AroundTheClockPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
       <div className="max-w-4xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
+        {/* Animated Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
           <Button
             variant="ghost"
             onClick={handleReturn}
-            className="text-slate-400 hover:text-white"
+            className="text-slate-400 hover:text-white hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold text-white">Around The Clock</h1>
-          <div className="w-20" />
-        </div>
-
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Target className="h-8 w-8 text-blue-400" />
-                <div>
-                  <div className="text-sm text-slate-400">Current Target</div>
-                  <div className="text-4xl font-bold text-white">{currentTargetLabel}</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-slate-400">Progress</div>
-                <div className="text-2xl font-bold text-white">{completedCount} / {totalCount}</div>
-              </div>
-            </div>
-
-            {state.completedTargets.length > 0 && (
-              <div>
-                <div className="text-sm text-slate-400 mb-2">Completed</div>
-                <div className="flex flex-wrap gap-2">
-                  {state.completedTargets.map((target, idx) => (
-                    <Badge key={idx} variant="outline" className="bg-emerald-500/20 border-emerald-500 text-white">
-                      {getTargetLabel(target)}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-4 gap-3">
-              <div className="bg-slate-700/30 p-3 rounded-lg text-center">
-                <div className="text-xs text-slate-400">Throws</div>
-                <div className="text-xl font-bold text-white">{state.totalThrows}</div>
-              </div>
-              <div className="bg-slate-700/30 p-3 rounded-lg text-center">
-                <div className="text-xs text-slate-400">Hits</div>
-                <div className="text-xl font-bold text-white">{state.hits}</div>
-              </div>
-              <div className="bg-slate-700/30 p-3 rounded-lg text-center">
-                <div className="text-xs text-slate-400">Accuracy</div>
-                <div className="text-xl font-bold text-white">{accuracy}%</div>
-              </div>
-              <div className="bg-slate-700/30 p-3 rounded-lg text-center">
-                <div className="text-xs text-slate-400">Time</div>
-                <div className="text-xl font-bold text-white">{formatTime(elapsedTime)}</div>
-              </div>
-            </div>
+          <div className="text-center">
+            <h1 className="text-3xl font-black text-white tracking-tight">
+              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Around The Clock
+              </span>
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">Hit every number in sequence</p>
           </div>
-        </Card>
+          <div className="w-20" />
+        </motion.div>
 
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Throw Dart</h3>
-          {renderThrowButtons()}
-        </Card>
+        {/* Progress Bar */}
+        <motion.div
+          initial={{ opacity: 0, scaleX: 0 }}
+          animate={{ opacity: 1, scaleX: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-slate-700/50 p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-slate-400">Progress</span>
+              <span className="text-sm font-bold text-emerald-400">{completedCount} / {totalCount}</span>
+            </div>
+            <Progress value={(completedCount / totalCount) * 100} className="h-3 bg-slate-700" />
+          </Card>
+        </motion.div>
+
+        {/* Main Target Display */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 border-blue-500/30 p-8 text-center backdrop-blur-sm relative overflow-hidden">
+            {/* Animated background effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Crosshair className="h-6 w-6 text-blue-400" />
+                <span className="text-lg font-medium text-blue-300">Current Target</span>
+              </div>
+              
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentTargetLabel}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  className="text-7xl font-black text-white drop-shadow-lg"
+                >
+                  {currentTargetLabel}
+                </motion.div>
+              </AnimatePresence>
+              
+              {state.completedTargets.length > 0 && (
+                <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+                  {state.completedTargets.slice(-8).map((target, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-lg"
+                    >
+                      {getTargetLabel(target)}
+                    </motion.div>
+                  ))}
+                  {state.completedTargets.length > 8 && (
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 text-xs">
+                      +{state.completedTargets.length - 8}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="grid grid-cols-4 gap-3"
+        >
+          <Card className="bg-slate-800/50 border-slate-700/50 p-4 text-center backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Zap className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="text-2xl font-black text-white">{state.totalThrows}</div>
+            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Throws</div>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700/50 p-4 text-center backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-black text-white">{state.hits}</div>
+            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hits</div>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700/50 p-4 text-center backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Target className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="text-2xl font-black text-white">{accuracy}%</div>
+            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Accuracy</div>
+          </Card>
+          <Card className="bg-slate-800/50 border-slate-700/50 p-4 text-center backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Clock className="h-5 w-5 text-purple-400" />
+            </div>
+            <div className="text-2xl font-black text-white">{formatTime(elapsedTime)}</div>
+            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Time</div>
+          </Card>
+        </motion.div>
+
+        {/* Throw Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="bg-slate-800/50 border-slate-700/50 p-6 backdrop-blur-sm">
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Crosshair className="h-5 w-5 text-blue-400" />
+              Enter Your Throw
+            </h3>
+            {renderThrowButtons()}
+          </Card>
+        </motion.div>
 
         {/* Current Visit */}
-        {currentVisit.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700 p-4">
-            <div className="text-sm font-semibold text-white mb-2">Current Visit</div>
-            <div className="flex gap-4">
-              {currentVisit.map((dart, idx) => (
-                <div key={idx} className="text-slate-300">
-                  <span className="text-slate-500">Dart {idx + 1}:</span> {formatThrowLabel(dart)}
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Visit History */}
-        {visitHistory.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700 p-4">
-            <div className="text-sm font-semibold text-white mb-3">Visit History</div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {visitHistory.map((visit, visitIdx) => (
-                <div key={visitIdx} className="text-slate-300 text-sm">
-                  <span className="text-slate-500">Visit {visitIdx + 1}:</span>{' '}
-                  {visit.darts.map((dart, dartIdx) => (
-                    <span key={dartIdx}>
+        <AnimatePresence>
+          {currentVisit.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm">
+                <div className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">Current Visit</div>
+                <div className="flex gap-3">
+                  {currentVisit.map((dart, idx) => (
+                    <motion.div 
+                      key={idx}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className={`px-4 py-2 rounded-lg font-bold text-white ${
+                        dart.segment === 'D' ? 'bg-red-500/80' :
+                        dart.segment === 'T' ? 'bg-amber-500/80' :
+                        dart.segment === 'DB' ? 'bg-red-600/80' :
+                        dart.segment === 'SB' ? 'bg-emerald-500/80' :
+                        dart.segment === 'MISS' ? 'bg-slate-600/80' :
+                        'bg-blue-500/80'
+                      }`}
+                    >
                       {formatThrowLabel(dart)}
-                      {dartIdx < visit.darts.length - 1 ? ', ' : ''}
-                    </span>
+                    </motion.div>
+                  ))}
+                  {[...Array(3 - currentVisit.length)].map((_, idx) => (
+                    <div key={`empty-${idx}`} className="px-4 py-2 rounded-lg bg-slate-700/30 text-slate-600 font-bold">
+                      -
+                    </div>
                   ))}
                 </div>
-              ))}
-            </div>
-          </Card>
-        )}
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Visit History */}
+        <AnimatePresence>
+          {visitHistory.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm">
+                <div className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">Visit History</div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {visitHistory.slice(-5).map((visit, visitIdx) => (
+                    <motion.div 
+                      key={visitIdx}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: visitIdx * 0.05 }}
+                      className="flex items-center gap-3 text-sm"
+                    >
+                      <span className="text-slate-500 font-mono w-16">Visit {visitIdx + 1}</span>
+                      <div className="flex gap-2">
+                        {visit.darts.map((dart, dartIdx) => (
+                          <span 
+                            key={dartIdx}
+                            className={`px-2 py-1 rounded text-xs font-bold text-white ${
+                              dart.segment === 'D' ? 'bg-red-500/60' :
+                              dart.segment === 'T' ? 'bg-amber-500/60' :
+                              dart.segment === 'DB' ? 'bg-red-600/60' :
+                              dart.segment === 'SB' ? 'bg-emerald-500/60' :
+                              dart.segment === 'MISS' ? 'bg-slate-600/60' :
+                              'bg-blue-500/60'
+                            }`}
+                          >
+                            {formatThrowLabel(dart)}
+                          </span>
+                        ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <Dialog open={state.isComplete} onOpenChange={() => {}}>
-        <DialogContent className="bg-slate-800 border-slate-700">
+        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl text-white">
-              <Trophy className="h-6 w-6 text-yellow-500" />
-              Well Done!
+            <DialogTitle className="flex items-center justify-center gap-3 text-3xl text-white">
+              <motion.div
+                initial={{ rotate: -180, scale: 0 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+              >
+                <Trophy className="h-10 w-10 text-yellow-400" />
+              </motion.div>
+              <span className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 bg-clip-text text-transparent">
+                Complete!
+              </span>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-center py-4">
-              <div className="text-4xl font-bold text-yellow-500 mb-2">
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Time Display */}
+            <div className="text-center py-4 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl border border-white/10">
+              <div className="text-5xl font-black text-white mb-2">
                 {formatTime(elapsedTime)}
               </div>
-              <div className="text-slate-400">Completion Time</div>
+              <div className="text-slate-400 font-medium">Completion Time</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-700/30 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-white">{state.totalThrows}</div>
-                <div className="text-sm text-slate-400">Total Throws</div>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-700/50 p-4 rounded-xl text-center border border-slate-600/50">
+                <div className="text-3xl font-black text-blue-400">{state.totalThrows}</div>
+                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Throws</div>
               </div>
-              <div className="bg-slate-700/30 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-white">{state.hits}</div>
-                <div className="text-sm text-slate-400">Hits</div>
+              <div className="bg-slate-700/50 p-4 rounded-xl text-center border border-slate-600/50">
+                <div className="text-3xl font-black text-emerald-400">{state.hits}</div>
+                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Hits</div>
               </div>
-              <div className="bg-slate-700/30 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-white">{accuracy}%</div>
-                <div className="text-sm text-slate-400">Accuracy</div>
+              <div className="bg-slate-700/50 p-4 rounded-xl text-center border border-slate-600/50">
+                <div className="text-3xl font-black text-purple-400">{accuracy}%</div>
+                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Accuracy</div>
               </div>
-              <div className="bg-slate-700/30 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-white">{state.misses}</div>
-                <div className="text-sm text-slate-400">Misses</div>
+              <div className="bg-slate-700/50 p-4 rounded-xl text-center border border-slate-600/50">
+                <div className="text-3xl font-black text-red-400">{state.misses}</div>
+                <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Misses</div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="gap-2">
+          </motion.div>
+          
+          <DialogFooter className="gap-3 mt-6">
             <Button
               onClick={handleRetry}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-6 text-lg shadow-lg shadow-blue-500/25"
             >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Retry
+              <RotateCcw className="mr-2 h-5 w-5" />
+              Play Again
             </Button>
             <Button
               onClick={handleReturn}
               variant="outline"
-              className="flex-1 border-slate-600 text-white hover:bg-slate-700"
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white font-bold py-6"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Return
+              <ArrowLeft className="mr-2 h-5 w-5" />
+              Exit
             </Button>
           </DialogFooter>
         </DialogContent>

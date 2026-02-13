@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -14,9 +15,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp } from 'lucide-react';
+import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp, Zap, Crosshair, CheckCircle2, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -496,60 +498,152 @@ function FinishTrainingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
       <div className="max-w-6xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
+        {/* Animated Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
           <Button
             variant="ghost"
             onClick={handleReturn}
-            className="text-slate-400 hover:text-white"
+            className="text-slate-400 hover:text-white hover:bg-white/10"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold text-white">Finish Training</h1>
+          <div className="text-center">
+            <h1 className="text-3xl font-black text-white tracking-tight">
+              <span className="bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Finish Training
+              </span>
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">Practice your checkouts</p>
+          </div>
           <Button
             variant="outline"
             onClick={handleNewNumber}
-            className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             New Number
           </Button>
-        </div>
+        </motion.div>
 
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
-          <div className="grid grid-cols-2 gap-8 mb-4">
-            <div className="text-center space-y-2">
-              <div className="text-sm text-slate-400 uppercase tracking-wider">Checkout</div>
-              <div className="text-6xl font-bold text-emerald-400">{currentTarget}</div>
-            </div>
-            <div className="text-center space-y-2">
-              <div className="text-sm text-slate-400 uppercase tracking-wider">Remaining</div>
-              <div className="text-6xl font-bold text-white">{remaining}</div>
-            </div>
-          </div>
-          <div className="text-center text-sm text-slate-400">Attempt {attemptNo}/3</div>
-        </Card>
-
-        {currentDarts.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700 p-4">
-            <div className="text-sm font-semibold text-white mb-2">Current Darts</div>
-            <div className="flex gap-4">
-              {currentDarts.map((dart, idx) => (
-                <div key={idx} className="text-slate-300">
-                  <span className="text-slate-500">Dart {idx + 1}:</span> {dart.label}
+        {/* Main Stats Display */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700/50 p-6 backdrop-blur-sm">
+            <div className="grid grid-cols-3 gap-6">
+              {/* Target */}
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2 text-emerald-400">
+                  <Target className="h-5 w-5" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Target</span>
                 </div>
-              ))}
-              <div className="text-emerald-400 font-semibold ml-auto">
-                Remaining: {remaining}
+                <motion.div 
+                  key={currentTarget}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-6xl font-black text-white"
+                >
+                  {currentTarget}
+                </motion.div>
+              </div>
+              
+              {/* Remaining */}
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2 text-blue-400">
+                  <Crosshair className="h-5 w-5" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Remaining</span>
+                </div>
+                <motion.div 
+                  key={remaining}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className={`text-6xl font-black ${remaining === 0 ? 'text-emerald-400' : 'text-white'}`}
+                >
+                  {remaining}
+                </motion.div>
+              </div>
+              
+              {/* Attempt */}
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2 text-amber-400">
+                  <Zap className="h-5 w-5" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Attempt</span>
+                </div>
+                <div className="text-6xl font-black text-white">
+                  {attemptNo}<span className="text-3xl text-slate-500">/3</span>
+                </div>
               </div>
             </div>
+            
+            {/* Progress bar for attempts */}
+            <div className="mt-6">
+              <Progress value={(attemptNo / 3) * 100} className="h-2 bg-slate-700" />
+            </div>
           </Card>
-        )}
+        </motion.div>
 
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
-          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')}>
+        <AnimatePresence>
+          {currentDarts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm">
+                <div className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">Current Darts</div>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-2">
+                    {currentDarts.map((dart, idx) => (
+                      <motion.div 
+                        key={idx}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className={`px-4 py-2 rounded-lg font-bold text-white ${
+                          dart.segment === 'D' ? 'bg-gradient-to-br from-red-500 to-red-600' :
+                          dart.segment === 'T' ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
+                          dart.segment === 'DB' ? 'bg-gradient-to-br from-red-600 to-red-700' :
+                          dart.segment === 'SB' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
+                          dart.segment === 'MISS' ? 'bg-slate-600' :
+                          'bg-gradient-to-br from-blue-500 to-blue-600'
+                        }`}
+                      >
+                        {dart.label}
+                      </motion.div>
+                    ))}
+                    {[...Array(3 - currentDarts.length)].map((_, idx) => (
+                      <div key={`empty-${idx}`} className="px-4 py-2 rounded-lg bg-slate-700/30 text-slate-600 font-bold">
+                        -
+                      </div>
+                    ))}
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-slate-400">Remaining:</span>
+                    <span className={`text-2xl font-black ${remaining === 0 ? 'text-emerald-400' : 'text-white'}`}>
+                      {remaining}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+        <Card className="bg-slate-800/50 border-slate-700/50 p-6 backdrop-blur-sm">
+          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')}
             <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 mb-4">
               <TabsTrigger value="dart_pad" className="data-[state=active]:bg-emerald-500">
                 Dart by Dart
@@ -579,119 +673,151 @@ function FinishTrainingContent() {
 
                   <TabsContent value="singles">
                     <div className="grid grid-cols-10 gap-2">
-                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                        <Button
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num, idx) => (
+                        <motion.div
                           key={`S${num}`}
-                          onClick={() =>
-                            handleDartClick({
-                              segment: 'S',
-                              value: num,
-                              label: `S${num}`,
-                            })
-                          }
-                          disabled={currentDarts.length >= 3}
-                          className="h-14 bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-30"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.01 }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                         >
-                          {num}
-                        </Button>
+                          <Button
+                            onClick={() =>
+                              handleDartClick({
+                                segment: 'S',
+                                value: num,
+                                label: `S${num}`,
+                              })
+                            }
+                            disabled={currentDarts.length >= 3}
+                            className="h-14 w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-bold text-lg shadow-lg shadow-blue-500/20 disabled:opacity-30 border-2 border-blue-400/50"
+                          >
+                            {num}
+                          </Button>
+                        </motion.div>
                       ))}
                     </div>
                   </TabsContent>
 
                   <TabsContent value="doubles">
                     <div className="grid grid-cols-10 gap-2">
-                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                        <Button
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num, idx) => (
+                        <motion.div
                           key={`D${num}`}
-                          onClick={() =>
-                            handleDartClick({
-                              segment: 'D',
-                              value: num * 2,
-                              label: `D${num}`,
-                            })
-                          }
-                          disabled={currentDarts.length >= 3}
-                          className="h-14 bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-30"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.01 }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                         >
-                          {num}
-                        </Button>
+                          <Button
+                            onClick={() =>
+                              handleDartClick({
+                                segment: 'D',
+                                value: num * 2,
+                                label: `D${num}`,
+                              })
+                            }
+                            disabled={currentDarts.length >= 3}
+                            className="h-14 w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-bold text-lg shadow-lg shadow-red-500/20 disabled:opacity-30 border-2 border-red-400/50"
+                          >
+                            {num}
+                          </Button>
+                        </motion.div>
                       ))}
                     </div>
                   </TabsContent>
 
                   <TabsContent value="trebles">
                     <div className="grid grid-cols-10 gap-2">
-                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                        <Button
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((num, idx) => (
+                        <motion.div
                           key={`T${num}`}
-                          onClick={() =>
-                            handleDartClick({
-                              segment: 'T',
-                              value: num * 3,
-                              label: `T${num}`,
-                            })
-                          }
-                          disabled={currentDarts.length >= 3}
-                          className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-semibold disabled:opacity-30"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.01 }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                         >
-                          {num}
-                        </Button>
+                          <Button
+                            onClick={() =>
+                              handleDartClick({
+                                segment: 'T',
+                                value: num * 3,
+                                label: `T${num}`,
+                              })
+                            }
+                            disabled={currentDarts.length >= 3}
+                            className="h-14 w-full bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold text-lg shadow-lg shadow-amber-500/20 disabled:opacity-30 border-2 border-amber-400/50"
+                          >
+                            {num}
+                          </Button>
+                        </motion.div>
                       ))}
                     </div>
                   </TabsContent>
 
                   <TabsContent value="bulls">
                     <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-                      <Button
-                        onClick={() =>
-                          handleDartClick({
-                            segment: 'SB',
-                            value: 25,
-                            label: 'SBull',
-                          })
-                        }
-                        disabled={currentDarts.length >= 3}
-                        className="h-20 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold disabled:opacity-30"
-                      >
-                        Single Bull (25)
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          handleDartClick({
-                            segment: 'DB',
-                            value: 50,
-                            label: 'DBull',
-                          })
-                        }
-                        disabled={currentDarts.length >= 3}
-                        className="h-20 bg-red-600 hover:bg-red-700 text-white text-lg font-semibold disabled:opacity-30"
-                      >
-                        Double Bull (50)
-                      </Button>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          onClick={() =>
+                            handleDartClick({
+                              segment: 'SB',
+                              value: 25,
+                              label: 'SBull',
+                            })
+                          }
+                          disabled={currentDarts.length >= 3}
+                          className="h-20 w-full bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white text-lg font-bold disabled:opacity-30 shadow-lg shadow-emerald-500/20 border-2 border-emerald-400/50"
+                        >
+                          Single Bull (25)
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          onClick={() =>
+                            handleDartClick({
+                              segment: 'DB',
+                              value: 50,
+                              label: 'DBull',
+                            })
+                          }
+                          disabled={currentDarts.length >= 3}
+                          className="h-20 w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white text-lg font-bold disabled:opacity-30 shadow-lg shadow-red-500/20 border-2 border-red-400/50"
+                        >
+                          Double Bull (50)
+                        </Button>
+                      </motion.div>
                     </div>
                   </TabsContent>
                 </Tabs>
 
                 <div className="grid grid-cols-2 gap-4 pt-2 max-w-2xl mx-auto">
-                  <Button
-                    onClick={() =>
-                      handleDartClick({
-                        segment: 'MISS',
-                        value: 0,
-                        label: 'Miss',
-                      })
-                    }
-                    disabled={currentDarts.length >= 3}
-                    className="h-16 bg-slate-600 hover:bg-slate-700 text-white text-lg font-bold disabled:opacity-30"
-                  >
-                    MISS (0)
-                  </Button>
-                  <Button
-                    onClick={handleBustClick}
-                    className="h-16 bg-red-600 hover:bg-red-700 text-white text-lg font-bold"
-                  >
-                    BUST
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
+                    <Button
+                      onClick={() =>
+                        handleDartClick({
+                          segment: 'MISS',
+                          value: 0,
+                          label: 'Miss',
+                        })
+                      }
+                      disabled={currentDarts.length >= 3}
+                      className="h-16 w-full bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white text-lg font-bold disabled:opacity-30 border-2 border-slate-500/50"
+                    >
+                      MISS (0)
+                    </Button>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
+                    <Button
+                      onClick={handleBustClick}
+                      className="h-16 w-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-lg font-bold shadow-lg shadow-red-500/20 border-2 border-red-500/50"
+                    >
+                      BUST
+                    </Button>
+                  </motion.div>
                 </div>
               </div>
             </TabsContent>
@@ -731,102 +857,118 @@ function FinishTrainingContent() {
             </TabsContent>
           </Tabs>
         </Card>
+        </motion.div>
 
-        {history.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700 p-4">
-            <div className="text-sm font-semibold text-white mb-3">Visit History</div>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {history.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
-                >
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="text-white font-semibold">
-                      <Target className="inline w-4 h-4 mr-1" />
-                      {item.target}
-                    </div>
-                    <div className="text-slate-400 text-sm">
-                      Attempt {item.attemptNo}/3
-                    </div>
-                    <div className="text-slate-300 text-sm">{item.darts}</div>
-                    <div className="text-emerald-400 font-semibold text-sm">
-                      Total: {item.visitTotal}
-                    </div>
-                  </div>
-                  <Badge
-                    variant={
-                      item.result === 'Success'
-                        ? 'default'
-                        : item.result === 'Bust'
-                        ? 'destructive'
-                        : 'secondary'
-                    }
-                    className={
-                      item.result === 'Success'
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                        : item.result === 'Bust'
-                        ? 'bg-red-500/20 border-red-500 text-red-400'
-                        : 'bg-slate-500/20 border-slate-500 text-slate-400'
-                    }
-                  >
-                    {item.result}
-                  </Badge>
+        <AnimatePresence>
+          {history.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm">
+                <div className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">Visit History</div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {history.slice(0, 10).map((item, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl border border-slate-600/30"
+                    >
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-lg">
+                          <Target className="w-4 h-4 text-emerald-400" />
+                          <span className="text-white font-bold">{item.target}</span>
+                        </div>
+                        <div className="text-slate-500 text-sm font-medium">
+                          Attempt {item.attemptNo}/3
+                        </div>
+                        <div className="text-slate-300 text-sm">{item.darts}</div>
+                        <div className="text-emerald-400 font-bold text-sm">
+                          {item.visitTotal}
+                        </div>
+                      </div>
+                      <Badge
+                        className={
+                          item.result === 'Success'
+                            ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 border-emerald-500 text-emerald-400'
+                            : item.result === 'Bust'
+                            ? 'bg-gradient-to-r from-red-500/20 to-red-600/20 border-red-500 text-red-400'
+                            : 'bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-500 text-slate-400'
+                        }
+                      >
+                        {item.result}
+                      </Badge>
+                    </motion.div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </Card>
-        )}
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="flex justify-center pb-8">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="flex justify-center pb-8"
+        >
           <Button
             onClick={() => setShowStatsModal(true)}
-            className="h-14 px-12 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold"
+            className="h-14 px-12 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/25"
           >
             <TrendingUp className="mr-2 h-5 w-5" />
             End Session
           </Button>
-        </div>
+        </motion.div>
       </div>
 
       <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center mb-4">
-              Session Stats
+            <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-bold text-center">
+              <Trophy className="h-8 w-8 text-yellow-400" />
+              Session Complete!
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="bg-slate-700/30 rounded-lg p-6 text-center">
-              <div className="text-slate-400 text-sm uppercase tracking-wider mb-2">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4 py-4"
+          >
+            {/* Total Darts */}
+            <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center">
+              <div className="text-emerald-300 text-sm font-bold uppercase tracking-wider mb-2">
                 Total Darts Thrown
               </div>
-              <div className="text-5xl font-bold text-emerald-400">{totalDarts}</div>
+              <div className="text-5xl font-black text-white">{totalDarts}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-                <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
-                  Total Attempts
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-700/30 rounded-xl p-4 text-center border border-slate-600/30">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                  Attempts
                 </div>
-                <div className="text-3xl font-bold text-white">{totalAttempts}</div>
+                <div className="text-3xl font-black text-white">{totalAttempts}</div>
               </div>
 
-              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-                <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
-                  Successful Checkouts
+              <div className="bg-slate-700/30 rounded-xl p-4 text-center border border-slate-600/30">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+                  Success
                 </div>
-                <div className="text-3xl font-bold text-emerald-400">
+                <div className="text-3xl font-black text-emerald-400">
                   {successfulCheckouts}
                 </div>
               </div>
             </div>
 
             {totalAttempts > 0 && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-center">
-                <div className="text-blue-300 text-sm mb-1">Checkout Success Rate</div>
-                <div className="text-2xl font-bold text-blue-400">
+              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl p-4 text-center">
+                <div className="text-blue-300 text-sm font-medium mb-1">Checkout Success Rate</div>
+                <div className="text-3xl font-black text-white">
                   {((successfulCheckouts / totalAttempts) * 100).toFixed(1)}%
                 </div>
               </div>
@@ -834,17 +976,17 @@ function FinishTrainingContent() {
 
             {finishesHit.length > 0 && (
               <>
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-                  <div className="text-emerald-300 text-sm uppercase tracking-wider mb-3 text-center">
+                <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4">
+                  <div className="text-amber-300 text-sm font-bold uppercase tracking-wider mb-2 text-center">
                     Highest Finish
                   </div>
-                  <div className="text-4xl font-bold text-emerald-400 text-center">
+                  <div className="text-4xl font-black text-white text-center">
                     {Math.max(...finishesHit)}
                   </div>
                 </div>
 
-                <div className="bg-slate-700/30 rounded-lg p-4">
-                  <div className="text-slate-400 text-sm uppercase tracking-wider mb-3">
+                <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/30">
+                  <div className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-3">
                     Finishes Hit ({Array.from(new Set(finishesHit)).length} unique)
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -853,7 +995,7 @@ function FinishTrainingContent() {
                       .map((finish, idx) => (
                         <Badge
                           key={idx}
-                          className="bg-emerald-500/20 border-emerald-500 text-emerald-400 text-base px-3 py-1"
+                          className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0 text-sm px-3 py-1"
                         >
                           {finish}
                         </Badge>
@@ -862,27 +1004,19 @@ function FinishTrainingContent() {
                 </div>
               </>
             )}
-
-            {finishesHit.length === 0 && (
-              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-                <div className="text-slate-400 text-sm">
-                  Highest Finish: <span className="font-semibold">None</span>
-                </div>
-              </div>
-            )}
-          </div>
+          </motion.div>
 
           <DialogFooter className="flex gap-3">
             <Button
               variant="outline"
               onClick={() => setShowStatsModal(false)}
-              className="flex-1 border-slate-600 text-white hover:bg-slate-700"
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white font-bold"
             >
-              Close
+              Continue
             </Button>
             <Button
               onClick={() => router.push('/app/play')}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold"
             >
               Back to Play
             </Button>

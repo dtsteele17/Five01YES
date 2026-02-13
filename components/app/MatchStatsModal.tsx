@@ -10,8 +10,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
-import { Target, Trophy, TrendingUp, Award, Camera } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Target, Trophy, TrendingUp, Award, Camera, Zap, Crosshair, Crown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { motion } from 'framer-motion';
 
 interface MatchStatsModalProps {
   isOpen: boolean;
@@ -229,13 +231,15 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-gradient-to-br from-slate-900 to-slate-950 border-white/10 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-emerald-400" />
-            Match Stats
+          <DialogTitle className="text-2xl font-black flex items-center justify-center gap-3">
+            <Crown className="w-8 h-8 text-yellow-400" />
+            <span className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 bg-clip-text text-transparent">
+              Match Stats
+            </span>
           </DialogTitle>
-          <p className="text-gray-400 text-sm">
+          <p className="text-center text-slate-400 text-sm">
             {MODE_LABELS[match?.match_format || ''] || match?.match_format} • {match?.game_mode || 501} • 
             Best of {(match?.legs_won || 0) + (match?.legs_lost || 0)}
             {match?.played_at && ` • ${new Date(match.played_at).toLocaleDateString()}`}
@@ -244,124 +248,195 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-gray-400">Loading stats...</div>
+            <div className="text-slate-400">Loading stats...</div>
           </div>
         ) : (
-          <div className="space-y-6 mt-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6 mt-4"
+          >
             {/* Score Board */}
-            <Card className="bg-slate-800/50 border-white/10 p-6">
+            <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-white/10 p-6 backdrop-blur-sm">
               <div className="flex items-center justify-center gap-8">
-                <div className={`text-center ${userWon ? 'text-emerald-400' : 'text-gray-400'}`}>
-                  <p className="text-sm mb-1">{userName}</p>
-                  <p className="text-4xl font-bold">{userLegsWon}</p>
-                  {userWon && <p className="text-xs text-emerald-400">WINNER</p>}
+                {/* User */}
+                <div className={`text-center ${userWon ? 'scale-110' : 'opacity-70'}`}>
+                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black ${
+                    userWon 
+                      ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
+                      : 'bg-slate-700 text-slate-400'
+                  }`}>
+                    {userName.charAt(0).toUpperCase()}
+                  </div>
+                  <p className="text-sm font-medium text-white mb-1">{userName}</p>
+                  <motion.p 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-5xl font-black text-white"
+                  >
+                    {userLegsWon}
+                  </motion.p>
+                  {userWon && (
+                    <Badge className="mt-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
+                      <Crown className="w-3 h-3 mr-1" />
+                      WINNER
+                    </Badge>
+                  )}
                 </div>
-                <div className="text-2xl font-bold text-gray-500">VS</div>
-                <div className={`text-center ${!userWon ? 'text-orange-400' : 'text-gray-400'}`}>
-                  <p className="text-sm mb-1">{opponentName}</p>
-                  <p className="text-4xl font-bold">{opponentLegsWon}</p>
-                  {!userWon && <p className="text-xs text-orange-400">WINNER</p>}
+                
+                {/* VS */}
+                <div className="text-3xl font-black text-slate-600">VS</div>
+                
+                {/* Opponent */}
+                <div className={`text-center ${!userWon ? 'scale-110' : 'opacity-70'}`}>
+                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black ${
+                    !userWon 
+                      ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30' 
+                      : 'bg-slate-700 text-slate-400'
+                  }`}>
+                    {opponentName.charAt(0).toUpperCase()}
+                  </div>
+                  <p className="text-sm font-medium text-white mb-1">{opponentName}</p>
+                  <motion.p 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-5xl font-black text-white"
+                  >
+                    {opponentLegsWon}
+                  </motion.p>
+                  {!userWon && (
+                    <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white border-0">
+                      <Crown className="w-3 h-3 mr-1" />
+                      WINNER
+                    </Badge>
+                  )}
                 </div>
               </div>
             </Card>
 
             <div className="grid md:grid-cols-2 gap-6">
               {/* User Stats */}
-              <Card className="bg-slate-800/50 border-white/10 p-6">
+              <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-emerald-500/30 p-6 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-6">
-                  <Avatar className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500">
-                    <div className="w-full h-full flex items-center justify-center text-white font-bold">
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
-                  </Avatar>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
+                    {userName.charAt(0).toUpperCase()}
+                  </div>
                   <div>
                     <h3 className="text-lg font-bold text-white">{userName}</h3>
-                    <p className="text-sm text-gray-400">You</p>
+                    <p className="text-sm text-emerald-400">You</p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <StatRow icon={Target} label="3-Dart Average" value={userStats ? Number(userStats.three_dart_average).toFixed(1) : '—'} />
+                <div className="space-y-2">
+                  <StatRow icon={Target} label="3-Dart Average" value={userStats ? Number(userStats.three_dart_average).toFixed(1) : '—'} highlight />
                   <StatRow icon={TrendingUp} label="First 9 Dart Avg" value={userStats ? Number(userStats.first_9_dart_avg).toFixed(1) : '—'} />
-                  <StatRow icon={Award} label="Darts Thrown" value={userStats?.darts_thrown?.toString() || '—'} />
+                  <StatRow icon={Zap} label="Darts Thrown" value={userStats?.darts_thrown?.toString() || '—'} />
                   <StatRow
-                    icon={Target}
+                    icon={Crosshair}
                     label="Checkout %"
                     value={userStats && userStats.checkout_attempts > 0 
-                      ? `${Number(userStats.checkout_percentage).toFixed(1)}% (${userStats.checkout_hits}/${userStats.checkout_attempts})` 
+                      ? `${Number(userStats.checkout_percentage).toFixed(1)}%` 
                       : userStats?.checkout_hits ? `${userStats.checkout_hits} checkouts` : '—'}
+                    subvalue={userStats && userStats.checkout_attempts > 0 ? `(${userStats.checkout_hits}/${userStats.checkout_attempts})` : undefined}
                   />
-                  <StatRow icon={Award} label="Highest Checkout" value={userStats?.highest_checkout ? userStats.highest_checkout.toString() : '0'} color={userStats?.highest_checkout ? 'text-emerald-400' : 'text-gray-400'} />
-                  <StatRow icon={Trophy} label="180s" value={userStats?.count_180?.toString() || '0'} />
-                  <StatRow icon={Trophy} label="140+" value={userStats?.count_140_plus?.toString() || '0'} />
-                  <StatRow icon={Trophy} label="100+" value={userStats?.count_100_plus?.toString() || '0'} />
+                  <StatRow icon={Award} label="Highest Checkout" value={userStats?.highest_checkout?.toString() || '0'} color={userStats?.highest_checkout ? 'text-emerald-400' : 'text-slate-400'} />
+                  <div className="grid grid-cols-3 gap-2 pt-2">
+                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-lg font-bold text-purple-400">{userStats?.count_180 || 0}</div>
+                      <div className="text-xs text-slate-500">180s</div>
+                    </div>
+                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-lg font-bold text-blue-400">{userStats?.count_140_plus || 0}</div>
+                      <div className="text-xs text-slate-500">140+</div>
+                    </div>
+                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-lg font-bold text-emerald-400">{userStats?.count_100_plus || 0}</div>
+                      <div className="text-xs text-slate-500">100+</div>
+                    </div>
+                  </div>
                 </div>
               </Card>
 
               {/* Opponent Stats */}
-              <Card className="bg-slate-800/50 border-white/10 p-6">
+              <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-orange-500/30 p-6 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-6">
-                  <Avatar className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500">
-                    <div className="w-full h-full flex items-center justify-center text-white font-bold">
-                      {opponentName.charAt(0).toUpperCase()}
-                    </div>
-                  </Avatar>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-500/20">
+                    {opponentName.charAt(0).toUpperCase()}
+                  </div>
                   <div>
                     <h3 className="text-lg font-bold text-white">{opponentName}</h3>
-                    <p className="text-sm text-gray-400">Opponent</p>
+                    <p className="text-sm text-orange-400">Opponent</p>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <StatRow icon={Target} label="3-Dart Average" value={opponentStats ? Number(opponentStats.three_dart_average).toFixed(1) : '—'} />
+                <div className="space-y-2">
+                  <StatRow icon={Target} label="3-Dart Average" value={opponentStats ? Number(opponentStats.three_dart_average).toFixed(1) : '—'} highlight />
                   <StatRow icon={TrendingUp} label="First 9 Dart Avg" value={opponentStats ? Number(opponentStats.first_9_dart_avg).toFixed(1) : '—'} />
-                  <StatRow icon={Award} label="Darts Thrown" value={opponentStats?.darts_thrown?.toString() || '—'} />
+                  <StatRow icon={Zap} label="Darts Thrown" value={opponentStats?.darts_thrown?.toString() || '—'} />
                   <StatRow
-                    icon={Target}
+                    icon={Crosshair}
                     label="Checkout %"
                     value={opponentStats && opponentStats.checkout_attempts > 0 
-                      ? `${Number(opponentStats.checkout_percentage).toFixed(1)}% (${opponentStats.checkout_hits}/${opponentStats.checkout_attempts})` 
+                      ? `${Number(opponentStats.checkout_percentage).toFixed(1)}%` 
                       : opponentStats?.checkout_hits ? `${opponentStats.checkout_hits} checkouts` : '—'}
+                    subvalue={opponentStats && opponentStats.checkout_attempts > 0 ? `(${opponentStats.checkout_hits}/${opponentStats.checkout_attempts})` : undefined}
                   />
-                  <StatRow icon={Award} label="Highest Checkout" value={opponentStats?.highest_checkout ? opponentStats.highest_checkout.toString() : '0'} color={opponentStats?.highest_checkout ? 'text-emerald-400' : 'text-gray-400'} />
-                  <StatRow icon={Trophy} label="180s" value={opponentStats?.count_180?.toString() || '0'} />
-                  <StatRow icon={Trophy} label="140+" value={opponentStats?.count_140_plus?.toString() || '0'} />
-                  <StatRow icon={Trophy} label="100+" value={opponentStats?.count_100_plus?.toString() || '0'} />
+                  <StatRow icon={Award} label="Highest Checkout" value={opponentStats?.highest_checkout?.toString() || '0'} color={opponentStats?.highest_checkout ? 'text-emerald-400' : 'text-slate-400'} />
+                  <div className="grid grid-cols-3 gap-2 pt-2">
+                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-lg font-bold text-purple-400">{opponentStats?.count_180 || 0}</div>
+                      <div className="text-xs text-slate-500">180s</div>
+                    </div>
+                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-lg font-bold text-blue-400">{opponentStats?.count_140_plus || 0}</div>
+                      <div className="text-xs text-slate-500">140+</div>
+                    </div>
+                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-lg font-bold text-emerald-400">{opponentStats?.count_100_plus || 0}</div>
+                      <div className="text-xs text-slate-500">100+</div>
+                    </div>
+                  </div>
                 </div>
               </Card>
             </div>
 
             {/* Summary Stats */}
             {userStats && (
-              <Card className="bg-slate-800/50 border-white/10 p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Your Performance Summary</h3>
+              <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-white/10 p-6 backdrop-blur-sm">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-yellow-400" />
+                  Your Performance Summary
+                </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <p className="text-2xl font-bold text-emerald-400">{Number(userStats.three_dart_average).toFixed(1)}</p>
-                    <p className="text-xs text-gray-400">3-Dart Avg</p>
+                  <div className="text-center p-4 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 rounded-xl border border-emerald-500/20">
+                    <p className="text-2xl font-black text-emerald-400">{Number(userStats.three_dart_average).toFixed(1)}</p>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">3-Dart Avg</p>
                   </div>
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <p className="text-2xl font-bold text-blue-400">{userStats.count_180}</p>
-                    <p className="text-xs text-gray-400">180s</p>
+                  <div className="text-center p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-xl border border-purple-500/20">
+                    <p className="text-2xl font-black text-purple-400">{userStats.count_180}</p>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">180s</p>
                   </div>
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <p className="text-2xl font-bold text-purple-400">{userStats.count_140_plus}</p>
-                    <p className="text-xs text-gray-400">140+</p>
+                  <div className="text-center p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl border border-blue-500/20">
+                    <p className="text-2xl font-black text-blue-400">{userStats.count_140_plus}</p>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">140+</p>
                   </div>
-                  <div className="text-center p-4 bg-white/5 rounded-lg">
-                    <p className="text-2xl font-bold text-orange-400">{userStats.highest_checkout || 0}</p>
-                    <p className="text-xs text-gray-400">High Checkout</p>
+                  <div className="text-center p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/10 rounded-xl border border-orange-500/20">
+                    <p className="text-2xl font-black text-orange-400">{userStats.highest_checkout || 0}</p>
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">High Checkout</p>
                   </div>
                 </div>
               </Card>
             )}
 
             <div className="flex justify-end">
-              <Button onClick={onClose} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+              <Button 
+                onClick={onClose} 
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-8"
+              >
                 Close
               </Button>
             </div>
-          </div>
+          </motion.div>
         )}
       </DialogContent>
     </Dialog>
@@ -372,20 +447,27 @@ function StatRow({
   icon: Icon,
   label,
   value,
-  color = 'text-white'
+  subvalue,
+  color = 'text-white',
+  highlight = false
 }: {
   icon: any;
   label: string;
   value: string;
+  subvalue?: string;
   color?: string;
+  highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg">
+    <div className={`flex items-center justify-between py-2 px-3 rounded-lg ${highlight ? 'bg-white/10' : 'bg-white/5'}`}>
       <div className="flex items-center space-x-2">
-        <Icon className="w-4 h-4 text-gray-400" />
-        <span className="text-gray-300 text-sm">{label}</span>
+        <Icon className={`w-4 h-4 ${highlight ? 'text-emerald-400' : 'text-slate-400'}`} />
+        <span className="text-slate-300 text-sm font-medium">{label}</span>
       </div>
-      <span className={`font-bold ${color}`}>{value}</span>
+      <div className="text-right">
+        <span className={`font-bold ${color}`}>{value}</span>
+        {subvalue && <span className="text-slate-500 text-xs ml-1">{subvalue}</span>}
+      </div>
     </div>
   );
 }

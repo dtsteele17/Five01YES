@@ -499,7 +499,8 @@ export default function KillerTrainingPage() {
             {scoringTab !== 'bulls' ? (
               <div className="grid grid-cols-10 gap-2">
                 {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => {
-                  const isTaken = players.some(p => p.number === num);
+                  // Only block numbers during selection phase - in playing phase, all numbers are available
+                  const isTaken = gamePhase === 'select-number' && players.some(p => p.number === num);
                   let value = num;
                   let label = `S${num}`;
                   let segment: 'S' | 'D' | 'T' = 'S';

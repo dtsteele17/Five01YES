@@ -1467,15 +1467,37 @@ export default function QuickMatchRoomPage() {
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
-    // Calculate FIRST 9 DART AVERAGE (first 3 visits, max 9 darts)
-    let first9Score = 0;
-    let first9Darts = 0;
-    for (const visit of playerVisits.slice(0, 3)) {
-      first9Score += visit.score;
-      first9Darts += (visit.darts_thrown || 3);
-      if (first9Darts >= 9) break;
+    // Calculate FIRST 9 DART AVERAGE per leg, then average across legs
+    // Group non-bust visits by leg
+    const visitsByLeg = new Map<number, typeof playerVisits>();
+    for (const visit of playerVisits) {
+      if (!visitsByLeg.has(visit.leg)) {
+        visitsByLeg.set(visit.leg, []);
+      }
+      visitsByLeg.get(visit.leg)!.push(visit);
     }
-    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+    
+    // Calculate first 9 average for each leg
+    const legFirst9Averages: number[] = [];
+    for (const [legNum, legVisits] of visitsByLeg) {
+      let legFirst9Score = 0;
+      let legFirst9Darts = 0;
+      // Take first 3 visits (max 9 darts) from this leg
+      for (const visit of legVisits.slice(0, 3)) {
+        legFirst9Score += visit.score;
+        legFirst9Darts += (visit.darts_thrown || 3);
+        if (legFirst9Darts >= 9) break;
+      }
+      if (legFirst9Darts > 0) {
+        const legFirst9Avg = (legFirst9Score / legFirst9Darts) * 3;
+        legFirst9Averages.push(legFirst9Avg);
+      }
+    }
+    
+    // Average the first 9 averages across all legs
+    const first9Average = legFirst9Averages.length > 0
+      ? legFirst9Averages.reduce((sum, avg) => sum + avg, 0) / legFirst9Averages.length
+      : 0;
     
     // Find highest checkout (even for losing players - they might have won some legs)
     const checkouts = playerVisits.filter(v => v.is_checkout);
@@ -1561,15 +1583,37 @@ export default function QuickMatchRoomPage() {
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
-    // Calculate FIRST 9 DART AVERAGE (first 3 visits, max 9 darts)
-    let first9Score = 0;
-    let first9Darts = 0;
-    for (const visit of playerVisits.slice(0, 3)) {
-      first9Score += visit.score;
-      first9Darts += (visit.darts_thrown || 3);
-      if (first9Darts >= 9) break;
+    // Calculate FIRST 9 DART AVERAGE per leg, then average across legs
+    // Group non-bust visits by leg
+    const visitsByLeg = new Map<number, typeof playerVisits>();
+    for (const visit of playerVisits) {
+      if (!visitsByLeg.has(visit.leg)) {
+        visitsByLeg.set(visit.leg, []);
+      }
+      visitsByLeg.get(visit.leg)!.push(visit);
     }
-    const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
+    
+    // Calculate first 9 average for each leg
+    const legFirst9Averages: number[] = [];
+    for (const [legNum, legVisits] of visitsByLeg) {
+      let legFirst9Score = 0;
+      let legFirst9Darts = 0;
+      // Take first 3 visits (max 9 darts) from this leg
+      for (const visit of legVisits.slice(0, 3)) {
+        legFirst9Score += visit.score;
+        legFirst9Darts += (visit.darts_thrown || 3);
+        if (legFirst9Darts >= 9) break;
+      }
+      if (legFirst9Darts > 0) {
+        const legFirst9Avg = (legFirst9Score / legFirst9Darts) * 3;
+        legFirst9Averages.push(legFirst9Avg);
+      }
+    }
+    
+    // Average the first 9 averages across all legs
+    const first9Average = legFirst9Averages.length > 0
+      ? legFirst9Averages.reduce((sum, avg) => sum + avg, 0) / legFirst9Averages.length
+      : 0;
     
     // Find highest checkout (even for losing players - they might have won some legs)
     const checkouts = playerVisits.filter(v => v.is_checkout);
