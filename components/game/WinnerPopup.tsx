@@ -44,6 +44,7 @@ interface WinnerPopupProps {
   opponentRematchReady?: boolean;
   youReady?: boolean;
   currentUserId?: string;
+  readyCount?: number; // 0, 1, or 2 - for showing Rematch 1/2, 2/2
 }
 
 export function WinnerPopup({
@@ -60,6 +61,7 @@ export function WinnerPopup({
   opponentRematchReady = false,
   youReady = false,
   currentUserId,
+  readyCount = 0,
 }: WinnerPopupProps) {
   const isPlayer1Winner = player1.id === winnerId;
   const winnerName = isPlayer1Winner ? player1.name : player2.name;
@@ -85,7 +87,7 @@ export function WinnerPopup({
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Waiting...
+          Rematch {readyCount}/2
         </>
       );
     }
@@ -108,7 +110,7 @@ export function WinnerPopup({
     return (
       <>
         <RotateCcw className="w-4 h-4 mr-1" />
-        Rematch
+        Rematch {readyCount}/2
       </>
     );
   };
@@ -320,6 +322,10 @@ export function WinnerPopup({
               <div className={`flex items-center gap-1 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
                 <div className={`w-2 h-2 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
                 <span>Opponent{opponentRematchReady ? ' ✓' : ''}</span>
+              </div>
+              <div className="text-slate-600">|</div>
+              <div className="text-slate-400">
+                <span className={readyCount >= 1 ? 'text-emerald-400' : ''}>{readyCount}</span>/2 Ready
               </div>
             </div>
           )}

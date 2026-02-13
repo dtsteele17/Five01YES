@@ -1084,8 +1084,10 @@ export default function QuickMatchRoomPage() {
   const [rematchStatus, setRematchStatus] = useState<'none' | 'waiting' | 'ready' | 'creating'>('none');
   const [opponentRematchReady, setOpponentRematchReady] = useState(false);
   const [newRematchRoomId, setNewRematchRoomId] = useState<string | null>(null);
+  const [readyCount, setReadyCount] = useState(0);
   const rematchAttemptedRef = useRef(false);
   const rematchCheckCountRef = useRef(0);
+  const rematchPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Coin toss state
   const [showCoinToss, setShowCoinToss] = useState(false);
@@ -1112,9 +1114,24 @@ export default function QuickMatchRoomPage() {
   useEffect(() => {
     if (newRematchRoomId && newRematchRoomId !== matchId) {
       console.log('[REMATCH] Auto-navigating to:', newRematchRoomId);
+      // Clear any pending polls before navigating
+      if (rematchPollIntervalRef.current) {
+        clearTimeout(rematchPollIntervalRef.current);
+        rematchPollIntervalRef.current = null;
+      }
       window.location.href = `/app/play/quick-match/match/${newRematchRoomId}`;
     }
   }, [newRematchRoomId, matchId]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (rematchPollIntervalRef.current) {
+        clearTimeout(rematchPollIntervalRef.current);
+        rematchPollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // WebRTC - only connect after both players are ready (pre-game lobby complete)
   const bothPlayersReady = player1Ready && player2Ready;
@@ -3131,9 +3148,10 @@ export default function QuickMatchRoomPage() {
     const isPlayer1 = room.player1_id === currentUserId;
     console.log('[REMATCH] Requesting rematch. isPlayer1:', isPlayer1);
     
-    // Prevent double-clicks
+    // Prevent double-clicks and set UI state
     rematchAttemptedRef.current = true;
     setRematchStatus('waiting');
+    setReadyCount(1); // I'm ready (at least)
     
     try {
       // Call RPC to set rematch flag in database
@@ -3148,10 +3166,20 @@ export default function QuickMatchRoomPage() {
       
       console.log('[REMATCH] RPC response:', data);
       
+      // Update ready count from server
+      const count = data?.ready_count || 1;
+      setReadyCount(count);
+      
+      // Check if opponent is already ready
+      if (count >= 2) {
+        setOpponentRematchReady(true);
+      }
+      
       if (data?.both_ready) {
         // Both players are ready - room will be created by trigger or player 1
         console.log('[REMATCH] Both players ready!');
         setRematchStatus('ready');
+        setReadyCount(2);
         
         // Player 1 creates the room
         if (isPlayer1) {
@@ -3161,7 +3189,7 @@ export default function QuickMatchRoomPage() {
           pollForRematchRoomV2();
         }
       } else {
-        // Waiting for opponent
+        // Waiting for opponent - show "Rematch 1/2"
         console.log('[REMATCH] Waiting for opponent...');
         toast.info('Waiting for opponent to accept rematch...');
         
@@ -3172,56 +3200,87 @@ export default function QuickMatchRoomPage() {
     } catch (error: any) {
       console.error('[REMATCH] Error:', error);
       setRematchStatus('none');
+      setReadyCount(0);
       rematchAttemptedRef.current = false;
       toast.error('Failed to start rematch');
     }
   };
   
   // Poll for rematch status (called by both players when waiting)
-  async function pollForRematchStatusV2() {
+  function pollForRematchStatusV2() {
     if (!room || !currentUserId) return;
     
-    const isPlayer1 = room.player1_id === currentUserId;
-    
-    try {
-      const { data, error } = await supabase.rpc('rpc_check_rematch_status', {
-        p_room_id: matchId
-      });
-      
-      if (error) {
-        console.error('[REMATCH] Poll error:', error);
-        return;
-      }
-      
-      console.log('[REMATCH] Status poll:', data);
-      
-      // If rematch room already exists, navigate to it
-      if (data?.rematch_room_id) {
-        console.log('[REMATCH] Room already exists:', data.rematch_room_id);
-        setNewRematchRoomId(data.rematch_room_id);
-        return;
-      }
-      
-      // If both ready
-      if (data?.both_ready) {
-        console.log('[REMATCH] Both ready detected via poll!');
-        setRematchStatus('ready');
-        
-        if (isPlayer1) {
-          await createRematchRoomV2();
-        } else {
-          pollForRematchRoomV2();
-        }
-        return;
-      }
-      
-      // Continue polling
-      setTimeout(pollForRematchStatusV2, 1000);
-      
-    } catch (err) {
-      console.error('[REMATCH] Poll error:', err);
-      setTimeout(pollForRematchStatusV2, 2000);
+    // Clear any existing poll first
+    if (rematchPollIntervalRef.current) {
+      clearTimeout(rematchPollIntervalRef.current);
+      rematchPollIntervalRef.current = null;
     }
+    
+    const isPlayer1 = room.player1_id === currentUserId;
+    let attempts = 0;
+    const maxAttempts = 120; // 2 minutes max
+    
+    const doPoll = async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        console.log('[REMATCH] Max poll attempts reached');
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase.rpc('rpc_check_rematch_status', {
+          p_room_id: matchId
+        });
+        
+        if (error) {
+          console.error('[REMATCH] Poll error:', error);
+          rematchPollIntervalRef.current = setTimeout(doPoll, 2000);
+          return;
+        }
+        
+        console.log('[REMATCH] Status poll:', data);
+        
+        // Update ready count for UI
+        setReadyCount(data?.ready_count || 1);
+        
+        // Check if opponent is ready
+        const opponentReady = isPlayer1 ? data?.player2_ready : data?.player1_ready;
+        if (opponentReady) {
+          setOpponentRematchReady(true);
+        }
+        
+        // If rematch room already exists, navigate to it
+        if (data?.rematch_room_id) {
+          console.log('[REMATCH] Room already exists:', data.rematch_room_id);
+          setNewRematchRoomId(data.rematch_room_id);
+          return;
+        }
+        
+        // If both ready
+        if (data?.both_ready) {
+          console.log('[REMATCH] Both ready detected via poll!');
+          setRematchStatus('ready');
+          setReadyCount(2);
+          
+          if (isPlayer1) {
+            await createRematchRoomV2();
+          } else {
+            pollForRematchRoomV2();
+          }
+          return;
+        }
+        
+        // Continue polling
+        rematchPollIntervalRef.current = setTimeout(doPoll, 1000);
+        
+      } catch (err) {
+        console.error('[REMATCH] Poll error:', err);
+        rematchPollIntervalRef.current = setTimeout(doPoll, 2000);
+      }
+    };
+    
+    // Start polling
+    doPoll();
   }
   
   // Player 1 creates the rematch room
@@ -3260,8 +3319,14 @@ export default function QuickMatchRoomPage() {
   
   // Player 2 polls for the rematch room to be created
   function pollForRematchRoomV2() {
+    // Clear any existing poll first
+    if (rematchPollIntervalRef.current) {
+      clearTimeout(rematchPollIntervalRef.current);
+      rematchPollIntervalRef.current = null;
+    }
+    
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds
+    const maxAttempts = 60; // 60 seconds
     
     const doPoll = async () => {
       attempts++;
@@ -3291,11 +3356,11 @@ export default function QuickMatchRoomPage() {
         }
         
         // Continue polling
-        setTimeout(doPoll, 1000);
+        rematchPollIntervalRef.current = setTimeout(doPoll, 1000);
         
       } catch (err) {
         console.error('[REMATCH] Poll error:', err);
-        setTimeout(doPoll, 2000);
+        rematchPollIntervalRef.current = setTimeout(doPoll, 2000);
       }
     };
     
@@ -3757,6 +3822,7 @@ export default function QuickMatchRoomPage() {
           opponentRematchReady={opponentRematchReady}
           youReady={rematchStatus === 'waiting' || rematchStatus === 'ready'}
           currentUserId={currentUserId || ''}
+          readyCount={readyCount}
         />
       )}
     </div>
