@@ -605,20 +605,16 @@ export interface DartbotMatchStats {
   gameMode: 301 | 501;
   matchFormat: string;
   dartbotLevel: number;
-  playerLegs: number;
-  dartbotLegs: number;
+  playerLegsWon: number;
+  botLegsWon: number;
   winner: 'player' | 'dartbot';
-  startedAt: string;
-  completedAt: string;
   playerStats: {
-    threeDartAvg: number;
-    first9Avg: number;
-    highestCheckout: number;
+    threeDartAverage: number;
+    first9Average: number;
     checkoutPercentage: number;
-    dartsThrown: number;
-    totalScore: number;
-    totalCheckouts: number;
-    checkoutAttempts: number;
+    highestCheckout: number;
+    dartsAtDouble: number;
+    totalDartsThrown: number;
     visits100Plus: number;
     visits140Plus: number;
     visits180: number;
@@ -632,35 +628,42 @@ export interface DartbotMatchStats {
 export async function recordDartbotMatchCompletion(
   stats: DartbotMatchStats
 ): Promise<{ success: boolean; roomId?: string; error?: string }> {
+  console.log('📊 RECORDING DARTBOT STATS:', {
+    legsWon: stats.playerLegsWon,
+    botLegsWon: stats.botLegsWon,
+    winner: stats.winner,
+    avg: stats.playerStats.threeDartAverage,
+    checkoutPct: stats.playerStats.checkoutPercentage,
+    bestCheckout: stats.playerStats.highestCheckout,
+  });
+
   const { data, error } = await supabase.rpc('record_dartbot_match_completion', {
     p_game_mode: stats.gameMode,
     p_match_format: stats.matchFormat,
     p_dartbot_level: stats.dartbotLevel,
-    p_player_legs: stats.playerLegs,
-    p_dartbot_legs: stats.dartbotLegs,
+    p_player_legs_won: stats.playerLegsWon,
+    p_bot_legs_won: stats.botLegsWon,
     p_winner: stats.winner,
-    p_started_at: stats.startedAt,
-    p_completed_at: stats.completedAt,
-    p_three_dart_avg: stats.playerStats.threeDartAvg,
-    p_first9_avg: stats.playerStats.first9Avg,
-    p_highest_checkout: stats.playerStats.highestCheckout,
-    p_checkout_percentage: stats.playerStats.checkoutPercentage,
-    p_darts_thrown: stats.playerStats.dartsThrown,
-    p_total_score: stats.playerStats.totalScore,
-    p_total_checkouts: stats.playerStats.totalCheckouts,
-    p_checkout_attempts: stats.playerStats.checkoutAttempts,
-    p_visits_100_plus: stats.playerStats.visits100Plus,
-    p_visits_140_plus: stats.playerStats.visits140Plus,
-    p_visits_180: stats.playerStats.visits180,
+    p_player_three_dart_avg: stats.playerStats.threeDartAverage,
+    p_player_first9_avg: stats.playerStats.first9Average,
+    p_player_checkout_pct: stats.playerStats.checkoutPercentage,
+    p_player_highest_checkout: stats.playerStats.highestCheckout,
+    p_player_darts_at_double: stats.playerStats.dartsAtDouble,
+    p_player_total_darts: stats.playerStats.totalDartsThrown,
+    p_player_100_plus: stats.playerStats.visits100Plus,
+    p_player_140_plus: stats.playerStats.visits140Plus,
+    p_player_180s: stats.playerStats.visits180,
   });
 
   if (error) {
-    console.error('Error recording dartbot match:', error);
+    console.error('❌ Error recording dartbot match:', error);
     return {
       success: false,
       error: error.message,
     };
   }
+
+  console.log('✅ DARTBOT MATCH RECORDED:', data);
 
   return {
     success: data?.success ?? true,
