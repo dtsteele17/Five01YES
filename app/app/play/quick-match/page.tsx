@@ -1025,22 +1025,6 @@ export default function QuickMatchLobbyPage() {
                 </div>
               )}
               
-              {/* Manual Refresh Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-white/10 text-gray-400 hover:text-white"
-                onClick={() => {
-                  if (myLobby) {
-                    fetchPendingRequestsForLobby(myLobby.id);
-                    toast.info('Checking for join requests...');
-                  }
-                }}
-              >
-                <Loader2 className="w-4 h-4 mr-2" />
-                Check for Requests
-              </Button>
-              
               <Button
                 className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
                 onClick={cancelLobby}
@@ -1114,16 +1098,7 @@ export default function QuickMatchLobbyPage() {
                 Open Lobbies
               </h2>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchLobbies}
-              disabled={loading}
-              className="border-white/10 text-gray-400 hover:text-white"
-            >
-              <Loader2 className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
