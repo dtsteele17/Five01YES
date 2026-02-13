@@ -1076,7 +1076,7 @@ export default function QuickMatchLobbyPage() {
                           >
                             <Target className="w-3 h-3 mr-1" />
                             {(lobby.player1?.overall_3dart_avg || 0) > 0
-                              ? `${lobby.player1.overall_3dart_avg.toFixed(1)} avg`
+                              ? `${lobby.player1?.overall_3dart_avg?.toFixed(1)} avg`
                               : 'New'
                             }
                           </Badge>
