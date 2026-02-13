@@ -177,7 +177,8 @@ export default function PlayPage() {
           visits_100_plus,
           visits_140_plus,
           visits_180,
-          played_at
+          played_at,
+          metadata
         `)
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
@@ -230,13 +231,17 @@ export default function PlayPage() {
           const totalLegs = (match.legs_won || 0) + (match.legs_lost || 0);
           const opponentData = opponentStatsMap[match.room_id];
           
+          // For dartbot matches, get bot stats from metadata
+          const botStats = match.metadata?.bot_stats || {};
+          const isDartbot = match.match_format === 'dartbot';
+          
           return {
             id: match.room_id || match.id,
             match_type: match.match_format,
             game_mode: match.game_mode?.toString() || '501',
             match_format: totalLegs > 0 ? `Best of ${totalLegs}` : 'Best of 1',
             player1_name: 'You',
-            player2_name: match.match_format === 'dartbot' 
+            player2_name: isDartbot 
               ? `Dartbot(${match.bot_level || '?'})`
               : opponentProfiles[match.opponent_id] || 'Opponent',
             player1_legs_won: match.legs_won || 0,
@@ -254,11 +259,11 @@ export default function PlayPage() {
             visits_100_plus: match.visits_100_plus,
             visits_140_plus: match.visits_140_plus,
             visits_180: match.visits_180,
-            // Opponent stats
-            opponent_three_dart_avg: opponentData?.three_dart_avg || null,
-            opponent_first9_avg: opponentData?.first9_avg || null,
-            opponent_highest_checkout: opponentData?.highest_checkout || null,
-            opponent_checkout_percentage: opponentData?.checkout_percentage || null,
+            // Opponent stats (from opponent match history entry for human opponents, from metadata for dartbot)
+            opponent_three_dart_avg: isDartbot ? botStats.three_dart_avg : opponentData?.three_dart_avg || null,
+            opponent_first9_avg: isDartbot ? botStats.first9_avg : opponentData?.first9_avg || null,
+            opponent_highest_checkout: isDartbot ? botStats.highest_checkout : opponentData?.highest_checkout || null,
+            opponent_checkout_percentage: isDartbot ? botStats.checkout_pct : opponentData?.checkout_percentage || null,
           };
         });
         setRecentMatches(transformed);

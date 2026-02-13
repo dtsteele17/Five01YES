@@ -494,20 +494,26 @@ export default function DartbotMatchPage() {
       console.log(`[Stats] ${playerName}: ${totalDarts} total darts (${bustCount} bust visits included), ${totalScored} scored, avg: ${threeDartAverage.toFixed(2)}`);
     }
     
-    // First 9 calculation (only from valid visits)
+    // First 9 calculation (only from valid visits) - calculate per leg
     let first9Score = 0, first9Darts = 0;
-    for (const visit of playerVisits.slice(0, 3)) {
-      first9Score += visit.score;
-      first9Darts += (visit.dartsThrown || 3);
-      if (first9Darts >= 9) break;
+    const legsData = allLegsData || allLegs;
+    for (const leg of legsData) {
+      const legVisits = leg.visits.filter(v => v.player === playerKey && !v.isBust);
+      for (const visit of legVisits.slice(0, 3)) {
+        first9Score += visit.score;
+        first9Darts += (visit.dartsThrown || 3);
+        if (first9Darts >= 9) break;
+      }
     }
     const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
     
     // Checkout stats - find highest checkout from visits
-    const checkouts = playerVisits.filter(v => v.isCheckout);
+    // A checkout is a visit where isCheckout=true OR remainingScore=0 after the visit
+    const checkouts = playerVisits.filter(v => v.isCheckout || v.remainingScore === 0);
     let highestCheckout = 0;
     
     // Calculate highest checkout from the remainingBefore of checkout visits
+    // The checkout value is what was remaining BEFORE the visit (what they checked out from)
     for (const visit of checkouts) {
       const checkoutValue = visit.remainingBefore || 0;
       if (checkoutValue > highestCheckout && checkoutValue <= 170) {
@@ -517,9 +523,14 @@ export default function DartbotMatchPage() {
     
     // Calculate checkout stats from visits
     const successfulCheckouts = checkouts.length;
-    const dartsAtDouble = allPlayerVisits
-      .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
-      .reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    
+    // Count darts at double: any visit where remaining was <= 170 and > 0 before the visit
+    // This indicates the player was on a checkout
+    const checkoutAttempts = allPlayerVisits.filter(v => {
+      const remainingBefore = v.remainingBefore || 0;
+      return remainingBefore <= 170 && remainingBefore > 0;
+    });
+    const dartsAtDouble = checkoutAttempts.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
     
     const checkoutPercentage = dartsAtDouble > 0 ? (successfulCheckouts / dartsAtDouble) * 100 : 0;
     
@@ -592,20 +603,22 @@ export default function DartbotMatchPage() {
       
       // Use the ref for completed legs which is always up-to-date
       const allVisitsFormatted: any[] = [];
-      const allLegsData = completedLegsRef.current;
+      // Include both completed legs AND current leg (in case match ended but leg wasn't added yet)
+      const allLegsData = [...completedLegsRef.current, currentLeg];
       
       for (const leg of allLegsData) {
+        if (!leg.visits || leg.visits.length === 0) continue;
         const p1Visits = leg.visits.filter(v => v.player === 'player1');
         const p2Visits = leg.visits.filter(v => v.player === 'player2');
-        p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'user', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
-        p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'opponent', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
+        p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'user', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: (visit.remainingBefore || 0) <= 170 && !visit.isBust }));
+        p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'opponent', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: (visit.remainingBefore || 0) <= 170 && !visit.isBust }));
       }
       
       const userStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'user'), 'user', normalizedConfig.mode, p1DartsAtDouble, p1Checkouts);
       const opponentStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'opponent'), 'opponent', normalizedConfig.mode, p2DartsAtDouble, p2Checkouts);
       
       // Set match end stats for WinnerPopup using ref data
-      const completedLegs = completedLegsRef.current;
+      const completedLegs = allLegsData;
       
       const p1FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
@@ -812,7 +825,7 @@ export default function DartbotMatchPage() {
       
       if (visualVisit.finished) {
         setTimeout(() => { 
-          if (!matchOverRef.current) handleLegComplete('player2'); 
+          if (!matchOverRef.current) handleLegComplete('player2', visit); 
         }, 500);
         return;
       }
@@ -930,24 +943,38 @@ export default function DartbotMatchPage() {
     }
     const isCheckout = newScore === 0;
     const visit: Visit = { player: 'player1', score, remainingScore: newScore, isBust: false, isCheckout, timestamp: Date.now(), lastDartType, dartsThrown, remainingBefore: currentScore, remainingAfter: newScore, legNumber: currentLeg.legNumber };
-    setCurrentLeg(prev => { const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown)); const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (score * dartsUsedInFirst9) / dartsThrown : 0; return { ...prev, visits: [...prev.visits, visit], player1DartsThrown: prev.player1DartsThrown + dartsThrown, player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9, player1First9PointsScored: prev.player1First9PointsScored + pointsForFirst9 }; });
+    
+    if (isCheckout) {
+      // For checkout, pass the visit directly to handleLegComplete since React state 
+      // updates are async and the visit won't be in currentLeg yet
+      handleLegComplete('player1', visit);
+    } else {
+      setCurrentLeg(prev => { const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown)); const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (score * dartsUsedInFirst9) / dartsThrown : 0; return { ...prev, visits: [...prev.visits, visit], player1DartsThrown: prev.player1DartsThrown + dartsThrown, player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9, player1First9PointsScored: prev.player1First9PointsScored + pointsForFirst9 }; });
+      setCurrentPlayer('player2');
+    }
+    
     setPlayer1MatchTotalScored(prev => prev + score);
     setPlayer1MatchDartsThrown(prev => prev + dartsThrown);
     setPlayer1Score(newScore);
     checkScoreAchievements(score);
-    if (isCheckout) handleLegComplete('player1');
-    else setCurrentPlayer('player2');
     setScoreInput('');
     setCurrentVisit([]);
     setInputModeError('');
   };
 
-  const handleLegComplete = (winner: 'player1' | 'player2') => {
+  const handleLegComplete = (winner: 'player1' | 'player2', winningVisit?: Visit) => {
     if (matchWinner) return;
     clearBotTimer();
     setIsBotThinking(false);
     setIsLegTransitioning(false);
-    const completedLeg = { ...currentLeg, winner };
+    
+    // Include the winning visit if provided (React state updates are async, so the winning
+    // visit may not be in currentLeg.visits yet when this is called)
+    const legWithWinningVisit = winningVisit 
+      ? { ...currentLeg, visits: [...currentLeg.visits, winningVisit] }
+      : currentLeg;
+    
+    const completedLeg = { ...legWithWinningVisit, winner };
     const updatedLegs = [...allLegs, completedLeg];
     setAllLegs(updatedLegs);
     // Also update the ref so saveMatchStats has access to latest data

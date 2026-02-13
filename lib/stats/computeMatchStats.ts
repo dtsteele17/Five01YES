@@ -100,15 +100,13 @@ export function computeMatchStats(
   const checkoutPercent = checkoutDartsAttempted > 0 ? (checkoutsMade / checkoutDartsAttempted) * 100 : 0;
 
   let highestCheckout = 0;
-  const startingScore = gameMode === '301' ? 301 : 501;
 
-  playerVisits.forEach((visit, index) => {
-    if (visit.checkoutSuccess || visit.isCheckout) {
-      const remainingBeforeVisit = index > 0
-        ? playerVisits[index - 1].remainingScore
-        : (visit.legNumber === 1 && index === 0 ? startingScore : visit.remainingScore + visit.score);
-
-      const checkoutValue = Math.min(remainingBeforeVisit, visit.score);
+  // Find highest checkout - a checkout is when isCheckout is true
+  // The checkout value is the remaining score BEFORE the visit (what they checked out from)
+  playerVisits.forEach((visit) => {
+    if (visit.isCheckout) {
+      // The checkout value is what was remaining before this visit
+      const checkoutValue = visit.remainingScore + visit.score;
       if (checkoutValue > highestCheckout && checkoutValue > 0 && checkoutValue <= 170) {
         highestCheckout = checkoutValue;
       }

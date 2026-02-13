@@ -29,6 +29,20 @@ interface MatchHistoryItem {
   visits_180: number;
   played_at: string;
   bot_level?: number;
+  metadata?: {
+    bot_stats?: {
+      three_dart_avg: number;
+      first9_avg: number;
+      checkout_pct: number;
+      highest_checkout: number;
+      darts_at_double: number;
+      total_darts: number;
+      visits_100_plus: number;
+      visits_140_plus: number;
+      visits_180: number;
+      total_score: number;
+    };
+  };
 }
 
 interface MatchHistoryListProps {
@@ -62,7 +76,8 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
           .from('match_history')
           .select(`
             *,
-            opponent:opponent_id (username, avatar_url)
+            opponent:opponent_id (username, avatar_url),
+            metadata
           `)
           .eq('user_id', targetUserId)
           .order('played_at', { ascending: false });
