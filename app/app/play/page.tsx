@@ -51,6 +51,7 @@ interface RecentMatch {
   completed_at: string;
   user_id: string;
   result: 'win' | 'loss' | 'draw';
+  // User stats
   three_dart_avg: number | null;
   first9_avg: number | null;
   highest_checkout: number | null;
@@ -59,6 +60,11 @@ interface RecentMatch {
   visits_100_plus: number | null;
   visits_140_plus: number | null;
   visits_180: number | null;
+  // Opponent stats
+  opponent_three_dart_avg: number | null;
+  opponent_first9_avg: number | null;
+  opponent_highest_checkout: number | null;
+  opponent_checkout_percentage: number | null;
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -183,13 +189,16 @@ export default function PlayPage() {
       } else {
         console.log('[Play] Fetched matches:', matchesData?.length || 0);
         
-        // Fetch opponent profiles separately if needed
+        // Fetch opponent profiles and opponent stats
         const opponentIds = (matchesData || [])
           .filter(m => m.opponent_id && m.match_format !== 'dartbot')
           .map(m => m.opponent_id);
         
         let opponentProfiles: Record<string, string> = {};
+        let opponentStatsMap: Record<string, any> = {};
+        
         if (opponentIds.length > 0) {
+          // Fetch opponent profiles
           const { data: profiles } = await supabase
             .from('profiles')
             .select('user_id, username')
@@ -199,12 +208,27 @@ export default function PlayPage() {
             acc[p.user_id] = p.username;
             return acc;
           }, {} as Record<string, string>);
+          
+          // Fetch opponent's match history entries for the same matches
+          const roomIds = (matchesData || []).map(m => m.room_id).filter(Boolean);
+          const { data: opponentMatchData } = await supabase
+            .from('match_history')
+            .select('room_id, user_id, three_dart_avg, first9_avg, highest_checkout, checkout_percentage')
+            .in('room_id', roomIds)
+            .in('user_id', opponentIds);
+          
+          // Map opponent stats by room_id
+          opponentStatsMap = (opponentMatchData || []).reduce((acc, om) => {
+            acc[om.room_id] = om;
+            return acc;
+          }, {} as Record<string, any>);
         }
         
         // Transform data to match the expected format
         const transformed = (matchesData || []).map((match: any) => {
           const isWin = match.result === 'win';
           const totalLegs = (match.legs_won || 0) + (match.legs_lost || 0);
+          const opponentData = opponentStatsMap[match.room_id];
           
           return {
             id: match.room_id || match.id,
@@ -221,6 +245,7 @@ export default function PlayPage() {
             completed_at: match.played_at,
             user_id: user.id,
             result: match.result,
+            // User stats
             three_dart_avg: match.three_dart_avg,
             first9_avg: match.first9_avg,
             highest_checkout: match.highest_checkout,
@@ -229,6 +254,11 @@ export default function PlayPage() {
             visits_100_plus: match.visits_100_plus,
             visits_140_plus: match.visits_140_plus,
             visits_180: match.visits_180,
+            // Opponent stats
+            opponent_three_dart_avg: opponentData?.three_dart_avg || null,
+            opponent_first9_avg: opponentData?.first9_avg || null,
+            opponent_highest_checkout: opponentData?.highest_checkout || null,
+            opponent_checkout_percentage: opponentData?.checkout_percentage || null,
           };
         });
         setRecentMatches(transformed);
@@ -977,12 +1007,21 @@ export default function PlayPage() {
             {recentMatches.map((match) => {
               const isWin = match.result === 'win';
               const isLoss = match.result === 'loss';
+              // Show legs correctly regardless of win/loss
               const userLegs = match.player1_legs_won;
               const opponentLegs = match.player2_legs_won;
+              
+              // User stats
               const avg = match.three_dart_avg ? Number(match.three_dart_avg).toFixed(1) : '-';
               const first9 = match.first9_avg ? Number(match.first9_avg).toFixed(1) : null;
               const checkout = match.highest_checkout || '-';
               const checkoutPct = match.checkout_percentage ? Math.round(match.checkout_percentage) : null;
+              
+              // Opponent stats
+              const oppAvg = match.opponent_three_dart_avg ? Number(match.opponent_three_dart_avg).toFixed(1) : '-';
+              const oppFirst9 = match.opponent_first9_avg ? Number(match.opponent_first9_avg).toFixed(1) : null;
+              const oppCheckout = match.opponent_highest_checkout || '-';
+              const oppCheckoutPct = match.opponent_checkout_percentage ? Math.round(match.opponent_checkout_percentage) : null;
 
               return (
                 <div
@@ -1037,30 +1076,39 @@ export default function PlayPage() {
                           {MODE_LABELS[match.match_type] || match.match_type} • {match.game_mode}
                         </span>
                       </div>
+                      {/* Score - always shows user legs first */}
                       <div className="flex items-center space-x-3 text-sm mt-1">
-                        <span className="text-gray-400">Legs: {userLegs}-{opponentLegs}</span>
-                        <span className="text-gray-600">|</span>
-                        <span className="text-emerald-400">Avg: {avg}</span>
-                        {first9 && (
-                          <>
-                            <span className="text-gray-600">|</span>
-                            <span className="text-cyan-400">First9: {first9}</span>
-                          </>
-                        )}
-                        {(match.highest_checkout ?? 0) > 0 && (
-                          <>
-                            <span className="text-gray-600">|</span>
-                            <span className="text-amber-400">Best: {checkout}</span>
-                          </>
-                        )}
-                        {checkoutPct && (
-                          <>
-                            <span className="text-gray-600">|</span>
-                            <span className="text-purple-400">Checkout: {checkoutPct}%</span>
-                          </>
-                        )}
+                        <span className="text-white font-semibold">{userLegs}-{opponentLegs}</span>
                         <span className="text-gray-600">•</span>
                         <span className="text-gray-500">{getTimeAgo(match.completed_at)}</span>
+                      </div>
+                      {/* Your Stats */}
+                      <div className="flex items-center space-x-2 text-xs mt-2">
+                        <span className="text-emerald-400 font-medium">You:</span>
+                        <span className="text-emerald-400/80">Avg {avg}</span>
+                        {first9 && (
+                          <span className="text-cyan-400/80">First9 {first9}</span>
+                        )}
+                        {(match.highest_checkout ?? 0) > 0 && (
+                          <span className="text-amber-400/80">Best {checkout}</span>
+                        )}
+                        {checkoutPct && (
+                          <span className="text-purple-400/80">Checkout {checkoutPct}%</span>
+                        )}
+                      </div>
+                      {/* Opponent Stats */}
+                      <div className="flex items-center space-x-2 text-xs mt-1">
+                        <span className="text-red-400 font-medium">Opponent:</span>
+                        <span className="text-red-400/80">Avg {oppAvg}</span>
+                        {oppFirst9 && (
+                          <span className="text-orange-400/80">First9 {oppFirst9}</span>
+                        )}
+                        {(match.opponent_highest_checkout ?? 0) > 0 && (
+                          <span className="text-yellow-400/80">Best {oppCheckout}</span>
+                        )}
+                        {oppCheckoutPct && (
+                          <span className="text-pink-400/80">Checkout {oppCheckoutPct}%</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1076,7 +1124,7 @@ export default function PlayPage() {
                   </div>
                 </div>
               );
-            })};
+            })}
           </div>
         )}
       </Card>

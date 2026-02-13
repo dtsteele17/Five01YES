@@ -725,30 +725,35 @@ export default function QuickMatchLobbyPage() {
   async function cancelLobby() {
     if (!myLobby || !userId) return;
 
+    const lobbyIdToCancel = myLobby.id;
+    
+    // Optimistically update UI first for immediate feedback
+    setMyLobby(null);
+    setLobbies((prev) => prev.filter(l => l.id !== lobbyIdToCancel));
+
     try {
-      console.log('[CANCEL] Cancelling lobby:', myLobby.id);
+      console.log('[CANCEL] Cancelling lobby:', lobbyIdToCancel);
 
       // Delete the lobby - use created_by to verify ownership
       const { error } = await supabase
         .from('quick_match_lobbies')
         .delete()
-        .eq('id', myLobby.id)
+        .eq('id', lobbyIdToCancel)
         .eq('created_by', userId);
 
       if (error) {
         console.error('[CANCEL] Delete error:', error);
         throw error;
       }
-
-      // Immediately update local state (don't wait for realtime)
-      setMyLobby(null);
-      setLobbies((prev) => prev.filter(l => l.id !== myLobby.id));
       
       toast.info('Lobby cancelled');
       console.log('[CANCEL] Lobby deleted successfully');
     } catch (error: any) {
       console.error('[CANCEL] Failed:', error);
       toast.error(`Failed to cancel: ${error.message}`);
+      
+      // On error, restore the lobby in state
+      await fetchLobbies();
     }
   }
 
@@ -774,9 +779,21 @@ export default function QuickMatchLobbyPage() {
   };
 
   const getGameModeClass = (mode: string): string => {
-    if (mode === '301') return 'bg-blue-600/20 text-blue-400 border-blue-500/30';
-    if (mode === '501') return 'bg-green-600/20 text-green-400 border-green-500/30';
+    if (mode === '301') return 'bg-red-600/20 text-red-400 border-red-500/40';
+    if (mode === '501') return 'bg-blue-600/20 text-blue-400 border-blue-500/40';
     return 'bg-slate-600/20 text-slate-400 border-slate-500/30';
+  };
+
+  const getMatchFormatClass = (format: string): string => {
+    const match = format.match(/best-of-(\d+)/i);
+    const num = match ? parseInt(match[1]) : 1;
+    switch (num) {
+      case 1: return 'bg-pink-600/20 text-pink-400 border-pink-500/40';
+      case 3: return 'bg-purple-600/20 text-purple-400 border-purple-500/40';
+      case 5: return 'bg-indigo-600/20 text-indigo-400 border-indigo-500/40';
+      case 7: return 'bg-violet-600/20 text-violet-400 border-violet-500/40';
+      default: return 'bg-purple-600/20 text-purple-400 border-purple-500/40';
+    }
   };
 
   if (loading) {
@@ -1094,18 +1111,14 @@ export default function QuickMatchLobbyPage() {
 
                       {/* Settings Row - Subtly Color Coded */}
                       <div className="flex flex-wrap items-center gap-2 mb-4">
-                        {/* Game Mode - Blue */}
+                        {/* Game Mode - Red for 301, Blue for 501 */}
                         <Badge
-                          className={`text-sm font-bold px-3 py-1 rounded-md border ${
-                            lobby.game_type === '501' 
-                              ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
-                              : 'bg-cyan-600/20 text-cyan-400 border-cyan-500/40'
-                          }`}
+                          className={`text-sm font-bold px-3 py-1 rounded-md border ${getGameModeClass(lobby.game_type)}`}
                         >
                           {lobby.game_type}
                         </Badge>
-                        {/* Match Format - Purple */}
-                        <Badge className="bg-purple-600/20 text-purple-400 border-purple-500/40 text-sm font-bold px-3 py-1 rounded-md border">
+                        {/* Match Format - Different color per best-of */}
+                        <Badge className={`${getMatchFormatClass(lobby.match_format)} text-sm font-bold px-3 py-1 rounded-md border`}>
                           {formatMatchFormat(lobby.match_format)}
                         </Badge>
                         {/* Double Out - Green when on, Slate when off */}
