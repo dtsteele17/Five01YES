@@ -1049,6 +1049,10 @@ export default function QuickMatchRoomPage() {
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
 
+  // Camera refresh state
+  const [isRefreshingCamera, setIsRefreshingCamera] = useState(false);
+  const [isRefreshingConnection, setIsRefreshingConnection] = useState(false);
+
   // Visit editing
   const [editingVisit, setEditingVisit] = useState<QuickMatchVisit | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1147,6 +1151,8 @@ export default function QuickMatchRoomPage() {
     cameraError,
     toggleCamera,
     stopCamera,
+    refreshCamera,
+    refreshConnection,
     forceTurnAndRestart,
   } = webrtc;
   
@@ -3068,9 +3074,103 @@ export default function QuickMatchRoomPage() {
 
       toast.success('Visit updated');
       
-      // Show checkout/bust message if applicable
-      if (isCheckout) {
+      // Handle checkout - win the leg and possibly the match
+      if (isCheckout && room) {
         toast.success('🎯 CHECKOUT! Leg won!');
+        
+        // Check if this is the current leg and there are no subsequent visits from the opponent
+        const { data: subsequentVisits } = await supabase
+          .from('quick_match_visits')
+          .select('*')
+          .eq('room_id', matchId)
+          .eq('leg', updatedVisit.leg)
+          .gt('turn_no', updatedVisit.turn_no)
+          .order('turn_no', { ascending: true });
+        
+        // Also check for opponent visits after this one
+        const opponentId = isPlayer1 ? room.player2_id : room.player1_id;
+        const { data: opponentSubsequentVisits } = await supabase
+          .from('quick_match_visits')
+          .select('*')
+          .eq('room_id', matchId)
+          .eq('leg', updatedVisit.leg)
+          .eq('player_id', opponentId)
+          .order('turn_no', { ascending: true });
+        
+        // Find opponent visits that came after this edited visit
+        const opponentVisitsAfter = opponentSubsequentVisits?.filter(v => 
+          // Opponent turn number is higher than ours (they played after us)
+          v.turn_no > updatedVisit.turn_no ||
+          // Or if we don't have turn_no, use created_at
+          (v.turn_no === updatedVisit.turn_no && new Date(v.created_at) > new Date(updatedVisit.created_at))
+        ) || [];
+        
+        // If there are opponent visits after this one, we need to delete them since the leg is now over
+        if (opponentVisitsAfter.length > 0) {
+          console.log('[EDIT] Deleting opponent visits after edited checkout:', opponentVisitsAfter.map(v => v.id));
+          for (const oppVisit of opponentVisitsAfter) {
+            await supabase.from('quick_match_visits').delete().eq('id', oppVisit.id);
+          }
+        }
+        
+        // Calculate new leg counts
+        const currentP1Legs = room.player1_legs || 0;
+        const currentP2Legs = room.player2_legs || 0;
+        const newP1Legs = isPlayer1 ? currentP1Legs + 1 : currentP1Legs;
+        const newP2Legs = !isPlayer1 ? currentP2Legs + 1 : currentP2Legs;
+        const legsToWin = room.legs_to_win || 1;
+        
+        // Check if match is won
+        const isMatchWon = newP1Legs >= legsToWin || newP2Legs >= legsToWin;
+        
+        console.log('[EDIT] Leg won via edit - P1 legs:', newP1Legs, 'P2 legs:', newP2Legs, 'Match won:', isMatchWon);
+        
+        if (isMatchWon) {
+          // Match won - end the match
+          toast.success('🏆 MATCH WON!');
+          
+          const winnerId = updatedVisit.player_id;
+          
+          await supabase
+            .from('match_rooms')
+            .update({
+              player1_legs: newP1Legs,
+              player2_legs: newP2Legs,
+              status: 'finished',
+              winner_id: winnerId,
+              current_turn: null,
+            })
+            .eq('id', matchId);
+          
+          // The subscription will detect the status change and show the match end modal
+        } else {
+          // Leg won but match continues - start new leg
+          const newLeg = room.current_leg + 1;
+          const gameMode = room.game_mode || 501;
+          
+          // Determine who starts the next leg (alternating)
+          // Leg starter alternates: odd legs (1,3,5...) started by player who started leg 1
+          // Even legs (2,4,6...) started by the other player
+          const firstLegStarterId = room.leg_starter_id || room.player1_id;
+          const isFirstLegStarterPlayer1 = firstLegStarterId === room.player1_id;
+          // Odd legs: firstLegStarter starts, Even legs: other player starts
+          const newLegStarterIsPlayer1 = newLeg % 2 === 1 ? isFirstLegStarterPlayer1 : !isFirstLegStarterPlayer1;
+          const newCurrentTurn = newLegStarterIsPlayer1 ? room.player1_id : room.player2_id;
+          
+          await supabase
+            .from('match_rooms')
+            .update({
+              player1_legs: newP1Legs,
+              player2_legs: newP2Legs,
+              current_leg: newLeg,
+              player1_remaining: gameMode,
+              player2_remaining: gameMode,
+              current_turn: newCurrentTurn,
+            })
+            .eq('id', matchId);
+          
+          toast.success(`Starting leg ${newLeg}!`);
+        }
       } else if (isBust) {
         toast.error('💥 BUST!');
       }
@@ -3497,6 +3597,35 @@ export default function QuickMatchRoomPage() {
     router.push('/app/play');
   };
 
+  // Handle camera refresh - restarts camera to try to fix connection issues
+  const handleRefreshCamera = async () => {
+    setIsRefreshingCamera(true);
+    try {
+      await refreshCamera();
+      toast.success('Camera refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh camera');
+    } finally {
+      setIsRefreshingCamera(false);
+    }
+  };
+
+  // Handle connection refresh - reconnects to opponent's camera
+  const handleRefreshConnection = async () => {
+    setIsRefreshingConnection(true);
+    try {
+      await refreshConnection();
+      toast.success('Reconnecting to opponent...');
+    } catch (error) {
+      toast.error('Failed to reconnect');
+    } finally {
+      // Keep loading state for a bit longer as connection takes time
+      setTimeout(() => {
+        setIsRefreshingConnection(false);
+      }, 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -3610,6 +3739,28 @@ export default function QuickMatchRoomPage() {
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
                       {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
                     </Button>
+                    {isCameraOn && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                            onClick={handleRefreshCamera}
+                            disabled={isRefreshingCamera}
+                          >
+                            {isRefreshingCamera ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Refresh camera if opponent can't see you</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                     <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
                       <Wifi className="w-3 h-3" /> Live
                     </span>
@@ -3639,13 +3790,41 @@ export default function QuickMatchRoomPage() {
               {/* MY TURN: Show MY local camera */}
               {isMyTurn ? (
                 localStream ? (
-                  <video 
-                    ref={setLocalVideoRef}
-                    autoPlay 
-                    playsInline 
-                    muted 
-                    className="w-full h-full object-cover"
-                  />
+                  <div className="relative w-full h-full">
+                    <video 
+                      ref={setLocalVideoRef}
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Camera refresh overlay button */}
+                    <div className="absolute bottom-4 right-4">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            size="sm"
+                            variant="secondary"
+                            className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                            onClick={handleRefreshCamera}
+                            disabled={isRefreshingCamera}
+                          >
+                            {isRefreshingCamera ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <RotateCcw className="w-4 h-4 mr-2" />
+                                Refresh
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">
+                          <p>Restart camera if opponent can't see you</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
                     <CameraOff className="w-16 h-16 mb-4 opacity-50" />
@@ -3693,6 +3872,37 @@ export default function QuickMatchRoomPage() {
                         Retry with TURN Relay
                       </Button>
                     )}
+                    {isCameraOn && (
+                      <Button 
+                        onClick={handleRefreshCamera}
+                        variant="outline"
+                        size="sm"
+                        className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 mt-2"
+                        disabled={isRefreshingCamera}
+                      >
+                        {isRefreshingCamera ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                        )}
+                        Refresh My Camera
+                      </Button>
+                    )}
+                    {/* Refresh connection to opponent button */}
+                    <Button 
+                      onClick={handleRefreshConnection}
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10 mt-2"
+                      disabled={isRefreshingConnection}
+                    >
+                      {isRefreshingConnection ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Wifi className="w-4 h-4 mr-2" />
+                      )}
+                      Reconnect to Opponent
+                    </Button>
                     {!isCameraOn && callStatus !== 'failed' && (
                       <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                         <span className="text-sm text-amber-400">

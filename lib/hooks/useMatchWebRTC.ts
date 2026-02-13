@@ -18,6 +18,8 @@ export interface UseMatchWebRTCReturn {
   cameraError: string | null;
   toggleCamera: () => Promise<void>;
   stopCamera: () => void;
+  refreshCamera: () => Promise<void>;
+  refreshConnection: () => Promise<void>;
   forceTurnAndRestart: () => void;
 }
 
@@ -431,6 +433,67 @@ export function useMatchWebRTC({
     }
   }, [isCameraOn, startCamera, stopCamera]);
 
+  // Refresh camera - stop and restart to try to fix connection issues
+  const refreshCamera = useCallback(async () => {
+    console.log('[WebRTC] Refreshing camera...');
+    
+    // Stop current camera
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Remove tracks from peer connection
+    const pc = peerConnectionRef.current;
+    if (pc) {
+      pc.getSenders().forEach(sender => {
+        if (sender.track) {
+          pc.removeTrack(sender);
+        }
+      });
+    }
+
+    setLocalStream(null);
+    setIsCameraOn(false);
+
+    // Small delay to ensure cleanup
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Restart camera
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        },
+        audio: false
+      });
+
+      console.log('[WebRTC] Camera refreshed successfully');
+      setLocalStream(stream);
+      setIsCameraOn(true);
+      setCameraError(null);
+
+      // Re-add tracks to peer connection if it exists
+      if (pc && stream) {
+        stream.getTracks().forEach(track => {
+          console.log('[WebRTC] Re-adding track after refresh:', track.kind);
+          pc.addTrack(track, stream);
+        });
+      }
+
+      // Send state signal
+      if (roomId && myUserId && opponentUserId) {
+        await sendSignal(roomId, myUserId, opponentUserId, 'state', { camera: true, refreshed: true });
+      }
+
+    } catch (error: any) {
+      console.error('[WebRTC] Error refreshing camera:', error);
+      setCameraError(error.message || 'Failed to refresh camera');
+      setIsCameraOn(false);
+    }
+  }, [localStream, myUserId, opponentUserId, roomId]);
+
   const forceTurnAndRestart = useCallback(() => {
     console.log('[WebRTC] Forcing TURN relay and restarting connection');
 
@@ -525,6 +588,134 @@ export function useMatchWebRTC({
     }
   }, [roomId, myUserId, opponentUserId, isPlayer1, localStream]);
 
+  // Refresh connection to opponent - restarts peer connection to reconnect
+  const refreshConnection = useCallback(async () => {
+    console.log('[WebRTC] Refreshing connection to opponent...');
+    setCallStatus('connecting');
+    setRemoteStream(null);
+
+    // Close existing peer connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
+    // Clear pending ICE candidates
+    pendingIceCandidatesRef.current = [];
+    makingOfferRef.current = false;
+    ignoreOfferRef.current = false;
+
+    // Small delay to ensure cleanup
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    if (!roomId || !myUserId || !opponentUserId) {
+      console.error('[WebRTC] Cannot refresh - missing required IDs');
+      setCallStatus('failed');
+      return;
+    }
+
+    try {
+      const iceServers = getIceServers();
+      
+      const pc = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+      });
+
+      peerConnectionRef.current = pc;
+
+      // Re-setup connection handlers
+      pc.onconnectionstatechange = () => {
+        console.log('[WebRTC] Connection state:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          setCallStatus('connected');
+        } else if (pc.connectionState === 'connecting') {
+          setCallStatus('connecting');
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          setCallStatus('failed');
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+      };
+
+      pc.onicecandidate = async (event) => {
+        if (event.candidate) {
+          console.log('[WebRTC] Sending ICE candidate');
+          await sendSignal(roomId, myUserId, opponentUserId, 'ice', {
+            candidate: event.candidate
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        console.log('[WebRTC] Remote track received:', event.track.kind);
+        if (event.streams && event.streams[0]) {
+          console.log('[WebRTC] Setting remote stream');
+          setRemoteStream(event.streams[0]);
+          setCallStatus('connected');
+        }
+      };
+
+      pc.onnegotiationneeded = async () => {
+        console.log('[WebRTC] Negotiation needed');
+        if (!isPlayer1 || makingOfferRef.current) return;
+
+        try {
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON()
+          });
+          console.log('[WebRTC] Offer sent');
+        } catch (error) {
+          console.error('[WebRTC] Error creating offer:', error);
+        } finally {
+          makingOfferRef.current = false;
+        }
+      };
+
+      // Re-add local stream if camera is on
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+        });
+      }
+
+      // Player 1 creates offer to restart connection
+      if (isPlayer1) {
+        console.log('[WebRTC] Player 1 creating new offer after refresh...');
+        try {
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON()
+          });
+          console.log('[WebRTC] New offer sent after refresh');
+        } catch (error) {
+          console.error('[WebRTC] Error creating offer after refresh:', error);
+        } finally {
+          makingOfferRef.current = false;
+        }
+      } else {
+        console.log('[WebRTC] Player 2 waiting for offer after refresh...');
+      }
+
+      console.log('[WebRTC] Connection refresh complete');
+    } catch (error) {
+      console.error('[WebRTC] Error refreshing connection:', error);
+      setCallStatus('failed');
+    }
+  }, [roomId, myUserId, opponentUserId, isPlayer1, localStream]);
+
   // ========== CLEANUP ==========
   useEffect(() => {
     return () => {
@@ -549,6 +740,8 @@ export function useMatchWebRTC({
     cameraError,
     toggleCamera,
     stopCamera,
+    refreshCamera,
+    refreshConnection,
     forceTurnAndRestart,
   };
 }

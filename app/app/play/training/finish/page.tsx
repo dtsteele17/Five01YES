@@ -643,7 +643,7 @@ function FinishTrainingContent() {
           transition={{ delay: 0.2 }}
         >
         <Card className="bg-slate-800/50 border-slate-700/50 p-6 backdrop-blur-sm">
-          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')}
+          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')}>
             <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 mb-4">
               <TabsTrigger value="dart_pad" className="data-[state=active]:bg-emerald-500">
                 Dart by Dart
