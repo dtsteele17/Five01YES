@@ -22,7 +22,7 @@ interface PreGameLobbyProps {
   onReady: () => void;
   onCancel: () => void;
   onBothReady: () => void;
-  onTimeout: () => void;
+  onTimeout: (playerWhoDidntReady: string) => void;
   gameMode: string;
   matchFormat: string;
 }
@@ -53,7 +53,11 @@ export function PreGameLobby({
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          onTimeout();
+          // Determine which player didn't ready up
+          const playerWhoDidntReady = !player1.isReady 
+            ? player1.username 
+            : (!player2?.isReady ? player2?.username : 'A player');
+          onTimeout(playerWhoDidntReady || 'A player');
           return 0;
         }
         return prev - 1;
@@ -61,7 +65,7 @@ export function PreGameLobby({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onTimeout]);
+  }, [onTimeout, player1, player2]);
 
   // Check if both players are ready
   useEffect(() => {

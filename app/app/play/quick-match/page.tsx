@@ -47,6 +47,7 @@ interface QuickMatchLobby {
   player2_id: string | null;
   match_id: string | null;
   created_at: string;
+  player1_3dart_avg?: number;
   player1?: {
     username: string;
     avatar_url?: string;
@@ -341,7 +342,7 @@ export default function QuickMatchLobbyPage() {
       console.log('[FETCH] Loading lobbies...');
       setFetchError(null);
 
-      // Fetch open lobbies with host profile and stats
+      // Fetch open lobbies with host profile and stored stats
       const { data: lobbiesData, error: lobbiesError } = await supabase
         .from('quick_match_lobbies')
         .select(`
@@ -357,6 +358,7 @@ export default function QuickMatchLobbyPage() {
           player1_id,
           player2_id,
           match_id,
+          player1_3dart_avg,
           player1:profiles!quick_match_lobbies_player1_id_fkey (
             username,
             avatar_url,
@@ -367,29 +369,6 @@ export default function QuickMatchLobbyPage() {
         .eq('status', 'open')
         .order('created_at', { ascending: false })
         .limit(50);
-
-      // Fetch player stats separately for each lobby host
-      let hostStats: Record<string, number> = {};
-      if (lobbiesData && lobbiesData.length > 0) {
-        const hostIds = lobbiesData.map(l => l.player1_id).filter(Boolean);
-        console.log('[FETCH] Fetching stats for host IDs:', hostIds);
-        const { data: statsData, error: statsError } = await supabase
-          .from('player_stats')
-          .select('user_id, overall_3dart_avg')
-          .in('user_id', hostIds);
-        
-        if (statsError) {
-          console.error('[FETCH] Error fetching stats:', statsError);
-        }
-        
-        if (statsData) {
-          console.log('[FETCH] Stats data received:', statsData);
-          hostStats = statsData.reduce((acc, stat) => {
-            acc[stat.user_id] = stat.overall_3dart_avg || 0;
-            return acc;
-          }, {} as Record<string, number>);
-        }
-      }
 
       if (lobbiesError) {
         console.error('[FETCH] Error:', lobbiesError);
@@ -407,12 +386,11 @@ export default function QuickMatchLobbyPage() {
       }
 
       console.log('[FETCH] Loaded lobbies with hosts:', lobbiesData.length);
-      console.log('[FETCH] Host stats:', hostStats);
 
       // Transform the data to ensure player1 is a single object, not an array
-      // and include the 3-dart average from player_stats
+      // and include the 3-dart average stored in the lobby
       const transformedLobbies = lobbiesData.map(lobby => {
-        const avg = hostStats[lobby.player1_id] || 0;
+        const avg = lobby.player1_3dart_avg || 0;
         console.log(`[FETCH] Lobby ${lobby.id}: host ${lobby.player1_id}, avg: ${avg}`);
         return {
           ...lobby,
@@ -452,12 +430,20 @@ export default function QuickMatchLobbyPage() {
         return;
       }
 
+      // Fetch host stats (3-dart average) BEFORE creating lobby
+      const { data: stats } = await supabase
+        .from('player_stats')
+        .select('overall_3dart_avg')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
       const lobbyData = {
         game_type: gameMode,
         starting_score: parseInt(gameMode),
         match_format: matchFormat,
         double_out: doubleOut,
         status: 'open',
+        player1_3dart_avg: stats?.overall_3dart_avg || 0,
       };
 
       console.log('[CREATE] INSERTING_TO_SUPABASE', { table: 'quick_match_lobbies', payload: lobbyData });
@@ -485,13 +471,6 @@ export default function QuickMatchLobbyPage() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('username, avatar_url, trust_rating_letter, trust_rating_count')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      // Fetch host stats (3-dart average)
-      const { data: stats } = await supabase
-        .from('player_stats')
-        .select('overall_3dart_avg')
         .eq('user_id', user.id)
         .maybeSingle();
 

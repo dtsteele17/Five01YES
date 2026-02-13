@@ -58,11 +58,26 @@ export function CoinTossModal({
       }
     }
     
-    // Player 2 starts when receiving sync signal (but result comes from DB)
-    if (!isPlayer1 && syncStart && !isSpinning && !showResult && !hasStarted) {
-      console.log('[COIN TOSS] Received sync signal, starting toss animation');
-      setHasStarted(true);
-      startCoinTossForJoiner();
+    // Player 2 starts when receiving sync signal OR after a short delay if signal missed
+    if (!isPlayer1 && !isSpinning && !showResult && !hasStarted) {
+      if (syncStart) {
+        // Signal received - start immediately
+        console.log('[COIN TOSS] Received sync signal, starting toss animation');
+        setHasStarted(true);
+        startCoinTossForJoiner();
+      } else if (bothPlayersConnected) {
+        // No signal yet but both connected - start after short delay to sync with Player 1
+        console.log('[COIN TOSS] Both connected, waiting for sync signal...');
+        const timeout = setTimeout(() => {
+          if (!hasStarted) {
+            console.log('[COIN TOSS] No signal received, starting animation anyway');
+            setHasStarted(true);
+            startCoinTossForJoiner();
+          }
+        }, 2000); // Wait 2 seconds for signal, then start anyway
+        
+        return () => clearTimeout(timeout);
+      }
     }
   }, [isOpen, isPlayer1, bothPlayersConnected, syncStart, hasStarted, isSpinning, showResult, onStart]);
 

@@ -1277,8 +1277,8 @@ export default function QuickMatchRoomPage() {
   };
 
   // Handle pregame timeout
-  const handlePregameTimeout = async () => {
-    console.log('[PREGAME] Timeout - cancelling match');
+  const handlePregameTimeout = async (playerWhoDidntReady: string) => {
+    console.log('[PREGAME] Timeout - cancelling match. Player who didnt ready:', playerWhoDidntReady);
     
     if (room) {
       await supabase
@@ -1290,7 +1290,7 @@ export default function QuickMatchRoomPage() {
         .eq('id', matchId);
     }
     
-    toast.error('Match cancelled - players did not ready up in time');
+    toast.error(`${playerWhoDidntReady} didn't ready up - lobby cancelled`);
     router.push('/app/play/quick-match');
   };
 
@@ -1742,25 +1742,28 @@ export default function QuickMatchRoomPage() {
     toast.success(`${winnerProfile?.username || 'Player'} will throw first!`);
   }
 
-  // Trigger coin toss when both players are present, connected, and it's the first leg
+  // Trigger coin toss when both players are READY (after pregame lobby) and it's the first leg
   useEffect(() => {
     const bothPlayersConnected = playersConnected.p1 && playersConnected.p2;
+    const bothReady = player1Ready && player2Ready;
     const shouldShowCoinToss = room && 
       profiles.length === 2 && 
       bothPlayersConnected &&
+      bothReady && // Only show after pregame lobby complete
       room.current_leg === 1 && 
       !coinTossCompleted &&
-      room.status === 'active';
+      room.status === 'active' &&
+      !showPreGameLobby; // Don't show if pregame lobby is still open
     
     if (shouldShowCoinToss) {
       // Check if any visits have been made (if so, don't show coin toss)
       const hasVisits = visits.length > 0;
       if (!hasVisits) {
-        console.log('[COIN TOSS] Both players connected, showing coin toss modal. Winner:', room.coin_toss_winner_id);
+        console.log('[COIN TOSS] Both players ready, showing coin toss modal');
         setShowCoinToss(true);
       }
     }
-  }, [room, profiles, visits, coinTossCompleted, playersConnected]);
+  }, [room, profiles, visits, coinTossCompleted, playersConnected, player1Ready, player2Ready, showPreGameLobby]);
 
   useEffect(() => {
     if (room && profiles.length > 0) {
