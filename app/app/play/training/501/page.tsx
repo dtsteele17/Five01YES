@@ -904,7 +904,10 @@ export default function DartbotMatchPage() {
     if (!pendingVisitData) return;
     setPlayer1TotalDartsAtDouble(prev => prev + dartsAtDouble);
     if (pendingVisitData.isCheckout) setPlayer1CheckoutsMade(prev => prev + 1);
-    handleScoreSubmit(pendingVisitData.score, 3, undefined, true, dartsAtDouble);
+    // Use actual darts thrown (dartsAtDouble) instead of always 3, especially for checkouts
+    // If checkout happened, dartsAtDouble is the number of darts used in that visit
+    const actualDartsThrown = pendingVisitData.isCheckout ? dartsAtDouble : 3;
+    handleScoreSubmit(pendingVisitData.score, actualDartsThrown, undefined, true, dartsAtDouble);
     setShowDartsAtDoubleModal(false);
     setPendingVisitData(null);
     setScoreInput('');
