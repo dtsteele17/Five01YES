@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Target, TrendingUp, X, ChevronRight, Darts } from 'lucide-react';
+import { Target, TrendingUp, X, ChevronRight, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ATCSettings,
@@ -376,7 +376,7 @@ export function ATCScoring({
           <Card className="bg-gradient-to-br from-slate-900/80 to-slate-900/40 backdrop-blur-sm border border-white/10 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-white flex items-center gap-2">
-                <Darts className="w-5 h-5 text-emerald-400" />
+                <Activity className="w-5 h-5 text-emerald-400" />
                 Current Visit
               </h3>
               <span className="text-sm text-gray-400">{currentDarts.length}/3</span>
