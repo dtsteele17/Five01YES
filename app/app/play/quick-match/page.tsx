@@ -89,6 +89,9 @@ export default function QuickMatchLobbyPage() {
 
   const [realtimeStatus, setRealtimeStatus] = useState<string>('disconnected');
   const [lastRealtimeEvent, setLastRealtimeEvent] = useState<{ type: string; lobbyId: string } | null>(null);
+  
+  // Track if we're currently cancelling to prevent race conditions with polling
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Join request state
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
@@ -111,9 +114,9 @@ export default function QuickMatchLobbyPage() {
       fetchLobbies();
     }, 5000);
     
-    // Refresh when page becomes visible again
+    // Refresh when page becomes visible again (but not if cancelling)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !isCancelling) {
         console.log('[PAGE] Became visible, refreshing lobbies');
         fetchLobbies();
       }
@@ -351,8 +354,15 @@ export default function QuickMatchLobbyPage() {
           (payload) => {
             console.log('[REALTIME] Lobby deleted:', payload.old);
             const deletedId = (payload.old as any).id;
+            const deletedLobby = payload.old as any;
             setLastRealtimeEvent({ type: 'DELETE', lobbyId: deletedId });
             setLobbies((prev) => prev.filter(l => l.id !== deletedId));
+            
+            // If this was my lobby being deleted, clear myLobby state
+            if (deletedLobby.created_by === user.id) {
+              console.log('[REALTIME] My lobby was deleted, clearing state');
+              setMyLobby(null);
+            }
           }
         )
         .subscribe((status) => {
@@ -372,6 +382,12 @@ export default function QuickMatchLobbyPage() {
   }
 
   async function fetchLobbies() {
+    // Skip fetching if we're currently cancelling a lobby to prevent race conditions
+    if (isCancelling) {
+      console.log('[FETCH] Skipping fetch - lobby cancellation in progress');
+      return;
+    }
+    
     try {
       console.log('[FETCH] Loading lobbies...');
       setFetchError(null);
@@ -761,9 +777,12 @@ export default function QuickMatchLobbyPage() {
   }
 
   async function cancelLobby() {
-    if (!myLobby || !userId) return;
+    if (!myLobby || !userId || isCancelling) return;
 
     const lobbyIdToCancel = myLobby.id;
+    
+    // Set cancelling flag to prevent polling from interfering
+    setIsCancelling(true);
     
     // Optimistically update UI first for immediate feedback
     setMyLobby(null);
@@ -784,16 +803,20 @@ export default function QuickMatchLobbyPage() {
         throw error;
       }
       
-      // Immediately refresh to ensure lobby is removed from list
-      await fetchLobbies();
-      
       toast.info('Lobby cancelled');
       console.log('[CANCEL] Lobby deleted successfully');
+      
+      // Wait a moment for the realtime event to propagate before allowing refresh
+      setTimeout(() => {
+        setIsCancelling(false);
+      }, 1000);
+      
     } catch (error: any) {
       console.error('[CANCEL] Failed:', error);
       toast.error(`Failed to cancel: ${error.message}`);
+      setIsCancelling(false);
       
-      // On error, restore the lobby in state
+      // On error, refresh to get current state
       await fetchLobbies();
     }
   }
@@ -999,9 +1022,19 @@ export default function QuickMatchLobbyPage() {
               <Button
                 className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
                 onClick={cancelLobby}
+                disabled={isCancelling}
               >
-                <X className="w-4 h-4 mr-2" />
-                Stop Searching
+                {isCancelling ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Cancelling...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Stop Searching
+                  </>
+                )}
               </Button>
             </div>
           ) : (
