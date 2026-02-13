@@ -691,7 +691,7 @@ function FinishTrainingContent() {
                               })
                             }
                             disabled={currentDarts.length >= 3}
-                            className="h-14 w-full bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-bold text-lg shadow-lg shadow-blue-500/20 disabled:opacity-30 border-2 border-blue-400/50"
+                            className="h-14 w-full bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-bold text-lg shadow-lg shadow-cyan-500/20 disabled:opacity-30 border-2 border-cyan-400/50"
                           >
                             {num}
                           </Button>
@@ -720,7 +720,7 @@ function FinishTrainingContent() {
                               })
                             }
                             disabled={currentDarts.length >= 3}
-                            className="h-14 w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-bold text-lg shadow-lg shadow-red-500/20 disabled:opacity-30 border-2 border-red-400/50"
+                            className="h-14 w-full bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold text-lg shadow-lg shadow-emerald-500/20 disabled:opacity-30 border-2 border-emerald-400/50"
                           >
                             {num}
                           </Button>
@@ -749,7 +749,7 @@ function FinishTrainingContent() {
                               })
                             }
                             disabled={currentDarts.length >= 3}
-                            className="h-14 w-full bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold text-lg shadow-lg shadow-amber-500/20 disabled:opacity-30 border-2 border-amber-400/50"
+                            className="h-14 w-full bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold text-lg shadow-lg shadow-teal-500/20 disabled:opacity-30 border-2 border-teal-400/50"
                           >
                             {num}
                           </Button>
@@ -890,17 +890,22 @@ function FinishTrainingContent() {
                           {item.visitTotal}
                         </div>
                       </div>
-                      <Badge
-                        className={
-                          item.result === 'Success'
-                            ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 border-emerald-500 text-emerald-400'
-                            : item.result === 'Bust'
-                            ? 'bg-gradient-to-r from-red-500/20 to-red-600/20 border-red-500 text-red-400'
-                            : 'bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-500 text-slate-400'
-                        }
-                      >
-                        {item.result}
-                      </Badge>
+                      {item.result === 'Bust' ? (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border-2 border-red-500 rounded-lg">
+                          <span className="text-red-400 font-black text-lg uppercase tracking-wider">BUST</span>
+                          <span className="text-red-500 text-xl">💥</span>
+                        </div>
+                      ) : (
+                        <Badge
+                          className={
+                            item.result === 'Success'
+                              ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 border-emerald-500 text-emerald-400'
+                              : 'bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-500 text-slate-400'
+                          }
+                        >
+                          {item.result}
+                        </Badge>
+                      )}
                     </motion.div>
                   ))}
                 </div>

@@ -1113,6 +1113,13 @@ export default function PlayPage() {
                           {isWin ? 'WIN' : isLoss ? 'LOSS' : 'DRAW'}
                         </span>
                       </div>
+                      {/* Winner indicator in gold */}
+                      <div className="flex items-center space-x-1 text-sm">
+                        <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-amber-400 font-semibold">
+                          {isWin ? 'You' : match.player2_name} won
+                        </span>
+                      </div>
                       <div className="flex items-center space-x-2 text-sm">
                         <span className="text-gray-400">
                           {MODE_LABELS[match.match_type] || match.match_type} • {match.game_mode}

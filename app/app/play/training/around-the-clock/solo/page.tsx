@@ -247,52 +247,52 @@ export default function SoloAroundTheClockPage() {
               <Button
                 onClick={() => handleDart('S')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+                className="h-20 text-lg font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
               >
                 Single Bull
               </Button>
               <Button
                 onClick={() => handleDart('D')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+                className="h-20 text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
               >
                 Bullseye
               </Button>
               <Button
                 onClick={() => handleDart('MISS')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+                className="h-20 text-lg font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <Button
                 onClick={() => handleDart('S')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+                className="h-20 text-xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
               >
                 Single {getTargetLabel()}
               </Button>
               <Button
                 onClick={() => handleDart('D')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-green-600 hover:bg-green-700 text-white"
+                className="h-20 text-xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
               >
                 Double {getTargetLabel()}
               </Button>
               <Button
                 onClick={() => handleDart('T')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-purple-600 hover:bg-purple-700 text-white"
+                className="h-20 text-xl font-black bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white shadow-lg shadow-teal-500/25 border-2 border-teal-400/50"
               >
                 Treble {getTargetLabel()}
               </Button>
               <Button
                 onClick={() => handleDart('MISS')}
                 disabled={state.isComplete}
-                className="h-16 text-lg bg-slate-600 hover:bg-slate-700 text-white"
+                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
