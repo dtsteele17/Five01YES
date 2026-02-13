@@ -93,26 +93,28 @@ export async function sendMatchSignal(
   try {
     // Use RPC to bypass RLS for inserts (server-side function)
     // This ensures signals are delivered even if RLS has issues
-    const { data, error } = await supabase
-      .from('match_signals')
-      .insert(signalData)
-      .select();
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('rpc_send_match_signal', {
+      p_room_id: roomId,
+      p_to_user_id: toUserId,
+      p_type: type,
+      p_payload: payload
+    });
 
-    if (error) {
-      console.error('[WEBRTC QS] ❌ SUPABASE INSERT ERROR:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
+    if (rpcError) {
+      console.error('[WEBRTC QS] ❌ RPC ERROR:', rpcError);
       return false;
     }
 
-    console.log('[WEBRTC QS] ✅ Signal inserted successfully, ID:', data?.[0]?.id);
+    if (rpcResult && !rpcResult.ok) {
+      console.error('[WEBRTC QS] ❌ RPC returned error:', rpcResult.error);
+      return false;
+    }
+
+    console.log('[WEBRTC QS] ✅ Signal sent via RPC successfully');
     return true;
 
   } catch (error: any) {
-    console.error('[WEBRTC QS] ❌ EXCEPTION during insert:', {
+    console.error('[WEBRTC QS] ❌ EXCEPTION during RPC call:', {
       name: error?.name,
       message: error?.message,
       stack: error?.stack

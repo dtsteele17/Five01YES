@@ -1084,6 +1084,7 @@ export default function QuickMatchRoomPage() {
   const [showCoinToss, setShowCoinToss] = useState(false);
   const [coinTossCompleted, setCoinTossCompleted] = useState(false);
   const [playersConnected, setPlayersConnected] = useState<{p1: boolean, p2: boolean}>({p1: false, p2: false});
+  const [coinTossSyncStart, setCoinTossSyncStart] = useState(false); // Triggered by signal from Player 1
 
   // Checkout dialog state for typed scores
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
@@ -1845,6 +1846,11 @@ export default function QuickMatchRoomPage() {
                 p2: isP1 ? prev.p2 : true
               };
             });
+          }
+          // Handle coin toss start signal (from Player 1 to Player 2)
+          if (signal.type === 'coin_toss' && signal.from_user_id !== currentUserId) {
+            console.log('[COIN TOSS] Received sync signal from Player 1');
+            setCoinTossSyncStart(true);
           }
           // Handle rematch ready signals
           if (signal.type === 'rematch_ready' && signal.from_user_id !== currentUserId) {
@@ -2700,12 +2706,11 @@ export default function QuickMatchRoomPage() {
         return;
       }
 
-      await supabase.from('match_signals').insert({
-        room_id: matchId,
-        from_user_id: currentUserId,
-        to_user_id: opponentId,
-        type: 'forfeit',
-        payload: { message: 'Opponent forfeited' }
+      await supabase.rpc('rpc_send_match_signal', {
+        p_room_id: matchId,
+        p_to_user_id: opponentId,
+        p_type: 'forfeit',
+        p_payload: { message: 'Opponent forfeited' }
       });
 
       toast.success('You forfeited the match');
@@ -2955,12 +2960,11 @@ export default function QuickMatchRoomPage() {
     
     try {
       // Send ready signal with persistent flag for reliability
-      const { error: signalError } = await supabase.from('match_signals').insert({
-        room_id: matchId,
-        from_user_id: currentUserId,
-        to_user_id: opponentId,
-        type: 'rematch_ready',
-        payload: { 
+      const { error: signalError } = await supabase.rpc('rpc_send_match_signal', {
+        p_room_id: matchId,
+        p_to_user_id: opponentId,
+        p_type: 'rematch_ready',
+        p_payload: { 
           ready: true, 
           timestamp: Date.now(), 
           isPlayer1,
@@ -3147,22 +3151,20 @@ export default function QuickMatchRoomPage() {
         };
         
         // Send primary signal
-        await supabase.from('match_signals').insert({
-          room_id: matchId,
-          from_user_id: currentUserId,
-          to_user_id: opponentId,
-          type: 'rematch_room_created',
-          payload: signalPayload
+        await supabase.rpc('rpc_send_match_signal', {
+          p_room_id: matchId,
+          p_to_user_id: opponentId,
+          p_type: 'rematch_room_created',
+          p_payload: signalPayload
         });
         
         // Send backup signal after short delay
         setTimeout(async () => {
-          await supabase.from('match_signals').insert({
-            room_id: matchId,
-            from_user_id: currentUserId,
-            to_user_id: opponentId,
-            type: 'rematch_room_created',
-            payload: { ...signalPayload, backup: true }
+          await supabase.rpc('rpc_send_match_signal', {
+            p_room_id: matchId,
+            p_to_user_id: opponentId,
+            p_type: 'rematch_room_created',
+            p_payload: { ...signalPayload, backup: true }
           });
         }, 500);
         
@@ -3580,7 +3582,20 @@ export default function QuickMatchRoomPage() {
           currentUserId={currentUserId}
           winnerId={room.coin_toss_winner_id}
           bothPlayersConnected={playersConnected.p1 && playersConnected.p2}
+          syncStart={coinTossSyncStart}
           onComplete={handleCoinTossComplete}
+          onStart={async () => {
+            // Player 1 sends signal to Player 2 to start animation
+            const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
+            if (opponentId) {
+              console.log('[COIN TOSS] Sending sync signal to opponent:', opponentId);
+              await supabase.rpc('rpc_send_coin_toss_signal', {
+                p_room_id: matchId,
+                p_to_user_id: opponentId,
+                p_coin_toss_data: { action: 'start' }
+              });
+            }
+          }}
         />
       )}
 

@@ -14,7 +14,9 @@ interface CoinTossModalProps {
   currentUserId: string;
   winnerId?: string | null; // If provided, we're just showing the result (joiner view)
   bothPlayersConnected?: boolean; // New prop to track if both players are connected
+  syncStart?: boolean; // When true, both players should start spinning (triggered by signal)
   onComplete: (winnerId: string) => void;
+  onStart?: () => void; // Called when Player 1 starts the toss (to send signal to Player 2)
 }
 
 export function CoinTossModal({
@@ -25,8 +27,10 @@ export function CoinTossModal({
   player2Id,
   currentUserId,
   winnerId: predeterminedWinner,
-  bothPlayersConnected = true, // Default to true for backward compatibility
+  bothPlayersConnected = true,
+  syncStart = false,
   onComplete,
+  onStart,
 }: CoinTossModalProps) {
   const isPlayer1 = currentUserId === player1Id;
   const [isSpinning, setIsSpinning] = useState(false);
@@ -36,40 +40,31 @@ export function CoinTossModal({
   const [rotation, setRotation] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
 
-  // If winner is predetermined (from DB), we're the joiner - just show the result
+  // If winner is predetermined (from DB), show result after spin
   const isShowingResultOnly = !!predeterminedWinner;
 
   useEffect(() => {
     if (!isOpen) return;
     
-    if (isShowingResultOnly) {
-      // Joiner view - show the result that player1 determined
-      const isPlayer1Winner = predeterminedWinner === player1Id;
-      const selectedResult: 'heads' | 'tails' = isPlayer1Winner ? 'heads' : 'tails';
-      
-      setWinnerId(predeterminedWinner);
-      setResult(selectedResult);
-      setShowResult(true);
-      setRotation(360 * 5 + (isPlayer1Winner ? 0 : 180)); // Show final position
-      
-      // Auto-close after showing result
-      const timer = setTimeout(() => {
-        onComplete(predeterminedWinner!);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-    
-    // Player 1 view - wait for both players to be connected before starting
+    // Player 1 starts the toss when both connected
     if (isPlayer1 && !isSpinning && !showResult && !hasStarted) {
       if (bothPlayersConnected) {
         console.log('[COIN TOSS] Both players connected, starting toss');
         setHasStarted(true);
+        onStart?.(); // Send signal to Player 2 to start their animation
         startCoinToss();
       } else {
         console.log('[COIN TOSS] Waiting for opponent to connect...');
       }
     }
-  }, [isOpen, isShowingResultOnly, predeterminedWinner, isPlayer1, bothPlayersConnected, hasStarted]);
+    
+    // Player 2 starts when receiving sync signal (but result comes from DB)
+    if (!isPlayer1 && syncStart && !isSpinning && !showResult && !hasStarted) {
+      console.log('[COIN TOSS] Received sync signal, starting toss animation');
+      setHasStarted(true);
+      startCoinTossForJoiner();
+    }
+  }, [isOpen, isPlayer1, bothPlayersConnected, syncStart, hasStarted, isSpinning, showResult, onStart]);
 
   const startCoinToss = () => {
     setIsSpinning(true);
@@ -119,6 +114,71 @@ export function CoinTossModal({
     
     requestAnimationFrame(animate);
   };
+
+  // For Player 2 (joiner) - spin animation but wait for DB result
+  const startCoinTossForJoiner = () => {
+    setIsSpinning(true);
+    setShowResult(false);
+    setResult(null);
+    setWinnerId(null);
+    setRotation(0);
+
+    // Don't determine winner - just animate and wait for DB result
+    const targetRotation = 360 * 5; // Spin 5 times
+    
+    const duration = 4000;
+    const startTime = Date.now();
+    const startRotation = 0;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentRotation = startRotation + (targetRotation * easeOut);
+      setRotation(currentRotation);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Animation complete - check if we have result from DB
+        if (predeterminedWinner) {
+          const isPlayer1Winner = predeterminedWinner === player1Id;
+          const selectedResult: 'heads' | 'tails' = isPlayer1Winner ? 'heads' : 'tails';
+          setIsSpinning(false);
+          setResult(selectedResult);
+          setWinnerId(predeterminedWinner);
+          setShowResult(true);
+          
+          setTimeout(() => {
+            onComplete(predeterminedWinner);
+          }, 3000);
+        } else {
+          // Keep spinning lightly while waiting for result
+          setIsSpinning(false);
+          setRotation(360 * 5);
+        }
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  };
+
+  // Effect to show result when DB updates with winner (for joiner)
+  useEffect(() => {
+    if (!isPlayer1 && predeterminedWinner && hasStarted && !showResult) {
+      console.log('[COIN TOSS] Joiner received winner from DB:', predeterminedWinner);
+      const isPlayer1Winner = predeterminedWinner === player1Id;
+      const selectedResult: 'heads' | 'tails' = isPlayer1Winner ? 'heads' : 'tails';
+      setResult(selectedResult);
+      setWinnerId(predeterminedWinner);
+      setShowResult(true);
+      setRotation(360 * 5 + (isPlayer1Winner ? 0 : 180));
+      
+      setTimeout(() => {
+        onComplete(predeterminedWinner);
+      }, 4000);
+    }
+  }, [predeterminedWinner, isPlayer1, hasStarted, showResult, player1Id, onComplete]);
 
   const winnerName = winnerId === player1Id ? player1Name : player2Name;
 
@@ -242,22 +302,22 @@ export function CoinTossModal({
 
           {/* Status text - only shows winner AFTER spin stops */}
           <AnimatePresence mode="wait">
-            {isShowingResultOnly && !showResult ? (
-              // Joiner waiting for player 1 to complete toss
+            {isSpinning ? (
+              // Spinning animation active
               <motion.div
-                key="waiting"
+                key="spinning"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="text-center"
               >
-                <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-3 animate-spin" />
-                <p className="text-emerald-400 text-xl font-bold">
-                  Waiting for {player1Name}...
-                </p>
-                <p className="text-slate-400 text-sm mt-2">
-                  They are tossing the coin
-                </p>
+                <motion.p 
+                  className="text-emerald-400 text-xl font-bold"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                >
+                  Tossing...
+                </motion.p>
               </motion.div>
             ) : isPlayer1 && !bothPlayersConnected ? (
               // Player 1 waiting for opponent to connect
@@ -276,21 +336,22 @@ export function CoinTossModal({
                   {player2Name} is connecting
                 </p>
               </motion.div>
-            ) : isSpinning ? (
+            ) : !isPlayer1 && !hasStarted ? (
+              // Joiner waiting for Player 1 to start toss
               <motion.div
-                key="spinning"
+                key="waiting"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="text-center"
               >
-                <motion.p 
-                  className="text-emerald-400 text-xl font-bold"
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                >
-                  Tossing...
-                </motion.p>
+                <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-3 animate-spin" />
+                <p className="text-emerald-400 text-xl font-bold">
+                  Waiting for {player1Name}...
+                </p>
+                <p className="text-slate-400 text-sm mt-2">
+                  They are tossing the coin
+                </p>
               </motion.div>
             ) : showResult && winnerName ? (
               <motion.div
