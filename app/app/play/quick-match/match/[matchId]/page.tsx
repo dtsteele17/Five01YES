@@ -1452,14 +1452,19 @@ export default function QuickMatchRoomPage() {
       playerVisits: visitData.filter(v => v.player_id === playerId).length
     });
     
-    const playerVisits = visitData.filter(v => v.player_id === playerId && !v.is_bust);
+    // FIX: Include ALL player visits (including busts) for darts thrown
+    const allPlayerVisits = visitData.filter(v => v.player_id === playerId);
+    // Non-bust visits for score calculations
+    const playerVisits = allPlayerVisits.filter(v => !v.is_bust);
     
     console.log(`[STATS CALC] ${playerName}:`, {
+      totalVisits: allPlayerVisits.length,
       nonBustVisits: playerVisits.length,
       visits: playerVisits.map(v => ({ leg: v.leg, score: v.score, is_checkout: v.is_checkout, darts: v.darts_thrown }))
     });
     
-    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    // FIX: Count darts from ALL visits including busts
+    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
@@ -1468,7 +1473,7 @@ export default function QuickMatchRoomPage() {
     let first9Darts = 0;
     for (const visit of playerVisits.slice(0, 3)) {
       first9Score += visit.score;
-      first9Darts += visit.darts_thrown;
+      first9Darts += (visit.darts_thrown || 3);
       if (first9Darts >= 9) break;
     }
     const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
@@ -1481,13 +1486,14 @@ export default function QuickMatchRoomPage() {
       ? Math.max(...checkouts.map(v => v.score))
       : 0;
     
-    // Calculate checkout percentage - use darts_at_double from visits when available
-    // Count any visit at a checkout score (<= 170, > 0 remaining) as a checkout attempt
-    const checkoutAttempts = playerVisits.filter(v => v.remaining_before <= 170 && v.remaining_before > 0).length;
+    // FIX: Calculate checkout percentage using darts_at_double
+    // Sum up all darts_at_double for visits in checkout range (<= 170)
+    const checkoutAttempts = playerVisits
+      .filter(v => v.remaining_before <= 170 && v.remaining_before > 0)
+      .reduce((sum, v) => sum + (v.darts_at_double || 1), 0);
     const successfulCheckouts = checkouts.length;
     
-    // For checkout percentage: successful checkouts / total checkout attempts
-    // A checkout attempt is any visit where remaining was <= 170 (finish range)
+    // Checkout percentage = successful checkouts / total darts at double
     const checkoutPercentage = checkoutAttempts > 0 
       ? (successfulCheckouts / checkoutAttempts) * 100 
       : 0;
@@ -1539,14 +1545,20 @@ export default function QuickMatchRoomPage() {
 
   // Calculate player stats from visits - for FINISHED match (all legs)
   const calculatePlayerStats = (playerId: string, playerName: string, legsWon: number, extraVisit?: any) => {
-    let playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
+    // FIX: Include ALL visits (including busts) for darts calculation
+    let allPlayerVisits = visits.filter(v => v.player_id === playerId);
+    let playerVisits = allPlayerVisits.filter(v => !v.is_bust);
     
     // Add extra visit if provided (for when match just ended)
-    if (extraVisit && extraVisit.player_id === playerId && !extraVisit.is_bust) {
-      playerVisits = [...playerVisits, extraVisit];
+    if (extraVisit && extraVisit.player_id === playerId) {
+      allPlayerVisits = [...allPlayerVisits, extraVisit];
+      if (!extraVisit.is_bust) {
+        playerVisits = [...playerVisits, extraVisit];
+      }
     }
     
-    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    // FIX: Count darts from ALL visits including busts
+    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
@@ -1555,7 +1567,7 @@ export default function QuickMatchRoomPage() {
     let first9Darts = 0;
     for (const visit of playerVisits.slice(0, 3)) {
       first9Score += visit.score;
-      first9Darts += visit.darts_thrown;
+      first9Darts += (visit.darts_thrown || 3);
       if (first9Darts >= 9) break;
     }
     const first9Average = first9Darts > 0 ? (first9Score / first9Darts) * 3 : 0;
@@ -1566,8 +1578,10 @@ export default function QuickMatchRoomPage() {
       ? Math.max(...checkouts.map(v => v.score))
       : 0;
     
-    // Calculate checkout percentage
-    const checkoutAttempts = playerVisits.filter(v => v.remaining_before <= 170 && v.remaining_before > 0).length;
+    // FIX: Calculate checkout percentage using darts_at_double
+    const checkoutAttempts = playerVisits
+      .filter(v => v.remaining_before <= 170 && v.remaining_before > 0)
+      .reduce((sum, v) => sum + (v.darts_at_double || 1), 0);
     const successfulCheckouts = checkouts.length;
     const checkoutPercentage = checkoutAttempts > 0 
       ? (successfulCheckouts / checkoutAttempts) * 100 
@@ -1611,16 +1625,19 @@ export default function QuickMatchRoomPage() {
   // Calculate WHOLE MATCH stats (across all legs) for the display
   // 3-dart average is calculated across ALL legs (entire game) as per dart rules
   const calculateMatchStats = useCallback((playerId: string) => {
-    // ALL visits for average calculation (whole match)
-    const playerVisits = visits.filter(v => v.player_id === playerId && !v.is_bust);
-    const totalDarts = playerVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    // FIX: Include ALL visits including busts for darts calculation
+    const allPlayerVisits = visits.filter(v => v.player_id === playerId);
+    const playerVisits = allPlayerVisits.filter(v => !v.is_bust);
+    
+    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     // 3-dart average across the ENTIRE game (all legs)
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
     // CURRENT LEG visits for last score and darts thrown display (resets each leg)
-    const currentLegVisits = visits.filter(v => v.player_id === playerId && v.leg === room?.current_leg && !v.is_bust);
-    const dartsThisLeg = currentLegVisits.reduce((sum, v) => sum + v.darts_thrown, 0);
+    const currentLegAllVisits = allPlayerVisits.filter(v => v.leg === room?.current_leg);
+    const currentLegVisits = currentLegAllVisits.filter(v => !v.is_bust);
+    const dartsThisLeg = currentLegAllVisits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0);
     
     return {
       average: threeDartAverage, // 3-dart average across WHOLE game
@@ -1901,15 +1918,12 @@ export default function QuickMatchRoomPage() {
               // Temporarily update visits state for accurate calculation
               const completeVisits = (allVisits as QuickMatchVisit[]) || visits;
               
-              // Calculate legs from visits (count checkouts per player)
-              const p1LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player1_id && v.is_checkout).length;
-              const p2LegsFromVisits = completeVisits.filter(v => v.player_id === updatedRoom.player2_id && v.is_checkout).length;
+              // Use the room's leg counts as the source of truth
+              // The database has already determined the correct leg counts via the RPC
+              const p1Legs = updatedRoom.player1_legs || 0;
+              const p2Legs = updatedRoom.player2_legs || 0;
               
-              // Use room data as fallback, but visits count is more accurate
-              const p1Legs = p1LegsFromVisits || updatedRoom.player1_legs || 0;
-              const p2Legs = p2LegsFromVisits || updatedRoom.player2_legs || 0;
-              
-              console.log('[MATCH END] Legs calculated:', { p1Legs, p2Legs, p1LegsFromVisits, p2LegsFromVisits, roomP1Legs: updatedRoom.player1_legs, roomP2Legs: updatedRoom.player2_legs });
+              console.log('[MATCH END] Legs calculated:', { p1Legs, p2Legs, roomP1Legs: updatedRoom.player1_legs, roomP2Legs: updatedRoom.player2_legs });
               
               // Debug: Log all visits before calculating stats
               logVisitsDebug('MATCH_END_STATS', completeVisits, updatedRoom.player1_id, updatedRoom.player2_id);
@@ -2738,20 +2752,27 @@ export default function QuickMatchRoomPage() {
             created_at: new Date().toISOString()
           };
           
-          const completeVisits = [...((allVisits as QuickMatchVisit[]) || visits), finalVisit];
+          // Check if finalVisit already exists in allVisits (avoid duplication)
+          const finalVisitExists = (allVisits as QuickMatchVisit[])?.some(v => 
+            v.player_id === finalVisit.player_id && 
+            v.leg === finalVisit.leg && 
+            v.is_checkout
+          );
+          
+          // Only add finalVisit if it doesn't already exist in the database
+          const completeVisits = finalVisitExists 
+            ? (allVisits as QuickMatchVisit[]) || visits
+            : [...((allVisits as QuickMatchVisit[]) || visits), finalVisit];
           
           // Debug: Log all visits
           logVisitsDebug('SUBMIT_MATCH_END', completeVisits, room.player1_id, room.player2_id);
           
-          // Verify legs from visits (count checkouts per player) - more accurate than state
-          const p1LegsFromVisits = completeVisits.filter(v => v.player_id === room.player1_id && v.is_checkout).length;
-          const p2LegsFromVisits = completeVisits.filter(v => v.player_id === room.player2_id && v.is_checkout).length;
+          // Use the room's leg counts directly - these are the source of truth
+          // The room was already updated by the RPC with correct leg counts
+          const finalP1Legs = newP1Legs;
+          const finalP2Legs = newP2Legs;
           
-          // Use calculated legs from visits as they're more accurate
-          const finalP1Legs = p1LegsFromVisits || newP1Legs;
-          const finalP2Legs = p2LegsFromVisits || newP2Legs;
-          
-          console.log('[MATCH END] Legs from visits:', { finalP1Legs, finalP2Legs, p1LegsFromVisits, p2LegsFromVisits });
+          console.log('[MATCH END] Legs from room:', { finalP1Legs, finalP2Legs });
           
           // Calculate stats for BOTH players - pass ALL visits and let the function filter
           console.log('[MATCH_END_SUBMIT] Calculating winner stats:', { winnerId, name: winnerProfile?.username });

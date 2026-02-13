@@ -47,6 +47,7 @@ interface Visit {
   bustReason?: string;
   darts?: { type: string; number: number; value: number; multiplier: number; label: string; score: number; is_double: boolean }[];
   dartsThrown?: number;
+  dartsAtDouble?: number; // Number of darts thrown at double (for checkout percentage)
   remainingBefore?: number;
   remainingAfter?: number;
   legNumber: number;
@@ -524,13 +525,14 @@ export default function DartbotMatchPage() {
     // Calculate checkout stats from visits
     const successfulCheckouts = checkouts.length;
     
-    // Count darts at double: any visit where remaining was <= 170 and > 0 before the visit
-    // This indicates the player was on a checkout
-    const checkoutAttempts = allPlayerVisits.filter(v => {
-      const remainingBefore = v.remainingBefore || 0;
-      return remainingBefore <= 170 && remainingBefore > 0;
-    });
-    const dartsAtDouble = checkoutAttempts.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    // FIX: Count darts at double using dartsAtDouble field from visits
+    // Sum up dartsAtDouble for all visits in checkout range (remaining <= 170)
+    const dartsAtDouble = playerVisits
+      .filter(v => {
+        const remainingBefore = v.remainingBefore || 0;
+        return remainingBefore <= 170 && remainingBefore > 0;
+      })
+      .reduce((sum, v) => sum + (v.dartsAtDouble || 1), 0); // Default to 1 if not set
     
     const checkoutPercentage = dartsAtDouble > 0 ? (successfulCheckouts / dartsAtDouble) * 100 : 0;
     
@@ -940,8 +942,25 @@ export default function DartbotMatchPage() {
     const currentScore = player1Score;
     const doubleOut = config.doubleOut;
     const newScore = currentScore - score;
+    
+    // Calculate darts at double for this visit
+    // For typed input, use the value from dialog. For button input, calculate from darts array
+    let dartsAtDouble = 0;
     if (isBust(currentScore, score, doubleOut)) {
-      const visit: Visit = { player: 'player1', score: 0, remainingScore: currentScore, isBust: true, isCheckout: false, timestamp: Date.now(), dartsThrown, remainingBefore: currentScore, remainingAfter: currentScore, legNumber: currentLeg.legNumber };
+      dartsAtDouble = 0; // Busts don't count as darts at double
+    } else if (isTypedInput) {
+      dartsAtDouble = dartsAtDoubleForInput;
+    } else {
+      // For button input, count how many darts were thrown when remaining was <= 170
+      let remainingBeforeDart = currentScore;
+      // This is approximated - actual tracking would need the darts array
+      if (currentScore <= 170 && currentScore > 0) {
+        dartsAtDouble = dartsThrown; // Assume all darts were at double when in checkout range
+      }
+    }
+    
+    if (isBust(currentScore, score, doubleOut)) {
+      const visit: Visit = { player: 'player1', score: 0, remainingScore: currentScore, isBust: true, isCheckout: false, timestamp: Date.now(), dartsThrown, dartsAtDouble: 0, remainingBefore: currentScore, remainingAfter: currentScore, legNumber: currentLeg.legNumber };
       setCurrentLeg(prev => { const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player1First9DartsThrown)); return { ...prev, visits: [...prev.visits, visit], player1DartsThrown: prev.player1DartsThrown + dartsThrown, player1First9DartsThrown: prev.player1First9DartsThrown + dartsUsedInFirst9 }; });
       setPlayer1MatchDartsThrown(prev => prev + dartsThrown);
       setCurrentPlayer('player2');
@@ -951,7 +970,7 @@ export default function DartbotMatchPage() {
       return;
     }
     const isCheckout = newScore === 0;
-    const visit: Visit = { player: 'player1', score, remainingScore: newScore, isBust: false, isCheckout, timestamp: Date.now(), lastDartType, dartsThrown, remainingBefore: currentScore, remainingAfter: newScore, legNumber: currentLeg.legNumber };
+    const visit: Visit = { player: 'player1', score, remainingScore: newScore, isBust: false, isCheckout, timestamp: Date.now(), lastDartType, dartsThrown, dartsAtDouble, remainingBefore: currentScore, remainingAfter: newScore, legNumber: currentLeg.legNumber };
     
     if (isCheckout) {
       // For checkout, pass the visit directly to handleLegComplete since React state 
