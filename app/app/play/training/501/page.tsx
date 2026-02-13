@@ -429,11 +429,16 @@ export default function DartbotMatchPage() {
     setDebugMode(true); // Always show calibration rings
   }, []);
 
+  // Trigger stats save when match ends
+  // Note: saveMatchStats is defined below but called via ref to avoid circular dependency
   useEffect(() => {
     matchOverRef.current = !!matchWinner;
     if (matchWinner && !hasSavedStats.current) {
       hasSavedStats.current = true;
-      saveMatchStats();
+      // Use setTimeout to break out of render cycle and allow saveMatchStats to be defined
+      setTimeout(() => {
+        saveMatchStatsRef.current?.();
+      }, 0);
     }
   }, [matchWinner]);
 
@@ -564,74 +569,74 @@ export default function DartbotMatchPage() {
     };
   };
 
-  const saveMatchStats = async () => {
-    if (!config || !matchWinner) return;
+  // Ref to store completed legs for stats calculation (avoids stale closure issues)
+  const completedLegsRef = useRef<LegData[]>([]);
+  // Ref to store saveMatchStats function to avoid circular dependency with useEffect
+  const saveMatchStatsRef = useRef<(() => Promise<void>) | null>(null);
+
+  const saveMatchStats = useCallback(async () => {
+    // Use refs to get current values without dependency issues
+    const currentMatchWinner = matchWinner;
+    const currentConfig = config;
+    const p1Legs = player1LegsWon;
+    const p2Legs = player2LegsWon;
+    const p1DartsAtDouble = player1TotalDartsAtDouble;
+    const p1Checkouts = player1CheckoutsMade;
+    const p2DartsAtDouble = player2TotalDartsAtDouble;
+    const p2Checkouts = player2CheckoutsMade;
+    
+    if (!currentConfig || !currentMatchWinner) return;
+    
     try {
-      const normalizedConfig = normalizeMatchConfig({ mode: config.mode as '301' | '501', bestOf: config.bestOf, doubleOut: config.doubleOut });
-      const allLegsData = [...allLegs, currentLeg].filter(leg => leg.winner);
+      const normalizedConfig = normalizeMatchConfig({ mode: currentConfig.mode as '301' | '501', bestOf: currentConfig.bestOf, doubleOut: currentConfig.doubleOut });
+      
+      // Use the ref for completed legs which is always up-to-date
       const allVisitsFormatted: any[] = [];
+      const allLegsData = completedLegsRef.current;
+      
       for (const leg of allLegsData) {
         const p1Visits = leg.visits.filter(v => v.player === 'player1');
         const p2Visits = leg.visits.filter(v => v.player === 'player2');
         p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'user', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
         p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'opponent', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: visit.remainingScore <= 170 && !visit.isBust }));
       }
-      const userStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'user'), 'user', normalizedConfig.mode, player1TotalDartsAtDouble, player1CheckoutsMade);
-      const opponentStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'opponent'), 'opponent', normalizedConfig.mode, player2TotalDartsAtDouble, player2CheckoutsMade);
       
-      const userPlayerStats: PlayerStats = {
-        threeDartAvg: userStats.threeDartAverage, first9Avg: userStats.first9Average, checkoutDartsAttempted: userStats.checkoutDartsAttempted,
-        checkoutsMade: userStats.checkoutsMade, checkoutPercent: userStats.checkoutPercent, highestCheckout: userStats.highestCheckout,
-        count100Plus: userStats.count100Plus, count140Plus: userStats.count140Plus, count180: userStats.oneEighties,
-        highestScore: userStats.highestVisit, legsWon: player1LegsWon, legsLost: player2LegsWon, dartsThrown: userStats.totalDartsThrown, pointsScored: userStats.totalPointsScored,
-      };
-      const opponentPlayerStats: PlayerStats = {
-        threeDartAvg: opponentStats.threeDartAverage, first9Avg: opponentStats.first9Average, checkoutDartsAttempted: opponentStats.checkoutDartsAttempted,
-        checkoutsMade: opponentStats.checkoutsMade, checkoutPercent: opponentStats.checkoutPercent, highestCheckout: opponentStats.highestCheckout,
-        count100Plus: opponentStats.count100Plus, count140Plus: opponentStats.count140Plus, count180: opponentStats.oneEighties,
-        highestScore: opponentStats.highestVisit, legsWon: player2LegsWon, legsLost: player1LegsWon, dartsThrown: opponentStats.totalDartsThrown, pointsScored: opponentStats.totalPointsScored,
-      };
-
-      // Set match end stats for WinnerPopup
-      // Get all completed legs including current
-      const completedLegs = [...allLegs, currentLeg].filter(leg => leg.winner);
+      const userStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'user'), 'user', normalizedConfig.mode, p1DartsAtDouble, p1Checkouts);
+      const opponentStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'opponent'), 'opponent', normalizedConfig.mode, p2DartsAtDouble, p2Checkouts);
+      
+      // Set match end stats for WinnerPopup using ref data
+      const completedLegs = completedLegsRef.current;
       
       const p1FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        true, 'You', player1LegsWon, completedLegs
+        true, 'You', p1Legs, completedLegs
       );
       const p2FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        false, botName, player2LegsWon, completedLegs
+        false, botName, p2Legs, completedLegs
       );
       
       setMatchEndStats({
-        player1: { id: 'player1', name: 'You', legs: player1LegsWon },
-        player2: { id: 'player2', name: botName, legs: player2LegsWon },
+        player1: { id: 'player1', name: 'You', legs: p1Legs },
+        player2: { id: 'player2', name: botName, legs: p2Legs },
         player1FullStats: p1FullStats,
         player2FullStats: p2FullStats,
-        winnerId: matchWinner === 'player1' ? 'player1' : 'player2',
+        winnerId: currentMatchWinner === 'player1' ? 'player1' : 'player2',
       });
 
       // Map difficulty to level (1-5) for database
       const difficultyToLevel: Record<string, number> = {
-        'novice': 1,
-        'beginner': 1,
-        'casual': 2,
-        'intermediate': 2,
-        'advanced': 3,
-        'elite': 4,
-        'pro': 5,
-        'worldClass': 5,
+        'novice': 1, 'beginner': 1, 'casual': 2, 'intermediate': 2,
+        'advanced': 3, 'elite': 4, 'pro': 5, 'worldClass': 5,
       };
       
       const dartbotStats: DartbotMatchStats = {
         gameMode: normalizedConfig.mode === '301' ? 301 : 501,
-        matchFormat: config.bestOf,
-        dartbotLevel: difficultyToLevel[config.botDifficulty] || 3,
-        playerLegs: player1LegsWon,
-        dartbotLegs: player2LegsWon,
-        winner: matchWinner === 'player1' ? 'player' : 'dartbot',
+        matchFormat: currentConfig.bestOf,
+        dartbotLevel: difficultyToLevel[currentConfig.botDifficulty] || 3,
+        playerLegs: p1Legs,
+        dartbotLegs: p2Legs,
+        winner: currentMatchWinner === 'player1' ? 'player' : 'dartbot',
         startedAt: new Date(matchStartTime).toISOString(),
         completedAt: new Date().toISOString(),
         playerStats: {
@@ -652,8 +657,14 @@ export default function DartbotMatchPage() {
       const result = await recordDartbotMatchCompletion(dartbotStats);
       console.log('📊 DARTBOT MATCH SAVED:', result);
       if (result.success) toast.success('Match stats saved!');
-    } catch (error) { console.error('Error saving match stats:', error); }
-  };
+    } catch (error) { 
+      console.error('Error saving match stats:', error); 
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchWinner, config, player1LegsWon, player2LegsWon, botName, matchStartTime]);
+
+  // Store the function in ref so useEffect above can access it
+  saveMatchStatsRef.current = saveMatchStats;
 
   // Track if a bot turn is currently in progress to prevent overlapping animations
   const botTurnInProgressRef = useRef(false);
@@ -930,6 +941,8 @@ export default function DartbotMatchPage() {
     const completedLeg = { ...currentLeg, winner };
     const updatedLegs = [...allLegs, completedLeg];
     setAllLegs(updatedLegs);
+    // Also update the ref so saveMatchStats has access to latest data
+    completedLegsRef.current = updatedLegs;
     if (winner === 'player1') {
       setPlayer1LegsWon(prev => { const newLegs = prev + 1; if (newLegs >= legsToWin) { matchOverRef.current = true; setMatchWinner('player1'); return newLegs; } queueMicrotask(() => startNewLeg()); return newLegs; });
     } else {
@@ -960,6 +973,7 @@ export default function DartbotMatchPage() {
   const handleRematch = () => {
     matchOverRef.current = false;
     hasSavedStats.current = false;
+    completedLegsRef.current = [];
     clearBotTimer();
     setMatchEndStats(null);
     const s = config ? getStartScore(config.mode) : 501;
