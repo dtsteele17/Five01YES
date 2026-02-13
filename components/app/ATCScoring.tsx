@@ -4,14 +4,8 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Target, TrendingUp, X } from 'lucide-react';
+import { Target, TrendingUp, X, ChevronRight, Darts } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ATCSettings,
   ATCPlayerState,
@@ -30,6 +24,9 @@ interface ATCScoringProps {
   onUndo?: () => void;
 }
 
+// Number grid layout like a dartboard
+const NUMBER_GRID = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+
 export function ATCScoring({
   player1,
   player2,
@@ -41,6 +38,7 @@ export function ATCScoring({
   const [currentDarts, setCurrentDarts] = useState<ATCDart[]>([]);
   const [selectedNumber, setSelectedNumber] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
+  const [showDartDetails, setShowDartDetails] = useState(false);
 
   const activePlayer = currentPlayer === 1 ? player1 : player2;
   const inactivePlayer = currentPlayer === 1 ? player2 : player1;
@@ -71,6 +69,7 @@ export function ATCScoring({
     setCurrentDarts([...currentDarts, dart]);
     setSelectedNumber('');
     setSelectedType('');
+    setShowDartDetails(false);
   };
 
   const handleRemoveLastDart = () => {
@@ -81,6 +80,18 @@ export function ATCScoring({
     if (currentDarts.length === 0) return;
     onVisitComplete(currentDarts);
     setCurrentDarts([]);
+    setSelectedNumber('');
+    setSelectedType('');
+    setShowDartDetails(false);
+  };
+
+  const handleNumberSelect = (num: number) => {
+    setSelectedNumber(num.toString());
+    setShowDartDetails(true);
+  };
+
+  const handleTypeSelect = (type: string) => {
+    setSelectedType(type);
   };
 
   const previewTarget = () => {
@@ -105,195 +116,368 @@ export function ATCScoring({
     return (current / total) * 100;
   };
 
-  const numbers = Array.from({ length: 20 }, (_, i) => i + 1);
+  const getTargetNumber = (target: number | 'bull') => {
+    if (target === 'bull') return 'BULL';
+    return target.toString();
+  };
+
+  const isNumberSelectable = (num: number) => {
+    // In ATC, you can only hit the current target or miss
+    // But we'll allow any number to be selected for flexibility
+    return true;
+  };
+
+  const getDartColor = (dart: ATCDart, index: number) => {
+    if (dart.hit) {
+      return 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/30';
+    }
+    return 'bg-red-500/80 border-red-400 text-white shadow-lg shadow-red-500/20';
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card
-          className={`p-6 ${
+    <div className="space-y-4">
+      {/* Player Cards - Compact Top Bar */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Player 1 */}
+        <motion.div
+          initial={false}
+          animate={{
+            scale: currentPlayer === 1 ? 1.02 : 1,
+            opacity: currentPlayer === 1 ? 1 : 0.7,
+          }}
+          className={`relative overflow-hidden rounded-2xl p-4 ${
             currentPlayer === 1
-              ? 'bg-emerald-500/20 border-emerald-500/50'
-              : 'bg-white/5 border-white/10'
+              ? 'bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-slate-900/50 border-2 border-emerald-500/50'
+              : 'bg-slate-900/50 border border-white/10'
           }`}
         >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">{player1.name}</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                currentPlayer === 1 ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-400'
+              }`}>
+                {player1.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="font-bold text-white">{player1.name}</h3>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span>{player1.visits.length} visits</span>
+                  <span>•</span>
+                  <span>{player1.visits.reduce((sum, v) => sum + v.darts.length, 0)} darts</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`text-3xl font-black ${currentPlayer === 1 ? 'text-emerald-400' : 'text-gray-400'}`}>
+                {getTargetNumber(player1.currentTarget)}
+              </div>
               {currentPlayer === 1 && (
-                <Badge className="bg-emerald-500 text-white">Your Turn</Badge>
+                <Badge className="bg-emerald-500 text-white text-xs">
+                  Your Turn
+                </Badge>
               )}
             </div>
-            <div className="text-3xl font-bold text-white">
-              Target: {player1.currentTarget === 'bull' ? 'Bull' : player1.currentTarget}
-            </div>
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full bg-emerald-500 transition-all"
-                style={{ width: `${calculateProgress(player1.currentTarget)}%` }}
-              />
-            </div>
-            <div className="text-sm text-gray-400">
-              {player1.visits.length} visits • {player1.visits.reduce((sum, v) => sum + v.darts.length, 0)} darts
-            </div>
           </div>
-        </Card>
+          {/* Progress Bar */}
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <motion.div
+              className="h-full bg-emerald-500 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${calculateProgress(player1.currentTarget)}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        </motion.div>
 
-        <Card
-          className={`p-6 ${
+        {/* Player 2 */}
+        <motion.div
+          initial={false}
+          animate={{
+            scale: currentPlayer === 2 ? 1.02 : 1,
+            opacity: currentPlayer === 2 ? 1 : 0.7,
+          }}
+          className={`relative overflow-hidden rounded-2xl p-4 ${
             currentPlayer === 2
-              ? 'bg-blue-500/20 border-blue-500/50'
-              : 'bg-white/5 border-white/10'
+              ? 'bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-slate-900/50 border-2 border-blue-500/50'
+              : 'bg-slate-900/50 border border-white/10'
           }`}
         >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">{player2.name}</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                currentPlayer === 2 ? 'bg-blue-500 text-white' : 'bg-white/10 text-gray-400'
+              }`}>
+                {player2.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="font-bold text-white">{player2.name}</h3>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span>{player2.visits.length} visits</span>
+                  <span>•</span>
+                  <span>{player2.visits.reduce((sum, v) => sum + v.darts.length, 0)} darts</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`text-3xl font-black ${currentPlayer === 2 ? 'text-blue-400' : 'text-gray-400'}`}>
+                {getTargetNumber(player2.currentTarget)}
+              </div>
               {currentPlayer === 2 && (
-                <Badge className="bg-blue-500 text-white">Their Turn</Badge>
+                <Badge className="bg-blue-500 text-white text-xs">
+                  Their Turn
+                </Badge>
               )}
             </div>
-            <div className="text-3xl font-bold text-white">
-              Target: {player2.currentTarget === 'bull' ? 'Bull' : player2.currentTarget}
-            </div>
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full bg-blue-500 transition-all"
-                style={{ width: `${calculateProgress(player2.currentTarget)}%` }}
-              />
-            </div>
-            <div className="text-sm text-gray-400">
-              {player2.visits.length} visits • {player2.visits.reduce((sum, v) => sum + v.darts.length, 0)} darts
-            </div>
           </div>
-        </Card>
+          {/* Progress Bar */}
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <motion.div
+              className="h-full bg-blue-500 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${calculateProgress(player2.currentTarget)}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        </motion.div>
       </div>
 
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-white">
-              Current Target: {currentTarget === 'bull' ? 'Bull' : currentTarget}
-            </h3>
-            <div className="flex items-center space-x-2 text-sm text-gray-400">
-              <Target className="w-4 h-4" />
-              <span>
-                Final: {finalTarget === 'bull' ? 'Bull' : finalTarget}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {currentDarts.map((dart, index) => (
-              <Badge
-                key={index}
-                variant={dart.hit ? 'default' : 'outline'}
-                className={`${
-                  dart.hit
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-red-500/20 text-red-400 border-red-500/30'
-                } text-sm px-3 py-1`}
-              >
-                {dart.type === 'miss'
-                  ? 'Miss'
-                  : dart.type === 'single-bull'
-                  ? 'SB'
-                  : dart.type === 'double-bull'
-                  ? 'DB'
-                  : `${dart.type.charAt(0).toUpperCase()}${dart.number}`}
-              </Badge>
-            ))}
-            {currentDarts.length < 3 &&
-              Array.from({ length: 3 - currentDarts.length }).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  className="w-16 h-8 border-2 border-dashed border-white/20 rounded"
-                />
-              ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm text-gray-300">Number</label>
-              <Select value={selectedNumber} onValueChange={setSelectedNumber}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                  <SelectValue placeholder="Select number" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-white/10 max-h-60">
-                  {numbers.map((num) => (
-                    <SelectItem key={num} value={num.toString()}>
-                      {num}
-                    </SelectItem>
-                  ))}
-                  {currentTarget === 'bull' && (
-                    <>
-                      <SelectItem value="single-bull">Single Bull</SelectItem>
-                      <SelectItem value="double-bull">Double Bull</SelectItem>
-                    </>
+      {/* Main Game Area */}
+      <div className="grid lg:grid-cols-12 gap-4">
+        {/* Left: Dart Selection */}
+        <div className="lg:col-span-7 space-y-3">
+          {/* Current Target Display */}
+          <Card className="bg-gradient-to-br from-slate-900/80 to-slate-900/40 backdrop-blur-sm border border-white/10 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Current Target</p>
+                <motion.div
+                  key={currentTarget.toString()}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-5xl font-black text-white"
+                >
+                  {currentTarget === 'bull' ? (
+                    <span className="text-amber-400">BULL</span>
+                  ) : (
+                    <span className="text-emerald-400">{currentTarget}</span>
                   )}
-                </SelectContent>
-              </Select>
+                </motion.div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">Progress</p>
+                <div className="text-sm text-gray-400">
+                  {initialTarget} → {finalTarget === 'bull' ? 'Bull' : finalTarget}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Number Pad */}
+          <Card className="bg-slate-900/50 backdrop-blur-sm border border-white/10 p-4">
+            <div className="grid grid-cols-5 gap-2">
+              {NUMBER_GRID.map((num) => {
+                const isTarget = currentTarget === num;
+                const isSelected = selectedNumber === num.toString();
+                const isHit = currentDarts.some(d => d.number === num && d.hit);
+
+                return (
+                  <motion.button
+                    key={num}
+                    onClick={() => handleNumberSelect(num)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`
+                      relative aspect-square rounded-xl font-bold text-lg transition-all
+                      ${isTarget
+                        ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-900'
+                        : isSelected
+                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                        : isHit
+                        ? 'bg-emerald-500/30 text-emerald-400 border border-emerald-500/50'
+                        : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
+                      }
+                    `}
+                  >
+                    {num}
+                    {isTarget && (
+                      <motion.div
+                        layoutId="target-indicator"
+                        className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full"
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm text-gray-300">Type</label>
-              <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-white/10">
-                  <SelectItem value="miss">Miss</SelectItem>
-                  <SelectItem value="single">Single</SelectItem>
-                  <SelectItem value="double">Double</SelectItem>
-                  <SelectItem value="treble">Treble</SelectItem>
-                  {currentTarget === 'bull' && (
-                    <>
-                      <SelectItem value="single-bull">Single Bull</SelectItem>
-                      <SelectItem value="double-bull">Double Bull</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex space-x-3">
-            <Button
-              onClick={handleAddDart}
-              disabled={
-                currentDarts.length >= 3 ||
-                (!selectedType && selectedType !== 'miss') ||
-                (selectedType !== 'miss' &&
-                  selectedType !== 'single-bull' &&
-                  selectedType !== 'double-bull' &&
-                  !selectedNumber)
-              }
-              className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-            >
-              Add Dart ({currentDarts.length}/3)
-            </Button>
-            {currentDarts.length > 0 && (
-              <Button
-                onClick={handleRemoveLastDart}
-                variant="outline"
-                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+            {/* Bull Option (if applicable) */}
+            {currentTarget === 'bull' && (
+              <div className="mt-3 flex gap-2">
+                <Button
+                  onClick={() => {
+                    setSelectedType('single-bull');
+                    setShowDartDetails(true);
+                  }}
+                  className="flex-1 bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30"
+                >
+                  Single Bull
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSelectedType('double-bull');
+                    setShowDartDetails(true);
+                  }}
+                  className="flex-1 bg-amber-500/20 border-amber-500/50 text-amber-400 hover:bg-amber-500/30"
+                >
+                  Double Bull
+                </Button>
+              </div>
             )}
-          </div>
+          </Card>
 
-          {currentDarts.length > 0 && (
-            <Button
-              onClick={handleSubmitVisit}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white"
-              size="lg"
-            >
-              Submit Visit
-            </Button>
-          )}
+          {/* Type Selection (shown after number selected) */}
+          <AnimatePresence>
+            {showDartDetails && selectedNumber && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+              >
+                <Card className="bg-slate-900/50 backdrop-blur-sm border border-white/10 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm text-gray-400">Dart {currentDarts.length + 1}:</span>
+                    <span className="text-xl font-bold text-white">{selectedNumber}</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { type: 'single', label: 'Single', color: 'bg-blue-500' },
+                      { type: 'double', label: 'Double', color: 'bg-red-500' },
+                      { type: 'treble', label: 'Treble', color: 'bg-amber-500' },
+                      { type: 'miss', label: 'Miss', color: 'bg-gray-500' },
+                    ].map(({ type, label, color }) => (
+                      <Button
+                        key={type}
+                        onClick={() => handleTypeSelect(type)}
+                        className={`${color} hover:opacity-90 text-white font-bold py-4`}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </Card>
+
+        {/* Right: Current Darts & Actions */}
+        <div className="lg:col-span-5 space-y-3">
+          {/* Current Darts Display */}
+          <Card className="bg-gradient-to-br from-slate-900/80 to-slate-900/40 backdrop-blur-sm border border-white/10 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <Darts className="w-5 h-5 text-emerald-400" />
+                Current Visit
+              </h3>
+              <span className="text-sm text-gray-400">{currentDarts.length}/3</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {[0, 1, 2].map((index) => {
+                const dart = currentDarts[index];
+                return (
+                  <motion.div
+                    key={index}
+                    initial={dart ? { scale: 0.8, opacity: 0 } : {}}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className={`
+                      aspect-square rounded-2xl flex flex-col items-center justify-center
+                      border-2 transition-all
+                      ${dart
+                        ? getDartColor(dart, index) + ' border-current'
+                        : 'bg-white/5 border-dashed border-white/20'
+                      }
+                    `}
+                  >
+                    {dart ? (
+                      <>
+                        <span className="text-2xl font-black">
+                          {dart.type === 'miss'
+                            ? '✗'
+                            : dart.number || (dart.type === 'single-bull' ? '25' : '50')}
+                        </span>
+                        <span className="text-xs font-medium opacity-80 uppercase">
+                          {dart.type === 'miss'
+                            ? 'Miss'
+                            : dart.type === 'single-bull'
+                            ? 'SB'
+                            : dart.type === 'double-bull'
+                            ? 'DB'
+                            : dart.type.charAt(0).toUpperCase()}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500 text-sm">{index + 1}</span>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              {selectedNumber && selectedType && (
+                <Button
+                  onClick={handleAddDart}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white font-bold py-5 text-lg"
+                >
+                  <ChevronRight className="w-5 h-5 mr-2" />
+                  Add Dart {currentDarts.length + 1}
+                </Button>
+              )}
+
+              {currentDarts.length > 0 && (
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRemoveLastDart}
+                    variant="outline"
+                    className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 py-4"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remove Last
+                  </Button>
+                  <Button
+                    onClick={handleSubmitVisit}
+                    className="flex-[2] bg-gradient-to-r from-blue-500 to-indigo-500 hover:opacity-90 text-white font-bold py-4"
+                  >
+                    Submit Visit
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Quick Stats */}
+          <Card className="bg-slate-900/30 backdrop-blur-sm border border-white/5 p-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-white/5 rounded-xl">
+                <p className="text-xs text-gray-500 mb-1">Hit Rate</p>
+                <p className="text-xl font-bold text-emerald-400">
+                  {((activePlayer.visits.flatMap(v => v.darts).filter(d => d.hit).length / 
+                    Math.max(1, activePlayer.visits.flatMap(v => v.darts).length)) * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div className="text-center p-3 bg-white/5 rounded-xl">
+                <p className="text-xs text-gray-500 mb-1">Avg/Visit</p>
+                <p className="text-xl font-bold text-blue-400">
+                  {(activePlayer.visits.reduce((sum, v) => sum + v.progressMade, 0) / 
+                    Math.max(1, activePlayer.visits.length)).toFixed(1)}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

@@ -3509,11 +3509,12 @@ export default function QuickMatchRoomPage() {
             variant="outline"
             size="sm"
             onClick={() => setShowEndMatchDialog(true)}
-            disabled={forfeitLoading}
-            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+            disabled={forfeitLoading || !isMyTurn}
+            className={`border-red-500/30 text-red-400 hover:bg-red-500/10 ${!isMyTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={!isMyTurn ? 'You can only forfeit on your turn' : 'Forfeit the match'}
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Forfeit
+            {!isMyTurn ? 'Opponent Turn' : 'Forfeit'}
           </Button>
           <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
             {isConnected ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
@@ -3710,15 +3711,25 @@ export default function QuickMatchRoomPage() {
       <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
         <AlertDialogContent className="bg-slate-900 border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Forfeit Match?</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              Are you sure you want to forfeit? This will end the match.
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <LogOut className="w-5 h-5 text-red-400" />
+              Forfeit Match?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400 space-y-2">
+              <p>Are you sure you want to forfeit? This will end the match and count as a loss.</p>
+              {!isMyTurn && (
+                <p className="text-amber-400 font-medium">⚠️ You can only forfeit on your turn.</p>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-white/5 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={forfeitMatch} disabled={forfeitLoading} className="bg-red-500 hover:bg-red-600">
-              {forfeitLoading ? 'Forfeiting...' : 'Forfeit'}
+            <AlertDialogAction 
+              onClick={forfeitMatch} 
+              disabled={forfeitLoading || !isMyTurn} 
+              className="bg-red-500 hover:bg-red-600 disabled:opacity-50"
+            >
+              {forfeitLoading ? 'Forfeiting...' : !isMyTurn ? 'Not Your Turn' : 'Forfeit Match'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
