@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface TrainingConfig {
-  mode: '301' | '501' | 'around-the-clock';
+  mode: '301' | '501' | 'around-the-clock' | 'killer';
   botDifficulty: 'novice' | 'beginner' | 'casual' | 'intermediate' | 'advanced' | 'elite' | 'pro' | 'worldClass';
   botAverage: number;
   doubleOut: boolean;
@@ -13,6 +13,9 @@ export interface TrainingConfig {
     orderMode: 'in_order' | 'random';
     segmentRule: 'singles_only' | 'doubles_only' | 'trebles_only' | 'increase_by_segment';
     includeBull: boolean;
+  };
+  killerSettings?: {
+    rounds: 1 | 3 | 5 | 7;
   };
 }
 

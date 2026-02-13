@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { ArrowLeft, Trophy, Skull, Heart, Target, RotateCcw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTraining } from '@/lib/context/TrainingContext';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -33,10 +34,22 @@ interface Player {
   eliminated: boolean;
 }
 
-type GamePhase = 'select-number' | 'playing' | 'game-over';
+type GamePhase = 'select-number' | 'playing' | 'game-over' | 'match-over';
+
+interface RoundResult {
+  round: number;
+  winner: 'user' | 'bot';
+  userKills: number;
+  botKills: number;
+  turns: number;
+}
 
 export default function KillerTrainingPage() {
   const router = useRouter();
+  const { config } = useTraining();
+
+  // Get total rounds from config, default to 3
+  const totalRounds = config?.killerSettings?.rounds || 3;
 
   // Game State
   const [gamePhase, setGamePhase] = useState<GamePhase>('select-number');
@@ -53,6 +66,11 @@ export default function KillerTrainingPage() {
   const [userKills, setUserKills] = useState(0);
   const [botKills, setBotKills] = useState(0);
   const [turnCount, setTurnCount] = useState(0);
+
+  // Round tracking
+  const [currentRound, setCurrentRound] = useState(1);
+  const [roundResults, setRoundResults] = useState<RoundResult[]>([]);
+  const [roundScore, setRoundScore] = useState({ user: 0, bot: 0 });
 
   // Input mode
   const [scoringTab, setScoringTab] = useState<'singles' | 'doubles' | 'trebles' | 'bulls'>('singles');
@@ -204,10 +222,55 @@ export default function KillerTrainingPage() {
   const checkWinner = () => {
     const alivePlayers = players.filter(p => !p.eliminated);
     if (alivePlayers.length === 1) {
-      setWinner(alivePlayers[0]);
-      setGamePhase('game-over');
-      setShowStatsModal(true);
+      const roundWinner = alivePlayers[0];
+      setWinner(roundWinner);
+      
+      // Record round result
+      const newResult: RoundResult = {
+        round: currentRound,
+        winner: roundWinner.id,
+        userKills,
+        botKills,
+        turns: turnCount,
+      };
+      
+      const updatedResults = [...roundResults, newResult];
+      setRoundResults(updatedResults);
+      
+      // Update round score
+      const newRoundScore = {
+        user: roundScore.user + (roundWinner.id === 'user' ? 1 : 0),
+        bot: roundScore.bot + (roundWinner.id === 'bot' ? 1 : 0),
+      };
+      setRoundScore(newRoundScore);
+      
+      // Check if match is over
+      const roundsNeededToWin = Math.ceil(totalRounds / 2);
+      if (newRoundScore.user >= roundsNeededToWin || newRoundScore.bot >= roundsNeededToWin || currentRound >= totalRounds) {
+        setGamePhase('match-over');
+        setShowStatsModal(true);
+      } else {
+        setGamePhase('game-over');
+        setShowStatsModal(true);
+      }
     }
+  };
+
+  const startNextRound = () => {
+    setCurrentRound(prev => prev + 1);
+    setGamePhase('select-number');
+    setPlayers([
+      { id: 'user', name: 'You', number: null, lives: 3, isKiller: false, eliminated: false },
+      { id: 'bot', name: 'DartBot', number: null, lives: 3, isKiller: false, eliminated: false },
+    ]);
+    setCurrentPlayerIndex(0);
+    setCurrentDarts([]);
+    setMessage('Throw a dart to select your number!');
+    setWinner(null);
+    setUserKills(0);
+    setBotKills(0);
+    setTurnCount(0);
+    setShowStatsModal(false);
   };
 
   // Bot AI
@@ -323,6 +386,9 @@ export default function KillerTrainingPage() {
     setBotKills(0);
     setTurnCount(0);
     setShowStatsModal(false);
+    setCurrentRound(1);
+    setRoundResults([]);
+    setRoundScore({ user: 0, bot: 0 });
   };
 
   const handleMiss = () => {
@@ -351,7 +417,15 @@ export default function KillerTrainingPage() {
               <Skull className="w-6 h-6 text-red-500" />
               Killer
             </h1>
-            <p className="text-xs text-slate-400">
+            <div className="flex items-center justify-center gap-4 mt-1">
+              <span className="text-sm font-bold text-amber-400">
+                Round {currentRound} of {totalRounds}
+              </span>
+              <span className="text-slate-500">|</span>
+              <span className="text-sm text-emerald-400">You: {roundScore.user}</span>
+              <span className="text-sm text-blue-400">Bot: {roundScore.bot}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
               {gamePhase === 'select-number' ? 'Select your number (1-20)' : 'Hit your double to become a KILLER!'}
             </p>
           </div>
@@ -602,77 +676,150 @@ export default function KillerTrainingPage() {
           </ul>
         </Card>
 
-        {/* Game Over Modal */}
+        {/* Game Over / Match Over Modal */}
         <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-center">
-                {winner?.id === 'user' ? (
-                  <span className="text-emerald-400">🎉 You Win!</span>
+                {gamePhase === 'match-over' ? (
+                  roundScore.user > roundScore.bot ? (
+                    <span className="text-emerald-400">🏆 Match Champion!</span>
+                  ) : roundScore.bot > roundScore.user ? (
+                    <span className="text-red-400">😔 Bot Wins Match!</span>
+                  ) : (
+                    <span className="text-amber-400">🤝 Match Tied!</span>
+                  )
+                ) : winner?.id === 'user' ? (
+                  <span className="text-emerald-400">🎉 Round Won!</span>
                 ) : (
-                  <span className="text-red-400">😔 Bot Wins!</span>
+                  <span className="text-red-400">😔 Round Lost!</span>
                 )}
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6 py-4">
-              {/* Winner Display */}
-              <div className={`rounded-lg p-6 text-center border ${
-                winner?.id === 'user' 
-                  ? 'bg-emerald-500/20 border-emerald-500/50' 
-                  : 'bg-red-500/20 border-red-500/50'
-              }`}>
-                <div className="text-6xl mb-2">{winner?.id === 'user' ? '🏆' : '🤖'}</div>
-                <div className={`text-3xl font-bold ${winner?.id === 'user' ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {winner?.name}
-                </div>
-                <div className="text-sm text-slate-400 mt-1">
-                  {winner?.id === 'user' ? 'Survived the Killer!' : 'Eliminated you!'}
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-                  <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">
-                    <Zap className="w-4 h-4 inline mr-1" />
-                    Your Kills
+              {/* Match Score Display (when match is over) */}
+              {gamePhase === 'match-over' && (
+                <div className={`rounded-lg p-6 text-center border-2 ${
+                  roundScore.user > roundScore.bot 
+                    ? 'bg-emerald-500/20 border-emerald-500' 
+                    : roundScore.bot > roundScore.user
+                    ? 'bg-red-500/20 border-red-500'
+                    : 'bg-amber-500/20 border-amber-500'
+                }`}>
+                  <div className="text-5xl mb-3">{roundScore.user > roundScore.bot ? '🏆' : roundScore.bot > roundScore.user ? '🤖' : '🤝'}</div>
+                  <div className="text-4xl font-black text-white mb-2">
+                    {roundScore.user} - {roundScore.bot}
                   </div>
-                  <div className="text-3xl font-bold text-emerald-400">{userKills}</div>
-                </div>
-
-                <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-                  <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">
-                    <Skull className="w-4 h-4 inline mr-1" />
-                    Bot Kills
+                  <div className="text-sm text-slate-300">
+                    Final Score ({totalRounds} rounds)
                   </div>
-                  <div className="text-3xl font-bold text-red-400">{botKills}</div>
+                </div>
+              )}
+
+              {/* Round Score Display (during match) */}
+              {gamePhase === 'game-over' && (
+                <div className={`rounded-lg p-6 text-center border ${
+                  winner?.id === 'user' 
+                    ? 'bg-emerald-500/20 border-emerald-500/50' 
+                    : 'bg-red-500/20 border-red-500/50'
+                }`}>
+                  <div className="text-5xl mb-2">{winner?.id === 'user' ? '🎯' : '💀'}</div>
+                  <div className={`text-2xl font-bold ${winner?.id === 'user' ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {winner?.name} wins Round {currentRound}!
+                  </div>
+                  <div className="text-sm text-slate-400 mt-2">
+                    Match Score: You {roundScore.user + (winner?.id === 'user' ? 1 : 0)} - {roundScore.bot + (winner?.id === 'bot' ? 1 : 0)} Bot
+                  </div>
+                </div>
+              )}
+
+              {/* Current Round Stats */}
+              <div className="bg-slate-700/30 rounded-lg p-4">
+                <div className="text-slate-400 text-xs uppercase tracking-wider mb-3 text-center">
+                  Round {currentRound} Stats
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-slate-400 text-xs mb-1">Your Kills</div>
+                    <div className="text-2xl font-bold text-emerald-400">{userKills}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-slate-400 text-xs mb-1">Bot Kills</div>
+                    <div className="text-2xl font-bold text-red-400">{botKills}</div>
+                  </div>
+                </div>
+                <div className="text-center mt-3 pt-3 border-t border-slate-600/30">
+                  <div className="text-slate-400 text-xs">Total Turns</div>
+                  <div className="text-xl font-bold text-white">{turnCount}</div>
                 </div>
               </div>
 
-              <div className="bg-slate-700/30 rounded-lg p-4 text-center">
-                <div className="text-slate-400 text-xs uppercase tracking-wider mb-1">
-                  Total Turns
+              {/* Round History */}
+              {roundResults.length > 0 && (
+                <div className="bg-slate-700/30 rounded-lg p-4">
+                  <div className="text-slate-400 text-xs uppercase tracking-wider mb-3 text-center">
+                    Round History
+                  </div>
+                  <div className="space-y-2">
+                    {roundResults.map((result) => (
+                      <div 
+                        key={result.round}
+                        className="flex items-center justify-between p-2 bg-slate-800/50 rounded-lg"
+                      >
+                        <span className="text-sm text-slate-400">Round {result.round}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-slate-500">
+                            {result.userKills}-{result.botKills}
+                          </span>
+                          <span className={`text-sm font-bold ${
+                            result.winner === 'user' ? 'text-emerald-400' : 'text-red-400'
+                          }`}>
+                            {result.winner === 'user' ? 'You Won' : 'Bot Won'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-3xl font-bold text-white">{turnCount}</div>
-              </div>
+              )}
             </div>
 
             <DialogFooter className="flex gap-3">
-              <Button
-                onClick={() => setShowStatsModal(false)}
-                variant="outline"
-                className="flex-1 border-slate-600 text-white hover:bg-slate-700"
-              >
-                Close
-              </Button>
-              <Button
-                onClick={startNewGame}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Play Again
-              </Button>
+              {gamePhase === 'game-over' ? (
+                <>
+                  <Button
+                    onClick={() => router.push('/app/play')}
+                    variant="outline"
+                    className="flex-1 border-slate-600 text-white hover:bg-slate-700"
+                  >
+                    Exit
+                  </Button>
+                  <Button
+                    onClick={startNextRound}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Next Round
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={() => router.push('/app/play')}
+                    variant="outline"
+                    className="flex-1 border-slate-600 text-white hover:bg-slate-700"
+                  >
+                    Exit
+                  </Button>
+                  <Button
+                    onClick={startNewGame}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    New Match
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

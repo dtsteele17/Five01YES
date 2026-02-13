@@ -112,6 +112,9 @@ export default function PlayPage() {
   const [finishMin, setFinishMin] = useState<string>('');
   const [finishMax, setFinishMax] = useState<string>('');
 
+  // Killer settings
+  const [killerRounds, setKillerRounds] = useState<1 | 3 | 5 | 7>(3);
+
   useEffect(() => {
     fetchRecentMatches();
 
@@ -547,6 +550,18 @@ export default function PlayPage() {
       } else if (practiceGameMode === '121-game') {
         router.push('/app/play/training/121');
       } else if (practiceGameMode === 'killer') {
+        const config: TrainingConfig = {
+          mode: 'killer',
+          botDifficulty,
+          botAverage: BOT_DIFFICULTY_CONFIG[botDifficulty].average,
+          doubleOut,
+          bestOf,
+          atcOpponent: 'bot',
+          killerSettings: {
+            rounds: killerRounds,
+          },
+        };
+        setConfig(config);
         router.push('/app/play/training/killer');
       } else if (practiceGameMode === 'finish-training') {
         // Validate finish training settings
@@ -915,6 +930,34 @@ export default function PlayPage() {
                         {finishMin !== '' && finishMax !== '' && parseInt(finishMin) >= parseInt(finishMax) && (
                           <p className="text-xs text-red-400">Minimum must be less than maximum</p>
                         )}
+                      </div>
+                    </>
+                  )}
+
+                  {practiceGameMode === 'killer' && (
+                    <>
+                      <div className="space-y-3">
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                          <p className="text-sm text-red-200">
+                            Killer is a tactical game where you aim to eliminate your opponent by hitting their number. First select your number, then become a killer by hitting your double!
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium text-white mb-2 block">Number of Rounds</label>
+                          <p className="text-xs text-gray-400 mb-2">Play multiple rounds. The player with the most round wins is the champion!</p>
+                          <Select value={killerRounds.toString()} onValueChange={(v) => setKillerRounds(parseInt(v) as 1 | 3 | 5 | 7)}>
+                            <SelectTrigger className="bg-slate-800/50 border-emerald-500/30 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-emerald-500/30">
+                              <SelectItem value="1" className="text-white hover:bg-emerald-500/20">1 Round</SelectItem>
+                              <SelectItem value="3" className="text-white hover:bg-emerald-500/20">3 Rounds</SelectItem>
+                              <SelectItem value="5" className="text-white hover:bg-emerald-500/20">5 Rounds</SelectItem>
+                              <SelectItem value="7" className="text-white hover:bg-emerald-500/20">7 Rounds</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </>
                   )}
