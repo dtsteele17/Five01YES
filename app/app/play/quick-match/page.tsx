@@ -105,7 +105,41 @@ export default function QuickMatchLobbyPage() {
 
   useEffect(() => {
     initializeAndSubscribe();
-  }, []);
+    
+    // Setup periodic refresh every 5 seconds to catch any missed updates
+    const refreshInterval = setInterval(() => {
+      fetchLobbies();
+    }, 5000);
+    
+    // Refresh when page becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[PAGE] Became visible, refreshing lobbies');
+        fetchLobbies();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup function when user leaves the page
+    const handleBeforeUnload = () => {
+      if (myLobby) {
+        // Delete the lobby when user closes browser/leaves page
+        supabase.rpc('rpc_delete_user_lobbies');
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Cleanup: Delete user's lobby when component unmounts (if they have one)
+      if (myLobby) {
+        supabase.rpc('rpc_delete_user_lobbies');
+      }
+    };
+  }, [myLobby]);
 
   // Fetch pending join requests for the current lobby
   const fetchPendingRequestsForLobby = useCallback(async (lobbyId: string) => {
@@ -505,6 +539,10 @@ export default function QuickMatchLobbyPage() {
 
       setUserStats(stats || { overall_3dart_avg: 0 });
       setMyLobby(lobbyWithHost);
+      
+      // Immediately refresh lobbies to show the new one
+      await fetchLobbies();
+      
       toast.success('Lobby created! Waiting for opponent...');
     } catch (error: any) {
       console.error('[CREATE] Failed:', error);
@@ -746,6 +784,9 @@ export default function QuickMatchLobbyPage() {
         throw error;
       }
       
+      // Immediately refresh to ensure lobby is removed from list
+      await fetchLobbies();
+      
       toast.info('Lobby cancelled');
       console.log('[CANCEL] Lobby deleted successfully');
     } catch (error: any) {
@@ -813,7 +854,15 @@ export default function QuickMatchLobbyPage() {
       )}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link href="/app/play">
+          <Link 
+            href="/app/play"
+            onClick={() => {
+              // Clean up lobby when navigating back
+              if (myLobby) {
+                supabase.rpc('rpc_delete_user_lobbies');
+              }
+            }}
+          >
             <Button
               variant="ghost"
               size="icon"
@@ -948,12 +997,11 @@ export default function QuickMatchLobbyPage() {
               </Button>
               
               <Button
-                variant="outline"
-                className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+                className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
                 onClick={cancelLobby}
               >
                 <X className="w-4 h-4 mr-2" />
-                Cancel Lobby
+                Stop Searching
               </Button>
             </div>
           ) : (
@@ -1011,6 +1059,16 @@ export default function QuickMatchLobbyPage() {
                 Open Lobbies
               </h2>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchLobbies}
+              disabled={loading}
+              className="border-white/10 text-gray-400 hover:text-white"
+            >
+              <Loader2 className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-6">

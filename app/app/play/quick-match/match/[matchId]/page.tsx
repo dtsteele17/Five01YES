@@ -2908,6 +2908,13 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
+    // Can only forfeit on your turn
+    if (!isMyTurn) {
+      toast.error("You can only forfeit on your turn");
+      setShowEndMatchDialog(false);
+      return;
+    }
+
     const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
     if (!opponentId) return;
 
@@ -3505,17 +3512,28 @@ export default function QuickMatchRoomPage() {
         {/* Top Bar -->
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowEndMatchDialog(true)}
-            disabled={forfeitLoading || !isMyTurn}
-            className={`border-red-500/30 text-red-400 hover:bg-red-500/10 ${!isMyTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
-            title={!isMyTurn ? 'You can only forfeit on your turn' : 'Forfeit the match'}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            {!isMyTurn ? 'Opponent Turn' : 'Forfeit'}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEndMatchDialog(true)}
+                  disabled={forfeitLoading || !isMyTurn}
+                  className={`border-red-500/30 text-red-400 hover:bg-red-500/10 ${!isMyTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {!isMyTurn ? 'Opponent Turn' : 'Forfeit'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {!isMyTurn 
+                  ? "You can only forfeit on your turn" 
+                  : "Forfeit the match (you will lose)"
+                }
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
             {isConnected ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
             {matchState.matchFormat.replace('best-of-', 'Best of ')}
@@ -3742,21 +3760,27 @@ export default function QuickMatchRoomPage() {
           router.push('/app/play');
         }
       }}>
-        <AlertDialogContent className="bg-slate-900 border-red-500/30">
+        <AlertDialogContent className="bg-slate-900 border-emerald-500/50">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-400 flex items-center gap-2">
-              <LogOut className="w-5 h-5" />
-              Opponent Forfeited
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              {opponentPlayer?.name || 'Your opponent'} has forfeited the match. You win!
-            </AlertDialogDescription>
+            <div className="flex flex-col items-center text-center py-4">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/30">
+                <Trophy className="w-10 h-10 text-white" />
+              </div>
+              <AlertDialogTitle className="text-2xl text-white font-bold mb-2">
+                You Win!
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-400 text-base">
+                <span className="text-emerald-400 font-medium">{opponentPlayer?.name || 'Your opponent'}</span> has forfeited the match.
+                <br />You are the winner!
+              </AlertDialogDescription>
+            </div>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="justify-center">
             <AlertDialogAction 
               onClick={() => router.push('/app/play')} 
-              className="bg-emerald-500 hover:bg-emerald-600"
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
             >
+              <Home className="w-4 h-4 mr-2" />
               Return to Play
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -409,6 +409,12 @@ export default function OnlineMatchPage() {
 
   async function forfeitMatch() {
     if (!matchData || !currentUserId) return;
+    
+    // Can only forfeit on your turn
+    if (!isMyTurn) {
+      toast.error("You can only forfeit on your turn");
+      return;
+    }
 
     const supabase = createClient();
 
@@ -508,10 +514,12 @@ export default function OnlineMatchPage() {
               variant="outline"
               size="sm"
               onClick={forfeitMatch}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              disabled={!isMyTurn}
+              title={!isMyTurn ? 'You can only forfeit on your turn' : 'Forfeit the match'}
+              className={`border-red-500/30 text-red-400 hover:bg-red-500/10 ${!isMyTurn ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Forfeit
+              {!isMyTurn ? 'Opponent Turn' : 'Forfeit'}
             </Button>
           </div>
 
