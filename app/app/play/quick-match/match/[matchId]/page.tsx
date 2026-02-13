@@ -40,6 +40,7 @@ import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
 import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
+import { PreGameLobby } from '@/components/match/PreGameLobby';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -72,6 +73,9 @@ interface MatchRoom {
   coin_toss_winner_id?: string | null;
   coin_toss_completed?: boolean;
   leg_starter_id?: string | null;
+  player1_ready?: boolean;
+  player2_ready?: boolean;
+  pregame_status?: 'waiting' | 'ready' | 'timeout' | 'cancelled';
 }
 
 interface Profile {
@@ -1086,6 +1090,14 @@ export default function QuickMatchRoomPage() {
   const [playersConnected, setPlayersConnected] = useState<{p1: boolean, p2: boolean}>({p1: false, p2: false});
   const [coinTossSyncStart, setCoinTossSyncStart] = useState(false); // Triggered by signal from Player 1
 
+  // Pre-game lobby state
+  const [showPreGameLobby, setShowPreGameLobby] = useState(false);
+  const [player1Ready, setPlayer1Ready] = useState(false);
+  const [player2Ready, setPlayer2Ready] = useState(false);
+  const [player1Stats, setPlayer1Stats] = useState<{username: string; avatar_url?: string; threeDartAvg?: number} | null>(null);
+  const [player2Stats, setPlayer2Stats] = useState<{username: string; avatar_url?: string; threeDartAvg?: number} | null>(null);
+  const pregameInitiatedRef = useRef(false);
+
   // Checkout dialog state for typed scores
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [pendingCheckoutScore, setPendingCheckoutScore] = useState(0);
@@ -1101,11 +1113,12 @@ export default function QuickMatchRoomPage() {
     }
   }, [newRematchRoomId, matchId]);
 
-  // WebRTC - connect immediately when both players are present
+  // WebRTC - only connect after both players are ready (pre-game lobby complete)
+  const bothPlayersReady = player1Ready && player2Ready;
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
-    coinTossComplete: true, // Always true - connect immediately
+    coinTossComplete: bothPlayersReady, // Wait for ready check before connecting
   });
   const {
     localStream,
@@ -1153,24 +1166,162 @@ export default function QuickMatchRoomPage() {
     }
   }, [remoteStream]);
 
-  // Auto-start camera when match is active and both players are present
+  // Auto-start camera when both players are ready (after pregame lobby)
   useEffect(() => {
     const initCamera = async () => {
-      if (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
-        console.log('[CAMERA] Auto-starting camera for active match');
+      if (bothPlayersReady && room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
+        console.log('[CAMERA] Auto-starting camera after both players ready');
         cameraInitAttempted.current = true;
         try {
           await toggleCamera();
           console.log('[CAMERA] Auto-start successful');
         } catch (err) {
           console.error('[CAMERA] Auto-start failed:', err);
-          // Don't mark as attempted on error so user can retry manually
           cameraInitAttempted.current = false;
         }
       }
     };
     initCamera();
-  }, [room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+  }, [bothPlayersReady, room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+
+  // Initialize pre-game lobby when both players connect
+  useEffect(() => {
+    if (!room || !currentUserId || pregameInitiatedRef.current) return;
+    if (!room.player2_id) return; // Wait for player 2 to join
+    if (room.pregame_status === 'ready') return; // Already completed
+    if (room.coin_toss_completed) return; // Match already started
+
+    const bothConnected = playersConnected.p1 && playersConnected.p2;
+    if (bothConnected && room.status === 'active') {
+      console.log('[PREGAME] Both players connected, initializing pregame lobby');
+      pregameInitiatedRef.current = true;
+      
+      // Fetch player stats for display
+      const fetchPlayerStats = async () => {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, username, avatar_url')
+          .in('user_id', [room.player1_id, room.player2_id]);
+        
+        const { data: statsData } = await supabase
+          .from('player_stats')
+          .select('user_id, overall_3dart_avg')
+          .in('user_id', [room.player1_id, room.player2_id]);
+        
+        const statsMap = new Map(statsData?.map(s => [s.user_id, s.overall_3dart_avg]) || []);
+        
+        const p1Profile = profilesData?.find(p => p.user_id === room.player1_id);
+        const p2Profile = profilesData?.find(p => p.user_id === room.player2_id);
+        
+        setPlayer1Stats({
+          username: p1Profile?.username || 'Player 1',
+          avatar_url: p1Profile?.avatar_url,
+          threeDartAvg: statsMap.get(room.player1_id),
+        });
+        
+        setPlayer2Stats({
+          username: p2Profile?.username || 'Player 2',
+          avatar_url: p2Profile?.avatar_url,
+          threeDartAvg: statsMap.get(room.player2_id),
+        });
+        
+        // Check if already ready from DB
+        if (room.player1_ready) setPlayer1Ready(true);
+        if (room.player2_ready) setPlayer2Ready(true);
+        
+        // Show pregame lobby
+        setShowPreGameLobby(true);
+      };
+      
+      fetchPlayerStats();
+    }
+  }, [room, currentUserId, playersConnected, supabase]);
+
+  // Handle ready button click
+  const handleReady = async () => {
+    if (!room || !currentUserId) return;
+    
+    const isPlayer1 = currentUserId === room.player1_id;
+    const readyField = isPlayer1 ? 'player1_ready' : 'player2_ready';
+    
+    console.log(`[PREGAME] Setting ${readyField} to true`);
+    
+    const { error } = await supabase
+      .from('match_rooms')
+      .update({ [readyField]: true })
+      .eq('id', matchId);
+    
+    if (error) {
+      console.error('[PREGAME] Error setting ready:', error);
+      toast.error('Failed to set ready status');
+      return;
+    }
+    
+    // Update local state
+    if (isPlayer1) {
+      setPlayer1Ready(true);
+    } else {
+      setPlayer2Ready(true);
+    }
+    
+    // Send signal to opponent
+    const opponentId = isPlayer1 ? room.player2_id : room.player1_id;
+    if (opponentId) {
+      await supabase.rpc('rpc_send_match_signal', {
+        p_room_id: matchId,
+        p_to_user_id: opponentId,
+        p_type: 'player_ready',
+        p_payload: { player: isPlayer1 ? 'player1' : 'player2' }
+      });
+    }
+  };
+
+  // Handle pregame timeout
+  const handlePregameTimeout = async () => {
+    console.log('[PREGAME] Timeout - cancelling match');
+    
+    if (room) {
+      await supabase
+        .from('match_rooms')
+        .update({ 
+          pregame_status: 'timeout',
+          status: 'cancelled'
+        })
+        .eq('id', matchId);
+    }
+    
+    toast.error('Match cancelled - players did not ready up in time');
+    router.push('/app/play/quick-match');
+  };
+
+  // Handle pregame cancel
+  const handlePregameCancel = async () => {
+    console.log('[PREGAME] Player left lobby');
+    
+    if (room) {
+      await supabase
+        .from('match_rooms')
+        .update({ 
+          pregame_status: 'cancelled',
+          status: 'cancelled'
+        })
+        .eq('id', matchId);
+    }
+    
+    router.push('/app/play/quick-match');
+  };
+
+  // Handle both players ready
+  const handleBothReady = async () => {
+    console.log('[PREGAME] Both players ready! Starting coin toss...');
+    setShowPreGameLobby(false);
+    
+    // Update DB to mark pregame complete
+    await supabase
+      .from('match_rooms')
+      .update({ pregame_status: 'ready' })
+      .eq('id', matchId);
+  };
 
   // POLLING FALLBACK: Check for opponent presence directly from DB
   useEffect(() => {
@@ -1650,6 +1801,16 @@ export default function QuickMatchRoomPage() {
             console.log('[ROOM] Coin toss completed! Winner:', updatedRoom.coin_toss_winner_id);
           }
           
+          // Handle player ready updates
+          if (oldRoom && !oldRoom.player1_ready && updatedRoom.player1_ready) {
+            console.log('[ROOM] Player 1 is ready');
+            setPlayer1Ready(true);
+          }
+          if (oldRoom && !oldRoom.player2_ready && updatedRoom.player2_ready) {
+            console.log('[ROOM] Player 2 is ready');
+            setPlayer2Ready(true);
+          }
+          
           // Handle leg change - reload visits
           if (oldRoom && updatedRoom.current_leg !== oldRoom.current_leg) {
             console.log('[ROOM] Leg changed from', oldRoom.current_leg, 'to', updatedRoom.current_leg);
@@ -1864,6 +2025,16 @@ export default function QuickMatchRoomPage() {
               console.log('[REMATCH] Signal received, navigating to new room:', newRoomId);
               // Use state for navigation to ensure consistency with polling path
               setNewRematchRoomId(newRoomId);
+            }
+          }
+          // Handle player ready signal
+          if (signal.type === 'player_ready') {
+            const readyPlayer = signal.payload?.player;
+            console.log('[PREGAME] Received player_ready signal:', readyPlayer);
+            if (readyPlayer === 'player1') {
+              setPlayer1Ready(true);
+            } else if (readyPlayer === 'player2') {
+              setPlayer2Ready(true);
             }
           }
           // Note: Match won detection is done via room status change
@@ -3275,8 +3446,36 @@ export default function QuickMatchRoomPage() {
   const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
-      {/* Top Bar */}
+    <>
+      {/* Pre-Game Lobby Modal */}
+      {showPreGameLobby && (
+        <PreGameLobby
+          player1={{
+            id: room.player1_id,
+            username: player1Stats?.username || 'Player 1',
+            avatar_url: player1Stats?.avatar_url,
+            threeDartAvg: player1Stats?.threeDartAvg,
+            isReady: player1Ready,
+          }}
+          player2={room.player2_id ? {
+            id: room.player2_id,
+            username: player2Stats?.username || 'Player 2',
+            avatar_url: player2Stats?.avatar_url,
+            threeDartAvg: player2Stats?.threeDartAvg,
+            isReady: player2Ready,
+          } : null}
+          currentUserId={currentUserId || ''}
+          onReady={handleReady}
+          onCancel={handlePregameCancel}
+          onBothReady={handleBothReady}
+          onTimeout={handlePregameTimeout}
+          gameMode={room.game_mode.toString()}
+          matchFormat={room.match_format}
+        />
+      )}
+
+      <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
+        {/* Top Bar -->
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <TooltipProvider>
@@ -3629,5 +3828,6 @@ export default function QuickMatchRoomPage() {
         />
       )}
     </div>
+    </>
   );
 }

@@ -296,6 +296,14 @@ export default function QuickMatchLobbyPage() {
                 setMyLobby(updatedLobby);
               }
             }
+            
+            // Check if I joined as player 2 and match was cancelled
+            if (updatedLobby.player2_id === user.id && updatedLobby.status === 'cancelled') {
+              console.log('[REALTIME] Match was cancelled, player 2 notified');
+              setPendingLobbyId(null);
+              setJoining(null);
+              toast.error('Match was cancelled by host');
+            }
           }
         )
         .on(
