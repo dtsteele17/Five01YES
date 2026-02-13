@@ -99,7 +99,7 @@ export default function PlayPage() {
   const autoQueueAttempted = useRef(false);
 
   const [trainingMode, setTrainingMode] = useState<'301' | '501' | 'practice-games'>('501');
-  const [practiceGameMode, setPracticeGameMode] = useState<'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge' | '121-game'>('around-the-clock');
+  const [practiceGameMode, setPracticeGameMode] = useState<'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge' | '121-game' | 'killer'>('around-the-clock');
   const [botDifficulty, setBotDifficulty] = useState<keyof typeof BOT_DIFFICULTY_CONFIG>('intermediate');
   const [doubleOut, setDoubleOut] = useState(true);
   const [bestOf, setBestOf] = useState<'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7'>('best-of-3');
@@ -533,6 +533,8 @@ export default function PlayPage() {
         router.push('/app/play/training/jdc-challenge');
       } else if (practiceGameMode === '121-game') {
         router.push('/app/play/training/121');
+      } else if (practiceGameMode === 'killer') {
+        router.push('/app/play/training/killer');
       } else if (practiceGameMode === 'finish-training') {
         // Validate finish training settings
         if (finishMin === '' || finishMax === '') {
@@ -765,7 +767,7 @@ export default function PlayPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Training Game</label>
-                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as 'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge' | '121-game')}>
+                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as 'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge' | '121-game' | 'killer')}>
                       <SelectTrigger className="bg-slate-800/50 border-emerald-500/30 text-white">
                         <SelectValue />
                       </SelectTrigger>
@@ -790,6 +792,9 @@ export default function PlayPage() {
                         </SelectItem>
                         <SelectItem value="121-game" className="text-white hover:bg-emerald-500/20">
                           121 Game
+                        </SelectItem>
+                        <SelectItem value="killer" className="text-white hover:bg-emerald-500/20">
+                          Killer
                         </SelectItem>
                       </SelectContent>
                     </Select>
