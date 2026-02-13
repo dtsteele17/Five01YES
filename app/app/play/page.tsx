@@ -228,12 +228,26 @@ export default function PlayPage() {
         // Transform data to match the expected format
         const transformed = (matchesData || []).map((match: any) => {
           const isWin = match.result === 'win';
-          const totalLegs = (match.legs_won || 0) + (match.legs_lost || 0);
+          const isLoss = match.result === 'loss';
+          const userLegs = match.legs_won ?? 0;
+          const opponentLegs = match.legs_lost ?? 0;
+          const totalLegs = userLegs + opponentLegs;
           const opponentData = opponentStatsMap[match.room_id];
           
           // For dartbot matches, get bot stats from metadata
           const botStats = match.metadata?.bot_stats || {};
           const isDartbot = match.match_format === 'dartbot';
+          
+          // Debug logging for dartbot matches
+          if (isDartbot) {
+            console.log('[Play] Dartbot match:', {
+              room_id: match.room_id,
+              user_legs: userLegs,
+              bot_legs: opponentLegs,
+              result: match.result,
+              bot_stats: botStats
+            });
+          }
           
           return {
             id: match.room_id || match.id,
@@ -244,8 +258,8 @@ export default function PlayPage() {
             player2_name: isDartbot 
               ? `Dartbot(${match.bot_level || '?'})`
               : opponentProfiles[match.opponent_id] || 'Opponent',
-            player1_legs_won: match.legs_won || 0,
-            player2_legs_won: match.legs_lost || 0,
+            player1_legs_won: userLegs,
+            player2_legs_won: opponentLegs,
             winner_id: isWin ? user.id : match.opponent_id,
             completed_at: match.played_at,
             user_id: user.id,
@@ -1092,33 +1106,21 @@ export default function PlayPage() {
                         <span className="text-gray-600">•</span>
                         <span className="text-gray-500">{getTimeAgo(match.completed_at)}</span>
                       </div>
-                      {/* Your Stats */}
+                      {/* Your Stats - Always show values even if 0 */}
                       <div className="flex items-center space-x-2 text-xs mt-2">
                         <span className="text-emerald-400 font-medium">You:</span>
-                        <span className="text-emerald-400/80">Avg {avg}</span>
-                        {first9 && (
-                          <span className="text-cyan-400/80">First9 {first9}</span>
-                        )}
-                        {(match.highest_checkout ?? 0) > 0 && (
-                          <span className="text-amber-400/80">Best {checkout}</span>
-                        )}
-                        {checkoutPct && (
-                          <span className="text-purple-400/80">Checkout {checkoutPct}%</span>
-                        )}
+                        <span className="text-emerald-400/80">Avg {match.three_dart_avg != null ? Number(match.three_dart_avg).toFixed(1) : '0.0'}</span>
+                        <span className="text-cyan-400/80">First9 {match.first9_avg != null ? Number(match.first9_avg).toFixed(1) : '0.0'}</span>
+                        <span className="text-amber-400/80">Best {match.highest_checkout || '0'}</span>
+                        <span className="text-purple-400/80">Checkout {match.checkout_percentage != null ? Math.round(match.checkout_percentage) : '0'}%</span>
                       </div>
-                      {/* Opponent Stats */}
+                      {/* Opponent Stats - Always show values even if 0 */}
                       <div className="flex items-center space-x-2 text-xs mt-1">
                         <span className="text-red-400 font-medium">Opponent:</span>
-                        <span className="text-red-400/80">Avg {oppAvg}</span>
-                        {oppFirst9 && (
-                          <span className="text-orange-400/80">First9 {oppFirst9}</span>
-                        )}
-                        {(match.opponent_highest_checkout ?? 0) > 0 && (
-                          <span className="text-yellow-400/80">Best {oppCheckout}</span>
-                        )}
-                        {oppCheckoutPct && (
-                          <span className="text-pink-400/80">Checkout {oppCheckoutPct}%</span>
-                        )}
+                        <span className="text-red-400/80">Avg {match.opponent_three_dart_avg != null ? Number(match.opponent_three_dart_avg).toFixed(1) : '0.0'}</span>
+                        <span className="text-orange-400/80">First9 {match.opponent_first9_avg != null ? Number(match.opponent_first9_avg).toFixed(1) : '0.0'}</span>
+                        <span className="text-yellow-400/80">Best {match.opponent_highest_checkout || '0'}</span>
+                        <span className="text-pink-400/80">Checkout {match.opponent_checkout_percentage != null ? Math.round(match.opponent_checkout_percentage) : '0'}%</span>
                       </div>
                     </div>
                   </div>

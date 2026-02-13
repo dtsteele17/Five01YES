@@ -33,7 +33,7 @@ import type { PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
 import Link from 'next/link';
-import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { DartbotWinnerPopup } from '@/components/game/DartbotWinnerPopup';
 import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
 
 interface Visit {
@@ -673,9 +673,18 @@ export default function DartbotMatchPage() {
         },
       };
       
+      console.log('📊 SAVING DARTBOT STATS:', {
+        playerLegs: p1Legs,
+        botLegs: p2Legs,
+        winner: currentMatchWinner,
+        playerAvg: userStats.threeDartAverage,
+        botAvg: opponentStats.threeDartAverage,
+      });
+      
       const result = await recordDartbotMatchCompletion(dartbotStats);
       console.log('📊 DARTBOT MATCH SAVED:', result);
       if (result.success) toast.success('Match stats saved!');
+      else console.error('Failed to save match:', result.error);
     } catch (error) { 
       console.error('Error saving match stats:', error); 
     }
@@ -1291,9 +1300,9 @@ export default function DartbotMatchPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Winner Popup - Same as QuickMatch */}
+      {/* Winner Popup - Dartbot specific version with simple rematch */}
       {matchEndStats && matchWinner && (
-        <WinnerPopup
+        <DartbotWinnerPopup
           player1={matchEndStats.player1}
           player2={matchEndStats.player2}
           player1Stats={matchEndStats.player1FullStats}
@@ -1303,10 +1312,6 @@ export default function DartbotMatchPage() {
           bestOf={legsToWin * 2 - 1}
           onRematch={handleRematch}
           onReturn={handleReturnToPlay}
-          rematchStatus='none'
-          opponentRematchReady={false}
-          youReady={false}
-          currentUserId="player1"
         />
       )}
 
