@@ -1036,8 +1036,8 @@ export default function QuickMatchRoomPage() {
 
   // Camera state
   const cameraInitAttempted = useRef(false);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
