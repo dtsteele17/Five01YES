@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   Trophy,
   Target,
@@ -11,6 +13,11 @@ import {
   Flame,
   Award,
   Play,
+  Crown,
+  BarChart3,
+  ArrowRight,
+  Zap,
+  Shield,
 } from 'lucide-react';
 import { UpcomingMatchesModal } from '@/components/app/UpcomingMatchesModal';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
@@ -56,6 +63,16 @@ interface Season {
   name: string;
 }
 
+// Professional color palette
+const COLORS = {
+  gold: 'from-amber-500 to-yellow-600',
+  emerald: 'from-emerald-500 to-emerald-700',
+  blue: 'from-blue-500 to-blue-700',
+  bronze: 'from-orange-600 to-amber-700',
+  slate: 'from-slate-600 to-slate-800',
+  red: 'from-red-500 to-red-700',
+};
+
 export default function DashboardPage() {
   const [showUpcomingMatches, setShowUpcomingMatches] = useState(false);
   const { profile, loading: profileLoading } = useProfile();
@@ -78,7 +95,6 @@ export default function DashboardPage() {
       const supabase = createClient();
 
       try {
-        // Get dashboard stats with proper win streak calculation from match_history
         const { data: dashboardStats, error: statsError } = await supabase.rpc('get_dashboard_stats', {
           p_user_id: profile.id
         });
@@ -167,33 +183,20 @@ export default function DashboardPage() {
     }
   };
 
-  const getAchievementColor = (iconName: string) => {
-    switch (iconName) {
-      case 'flame':
-        return 'from-orange-500 to-red-500';
-      case 'target':
-        return 'from-emerald-500 to-teal-500';
-      case 'trophy':
-        return 'from-yellow-500 to-orange-500';
-      default:
-        return 'from-blue-500 to-cyan-500';
-    }
-  };
-
   if (profileLoading || loading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-gray-400">Loading your stats...</p>
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+            <p className="text-slate-400 mt-1">Loading your statistics...</p>
+          </div>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6 rounded-xl animate-pulse">
-              <div className="h-20 bg-white/5 rounded mb-4"></div>
-              <div className="h-4 bg-white/5 rounded mb-2"></div>
-              <div className="h-3 bg-white/5 rounded w-2/3"></div>
-            </div>
+            <Card key={i} className="bg-slate-900/50 border-slate-700/50 p-6">
+              <div className="h-24 bg-slate-800/50 rounded-lg animate-pulse" />
+            </Card>
           ))}
         </div>
       </div>
@@ -202,162 +205,236 @@ export default function DashboardPage() {
 
   if (!profile) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-gray-400">Please complete your profile to get started.</p>
-        </div>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        <p className="text-slate-400 mt-2">Please complete your profile to get started.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-        <p className="text-gray-400">
-          Welcome back{profile?.display_name ? `, ${profile.display_name}` : ''}! Here's your overview.
-        </p>
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            Welcome back{profile?.display_name ? `, ${profile.display_name}` : ''}
+          </h1>
+          <p className="text-slate-400 mt-1">
+            Here's your performance overview
+          </p>
+        </div>
+        <Link href="/app/play">
+          <Button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white px-6">
+            <Play className="w-4 h-4 mr-2" />
+            Start Playing
+          </Button>
+        </Link>
       </div>
 
+      {/* Stats Grid */}
       <div className="grid md:grid-cols-3 gap-6">
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6 hover:border-amber-500/30 transition-colors">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-white">{rankedState?.rp || 0}</p>
-              <p className="text-sm text-gray-400">Ranked Points</p>
-            </div>
-          </div>
-          <h3 className="text-white font-semibold mb-1">
-            {rankedState?.provisional_games_remaining
-              ? `Placements: ${10 - rankedState.provisional_games_remaining}/10`
-              : rankedState?.division_name || 'Unranked'
-            }
-          </h3>
-          <p className="text-gray-400 text-sm">
-            {rankedState?.provisional_games_remaining
-              ? `${rankedState.provisional_games_remaining} matches remaining`
-              : rankedState
-                ? `${rankedState.rp} RP`
-                : 'Play ranked to earn points'
-            }
-          </p>
-        </Card>
-
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6 hover:border-emerald-500/30 transition-colors">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-white">
-                {stats?.wins || 0}-{stats?.losses || 0}
-              </p>
-              <p className="text-sm text-gray-400">{stats?.winRate || 0}% win rate</p>
-            </div>
-          </div>
-          <h3 className="text-white font-semibold mb-1">Match Record</h3>
-          <p className="text-gray-400 text-sm">
-            {stats?.totalMatches ? `${stats.totalMatches} total matches` : 'No matches yet'}
-          </p>
-        </Card>
-
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6 hover:border-emerald-500/30 transition-colors">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
-              <Flame className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-white">{stats?.currentStreak || 0}</p>
-              <p className="text-sm text-orange-400">Best: {stats?.bestStreak || 0}</p>
-            </div>
-          </div>
-          <h3 className="text-white font-semibold mb-1">Win Streak</h3>
-          <p className="text-gray-400 text-sm">
-            {stats?.currentStreak ? 'Current streak' : 'No active streak'}
-          </p>
-        </Card>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Recent Matches</h2>
-            <Link href="/app/stats">
-              <Button
-                variant="ghost"
-                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-              >
-                View All
-              </Button>
-            </Link>
-          </div>
-
-          <MatchHistoryList limit={5} />
-        </Card>
-
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Recent Achievements</h2>
-            <Link href="/app/achievements">
-              <Button variant="ghost" className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10">
-                View All
-              </Button>
-            </Link>
-          </div>
-
-          {recentAchievements.length > 0 ? (
-            <div className="space-y-4">
-              {recentAchievements.map((achievement) => {
-                const Icon = getAchievementIcon(achievement.achievements_master?.icon || 'award');
-                const color = getAchievementColor(achievement.achievements_master?.icon || 'award');
-                return (
-                  <div
-                    key={achievement.id}
-                    className="flex items-center space-x-3 p-4 bg-white/5 rounded-xl border border-white/5"
-                  >
-                    <div className={`w-12 h-12 bg-gradient-to-br ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                      <Icon className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{achievement.achievements_master?.name}</p>
-                      <p className="text-gray-400 text-sm">{achievement.achievements_master?.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-8 text-center">
-              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="w-8 h-8 text-gray-500" />
+        {/* Ranked Points Card */}
+        <Card className="relative overflow-hidden bg-slate-900/80 border-slate-700/50 p-6 group hover:border-amber-500/30 transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full -mr-16 -mt-16 blur-2xl group-hover:from-amber-500/20 transition-all duration-500" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <Crown className="w-6 h-6 text-white" />
               </div>
-              <p className="text-gray-400 mb-2">No achievements yet</p>
-              <p className="text-gray-500 text-sm">Start playing to earn your first achievement</p>
+              <Badge variant="outline" className="border-amber-500/30 text-amber-400 bg-amber-500/10">
+                Ranked
+              </Badge>
             </div>
-          )}
+            
+            <div className="space-y-1">
+              <p className="text-4xl font-bold text-white">{rankedState?.rp || 0}</p>
+              <p className="text-sm text-slate-400">Ranked Points</p>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <p className="text-sm font-medium text-slate-300">
+                {rankedState?.provisional_games_remaining
+                  ? `Placement Matches: ${10 - rankedState.provisional_games_remaining}/10`
+                  : rankedState?.division_name || 'Unranked'
+                }
+              </p>
+              {rankedState?.provisional_games_remaining && (
+                <p className="text-xs text-slate-500 mt-1">
+                  {rankedState.provisional_games_remaining} matches remaining
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Match Record Card */}
+        <Card className="relative overflow-hidden bg-slate-900/80 border-slate-700/50 p-6 group hover:border-emerald-500/30 transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full -mr-16 -mt-16 blur-2xl group-hover:from-emerald-500/20 transition-all duration-500" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
+                Record
+              </Badge>
+            </div>
+            
+            <div className="space-y-1">
+              <p className="text-4xl font-bold text-white">
+                {stats?.wins || 0}<span className="text-slate-500">/</span>{stats?.losses || 0}
+              </p>
+              <p className="text-sm text-slate-400">Win / Loss Record</p>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300">Win Rate</span>
+                <span className="text-lg font-semibold text-emerald-400">{stats?.winRate || 0}%</span>
+              </div>
+              <Progress value={stats?.winRate || 0} className="h-1.5 mt-2 bg-slate-800" />
+            </div>
+          </div>
+        </Card>
+
+        {/* Streak Card */}
+        <Card className="relative overflow-hidden bg-slate-900/80 border-slate-700/50 p-6 group hover:border-orange-500/30 transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent rounded-full -mr-16 -mt-16 blur-2xl group-hover:from-orange-500/20 transition-all duration-500" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <Flame className="w-6 h-6 text-white" />
+              </div>
+              <Badge variant="outline" className="border-orange-500/30 text-orange-400 bg-orange-500/10">
+                Streak
+              </Badge>
+            </div>
+            
+            <div className="space-y-1">
+              <p className="text-4xl font-bold text-white">{stats?.currentStreak || 0}</p>
+              <p className="text-sm text-slate-400">Current Win Streak</p>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300">Best Streak</span>
+                <span className="text-lg font-semibold text-orange-400">{stats?.bestStreak || 0}</span>
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
 
-      <Card className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 backdrop-blur-sm border-emerald-500/30 p-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-2xl font-bold text-white mb-2">Ready to Play?</h3>
-            <p className="text-gray-300 mb-4">Start a new match or join a tournament to compete with others.</p>
-            <Link href="/app/play">
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white">
-                <Play className="w-4 h-4 mr-2" />
-                Start Playing
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent Matches */}
+        <Card className="bg-slate-900/80 border-slate-700/50 overflow-hidden">
+          <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">Recent Matches</h2>
+                <p className="text-sm text-slate-400">Your last 5 games</p>
+              </div>
+            </div>
+            <Link href="/app/stats">
+              <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800">
+                View All
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
           </div>
-          <div className="hidden md:block">
-            <div className="w-32 h-32 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center">
-              <Target className="w-16 h-16 text-white" />
+          <div className="p-6">
+            <MatchHistoryList limit={5} />
+          </div>
+        </Card>
+
+        {/* Recent Achievements */}
+        <Card className="bg-slate-900/80 border-slate-700/50 overflow-hidden">
+          <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">Recent Achievements</h2>
+                <p className="text-sm text-slate-400">Latest milestones</p>
+              </div>
             </div>
+            <Link href="/app/achievements">
+              <Button variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800">
+                View All
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
+          <div className="p-6">
+            {recentAchievements.length > 0 ? (
+              <div className="space-y-3">
+                {recentAchievements.map((achievement) => {
+                  const Icon = getAchievementIcon(achievement.achievements_master?.icon || 'award');
+                  return (
+                    <div
+                      key={achievement.id}
+                      className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-amber-500/30 transition-colors group"
+                    >
+                      <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/10 group-hover:shadow-amber-500/20 transition-shadow">
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium truncate">{achievement.achievements_master?.name}</p>
+                        <p className="text-slate-400 text-sm truncate">{achievement.achievements_master?.description}</p>
+                      </div>
+                      <Award className="w-5 h-5 text-amber-500/50" />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-12 text-center">
+                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Award className="w-8 h-8 text-slate-600" />
+                </div>
+                <p className="text-slate-400 font-medium">No achievements yet</p>
+                <p className="text-slate-500 text-sm mt-1">Start playing to unlock your first achievement</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Quick Action Banner */}
+      <Card className="relative overflow-hidden bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700/50">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent" />
+        <div className="relative p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-500/20">
+              <Target className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white">Ready to throw?</h3>
+              <p className="text-slate-400 mt-1">Jump into a match or practice your skills</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Link href="/app/play">
+              <Button className="bg-emerald-600 hover:bg-emerald-500 text-white px-6">
+                <Zap className="w-4 h-4 mr-2" />
+                Quick Match
+              </Button>
+            </Link>
+            <Link href="/app/ranked">
+              <Button variant="outline" className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 px-6">
+                <Shield className="w-4 h-4 mr-2" />
+                Ranked
+              </Button>
+            </Link>
           </div>
         </div>
       </Card>

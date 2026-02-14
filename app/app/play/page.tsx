@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target,
   Users,
@@ -21,18 +20,14 @@ import {
   GraduationCap,
   BarChart3,
   Flame,
-  Star,
-  Crown,
-  Gamepad2,
-  Dices,
   ChevronRight,
-  Sparkles,
-  TrendingUp,
-  Award,
-  Crosshair,
-  Swords,
   Play,
-  RotateCcw,
+  Crown,
+  Swords,
+  Dices,
+  ArrowRight,
+  Settings2,
+  ChevronDown,
 } from 'lucide-react';
 import { PrivateMatchModal } from '@/components/app/PrivateMatchModal';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
@@ -44,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTraining, BOT_DIFFICULTY_CONFIG, TrainingConfig } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -80,19 +74,6 @@ interface RecentMatch {
   opponent_checkout_percentage: number | null;
 }
 
-interface UserStats {
-  totalMatches: number;
-  wins: number;
-  losses: number;
-  currentStreak: number;
-  bestStreak: number;
-  average: number;
-  highestCheckout: number;
-  level: number;
-  xp: number;
-  xpToNext: number;
-}
-
 const MODE_LABELS: Record<string, string> = {
   'ranked': 'Ranked',
   'quick': 'Quick Match',
@@ -102,252 +83,73 @@ const MODE_LABELS: Record<string, string> = {
   'tournament': 'Tournament',
 };
 
-const LEVEL_COLORS = [
-  'from-gray-500 to-gray-600',
-  'from-emerald-500 to-emerald-600',
-  'from-blue-500 to-blue-600',
-  'from-purple-500 to-purple-600',
-  'from-amber-500 to-orange-500',
-  'from-red-500 to-red-600',
-  'from-pink-500 to-pink-600',
-  'from-cyan-500 to-cyan-600',
-];
-
 function normalizePollResult(data: any): { ok: boolean; queue_id?: string; status: string; match_room_id?: string | null; matched_at?: string | null; message?: string } | null {
   if (!data) return null;
   if (Array.isArray(data)) return data[0] ?? null;
   return data;
 }
 
-// Animated Card Component
-function GameModeCard({ 
-  href, 
+// Game Mode Button Component
+function GameModeButton({
+  href,
   onClick,
-  gradient, 
-  icon: Icon, 
-  title, 
-  description, 
-  badge,
+  icon: Icon,
+  title,
+  description,
+  variant = 'default',
   disabled = false,
-  delay = 0 
-}: { 
+}: {
   href?: string;
   onClick?: () => void;
-  gradient: string;
   icon: React.ElementType;
   title: string;
   description: string;
-  badge?: string;
+  variant?: 'default' | 'ranked' | 'quick' | 'private';
   disabled?: boolean;
-  delay?: number;
 }) {
+  const variants = {
+    default: 'from-slate-700 to-slate-800 border-slate-600/50 hover:border-slate-500',
+    ranked: 'from-amber-600/90 to-amber-800/90 border-amber-500/50 hover:border-amber-400',
+    quick: 'from-emerald-600/90 to-emerald-800/90 border-emerald-500/50 hover:border-emerald-400',
+    private: 'from-blue-600/90 to-blue-800/90 border-blue-500/50 hover:border-blue-400',
+  };
+
   const content = (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      whileHover={disabled ? {} : { scale: 1.02, y: -4 }}
-      whileTap={disabled ? {} : { scale: 0.98 }}
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-6 h-full cursor-pointer group ${disabled ? 'opacity-60' : ''}`}
-    >
-      {/* Background decoration */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/20 transition-all duration-500" />
-      <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl" />
-      
-      {/* Shine effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+    <div className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${variants[variant]} p-6 border transition-all duration-300 group ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5'}`}>
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_50%_50%,_white_1px,transparent_1px)] bg-[length:20px_20px]" />
       
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
-          <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-            <Icon className="w-7 h-7 text-white" />
+          <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg ${
+            variant === 'ranked' ? 'bg-amber-500/20 text-amber-300' :
+            variant === 'quick' ? 'bg-emerald-500/20 text-emerald-300' :
+            variant === 'private' ? 'bg-blue-500/20 text-blue-300' :
+            'bg-slate-600/50 text-slate-300'
+          }`}>
+            <Icon className="w-7 h-7" />
           </div>
-          {badge && (
-            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm">
-              {badge}
+          {variant === 'ranked' && (
+            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+              Competitive
             </Badge>
           )}
         </div>
         
-        <h3 className="text-xl font-bold text-white mb-2 group-hover:tracking-wide transition-all duration-300">
-          {title}
-        </h3>
-        <p className="text-white/80 text-sm leading-relaxed">
-          {description}
-        </p>
+        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+        <p className="text-white/70 text-sm leading-relaxed">{description}</p>
         
-        <div className="mt-4 flex items-center text-white/60 text-sm font-medium group-hover:text-white transition-colors">
-          <span>Play Now</span>
-          <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+        <div className="mt-4 flex items-center text-white/50 text-sm font-medium group-hover:text-white/80 transition-colors">
+          <span>Enter</span>
+          <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 
-  if (disabled) {
-    return <div>{content}</div>;
-  }
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-
+  if (disabled) return <div>{content}</div>;
+  if (href) return <Link href={href}>{content}</Link>;
   return <div onClick={onClick}>{content}</div>;
-}
-
-// Stat Card Component
-function StatCard({ label, value, icon: Icon, color, delay = 0 }: { label: string; value: string | number; icon: React.ElementType; color: string; delay?: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay, duration: 0.3 }}
-      className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-white/5"
-    >
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <p className="text-gray-400 text-xs uppercase tracking-wider">{label}</p>
-          <p className="text-white font-bold text-lg">{value}</p>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// Training Mode Card
-function TrainingModeCard({ 
-  title, 
-  description, 
-  icon: Icon, 
-  color,
-  onClick,
-  active = false 
-}: { 
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  color: string;
-  onClick: () => void;
-  active?: boolean;
-}) {
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`w-full text-left p-4 rounded-xl border transition-all duration-300 ${
-        active 
-          ? `bg-gradient-to-r ${color} border-transparent` 
-          : 'bg-slate-800/30 border-white/10 hover:border-white/20 hover:bg-slate-800/50'
-      }`}
-    >
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${active ? 'bg-white/20' : `bg-gradient-to-br ${color}`}`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-        <div className="flex-1">
-          <h4 className={`font-semibold ${active ? 'text-white' : 'text-white/90'}`}>{title}</h4>
-          <p className={`text-sm ${active ? 'text-white/80' : 'text-gray-400'}`}>{description}</p>
-        </div>
-        {active && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"
-          >
-            <Sparkles className="w-3 h-3 text-white" />
-          </motion.div>
-        )}
-      </div>
-    </motion.button>
-  );
-}
-
-// Match History Item
-function MatchHistoryItem({ match, onShowStats, index }: { match: RecentMatch; onShowStats: () => void; index: number }) {
-  const isWin = match.result === 'win';
-  const isLoss = match.result === 'loss';
-  const userLegs = match.player1_legs_won;
-  const opponentLegs = match.player2_legs_won;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className={`group relative overflow-hidden rounded-xl border transition-all duration-300 hover:scale-[1.02] ${
-        isWin 
-          ? 'bg-gradient-to-r from-emerald-500/10 to-transparent border-emerald-500/20 hover:border-emerald-500/40' 
-          : isLoss 
-            ? 'bg-gradient-to-r from-red-500/10 to-transparent border-red-500/20 hover:border-red-500/40'
-            : 'bg-slate-800/30 border-white/5 hover:border-white/20'
-      }`}
-    >
-      {/* Glow effect */}
-      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
-        isWin ? 'bg-emerald-500/5' : isLoss ? 'bg-red-500/5' : ''
-      }`} />
-      
-      <div className="relative p-4 flex items-center gap-4">
-        {/* Result Icon */}
-        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold shadow-lg ${
-          isWin 
-            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white' 
-            : isLoss 
-              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white'
-              : 'bg-gradient-to-br from-gray-500 to-gray-600 text-white'
-        }`}>
-          {isWin ? <Trophy className="w-6 h-6" /> : isLoss ? <X className="w-6 h-6" /> : <Dices className="w-6 h-6" />}
-        </div>
-
-        {/* Match Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-white font-semibold truncate">{match.player2_name}</span>
-            <Badge variant="outline" className={`text-xs ${
-              isWin ? 'border-emerald-500/50 text-emerald-400' : 
-              isLoss ? 'border-red-500/50 text-red-400' : 
-              'border-gray-500/50 text-gray-400'
-            }`}>
-              {isWin ? 'Victory' : isLoss ? 'Defeat' : 'Draw'}
-            </Badge>
-          </div>
-          
-          <div className="flex items-center gap-3 text-sm text-gray-400">
-            <span className="flex items-center gap-1">
-              <Target className="w-3.5 h-3.5" />
-              {match.game_mode}
-            </span>
-            <span>•</span>
-            <span className={`font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
-              {userLegs} - {opponentLegs}
-            </span>
-            <span>•</span>
-            <span>{new Date(match.completed_at).toLocaleDateString()}</span>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="flex items-center gap-4 mt-2 text-xs">
-            <span className="text-emerald-400/80">Avg: {match.three_dart_avg?.toFixed(1) || '0.0'}</span>
-            <span className="text-amber-400/80">Best: {match.highest_checkout || '0'}</span>
-            <span className="text-purple-400/80">Checkout: {match.checkout_percentage ? Math.round(match.checkout_percentage) : '0'}%</span>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <Button
-          size="sm"
-          onClick={onShowStats}
-          className="bg-slate-700 hover:bg-slate-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <BarChart3 className="w-4 h-4" />
-        </Button>
-      </div>
-    </motion.div>
-  );
 }
 
 export default function PlayPage() {
@@ -364,7 +166,6 @@ export default function PlayPage() {
   const [rankedSearching, setRankedSearching] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoQueueAttempted = useRef(false);
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
 
   const [trainingMode, setTrainingMode] = useState<'301' | '501' | 'practice-games'>('501');
   const [practiceGameMode, setPracticeGameMode] = useState<'around-the-clock' | 'form-analysis' | 'finish-training' | 'pdc-challenge' | 'bobs-27' | 'jdc-challenge' | '121-game' | 'killer'>('around-the-clock');
@@ -410,33 +211,6 @@ export default function PlayPage() {
       }
 
       setUserId(user.id);
-
-      // Fetch user stats
-      const { data: statsData } = await supabase
-        .from('player_stats')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (statsData) {
-        // Calculate level based on matches played
-        const totalMatches = statsData.matches_played || 0;
-        const level = Math.min(50, Math.floor(totalMatches / 10) + 1);
-        const xp = (totalMatches % 10) * 10;
-        
-        setUserStats({
-          totalMatches,
-          wins: statsData.matches_won || 0,
-          losses: statsData.matches_lost || 0,
-          currentStreak: statsData.current_streak || 0,
-          bestStreak: statsData.best_streak || 0,
-          average: statsData.overall_3dart_avg || 0,
-          highestCheckout: statsData.highest_checkout || 0,
-          level,
-          xp,
-          xpToNext: 100,
-        });
-      }
 
       const { data: matchesData, error } = await supabase
         .from('match_history')
@@ -641,7 +415,7 @@ export default function PlayPage() {
       await supabase.rpc('rpc_ranked_cancel', { p_queue_id: rankedQueueId });
       toast.info('Search cancelled');
     } catch (err) {
-      // Ignore
+      // ignore
     } finally {
       localStorage.removeItem('ranked_queue_id');
       setShowRankedSearch(false);
@@ -766,404 +540,365 @@ export default function PlayPage() {
     setShowStatsModal(true);
   };
 
-  const levelColor = LEVEL_COLORS[Math.min((userStats?.level || 1) - 1, LEVEL_COLORS.length - 1)];
+  const getTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
-        {/* Header Section with User Stats */}
-        {userStats && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-white/10 p-6 sm:p-8"
-          >
-            {/* Background Effects */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-48 -mt-48" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -ml-32 -mb-32" />
-            
-            <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-              <div className="flex items-center gap-6">
-                {/* Level Badge */}
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br ${levelColor} flex items-center justify-center shadow-xl`}
-                >
-                  <div className="text-center">
-                    <p className="text-xs text-white/80 uppercase tracking-wider">Level</p>
-                    <p className="text-3xl sm:text-4xl font-black text-white">{userStats.level}</p>
-                  </div>
-                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center border-2 border-white/20">
-                    <Star className="w-4 h-4 text-amber-400" />
-                  </div>
-                </motion.div>
-
-                <div>
-                  <h1 className="text-3xl sm:text-4xl font-black text-white mb-2">
-                    Ready to Play?
-                  </h1>
-                  <p className="text-gray-400 text-lg">
-                    {userStats.currentStreak > 0 ? (
-                      <span className="flex items-center gap-2">
-                        <Flame className="w-5 h-5 text-orange-500" />
-                        On a {userStats.currentStreak} game win streak!
-                      </span>
-                    ) : (
-                      'Choose your game mode and start your journey.'
-                    )}
-                  </p>
-                  
-                  {/* XP Bar */}
-                  <div className="mt-4 flex items-center gap-3">
-                    <div className="flex-1 max-w-xs">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-400">XP Progress</span>
-                        <span className="text-emerald-400">{userStats.xp}/{userStats.xpToNext}</span>
-                      </div>
-                      <Progress value={(userStats.xp / userStats.xpToNext) * 100} className="h-2 bg-slate-700" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
-                <StatCard label="Matches" value={userStats.totalMatches} icon={Gamepad2} color="from-blue-500 to-blue-600" delay={0.1} />
-                <StatCard label="Win Rate" value={`${userStats.totalMatches > 0 ? Math.round((userStats.wins / userStats.totalMatches) * 100) : 0}%`} icon={TrendingUp} color="from-emerald-500 to-emerald-600" delay={0.2} />
-                <StatCard label="Average" value={userStats.average.toFixed(1)} icon={Crosshair} color="from-purple-500 to-purple-600" delay={0.3} />
-                <StatCard label="Best Checkout" value={userStats.highestCheckout} icon={Award} color="from-amber-500 to-orange-500" delay={0.4} />
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Main Game Modes Grid */}
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <motion.h2
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-xl font-bold text-white mb-4 flex items-center gap-2"
-          >
-            <Sparkles className="w-5 h-5 text-amber-400" />
-            Choose Your Battle
-          </motion.h2>
-          
-          <div className="grid md:grid-cols-3 gap-4">
-            <GameModeCard
-              href="/app/ranked"
-              gradient="from-amber-500 via-orange-500 to-red-500"
-              icon={Crown}
-              title="Ranked Match"
-              description="Compete for glory on the global leaderboard. Climb ranks and prove you're the best!"
-              badge="Competitive"
-              disabled={rankedSearching}
-              delay={0}
-            />
-            
-            <GameModeCard
-              href="/app/play/quick-match"
-              gradient="from-emerald-500 via-teal-500 to-cyan-500"
-              icon={Zap}
-              title="Quick Match"
-              description="Jump into casual matches instantly. Practice your skills without rank pressure."
-              badge="Casual"
-              disabled={rankedSearching}
-              delay={0.1}
-            />
-            
-            <GameModeCard
-              onClick={() => setShowPrivateModal(true)}
-              gradient="from-blue-500 via-indigo-500 to-purple-500"
-              icon={Users}
-              title="Private Match"
-              description="Create a private room and invite friends. Play together in your own space."
-              badge="Friends"
-              disabled={rankedSearching}
-              delay={0.2}
-            />
+          <h1 className="text-3xl font-bold text-white">Game Center</h1>
+          <p className="text-slate-400 mt-1">Choose your match type and start playing</p>
+        </div>
+      </div>
+
+      {/* Main Game Modes */}
+      <div className="grid md:grid-cols-3 gap-6">
+        <GameModeButton
+          href="/app/ranked"
+          icon={Crown}
+          title="Ranked Match"
+          description="Compete for ranking points and climb the leaderboard. Test your skills against equally matched opponents."
+          variant="ranked"
+          disabled={rankedSearching}
+        />
+        <GameModeButton
+          href="/app/play/quick-match"
+          icon={Zap}
+          title="Quick Match"
+          description="Jump into casual matches instantly. No pressure, just pure darts action with players worldwide."
+          variant="quick"
+          disabled={rankedSearching}
+        />
+        <GameModeButton
+          onClick={() => setShowPrivateModal(true)}
+          icon={Users}
+          title="Private Match"
+          description="Create a private room and invite friends. Perfect for practice matches with people you know."
+          variant="private"
+          disabled={rankedSearching}
+        />
+      </div>
+
+      {/* Training Section */}
+      <Card className="bg-slate-900/80 border-slate-700/50 overflow-hidden">
+        <div className="p-6 border-b border-slate-700/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Training Grounds</h2>
+              <p className="text-sm text-slate-400">Practice against DartBot or solo drills</p>
+            </div>
           </div>
         </div>
 
-        {/* Training Hub */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="rounded-3xl bg-gradient-to-br from-slate-800/30 to-slate-900/30 border border-white/5 p-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-white" />
+        <div className="p-6 space-y-6">
+          {/* Mode Selection */}
+          <div className="grid sm:grid-cols-3 gap-3">
+            {[
+              { value: '301', label: '301 vs Bot', desc: 'Quick games' },
+              { value: '501', label: '501 vs Bot', desc: 'Classic darts' },
+              { value: 'practice-games', label: 'Practice Games', desc: 'Training drills' },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                onClick={() => setTrainingMode(mode.value as any)}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  trainingMode === mode.value
+                    ? 'bg-emerald-500/10 border-emerald-500/50'
+                    : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600'
+                }`}
+              >
+                <p className={`font-medium ${trainingMode === mode.value ? 'text-emerald-400' : 'text-white'}`}>
+                  {mode.label}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">{mode.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Configuration */}
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+            {trainingMode === 'practice-games' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-300 mb-2 block">Training Game</label>
+                  <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as any)}>
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="around-the-clock">Around the Clock</SelectItem>
+                      <SelectItem value="finish-training">Finish Training</SelectItem>
+                      <SelectItem value="pdc-challenge">PDC Challenge</SelectItem>
+                      <SelectItem value="jdc-challenge">JDC Challenge</SelectItem>
+                      <SelectItem value="bobs-27">Bob's 27</SelectItem>
+                      <SelectItem value="121-game">121 Game</SelectItem>
+                      <SelectItem value="killer">Killer</SelectItem>
+                      <SelectItem value="form-analysis">Form Analysis</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {practiceGameMode === 'finish-training' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Min Checkout</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="150"
+                        value={finishMin}
+                        onChange={(e) => setFinishMin(e.target.value)}
+                        placeholder="2"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Max Checkout</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="170"
+                        value={finishMax}
+                        onChange={(e) => setFinishMax(e.target.value)}
+                        placeholder="170"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {practiceGameMode === 'killer' && (
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Rounds</label>
+                    <Select value={killerRounds.toString()} onValueChange={(v) => setKillerRounds(parseInt(v) as any)}>
+                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="1">1 Round</SelectItem>
+                        <SelectItem value="3">3 Rounds</SelectItem>
+                        <SelectItem value="5">5 Rounds</SelectItem>
+                        <SelectItem value="7">7 Rounds</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Bot Level</label>
+                  <Select value={botDifficulty} onValueChange={(v) => setBotDifficulty(v as any)}>
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      {Object.entries(BOT_DIFFICULTY_CONFIG).map(([key, value]) => (
+                        <SelectItem key={key} value={key}>{value.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Format</label>
+                  <Select value={bestOf} onValueChange={(v) => setBestOf(v as any)}>
+                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700">
+                      <SelectItem value="best-of-1">Best of 1</SelectItem>
+                      <SelectItem value="best-of-3">Best of 3</SelectItem>
+                      <SelectItem value="best-of-5">Best of 5</SelectItem>
+                      <SelectItem value="best-of-7">Best of 7</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Double Out</label>
+                  <button
+                    onClick={() => setDoubleOut(!doubleOut)}
+                    className={`w-full h-9 rounded-lg text-sm font-medium transition-colors ${
+                      doubleOut 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : 'bg-slate-900 text-slate-400 border border-slate-700'
+                    }`}
+                  >
+                    {doubleOut ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Button
+            onClick={handleStartTraining}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+          >
+            <Play className="w-4 h-4 mr-2" />
+            Start Training
+          </Button>
+        </div>
+      </Card>
+
+      {/* Recent Matches */}
+      <Card className="bg-slate-900/80 border-slate-700/50 overflow-hidden">
+        <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
+              <Clock className="w-5 h-5 text-slate-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Training Grounds</h2>
-              <p className="text-gray-400 text-sm">Master your skills against DartBot or solo</p>
+              <h2 className="text-lg font-semibold text-white">Recent Matches</h2>
+              <p className="text-sm text-slate-400">Your last 3 games</p>
             </div>
           </div>
+          <Link href="/app/history">
+            <Button variant="ghost" className="text-slate-400 hover:text-white">
+              View All
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+        </div>
 
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Training Mode Selection */}
-            <div className="space-y-3">
-              <TrainingModeCard
-                title="301 vs Bot"
-                description="Quick games starting at 301"
-                icon={Target}
-                color="from-blue-500 to-blue-600"
-                onClick={() => setTrainingMode('301')}
-                active={trainingMode === '301'}
-              />
-              <TrainingModeCard
-                title="501 vs Bot"
-                description="Classic darts starting at 501"
-                icon={Target}
-                color="from-purple-500 to-purple-600"
-                onClick={() => setTrainingMode('501')}
-                active={trainingMode === '501'}
-              />
-              <TrainingModeCard
-                title="Practice Games"
-                description="Solo training drills and challenges"
-                icon={Sparkles}
-                color="from-amber-500 to-orange-500"
-                onClick={() => setTrainingMode('practice-games')}
-                active={trainingMode === 'practice-games'}
-              />
-            </div>
-
-            {/* Configuration Panel */}
-            <div className="bg-slate-900/50 rounded-2xl p-5 border border-white/5">
-              {trainingMode === 'practice-games' ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-300 mb-2 block">Select Training Game</label>
-                    <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as any)}>
-                      <SelectTrigger className="bg-slate-800 border-white/10 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10">
-                        <SelectItem value="around-the-clock">Around the Clock</SelectItem>
-                        <SelectItem value="finish-training">Finish Training</SelectItem>
-                        <SelectItem value="pdc-challenge">PDC Challenge</SelectItem>
-                        <SelectItem value="jdc-challenge">JDC Challenge</SelectItem>
-                        <SelectItem value="bobs-27">Bob's 27</SelectItem>
-                        <SelectItem value="121-game">121 Game</SelectItem>
-                        <SelectItem value="killer">Killer</SelectItem>
-                        <SelectItem value="form-analysis">Form Analysis</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {practiceGameMode === 'finish-training' && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-400 mb-1 block">Min Checkout</label>
-                        <input
-                          type="number"
-                          min="2"
-                          max="150"
-                          value={finishMin}
-                          onChange={(e) => setFinishMin(e.target.value)}
-                          placeholder="2"
-                          className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-400 mb-1 block">Max Checkout</label>
-                        <input
-                          type="number"
-                          min="2"
-                          max="170"
-                          value={finishMax}
-                          onChange={(e) => setFinishMax(e.target.value)}
-                          placeholder="170"
-                          className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-white"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {practiceGameMode === 'killer' && (
-                    <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Rounds</label>
-                      <Select value={killerRounds.toString()} onValueChange={(v) => setKillerRounds(parseInt(v) as any)}>
-                        <SelectTrigger className="bg-slate-800 border-white/10 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10">
-                          <SelectItem value="1">1 Round</SelectItem>
-                          <SelectItem value="3">3 Rounds</SelectItem>
-                          <SelectItem value="5">5 Rounds</SelectItem>
-                          <SelectItem value="7">7 Rounds</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Bot Level</label>
-                    <Select value={botDifficulty} onValueChange={(v) => setBotDifficulty(v as any)}>
-                      <SelectTrigger className="bg-slate-800 border-white/10 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10">
-                        {Object.entries(BOT_DIFFICULTY_CONFIG).map(([key, value]) => (
-                          <SelectItem key={key} value={key}>{value.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Best Of</label>
-                    <Select value={bestOf} onValueChange={(v) => setBestOf(v as any)}>
-                      <SelectTrigger className="bg-slate-800 border-white/10 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10">
-                        <SelectItem value="best-of-1">1 Leg</SelectItem>
-                        <SelectItem value="best-of-3">3 Legs</SelectItem>
-                        <SelectItem value="best-of-5">5 Legs</SelectItem>
-                        <SelectItem value="best-of-7">7 Legs</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Double Out</label>
-                    <button
-                      onClick={() => setDoubleOut(!doubleOut)}
-                      className={`w-full h-10 rounded-lg text-sm font-medium transition-colors ${
-                        doubleOut ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-gray-400 border border-white/10'
-                      }`}
-                    >
-                      {doubleOut ? 'ON' : 'OFF'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <Button
-                onClick={handleStartTraining}
-                className="w-full mt-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white font-semibold py-3"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                Start Training
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Recent Matches */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-blue-400" />
-              Recent Battles
-            </h2>
-            <Link href="/app/history">
-              <Button variant="ghost" className="text-gray-400 hover:text-white">
-                View All
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
-          </div>
-
+        <div className="p-6">
           {loadingMatches ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
             </div>
           ) : recentMatches.length === 0 ? (
-            <div className="text-center py-12 bg-slate-800/30 rounded-2xl border border-white/5">
-              <Target className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">No battles fought yet!</p>
-              <p className="text-gray-500 text-sm mt-1">Start playing to see your match history</p>
+            <div className="text-center py-12">
+              <Target className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-400">No recent games yet</p>
+              <p className="text-slate-500 text-sm mt-1">Start playing to see your match history</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {recentMatches.map((match, index) => (
-                <MatchHistoryItem
-                  key={match.id}
-                  match={match}
-                  onShowStats={() => handleShowStats(match.id)}
-                  index={index}
-                />
-              ))}
-            </div>
-          )}
-        </motion.div>
+              {recentMatches.map((match) => {
+                const isWin = match.result === 'win';
+                const isLoss = match.result === 'loss';
+                const userLegs = match.player1_legs_won;
+                const opponentLegs = match.player2_legs_won;
 
-        {/* Ranked Search Modal */}
-        <AnimatePresence>
-          {showRankedSearch && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            >
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="relative w-full max-w-md"
-              >
-                <Card className="bg-slate-900 border-amber-500/30 p-8 overflow-hidden">
-                  {/* Animated Background */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/10" />
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl" />
-                  
-                  <div className="relative z-10 text-center">
-                    <div className="relative w-24 h-24 mx-auto mb-6">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-0 rounded-full border-4 border-amber-500/30 border-t-amber-500"
-                      />
-                      <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                        <Crown className="w-10 h-10 text-white" />
+                return (
+                  <div
+                    key={match.id}
+                    className={`group flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.01] ${
+                      isWin 
+                        ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
+                        : isLoss 
+                          ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'
+                          : 'bg-slate-800/30 border-slate-700/50 hover:border-slate-600'
+                    }`}
+                  >
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      isWin 
+                        ? 'bg-emerald-500/20 text-emerald-400' 
+                        : isLoss 
+                          ? 'bg-red-500/20 text-red-400'
+                          : 'bg-slate-700 text-slate-400'
+                    }`}>
+                      {isWin ? <Trophy className="w-5 h-5" /> : isLoss ? <X className="w-5 h-5" /> : <Dices className="w-5 h-5" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium truncate">{match.player2_name}</span>
+                        <Badge variant="outline" className={`text-xs ${
+                          isWin ? 'border-emerald-500/30 text-emerald-400' : 
+                          isLoss ? 'border-red-500/30 text-red-400' : 
+                          'border-slate-500/30 text-slate-400'
+                        }`}>
+                          {isWin ? 'Win' : isLoss ? 'Loss' : 'Draw'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
+                        <span>{match.game_mode}</span>
+                        <span className="text-slate-600">•</span>
+                        <span className={isWin ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
+                          {userLegs} - {opponentLegs}
+                        </span>
+                        <span className="text-slate-600">•</span>
+                        <span>{getTimeAgo(match.completed_at)}</span>
                       </div>
                     </div>
 
-                    <h3 className="text-2xl font-bold text-white mb-2">Finding Opponent</h3>
-                    <p className="text-gray-400 mb-6">Searching for a worthy challenger...</p>
-
-                    <div className="flex items-center justify-center gap-2 text-sm text-amber-400 mb-8">
-                      <Clock className="w-4 h-4" />
-                      <span>Average wait: 30-60 seconds</span>
-                    </div>
-
                     <Button
-                      variant="outline"
-                      onClick={cancelRankedSearch}
-                      className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleShowStats(match.id)}
+                      className="text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      Cancel Search
+                      <BarChart3 className="w-4 h-4" />
                     </Button>
                   </div>
-                </Card>
-              </motion.div>
-            </motion.div>
+                );
+              })}
+            </div>
           )}
-        </AnimatePresence>
+        </div>
+      </Card>
 
-        {/* Modals */}
-        <MatchErrorBoundary>
-          <PrivateMatchModal isOpen={showPrivateModal} onClose={() => setShowPrivateModal(false)} />
-        </MatchErrorBoundary>
+      {/* Ranked Search Modal */}
+      {showRankedSearch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <Card className="relative w-full max-w-md bg-slate-900 border-amber-500/30 p-8">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/10 rounded-xl" />
+            
+            <div className="relative text-center">
+              <div className="relative w-24 h-24 mx-auto mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
+                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                  <Crown className="w-10 h-10 text-white" />
+                </div>
+              </div>
 
-        {selectedMatchId && (
-          <MatchStatsModal
-            isOpen={showStatsModal}
-            onClose={() => setShowStatsModal(false)}
-            matchId={selectedMatchId}
-          />
-        )}
-      </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Finding Opponent</h3>
+              <p className="text-slate-400 mb-6">Searching for a worthy challenger...</p>
+
+              <div className="flex items-center justify-center gap-2 text-sm text-amber-400 mb-8">
+                <Clock className="w-4 h-4" />
+                <span>Average wait: 30-60 seconds</span>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={cancelRankedSearch}
+                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              >
+                Cancel Search
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Modals */}
+      <MatchErrorBoundary>
+        <PrivateMatchModal isOpen={showPrivateModal} onClose={() => setShowPrivateModal(false)} />
+      </MatchErrorBoundary>
+
+      {selectedMatchId && (
+        <MatchStatsModal
+          isOpen={showStatsModal}
+          onClose={() => setShowStatsModal(false)}
+          matchId={selectedMatchId}
+        />
+      )}
     </div>
   );
 }
