@@ -158,7 +158,7 @@ function getTierIcon(tierName: string) {
   return <Target className="w-8 h-8 text-white" />;
 }
 
-// Current Rank Card - EXACTLY like Dashboard
+// Current Rank Card - IDENTICAL to Dashboard
 function CurrentRankCard({ 
   playerState, 
   season,
@@ -177,76 +177,138 @@ function CurrentRankCard({
     : 0;
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all`}>
-      {/* Colored left border */}
-      <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${colors.gradient}`} />
+    <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50">
+      {/* Top gradient line */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
       
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        {/* Rank Info - Left Side */}
-        <div className="flex items-center gap-4">
-          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-xl`}>
-            {getTierIcon(playerState.division_name)}
-          </div>
-          <div>
-            <p className="text-slate-400 text-sm">{season?.name || 'Current Season'}</p>
-            <h2 className="text-3xl font-black text-white">{playerState.division_name}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge className={`${colors.bg}/20 ${colors.text} ${colors.border}`}>
-                <Trophy className="w-3 h-3 mr-1" />
-                {playerState.rp} RP
-              </Badge>
-              {playerState.provisional_games_remaining > 0 && (
-                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
-                  {10 - playerState.provisional_games_remaining}/10 Placements
-                </Badge>
-              )}
+      <div className="relative z-10 p-8">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
+          {/* Left - Crown Icon & Division */}
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <div className={`absolute inset-0 ${colors.bg}/30 rounded-2xl blur-lg`} />
+              <div className={`relative w-20 h-20 rounded-2xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-xl`}>
+                {getTierIcon(playerState.division_name)}
+              </div>
             </div>
+            <div>
+              <p className={`${colors.text} text-sm font-semibold uppercase tracking-wider`}>Current Rank</p>
+              <h2 className="text-3xl font-black text-white mt-1">
+                {playerState.division_name}
+              </h2>
+            </div>
+          </div>
+
+          {/* Center - ELO Display */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <div className={`absolute -inset-4 ${colors.bg}/10 rounded-full blur-2xl`} />
+              <p className="relative text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-300 drop-shadow-2xl">
+                {playerState.rp}
+              </p>
+            </div>
+            <p className={`${colors.text}/80 text-sm font-bold uppercase tracking-[0.2em] mt-2`}>ELO Rating</p>
+          </div>
+
+          {/* Right - Play Button & Placement */}
+          <div className="flex flex-col items-end gap-4">
+            {playerState.provisional_games_remaining ? (
+              <div className="w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-amber-400 font-medium">Placement</span>
+                  <span className="text-white font-bold">{10 - playerState.provisional_games_remaining}/10</span>
+                </div>
+                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
+                    style={{ width: `${(10 - playerState.provisional_games_remaining) * 10}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-emerald-400/60 text-sm">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                Ranked Active
+              </div>
+            )}
+            {nextTier && (
+              <div className="text-right">
+                <p className="text-slate-400 text-sm">Next: <span className="text-emerald-400 font-semibold">{nextTier.division_name}</span></p>
+                <p className="text-xs text-slate-500">{rpToNext} RP needed</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Stats Row - Center */}
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <p className="text-3xl font-black text-white">{playerState.wins}-{playerState.losses}</p>
-            <p className="text-xs text-slate-400 uppercase tracking-wider">Record</p>
-          </div>
-          <div className="w-px h-10 bg-slate-700" />
-          <div className="text-center">
-            <p className="text-3xl font-black text-emerald-400">{winRate}%</p>
-            <p className="text-xs text-slate-400 uppercase tracking-wider">Win Rate</p>
-          </div>
-          <div className="w-px h-10 bg-slate-700" />
-          <div className="text-center">
-            <p className="text-3xl font-black text-blue-400">{playerState.games_played}</p>
-            <p className="text-xs text-slate-400 uppercase tracking-wider">Games</p>
+        {/* Stats Row */}
+        <div className="mt-8 pt-6 border-t border-slate-700/50">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-emerald-500/20 backdrop-blur-sm">
+              <p className="text-2xl font-black text-emerald-400">{playerState.wins}</p>
+              <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Wins</p>
+            </div>
+            <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-rose-500/20 backdrop-blur-sm">
+              <p className="text-2xl font-black text-rose-400">{playerState.losses}</p>
+              <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Losses</p>
+            </div>
+            <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-blue-500/20 backdrop-blur-sm">
+              <p className="text-2xl font-black text-blue-400">{winRate}%</p>
+              <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Win Rate</p>
+            </div>
+            <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-purple-500/20 backdrop-blur-sm">
+              <p className="text-2xl font-black text-purple-400">{playerState.games_played}</p>
+              <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Games</p>
+            </div>
           </div>
         </div>
-
-        {/* Progress to Next - Right Side */}
-        {nextTier && (
-          <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50 min-w-[200px]">
-            <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-slate-400">Next Rank</span>
-              <span className="text-emerald-400 font-medium">{nextTier.division_name}</span>
-            </div>
-            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500"
-                style={{ width: `${Math.min(100, (playerState.rp / nextTier.rp_min) * 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-2">{rpToNext} RP needed</p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-// Tier Page Header - Shows the tier color theme
-function TierPageHeader({ tierName }: { tierName: string }) {
+// Tier Page Header - Elite styling
+function TierPageHeader({ tierName, isGrandChampion }: { tierName: string; isGrandChampion?: boolean }) {
   const tierKey = getTierKey(tierName);
   const colors = TIER_COLORS[tierKey];
+
+  // Special styling for Grand Champion
+  if (isGrandChampion) {
+    return (
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 p-6 mb-6 shadow-2xl shadow-purple-500/30 border border-purple-400/30">
+        {/* Animated background effect */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-400/20 via-transparent to-transparent" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
+        
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-purple-400/50 rounded-xl blur-lg animate-pulse" />
+              <div className="relative w-16 h-16 rounded-xl bg-gradient-to-br from-purple-400 to-violet-600 flex items-center justify-center shadow-xl border border-purple-300/50">
+                <Crown className="w-8 h-8 text-white drop-shadow-lg" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-purple-300" />
+                <p className="text-purple-200 text-sm font-semibold uppercase tracking-wider">
+                  Ultimate Elite
+                </p>
+                <Star className="w-4 h-4 text-purple-300" />
+              </div>
+              <h2 className="text-3xl font-black text-white drop-shadow-lg">
+                Grand Champion
+              </h2>
+            </div>
+          </div>
+          <div className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500/30 to-violet-500/30 backdrop-blur-sm border border-purple-400/30">
+            <span className="text-purple-100 font-bold text-sm">
+              Apex Tier
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.gradient} p-6 mb-6 shadow-lg ${colors.glow}`}>
@@ -267,8 +329,7 @@ function TierPageHeader({ tierName }: { tierName: string }) {
         </div>
         <div className={`px-4 py-2 rounded-xl bg-white/20 backdrop-blur-sm`}>
           <span className="text-white font-bold text-sm">
-            {tierKey === 'grandchampion' ? 'Elite Tier' : 
-             tierKey === 'champion' ? 'Pro Tier' : 
+            {tierKey === 'champion' ? 'Elite Tier' : 
              tierKey === 'platinum' ? 'Advanced Tier' : 
              tierKey === 'gold' ? 'Intermediate Tier' : 
              tierKey === 'silver' ? 'Developing Tier' : 'Entry Tier'}
@@ -279,7 +340,7 @@ function TierPageHeader({ tierName }: { tierName: string }) {
   );
 }
 
-// Tier Navigator - Shows 4 ranks at a time with arrow navigation
+// Tier Navigator - Elite styling with Grand Champion as special rank
 function TierNavigator({ 
   tiers, 
   playerState,
@@ -291,17 +352,25 @@ function TierNavigator({
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const ranksPerPage = 4;
-  const totalPages = Math.ceil(tiers.length / ranksPerPage);
+  
+  // Separate Grand Champion from other tiers
+  const grandChampionTier = tiers.find(t => t.tier_name.toLowerCase().includes('grand'));
+  const normalTiers = tiers.filter(t => !t.tier_name.toLowerCase().includes('grand'));
+  const totalPages = Math.ceil(normalTiers.length / ranksPerPage);
 
   // Set initial page to show user's current tier
   useEffect(() => {
     if (currentTierIndex >= 0) {
-      const userPage = Math.floor(currentTierIndex / ranksPerPage);
-      setCurrentPage(userPage);
+      // Adjust index for normal tiers only
+      const userTier = tiers[currentTierIndex];
+      if (userTier && !userTier.tier_name.toLowerCase().includes('grand')) {
+        const userPage = Math.floor(normalTiers.findIndex(t => t.id === userTier.id) / ranksPerPage);
+        if (userPage >= 0) setCurrentPage(userPage);
+      }
     }
-  }, [currentTierIndex]);
+  }, [currentTierIndex, normalTiers, tiers]);
 
-  const currentTiers = tiers.slice(
+  const currentTiers = normalTiers.slice(
     currentPage * ranksPerPage, 
     (currentPage + 1) * ranksPerPage
   );
@@ -318,121 +387,198 @@ function TierNavigator({
     setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
   };
 
-  return (
-    <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6">
-      <div className={`absolute top-0 right-0 w-96 h-96 ${colors.bg}/5 rounded-full blur-3xl`} />
-      
-      <div className="relative">
-        {/* Tier Header with colors */}
-        <TierPageHeader tierName={currentTierName} />
-        
-        {/* Navigation Arrows */}
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <button
-            onClick={goToPrevious}
-            disabled={currentPage === 0}
-            className={`w-12 h-12 rounded-xl bg-slate-800 border ${colors.border} flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all`}
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          
-          <div className={`px-6 py-3 rounded-xl bg-slate-800/80 border ${colors.border}`}>
-            <span className={`${colors.text} font-bold text-lg`}>
-              Page {currentPage + 1} of {totalPages}
-            </span>
-          </div>
-          
-          <button
-            onClick={goToNext}
-            disabled={currentPage === totalPages - 1}
-            className={`w-12 h-12 rounded-xl bg-slate-800 border ${colors.border} flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all`}
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </div>
+  // Check if user is Grand Champion
+  const isGrandChampion = playerState?.division_name.toLowerCase().includes('grand');
 
-        {/* Rank Cards Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <AnimatePresence mode="wait">
-            {currentTiers.map((tier, index) => {
-              const isCurrent = playerState && 
-                playerState.rp >= tier.rp_min && 
-                playerState.rp <= tier.rp_max;
+  return (
+    <div className="space-y-6">
+      {/* Grand Champion Section - Special Elite Display */}
+      {grandChampionTier && (
+        <Card className={`relative overflow-hidden p-6 ${isGrandChampion ? 'bg-gradient-to-br from-purple-900/40 to-violet-900/40 border-purple-500/50 shadow-2xl shadow-purple-500/20' : 'bg-slate-800/40 border-slate-700/50'}`}>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+          
+          <TierPageHeader tierName="Grand Champion" isGrandChampion />
+          
+          <div className="relative">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`relative overflow-hidden rounded-xl p-6 border-2 transition-all ${
+                isGrandChampion
+                  ? 'bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 border-purple-300 shadow-xl shadow-purple-500/30' 
+                  : 'bg-slate-900/80 border-purple-500/30 hover:border-purple-500/50'
+              }`}
+            >
+              {/* Special effects for Grand Champion */}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-400/10 via-transparent to-transparent" />
+              {isGrandChampion && (
+                <div className="absolute top-0 right-0">
+                  <Badge className="bg-white text-purple-900 text-xs font-bold rounded-tl-none rounded-br-none rounded-tr-lg rounded-bl-lg px-3 py-1">
+                    YOU
+                  </Badge>
+                </div>
+              )}
               
-              return (
-                <motion.div
-                  key={tier.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`relative overflow-hidden rounded-xl p-5 border-2 transition-all ${
-                    isCurrent 
-                      ? `bg-gradient-to-br ${colors.gradient} border-white/50 shadow-xl ${colors.glow}` 
-                      : 'bg-slate-900/80 border-slate-700/50 hover:border-slate-600'
-                  }`}
-                >
-                  {isCurrent && (
-                    <div className="absolute top-0 right-0">
-                      <Badge className="bg-white text-slate-900 text-xs font-bold rounded-tl-none rounded-br-none rounded-tr-lg rounded-bl-lg px-3 py-1">
-                        YOU
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  <p className={`text-xs uppercase tracking-wider mb-2 font-semibold ${
-                    isCurrent ? 'text-white/80' : colors.text
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
+                    isGrandChampion 
+                      ? 'bg-white/20' 
+                      : 'bg-purple-500/20'
                   }`}>
-                    {tier.tier_name}
-                  </p>
-                  <h3 className={`text-xl font-black mb-3 ${isCurrent ? 'text-white' : 'text-white'}`}>
-                    {tier.division_name}
-                  </h3>
-                  
-                  <div className="space-y-2">
-                    <div className={`flex items-center justify-between text-sm px-2 py-1 rounded-lg ${
-                      isCurrent ? 'bg-white/10' : 'bg-slate-800'
+                    <Crown className={`w-8 h-8 ${isGrandChampion ? 'text-white' : 'text-purple-400'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs uppercase tracking-wider font-semibold ${
+                      isGrandChampion ? 'text-purple-200' : 'text-purple-400'
                     }`}>
-                      <span className={isCurrent ? 'text-white/70' : 'text-slate-500'}>Entry</span>
-                      <span className={`font-bold ${isCurrent ? 'text-white' : 'text-slate-300'}`}>{tier.rp_min} RP</span>
-                    </div>
-                    {tier.rp_max < 999999 && (
+                      Grand Champion
+                    </p>
+                    <h3 className={`text-2xl font-black ${isGrandChampion ? 'text-white' : 'text-white'}`}>
+                      {grandChampionTier.division_name}
+                    </h3>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <div className={`text-3xl font-black ${isGrandChampion ? 'text-white' : 'text-purple-400'}`}>
+                    {grandChampionTier.rp_min}+
+                  </div>
+                  <p className={`text-sm ${isGrandChampion ? 'text-purple-200' : 'text-slate-500'}`}>RP Required</p>
+                </div>
+              </div>
+              
+              {/* Elite badge */}
+              <div className="mt-4 flex items-center gap-2">
+                <Star className={`w-4 h-4 ${isGrandChampion ? 'text-amber-300' : 'text-purple-500'}`} />
+                <span className={`text-sm font-semibold ${isGrandChampion ? 'text-amber-200' : 'text-purple-400'}`}>
+                  Apex of Competitive Play
+                </span>
+                <Star className={`w-4 h-4 ${isGrandChampion ? 'text-amber-300' : 'text-purple-500'}`} />
+              </div>
+            </motion.div>
+          </div>
+        </Card>
+      )}
+
+      {/* Normal Tier Navigator */}
+      <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6">
+        <div className={`absolute top-0 right-0 w-96 h-96 ${colors.bg}/5 rounded-full blur-3xl`} />
+        
+        <div className="relative">
+          {/* Tier Header with colors */}
+          <TierPageHeader tierName={currentTierName} />
+          
+          {/* Navigation Arrows - More Elite Styling */}
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <button
+              onClick={goToPrevious}
+              disabled={currentPage === 0}
+              className={`w-12 h-12 rounded-xl bg-slate-800 border ${colors.border} flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105`}
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            
+            <div className={`px-6 py-3 rounded-xl bg-slate-800/80 border ${colors.border}`}>
+              <span className={`${colors.text} font-bold text-lg`}>
+                Tier {currentPage + 1} of {totalPages}
+              </span>
+            </div>
+            
+            <button
+              onClick={goToNext}
+              disabled={currentPage === totalPages - 1}
+              className={`w-12 h-12 rounded-xl bg-slate-800 border ${colors.border} flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105`}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Rank Cards Grid - Elite Styling */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <AnimatePresence mode="wait">
+              {currentTiers.map((tier, index) => {
+                const isCurrent = playerState && 
+                  playerState.rp >= tier.rp_min && 
+                  playerState.rp <= tier.rp_max;
+                const tierK = getTierKey(tier.tier_name);
+                const tierColors = TIER_COLORS[tierK];
+                
+                return (
+                  <motion.div
+                    key={tier.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`relative overflow-hidden rounded-xl p-5 border-2 transition-all ${
+                      isCurrent 
+                        ? `bg-gradient-to-br ${tierColors.gradient} border-white/50 shadow-xl ${tierColors.glow}` 
+                        : 'bg-slate-900/80 border-slate-700/50 hover:border-slate-500 hover:shadow-lg'
+                    }`}
+                  >
+                    {isCurrent && (
+                      <div className="absolute top-0 right-0">
+                        <Badge className="bg-white text-slate-900 text-xs font-bold rounded-tl-none rounded-br-none rounded-tr-lg rounded-bl-lg px-3 py-1">
+                          YOU
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    <p className={`text-xs uppercase tracking-wider mb-2 font-semibold ${
+                      isCurrent ? 'text-white/80' : tierColors.text
+                    }`}>
+                      {tier.tier_name}
+                    </p>
+                    <h3 className={`text-xl font-black mb-3 ${isCurrent ? 'text-white' : 'text-white'}`}>
+                      {tier.division_name}
+                    </h3>
+                    
+                    <div className="space-y-2">
                       <div className={`flex items-center justify-between text-sm px-2 py-1 rounded-lg ${
                         isCurrent ? 'bg-white/10' : 'bg-slate-800'
                       }`}>
-                        <span className={isCurrent ? 'text-white/70' : 'text-slate-500'}>Max</span>
-                        <span className={`font-bold ${isCurrent ? 'text-white' : 'text-slate-300'}`}>{tier.rp_max} RP</span>
+                        <span className={isCurrent ? 'text-white/70' : 'text-slate-500'}>Entry</span>
+                        <span className={`font-bold ${isCurrent ? 'text-white' : 'text-slate-300'}`}>{tier.rp_min} RP</span>
                       </div>
-                    )}
-                  </div>
-                </motion.div>
+                      {tier.rp_max < 999999 && (
+                        <div className={`flex items-center justify-between text-sm px-2 py-1 rounded-lg ${
+                          isCurrent ? 'bg-white/10' : 'bg-slate-800'
+                        }`}>
+                          <span className={isCurrent ? 'text-white/70' : 'text-slate-500'}>Max</span>
+                          <span className={`font-bold ${isCurrent ? 'text-white' : 'text-slate-300'}`}>{tier.rp_max} RP</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+
+          {/* Progress Dots */}
+          <div className="flex items-center justify-center gap-2 mt-6">
+            {Array.from({ length: totalPages }).map((_, index) => {
+              const pageTierName = normalTiers[index * ranksPerPage]?.tier_name || '';
+              const pageTierKey = getTierKey(pageTierName);
+              const pageColors = TIER_COLORS[pageTierKey];
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => setCurrentPage(index)}
+                  className={`h-2 rounded-full transition-all ${
+                    index === currentPage 
+                      ? `w-8 ${pageColors.bg}` 
+                      : 'w-2 bg-slate-600 hover:bg-slate-500'
+                  }`}
+                />
               );
             })}
-          </AnimatePresence>
+          </div>
         </div>
-
-        {/* Progress Dots */}
-        <div className="flex items-center justify-center gap-2 mt-6">
-          {Array.from({ length: totalPages }).map((_, index) => {
-            const pageTierName = tiers[index * ranksPerPage]?.tier_name || '';
-            const pageTierKey = getTierKey(pageTierName);
-            const pageColors = TIER_COLORS[pageTierKey];
-            
-            return (
-              <button
-                key={index}
-                onClick={() => setCurrentPage(index)}
-                className={`h-2 rounded-full transition-all ${
-                  index === currentPage 
-                    ? `w-8 ${pageColors.bg}` 
-                    : 'w-2 bg-slate-600 hover:bg-slate-500'
-                }`}
-              />
-            );
-          })}
-        </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
