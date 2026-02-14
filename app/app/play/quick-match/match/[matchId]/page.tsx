@@ -1182,12 +1182,12 @@ export default function QuickMatchRoomPage() {
     };
   }, []);
 
-  // WebRTC - only connect after both players are ready (pre-game lobby complete)
+  // WebRTC - only connect after coin toss is complete
   const bothPlayersReady = player1Ready && player2Ready;
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
-    coinTossComplete: bothPlayersReady, // Wait for ready check before connecting
+    coinTossComplete: coinTossCompleted, // Wait for coin toss before connecting
   });
   const {
     localStream,
@@ -1230,11 +1230,11 @@ export default function QuickMatchRoomPage() {
     remoteVideoRef.current = el;
   }, [remoteStream]);
 
-  // Auto-start camera when both players are ready (after pregame lobby)
+  // Auto-start camera when both players are ready AND coin toss is complete
   useEffect(() => {
     const initCamera = async () => {
-      if (bothPlayersReady && room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
-        console.log('[CAMERA] Auto-starting camera after both players ready');
+      if (bothPlayersReady && coinTossCompleted && room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
+        console.log('[CAMERA] Auto-starting camera after coin toss complete');
         cameraInitAttempted.current = true;
         try {
           await toggleCamera();
@@ -1246,7 +1246,7 @@ export default function QuickMatchRoomPage() {
       }
     };
     initCamera();
-  }, [bothPlayersReady, room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+  }, [bothPlayersReady, coinTossCompleted, room?.status, room?.player2_id, isCameraOn, toggleCamera]);
 
   // Initialize pre-game lobby when both players connect
   useEffect(() => {
