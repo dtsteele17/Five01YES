@@ -502,8 +502,8 @@ function FinishTrainingContent() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 overflow-hidden">
-      <div className="h-full max-w-7xl mx-auto grid grid-cols-12 gap-3">
+    <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-2 overflow-hidden">
+      <div className="h-full w-full grid grid-cols-12 gap-2">
         {/* Left/Main Content - 8 columns */}
         <div className="col-span-8 flex flex-col gap-3">
           {/* Animated Header */}
@@ -954,20 +954,6 @@ function FinishTrainingContent() {
           )}
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="flex justify-center pt-2"
-        >
-          <Button
-            onClick={() => setShowStatsModal(true)}
-            className="h-12 px-10 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white text-base font-bold shadow-lg shadow-emerald-500/25"
-          >
-            <TrendingUp className="mr-2 h-5 w-5" />
-            End Session
-          </Button>
-        </motion.div>
       </div>
 
       <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>

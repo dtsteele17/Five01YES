@@ -241,19 +241,19 @@ export default function AroundTheClockPage() {
       // Bull target
       if (segmentRule === 'singles_only') {
         return (
-          <div className="grid grid-cols-2 gap-4">
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+          <div className="flex gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
               <Button
                 onClick={() => handleDart('SB')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
               >
                 Single Bull
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }} className="flex-1">
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
@@ -262,19 +262,19 @@ export default function AroundTheClockPage() {
         );
       } else if (segmentRule === 'doubles_only') {
         return (
-          <div className="grid grid-cols-2 gap-4">
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+          <div className="flex gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
               <Button
                 onClick={() => handleDart('DB')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
               >
                 Double Bull
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }} className="flex-1">
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
@@ -284,27 +284,27 @@ export default function AroundTheClockPage() {
       } else {
         // increase_by_segment or trebles (bull doesn't have treble)
         return (
-          <div className="grid grid-cols-3 gap-4">
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+          <div className="flex gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
               <Button
                 onClick={() => handleDart('SB')}
-                className="h-20 text-lg font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
               >
                 SB
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }} className="flex-1">
               <Button
                 onClick={() => handleDart('DB')}
-                className="h-20 text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
               >
                 DB
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }} className="flex-1">
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-lg font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
@@ -318,19 +318,19 @@ export default function AroundTheClockPage() {
 
       if (segmentRule === 'singles_only') {
         return (
-          <div className="grid grid-cols-2 gap-4">
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+          <div className="flex gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
               <Button
                 onClick={() => handleDart('S', targetNumber)}
-                className="h-20 text-2xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
+                className="h-24 w-full text-3xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
               >
                 S{targetNumber}
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }} className="flex-1">
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
@@ -339,19 +339,19 @@ export default function AroundTheClockPage() {
         );
       } else if (segmentRule === 'doubles_only') {
         return (
-          <div className="grid grid-cols-2 gap-4">
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+          <div className="flex gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
               <Button
                 onClick={() => handleDart('D', targetNumber)}
-                className="h-20 text-2xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
+                className="h-24 w-full text-3xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
               >
                 D{targetNumber}
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }} className="flex-1">
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
@@ -360,19 +360,19 @@ export default function AroundTheClockPage() {
         );
       } else if (segmentRule === 'trebles_only') {
         return (
-          <div className="grid grid-cols-2 gap-4">
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+          <div className="flex gap-4">
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
               <Button
                 onClick={() => handleDart('T', targetNumber)}
-                className="h-20 text-2xl font-black bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white shadow-lg shadow-teal-500/25 border-2 border-teal-400/50"
+                className="h-24 w-full text-3xl font-black bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white shadow-lg shadow-teal-500/25 border-2 border-teal-400/50"
               >
                 T{targetNumber}
               </Button>
             </motion.div>
-            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+            <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }} className="flex-1">
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
@@ -380,13 +380,13 @@ export default function AroundTheClockPage() {
           </div>
         );
       } else {
-        // increase_by_segment - show all options
+        // increase_by_segment - show all options in 2x2 grid but larger
         return (
           <div className="grid grid-cols-2 gap-4">
             <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
               <Button
                 onClick={() => handleDart('S', targetNumber)}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
               >
                 S{targetNumber}
               </Button>
@@ -394,7 +394,7 @@ export default function AroundTheClockPage() {
             <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
               <Button
                 onClick={() => handleDart('D', targetNumber)}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
               >
                 D{targetNumber}
               </Button>
@@ -402,7 +402,7 @@ export default function AroundTheClockPage() {
             <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
               <Button
                 onClick={() => handleDart('T', targetNumber)}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white shadow-lg shadow-teal-500/25 border-2 border-teal-400/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white shadow-lg shadow-teal-500/25 border-2 border-teal-400/50"
               >
                 T{targetNumber}
               </Button>
@@ -410,7 +410,7 @@ export default function AroundTheClockPage() {
             <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
               <Button
                 onClick={() => handleDart('MISS')}
-                className="h-20 text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
+                className="h-24 w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
               >
                 Miss
               </Button>
