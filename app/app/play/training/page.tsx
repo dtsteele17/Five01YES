@@ -10,7 +10,7 @@ import { useTraining } from '@/lib/context/TrainingContext';
 import { useTrainingStats } from '@/lib/hooks/useTrainingStats';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   Target,
   Flame,
@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -44,13 +44,13 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 100,
       damping: 15,
     },
@@ -229,11 +229,15 @@ function DartBotConfigCard() {
 
   const handleStart = () => {
     const selectedLevel = botLevels.find(l => l.level === botLevel);
+    const bestOfString = bestOf === 1 ? 'best-of-1' : bestOf === 3 ? 'best-of-3' : bestOf === 5 ? 'best-of-5' : 'best-of-7';
+    const difficultyLevel = selectedLevel?.label.toLowerCase().replace(' ', '') as 'novice' | 'beginner' | 'casual' | 'intermediate' | 'advanced' | 'elite' | 'pro' | 'worldClass';
     setConfig({
       mode: gameMode === 301 ? '301' : '501',
+      botDifficulty: difficultyLevel || 'intermediate',
       botAverage: selectedLevel?.avg || 55,
-      bestOf: bestOf,
+      bestOf: bestOfString,
       doubleOut: true,
+      atcOpponent: 'bot',
     });
     router.push('/app/play/training/501');
   };
