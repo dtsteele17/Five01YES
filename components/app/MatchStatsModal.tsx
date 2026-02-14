@@ -44,6 +44,15 @@ interface MatchHistoryData {
   visits_140_plus: number | null;
   visits_180: number | null;
   played_at: string;
+  // Opponent stats (stored in user's row by fn_update_player_match_stats)
+  opponent_three_dart_avg: number | null;
+  opponent_first9_avg: number | null;
+  opponent_highest_checkout: number | null;
+  opponent_checkout_percentage: number | null;
+  opponent_darts_thrown: number | null;
+  opponent_visits_100_plus: number | null;
+  opponent_visits_140_plus: number | null;
+  opponent_visits_180: number | null;
   // For DartBot matches
   metadata?: {
     bot_stats?: {
@@ -154,9 +163,9 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
       
       setUserProfile(userProf || { username: 'You' });
 
-      // If there's an opponent, try to fetch their data
+      // If there's an opponent, get their stats
       if (userMatchData.opponent_id) {
-        // Fetch opponent's match history entry (their perspective of the same match)
+        // First try to fetch opponent's match history entry (their perspective)
         const { data: opponentMatchData } = await supabase
           .from('match_history')
           .select('*')
@@ -165,6 +174,7 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
           .maybeSingle();
 
         if (opponentMatchData) {
+          // Use opponent's own match history row
           setOpponentStats({
             three_dart_average: opponentMatchData.three_dart_avg || 0,
             first_9_dart_avg: opponentMatchData.first9_avg || 0,
@@ -179,6 +189,23 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
             legs_lost: opponentMatchData.legs_lost || 0,
             darts_thrown: opponentMatchData.darts_thrown || 0,
             total_score: opponentMatchData.total_score || 0,
+          });
+        } else {
+          // Fall back to opponent stats stored in user's row (from fn_update_player_match_stats)
+          setOpponentStats({
+            three_dart_average: userMatchData.opponent_three_dart_avg || 0,
+            first_9_dart_avg: userMatchData.opponent_first9_avg || 0,
+            highest_checkout: userMatchData.opponent_highest_checkout || 0,
+            checkout_percentage: userMatchData.opponent_checkout_percentage || 0,
+            checkout_hits: 0, // Not stored in opponent_* columns
+            checkout_attempts: 0, // Not stored in opponent_* columns
+            count_100_plus: userMatchData.opponent_visits_100_plus || 0,
+            count_140_plus: userMatchData.opponent_visits_140_plus || 0,
+            count_180: userMatchData.opponent_visits_180 || 0,
+            legs_won: userMatchData.legs_lost || 0, // Opponent won what user lost
+            legs_lost: userMatchData.legs_won || 0,
+            darts_thrown: userMatchData.opponent_darts_thrown || 0,
+            total_score: 0, // Not stored in opponent_* columns
           });
         }
 
