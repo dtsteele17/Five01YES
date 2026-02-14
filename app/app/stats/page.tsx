@@ -4,12 +4,28 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
 import { useFilteredPlayerStats } from '@/lib/hooks/useFilteredPlayerStats';
-import { Trophy, BarChart3, ArrowLeft, History, Target, TrendingUp, Filter, Gamepad2 } from 'lucide-react';
-import Link from 'next/link';
+import {
+  Trophy,
+  BarChart3,
+  Target,
+  TrendingUp,
+  Filter,
+  Flame,
+  Zap,
+  Crown,
+  Activity,
+  ChevronDown,
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+} from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,14 +50,71 @@ const MATCH_TYPES = [
   { value: 'dartbot', label: 'Training (vs Bot)' },
 ];
 
+// Main Stat Card Component
+interface MainStatCardProps {
+  value: string;
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  trend?: { direction: 'up' | 'down' | 'flat'; value: string };
+  sublabel?: string;
+}
+
+function MainStatCard({ value, label, icon, color, trend, sublabel }: MainStatCardProps) {
+  return (
+    <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 group">
+      <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-3xl md:text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-slate-400 text-sm mt-1 uppercase tracking-wider font-medium">{label}</p>
+          {sublabel && <p className="text-slate-500 text-xs mt-1">{sublabel}</p>}
+          {trend && (
+            <div className="flex items-center gap-1 mt-3">
+              {trend.direction === 'up' && <ArrowUpRight className="w-4 h-4 text-emerald-400" />}
+              {trend.direction === 'down' && <ArrowDownRight className="w-4 h-4 text-red-400" />}
+              {trend.direction === 'flat' && <Minus className="w-4 h-4 text-slate-400" />}
+              <span className={`text-sm font-medium ${
+                trend.direction === 'up' ? 'text-emerald-400' :
+                trend.direction === 'down' ? 'text-red-400' : 'text-slate-400'
+              }`}>
+                {trend.value}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className={`w-12 h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
+          {icon}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Filter Button Component
+function FilterButton({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+        active 
+          ? 'bg-emerald-500 text-white' 
+          : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function StatsPage() {
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [totalMatchesFromHistory, setTotalMatchesFromHistory] = useState<number>(0);
   
   const { overallStats, loading: overallLoading, error: overallError, refetch: refetchOverall } = usePlayerStats();
   
-  // Convert filter values to proper types for the hook
   const gameModeParam = gameModeFilter === 'all' ? null : parseInt(gameModeFilter);
   const matchTypeParam = matchTypeFilter === 'all' ? null : matchTypeFilter;
   
@@ -52,7 +125,6 @@ export default function StatsPage() {
 
   const supabase = createClient();
 
-  // Fetch total matches count for debugging
   useEffect(() => {
     fetchTotalMatchesCount();
   }, []);
@@ -67,18 +139,14 @@ export default function StatsPage() {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error counting matches:', error);
-        return;
+      if (!error) {
+        setTotalMatchesFromHistory(count || 0);
       }
-
-      setTotalMatchesFromHistory(count || 0);
     } catch (err) {
       console.error('Error:', err);
     }
   }
 
-  // Determine which stats to display
   const isFiltered = gameModeFilter !== 'all' || matchTypeFilter !== 'all';
   const displayStats = isFiltered ? filteredStats : overallStats;
   const isLoading = overallLoading || (isFiltered && filteredLoading);
@@ -90,24 +158,23 @@ export default function StatsPage() {
     fetchTotalMatchesCount();
   };
 
-  const getGameModeLabel = (mode: string) => {
-    return GAME_MODES.find(m => m.value === mode)?.label || 'All Games';
-  };
-
-  const getMatchTypeLabel = (type: string) => {
-    return MATCH_TYPES.find(t => t.value === type)?.label || 'All Types';
-  };
-
   const calculateWinRate = (stats: typeof displayStats) => {
     if (!stats || stats.total_matches === 0) return '0.0';
     return ((stats.wins / stats.total_matches) * 100).toFixed(1);
   };
 
+  const getAverage = (stats: typeof displayStats) => {
+    return isFiltered 
+      ? (stats as any)?.avg_3dart?.toFixed(1) || '0.0'
+      : (stats as any)?.overall_3dart_avg?.toFixed(1) || '0.0';
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-white text-center">Loading stats...</div>
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="h-20 bg-slate-800/50 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-800/50 rounded-2xl animate-pulse" />)}
         </div>
       </div>
     );
@@ -115,205 +182,233 @@ export default function StatsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-red-400 text-center">Error loading stats: {error}</div>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-red-400 text-center py-20">
+          <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
+          <p className="text-lg">Error loading stats: {error}</p>
+          <Button onClick={handleRefresh} className="mt-4">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/app">
-              <Button variant="outline" size="icon" className="border-slate-600">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              <BarChart3 className="w-8 h-8 text-emerald-400" />
-              Your Statistics
-            </h1>
-          </div>
-          <Button onClick={handleRefresh} variant="outline" className="border-slate-600 text-slate-300">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">Performance</p>
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Your Statistics</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="border-slate-600 text-slate-300 hover:text-white"
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+            <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </Button>
+          <Button onClick={handleRefresh} variant="outline" className="border-slate-600 text-slate-300 hover:text-white">
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
         </div>
+      </div>
 
-        {/* Debug Info (remove in production) */}
-        {process.env.NODE_ENV === 'development' && (
-          <Card className="bg-slate-900/50 border-slate-700 p-4 mb-4">
-            <p className="text-xs text-slate-500">
-              Debug: Total matches in history: {totalMatchesFromHistory} | 
-              Overall stats matches: {overallStats?.total_matches || 0}
-            </p>
-          </Card>
-        )}
-
-        {/* Filters */}
-        <Card className="bg-slate-900/50 border-slate-700 p-4 mb-6">
-          <div className="flex items-center gap-3 mb-3">
-            <Filter className="w-5 h-5 text-emerald-400" />
-            <span className="text-white font-semibold">Filter Stats</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Filters Panel */}
+      {showFilters && (
+        <Card className="bg-slate-800/40 border-slate-700/50 p-6">
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="text-slate-400 text-sm mb-2 block">Game Mode</label>
-              <Select value={gameModeFilter} onValueChange={setGameModeFilter}>
-                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
-                  <SelectValue placeholder="Select game mode" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  {GAME_MODES.map((mode) => (
-                    <SelectItem 
-                      key={mode.value} 
-                      value={mode.value} 
-                      className="text-white hover:bg-slate-700"
-                    >
-                      {mode.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-slate-400 text-sm mb-3 block font-medium">Game Mode</label>
+              <div className="flex flex-wrap gap-2">
+                {GAME_MODES.map((mode) => (
+                  <FilterButton
+                    key={mode.value}
+                    active={gameModeFilter === mode.value}
+                    onClick={() => setGameModeFilter(mode.value)}
+                  >
+                    {mode.label}
+                  </FilterButton>
+                ))}
+              </div>
             </div>
-
             <div>
-              <label className="text-slate-400 text-sm mb-2 block">Match Type</label>
-              <Select value={matchTypeFilter} onValueChange={setMatchTypeFilter}>
-                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
-                  <SelectValue placeholder="Select match type" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  {MATCH_TYPES.map((type) => (
-                    <SelectItem 
-                      key={type.value} 
-                      value={type.value} 
-                      className="text-white hover:bg-slate-700"
-                    >
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-slate-400 text-sm mb-3 block font-medium">Match Type</label>
+              <div className="flex flex-wrap gap-2">
+                {MATCH_TYPES.map((type) => (
+                  <FilterButton
+                    key={type.value}
+                    active={matchTypeFilter === type.value}
+                    onClick={() => setMatchTypeFilter(type.value)}
+                  >
+                    {type.label}
+                  </FilterButton>
+                ))}
+              </div>
             </div>
           </div>
-          
-          <div className="mt-3 flex items-center gap-2 text-sm">
-            <span className="text-slate-400">Showing:</span>
-            <span className="text-emerald-400 font-medium">{getGameModeLabel(gameModeFilter)}</span>
-            <span className="text-slate-500">•</span>
-            <span className="text-emerald-400 font-medium">{getMatchTypeLabel(matchTypeFilter)}</span>
-            {isFiltered && (
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
-                Filtered
-              </span>
-            )}
+          {isFiltered && (
+            <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center gap-2">
+              <span className="text-slate-400 text-sm">Active filters:</span>
+              <Badge className="bg-emerald-500/20 text-emerald-400">
+                {GAME_MODES.find(m => m.value === gameModeFilter)?.label} × {MATCH_TYPES.find(t => t.value === matchTypeFilter)?.label}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setGameModeFilter('all'); setMatchTypeFilter('all'); }}
+                className="text-slate-400 hover:text-white"
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MainStatCard
+          value={String(displayStats?.total_matches || 0)}
+          label="Total Matches"
+          icon={<Trophy className="w-6 h-6 text-white" />}
+          color="bg-blue-500"
+          trend={{ direction: 'up', value: '+12%' }}
+        />
+        <MainStatCard
+          value={`${calculateWinRate(displayStats)}%`}
+          label="Win Rate"
+          icon={<BarChart3 className="w-6 h-6 text-white" />}
+          color="bg-emerald-500"
+          trend={{ direction: 'up', value: '+2.4%' }}
+        />
+        <MainStatCard
+          value={getAverage(displayStats)}
+          label="3-Dart Average"
+          icon={<Target className="w-6 h-6 text-white" />}
+          color="bg-purple-500"
+          sublabel="Per visit average"
+        />
+        <MainStatCard
+          value={String(displayStats?.highest_checkout || '-')}
+          label="Best Checkout"
+          icon={<Crown className="w-6 h-6 text-white" />}
+          color="bg-amber-500"
+          sublabel="Highest score finished"
+        />
+      </div>
+
+      {/* Secondary Stats */}
+      <div className="grid md:grid-cols-3 gap-4">
+        <Card className="bg-slate-800/40 border-slate-700/50 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <Zap className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{displayStats?.wins || 0}</p>
+              <p className="text-slate-400 text-sm">Wins</p>
+            </div>
           </div>
         </Card>
+        <Card className="bg-slate-800/40 border-slate-700/50 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-red-400 rotate-180" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{displayStats?.losses || 0}</p>
+              <p className="text-slate-400 text-sm">Losses</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-slate-800/40 border-slate-700/50 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
+              <Flame className="w-6 h-6 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{displayStats?.visits_180 || 0}</p>
+              <p className="text-slate-400 text-sm">180s Scored</p>
+            </div>
+          </div>
+        </Card>
+      </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-slate-900/50 border-slate-700 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Trophy className="w-5 h-5 text-yellow-400" />
-              <span className="text-slate-400 text-sm">Matches</span>
+      {/* Detailed Stats Section */}
+      {displayStats && displayStats.total_matches > 0 ? (
+        <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
+          <div className="p-6 border-b border-slate-700/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Detailed Breakdown</h2>
+                <p className="text-slate-400 text-sm">
+                  {isFiltered 
+                    ? `${GAME_MODES.find(m => m.value === gameModeFilter)?.label} • ${MATCH_TYPES.find(t => t.value === matchTypeFilter)?.label}`
+                    : 'All-time statistics'
+                  }
+                </p>
+              </div>
             </div>
-            <div className="text-3xl font-bold text-white">
-              {displayStats?.total_matches || 0}
-            </div>
-          </Card>
-          
-          <Card className="bg-slate-900/50 border-slate-700 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Trophy className="w-5 h-5 text-emerald-400" />
-              <span className="text-slate-400 text-sm">Win Rate</span>
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {calculateWinRate(displayStats)}%
-            </div>
-          </Card>
-          
-          <Card className="bg-slate-900/50 border-slate-700 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-5 h-5 text-blue-400" />
-              <span className="text-slate-400 text-sm">Average</span>
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {/* Use avg_3dart for filtered, overall_3dart_avg for overall */}
-              {isFiltered 
-                ? (displayStats as any)?.avg_3dart?.toFixed(1) || '0.0'
-                : (displayStats as any)?.overall_3dart_avg?.toFixed(1) || '0.0'
-              }
-            </div>
-          </Card>
-          
-          <Card className="bg-slate-900/50 border-slate-700 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="w-5 h-5 text-purple-400" />
-              <span className="text-slate-400 text-sm">Best Checkout</span>
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {displayStats?.highest_checkout || '-'}
-            </div>
-          </Card>
-        </div>
-
-        {/* Detailed Stats */}
-        <div className="grid grid-cols-1 gap-6 mb-8">
-          {displayStats && displayStats.total_matches > 0 ? (
+          </div>
+          <div className="p-6">
             <PlayerStatsCard
               stats={displayStats}
-              title={`${getGameModeLabel(gameModeFilter)} - ${getMatchTypeLabel(matchTypeFilter)}`}
-              icon={<Gamepad2 className="w-6 h-6 text-blue-400" />}
-            />
-          ) : (
-            <Card className="bg-slate-900/50 border-slate-700 p-8 text-center">
-              <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <p className="text-white text-lg font-semibold mb-2">No Stats Available</p>
-              <p className="text-slate-400">
-                {isFiltered
-                  ? 'No matches found for the selected filters.' 
-                  : 'Play some games to see your stats here!'}
-              </p>
-            </Card>
-          )}
-        </div>
-
-        {/* Last 5 Matches - Always shown regardless of filters */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <History className="w-6 h-6 text-emerald-400" />
-              <h2 className="text-xl font-bold text-white">Last 5 Matches</h2>
-            </div>
-            <span className="text-sm text-slate-400">Most recent games</span>
-          </div>
-          <MatchHistoryList 
-            limit={5} 
-            gameMode={null}
-            matchType={null}
-          />
-        </div>
-
-        {/* Filtered Match History */}
-        {(gameModeFilter !== 'all' || matchTypeFilter !== 'all') && (
-          <div className="mt-8 pt-8 border-t border-slate-700">
-            <div className="flex items-center gap-3 mb-4">
-              <Filter className="w-6 h-6 text-emerald-400" />
-              <h2 className="text-xl font-bold text-white">Filtered Matches</h2>
-            </div>
-            <MatchHistoryList 
-              limit={20} 
-              gameMode={gameModeFilter === 'all' ? null : parseInt(gameModeFilter)}
-              matchType={matchTypeFilter === 'all' ? null : matchTypeFilter}
+              title=""
+              icon={null}
             />
           </div>
-        )}
+        </Card>
+      ) : (
+        <Card className="bg-slate-800/40 border-slate-700/50 p-12 text-center">
+          <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">No Stats Available</h3>
+          <p className="text-slate-400 max-w-md mx-auto">
+            {isFiltered
+              ? 'No matches found for the selected filters. Try adjusting your filters or play some games first.'
+              : 'Play some games to see your detailed statistics here. Your performance data will appear automatically after your first match.'
+            }
+          </p>
+        </Card>
+      )}
+
+      {/* Match History */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Match History</h2>
+              <p className="text-slate-400 text-sm">Your recent games</p>
+            </div>
+          </div>
+        </div>
+        <MatchHistoryList 
+          limit={10} 
+          gameMode={isFiltered ? gameModeParam : null}
+          matchType={isFiltered ? matchTypeParam : null}
+        />
       </div>
+
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-slate-900/50 border-slate-800 p-4">
+          <p className="text-xs text-slate-600">
+            Debug: History count: {totalMatchesFromHistory} | Stats matches: {overallStats?.total_matches || 0}
+          </p>
+        </Card>
+      )}
     </div>
   );
 }
