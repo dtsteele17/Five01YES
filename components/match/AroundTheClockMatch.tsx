@@ -840,7 +840,7 @@ export function AroundTheClockMatch({
               End Match
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertContent>
+        </AlertDialogContent>
       </AlertDialog>
     </div>
   );
