@@ -15,9 +15,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp, Zap, Crosshair, CheckCircle2, Clock } from 'lucide-react';
+import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp, Zap, Crosshair, CheckCircle2, Clock, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { calculateCheckoutXP, CHECKOUT_XP_TIERS } from '@/lib/training/xpSystem';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DartHit {
@@ -58,6 +59,8 @@ function FinishTrainingContent() {
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [successfulCheckouts, setSuccessfulCheckouts] = useState(0);
   const [finishesHit, setFinishesHit] = useState<number[]>([]);
+  const [sessionXP, setSessionXP] = useState(0);
+  const [lastCheckoutXP, setLastCheckoutXP] = useState(0);
 
   useEffect(() => {
     if (!sessionId) {
@@ -427,12 +430,38 @@ function FinishTrainingContent() {
   const endAttempt = async (result: 'Success' | 'Fail' | 'Bust', darts: DartHit[]) => {
     // Update stats
     setTotalAttempts(totalAttempts + 1);
+    
+    // Calculate visit total
+    const visitTotal = darts.reduce((sum, dart) => sum + dart.value, 0);
+
+    // Calculate XP for successful checkout
+    let checkoutXP = 0;
+    if (result === 'Success' && currentTarget) {
+      checkoutXP = calculateCheckoutXP(currentTarget);
+      setSessionXP(prev => prev + checkoutXP);
+      setLastCheckoutXP(checkoutXP);
+      
+      // Get tier description
+      const tier = CHECKOUT_XP_TIERS.find(t => currentTarget <= t.max);
+      
+      // Show XP toast with tier info
+      toast.success(
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+            <Star className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white">+{checkoutXP} XP</p>
+            <p className="text-xs text-slate-300">Checkout {currentTarget} ({tier?.description})</p>
+          </div>
+        </div>,
+        { duration: 3000 }
+      );
+    }
+    
     if (result === 'Success') {
       setSuccessfulCheckouts(successfulCheckouts + 1);
     }
-
-    // Calculate visit total
-    const visitTotal = darts.reduce((sum, dart) => sum + dart.value, 0);
 
     // Add to history (newest first)
     setHistory([
@@ -452,7 +481,6 @@ function FinishTrainingContent() {
     }
 
     if (result === 'Success') {
-      toast.success('Checkout complete!');
       await getNewTarget();
     } else if (result === 'Bust') {
       toast.error('Bust!');
@@ -502,13 +530,13 @@ function FinishTrainingContent() {
   }
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-2 overflow-hidden">
-      <div className="h-full w-full flex flex-col gap-2">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+      <div className="max-w-4xl mx-auto flex flex-col gap-4">
           {/* Animated Header */}
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between shrink-0"
+            className="flex items-center justify-between shrink-0 relative"
           >
             <Button
               variant="ghost"
@@ -526,6 +554,20 @@ function FinishTrainingContent() {
               </h1>
               <p className="text-slate-400 text-xs mt-0.5">Practice your checkouts</p>
             </div>
+            
+            {/* Session XP Badge */}
+            {sessionXP > 0 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute right-20 top-4"
+              >
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-3 py-1.5">
+                  <Star className="w-4 h-4 mr-1" />
+                  {sessionXP} XP
+                </Badge>
+              </motion.div>
+            )}
             <Button
               variant="outline"
               onClick={handleNewNumber}
@@ -896,6 +938,17 @@ function FinishTrainingContent() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4 py-4"
           >
+            {/* Total XP Earned */}
+            <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-6 text-center">
+              <div className="text-amber-300 text-sm font-bold uppercase tracking-wider mb-2">
+                Total XP Earned
+              </div>
+              <div className="text-5xl font-black text-white flex items-center justify-center gap-2">
+                <Star className="w-8 h-8 text-amber-400" />
+                {sessionXP}
+              </div>
+            </div>
+
             {/* Total Darts */}
             <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center">
               <div className="text-emerald-300 text-sm font-bold uppercase tracking-wider mb-2">

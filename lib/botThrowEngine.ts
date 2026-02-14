@@ -1057,49 +1057,49 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
       currentRemaining = remaining; // Reset to original
     }
 
+    // CRITICAL FIX: If we busted, STOP throwing remaining darts
+    // In real darts, once you bust, your turn is over immediately
+    if (bustState) {
+      console.log(`[DartBot❌] BUST on dart ${i + 1}! ${bustState.reason} | Stopping visit.`);
+      break; // Exit the loop - no more darts this visit
+    }
+
     // CRITICAL: Always replan after each dart based on ACTUAL remaining score
     // This ensures the bot adapts to where the dart actually landed
     const dartsLeft = 2 - i;
 
     if (dartsLeft > 0) {
-      if (bustState) {
-        // Already busted - just continue with original targets for visual purposes
-        // (in real darts you'd still throw but the score doesn't count)
-        plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
-        plannedTargetIndex = 0; // Reset to start of new plan
-      } else {
-        // Check if we're now on a checkout
-        const canNowCheckout = doubleOut && isValidCheckoutScore(currentRemaining);
-        if (canNowCheckout) {
-          const newRoute = findBestCheckoutRoute(currentRemaining, dartsLeft);
-          if (newRoute) {
-            plannedTargets = newRoute;
-            plannedTargetIndex = 0; // Reset to start of new plan
-            wasCheckoutAttempt = true;
-            if (debug) console.log(`[DartBot] Replanning on ${currentRemaining} with ${dartsLeft} darts:`, newRoute);
-          } else {
-            // No checkout route found with remaining darts - try to set up for next turn
-            // BUT still commit to trying to finish if we're close
-            if (currentRemaining <= 60) {
-              // Still try to set up a good checkout position
-              plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
-              plannedTargetIndex = 0;
-            } else {
-              // Too far out, score big
-              plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
-              plannedTargetIndex = 0;
-            }
-          }
-        } else {
-          // Not on checkout - replan normally
-          plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
+      // Check if we're now on a checkout
+      const canNowCheckout = doubleOut && isValidCheckoutScore(currentRemaining);
+      if (canNowCheckout) {
+        const newRoute = findBestCheckoutRoute(currentRemaining, dartsLeft);
+        if (newRoute) {
+          plannedTargets = newRoute;
           plannedTargetIndex = 0; // Reset to start of new plan
+          wasCheckoutAttempt = true;
+          if (debug) console.log(`[DartBot] Replanning on ${currentRemaining} with ${dartsLeft} darts:`, newRoute);
+        } else {
+          // No checkout route found with remaining darts - try to set up for next turn
+          // BUT still commit to trying to finish if we're close
+          if (currentRemaining <= 60) {
+            // Still try to set up a good checkout position
+            plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
+            plannedTargetIndex = 0;
+          } else {
+            // Too far out, score big
+            plannedTargets = planBotTurn(currentRemaining, doubleOut, level, dartsLeft);
+            plannedTargetIndex = 0;
+          }
         }
+      } else {
+        // Not on checkout - replan normally
+        plannedTargets = replanAfterDart(currentRemaining, doubleOut, level, dartsLeft);
+        plannedTargetIndex = 0; // Reset to start of new plan
       }
     }
   }
   
-  // If we busted, return bust result with darts thrown before busting
+  // If we busted, return bust result with darts thrown (counts as full visit - 3 darts)
   if (bustState) {
     console.log(`[DartBot❌] BUST! ${remaining}->${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
     return {

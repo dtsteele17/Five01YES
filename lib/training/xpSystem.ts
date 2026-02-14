@@ -74,6 +74,41 @@ interface PerformanceThresholds {
   excellent: number; // At this: +50% bonus
 }
 
+// Checkout XP tiers - higher checkouts = more XP
+// These are per-checkout rewards for endless training modes
+export const CHECKOUT_XP_TIERS = [
+  { max: 20, baseXP: 5, description: 'Easy' },      // 2-20: Simple doubles
+  { max: 40, baseXP: 10, description: 'Moderate' }, // 21-40: Standard finishes
+  { max: 60, baseXP: 15, description: 'Tricky' },   // 41-60: Requires setup
+  { max: 80, baseXP: 25, description: 'Hard' },     // 61-80: Multi-dart checkouts
+  { max: 100, baseXP: 40, description: 'Expert' },  // 81-100: Advanced checkouts
+  { max: 120, baseXP: 60, description: 'Master' },  // 101-120: High level
+  { max: 140, baseXP: 80, description: 'Elite' },   // 121-140: Very difficult
+  { max: 170, baseXP: 100, description: 'Legendary' }, // 141-170: Maximum reward
+];
+
+/**
+ * Calculate XP for a single checkout in endless training modes
+ * Higher checkouts = exponentially more XP
+ */
+export function calculateCheckoutXP(checkoutValue: number): number {
+  if (checkoutValue <= 0 || checkoutValue > 170) return 0;
+  
+  for (const tier of CHECKOUT_XP_TIERS) {
+    if (checkoutValue <= tier.max) {
+      // Add a small bonus based on exact value within tier
+      const tierMin = tier.max === 20 ? 2 : CHECKOUT_XP_TIERS.find(t => t.max === tier.max - 20)?.max || 0;
+      const tierRange = tier.max - tierMin;
+      const valueProgress = (checkoutValue - tierMin) / tierRange;
+      const bonus = Math.floor(valueProgress * 5); // Up to 5 bonus XP for higher end of tier
+      
+      return tier.baseXP + bonus;
+    }
+  }
+  
+  return 5; // Fallback
+}
+
 // Mode-specific performance metrics
 const PERFORMANCE_THRESHOLDS: Partial<Record<TrainingMode, PerformanceThresholds>> = {
   // Around the Clock - based on darts used (lower is better)
