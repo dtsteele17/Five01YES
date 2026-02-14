@@ -14,8 +14,25 @@ export interface RecentMatch {
   legs_won: number;
   legs_lost: number;
   three_dart_avg: number;
+  first9_avg: number;
+  highest_checkout: number;
+  checkout_percentage: number;
+  darts_thrown: number;
+  total_score: number;
+  visits_100_plus: number;
+  visits_140_plus: number;
+  visits_180: number;
   played_at: string;
   bot_level?: number;
+  // Opponent stats
+  opponent_three_dart_avg?: number;
+  opponent_first9_avg?: number;
+  opponent_highest_checkout?: number;
+  opponent_checkout_percentage?: number;
+  opponent_darts_thrown?: number;
+  opponent_visits_100_plus?: number;
+  opponent_visits_140_plus?: number;
+  opponent_visits_180?: number;
 }
 
 export function useRecentMatches(limit: number = 3) {
@@ -52,7 +69,7 @@ export function useRecentMatches(limit: number = 3) {
           return;
         }
 
-        // Transform data to include opponent username
+        // Transform data to include opponent username and all stats
         const transformedData: RecentMatch[] = (historyData || []).map((match: any) => ({
           id: match.id,
           room_id: match.room_id,
@@ -65,9 +82,26 @@ export function useRecentMatches(limit: number = 3) {
           result: match.result,
           legs_won: match.legs_won,
           legs_lost: match.legs_lost,
-          three_dart_avg: match.three_dart_avg,
+          three_dart_avg: match.three_dart_avg || 0,
+          first9_avg: match.first9_avg || 0,
+          highest_checkout: match.highest_checkout || 0,
+          checkout_percentage: match.checkout_percentage || 0,
+          darts_thrown: match.darts_thrown || 0,
+          total_score: match.total_score || 0,
+          visits_100_plus: match.visits_100_plus || 0,
+          visits_140_plus: match.visits_140_plus || 0,
+          visits_180: match.visits_180 || 0,
           played_at: match.played_at,
           bot_level: match.bot_level,
+          // Opponent stats
+          opponent_three_dart_avg: match.opponent_three_dart_avg,
+          opponent_first9_avg: match.opponent_first9_avg,
+          opponent_highest_checkout: match.opponent_highest_checkout,
+          opponent_checkout_percentage: match.opponent_checkout_percentage,
+          opponent_darts_thrown: match.opponent_darts_thrown,
+          opponent_visits_100_plus: match.opponent_visits_100_plus,
+          opponent_visits_140_plus: match.opponent_visits_140_plus,
+          opponent_visits_180: match.opponent_visits_180,
         }));
 
         setMatches(transformedData);

@@ -42,6 +42,7 @@ interface DashboardStats {
   winRate: number;
   currentStreak: number;
   bestStreak: number;
+  avg: number;
   ranked3DartAvg: number;
 }
 
@@ -171,12 +172,13 @@ export default function DashboardPage() {
             winRate: dashboardStats.win_rate || 0,
             currentStreak: dashboardStats.current_streak || 0,
             bestStreak: dashboardStats.best_streak || 0,
+            avg: dashboardStats.avg || 0,
             ranked3DartAvg: 0,
           });
         } else {
           setStats({
             totalMatches: 0, wins: 0, losses: 0, winRate: 0,
-            currentStreak: 0, bestStreak: 0, ranked3DartAvg: 0,
+            currentStreak: 0, bestStreak: 0, avg: 0, ranked3DartAvg: 0,
           });
         }
 
@@ -388,45 +390,40 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Hero Stats Grid - 4 columns: Matches, Win Rate, Win Streak, Online Friends */}
+          {/* Hero Stats Grid - 4 columns: Matches, Win Rate, 3-Dart Avg, Win Streak */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
             <HeroStat 
               value={stats?.totalMatches || 0} 
               label="Matches Played" 
               icon={Gamepad2} 
               color="bg-blue-500"
-              trend="+3 this week"
             />
             <HeroStat 
               value={`${stats?.winRate || 0}%`} 
               label="Win Rate" 
               icon={BarChart3} 
               color="bg-emerald-500"
-              trend="+2.4%"
             />
             <HeroStat 
-              value={stats?.currentStreak || 0} 
-              label="Win Streak" 
-              icon={Flame} 
-              color="bg-orange-500"
+              value={stats?.avg?.toFixed(1) || '0.0'} 
+              label="3-Dart Average" 
+              icon={Target} 
+              color="bg-purple-500"
             />
             
-            {/* Online Friends - replaces Ranked Points */}
+            {/* Win Streak with Best Streak */}
             <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
-              <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-4xl font-black text-white tracking-tight">{onlineFriends.length}</p>
-                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Friends Online</p>
-                  {onlineFriends.length > 0 && (
-                    <p className="text-xs text-purple-400 mt-2">
-                      {onlineFriends.slice(0, 2).map(f => f.username).join(', ')}
-                      {onlineFriends.length > 2 && ` +${onlineFriends.length - 2} more`}
-                    </p>
-                  )}
+                  <p className="text-4xl font-black text-white tracking-tight">{stats?.currentStreak || 0}</p>
+                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Win Streak</p>
+                  <p className="text-xs text-orange-400 mt-2">
+                    Best: {stats?.bestStreak || 0}
+                  </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-purple-500 bg-opacity-20 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 rounded-xl bg-orange-500 bg-opacity-20 flex items-center justify-center">
+                  <Flame className="w-6 h-6 text-white" />
                 </div>
               </div>
             </div>

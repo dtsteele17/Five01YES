@@ -285,10 +285,10 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
 
   const getResultBgColor = (result: string) => {
     switch (result) {
-      case 'win': return 'bg-emerald-500/20';
-      case 'loss': return 'bg-rose-500/20';
-      case 'draw': return 'bg-amber-500/20';
-      default: return 'bg-slate-500/20';
+      case 'win': return 'bg-emerald-500/20 border-emerald-500/30';
+      case 'loss': return 'bg-rose-500/20 border-rose-500/30';
+      case 'draw': return 'bg-amber-500/20 border-amber-500/30';
+      default: return 'bg-slate-500/20 border-slate-500/30';
     }
   };
 
@@ -302,7 +302,7 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
   };
 
   const getModeLabel = (match: any) => {
-    if (match.match_format === 'dartbot') return 'Training';
+    if (match.match_format === 'dartbot') return 'vs DartBot';
     if (match.match_format === 'quick') return 'Quick Match';
     if (match.match_format === 'ranked') return 'Ranked';
     if (match.match_format === 'private') return 'Private';
@@ -311,23 +311,36 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
 
   const timeAgo = formatDistanceToNow(new Date(match.played_at), { addSuffix: true });
 
+  // Format opponent name
+  const opponentName = match.match_format === 'dartbot' 
+    ? `DartBot (${match.bot_level || '?'})`
+    : match.opponent_username || 'Unknown';
+
   return (
     <div 
       onClick={onClick}
-      className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors cursor-pointer"
+      className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600/50"
     >
       <div className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getResultBgColor(match.result)}`}>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${getResultBgColor(match.result)}`}>
           {getResultIcon(match.result)}
         </div>
         <div>
-          <p className="text-white font-medium">{getModeLabel(match)}</p>
-          <p className="text-slate-400 text-sm">vs {match.opponent_username}</p>
+          <p className="text-white font-bold">vs {opponentName}</p>
+          <p className="text-slate-400 text-sm">{getModeLabel(match)} • {match.game_mode || 501}</p>
         </div>
       </div>
       <div className="text-right">
-        <p className={`font-bold capitalize ${getResultColor(match.result)}`}>{match.result}</p>
-        <p className="text-slate-500 text-sm">{match.legs_won}-{match.legs_lost} • {timeAgo}</p>
+        <div className="flex items-center gap-2 justify-end">
+          <span className={`text-2xl font-black ${match.result === 'win' ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {match.legs_won}
+          </span>
+          <span className="text-slate-500">-</span>
+          <span className="text-2xl font-black text-white">
+            {match.legs_lost}
+          </span>
+        </div>
+        <p className="text-slate-500 text-xs">{timeAgo} • {match.three_dart_avg?.toFixed(1) || '-'} avg</p>
       </div>
     </div>
   );
