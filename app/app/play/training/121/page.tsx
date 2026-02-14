@@ -13,8 +13,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star } from 'lucide-react';
 import { toast } from 'sonner';
+import { calculateCheckoutXP } from '@/lib/training/xpSystem';
+import { createClient } from '@/lib/supabase/client';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -51,6 +53,7 @@ export default function OneTwentyOnePage() {
   const [successfulCheckouts, setSuccessfulCheckouts] = useState(0);
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
+  const [sessionXP, setSessionXP] = useState(0);
 
   // Input mode
   const [inputMode, setInputMode] = useState<'dart_pad' | 'typed'>('dart_pad');
@@ -617,6 +620,19 @@ export default function OneTwentyOnePage() {
             </DialogHeader>
 
             <div className="space-y-6 py-4">
+              {/* XP Earned */}
+              {sessionXP > 0 && (
+                <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg p-6 text-center border border-amber-500/30">
+                  <div className="text-amber-300 text-sm uppercase tracking-wider mb-2">
+                    XP Earned This Session
+                  </div>
+                  <div className="text-5xl font-bold text-white flex items-center justify-center gap-2">
+                    <Star className="w-8 h-8 text-amber-400" />
+                    {sessionXP}
+                  </div>
+                </div>
+              )}
+
               {/* Main Stats */}
               <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-lg p-6 text-center border border-orange-500/30">
                 <div className="text-orange-300 text-sm uppercase tracking-wider mb-2">

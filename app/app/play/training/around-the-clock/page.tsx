@@ -13,11 +13,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Target, Trophy, ArrowLeft, RotateCcw, Clock, Zap, Crosshair, CheckCircle2 } from 'lucide-react';
+import { Target, Trophy, ArrowLeft, RotateCcw, Clock, Zap, Crosshair, CheckCircle2, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import {
   initSession,
   applyThrow,
@@ -47,6 +49,7 @@ export default function AroundTheClockPage() {
   const [state, setState] = useState<ATCSessionState | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [startTime, setStartTime] = useState<number>(Date.now());
+  const [xpResult, setXpResult] = useState<XPResult | null>(null);
 
   // Visit tracking
   const [currentVisit, setCurrentVisit] = useState<DartThrow[]>([]);
@@ -168,24 +171,41 @@ export default function AroundTheClockPage() {
 
     // Check if session completed
     if (newState.isComplete && state.sessionId) {
-      completeSession(state.sessionId);
+      completeSession(state.sessionId, newState.totalThrows);
     }
   };
 
-  const completeSession = async (sessionId: string) => {
+  const completeSession = async (sessionId: string, totalThrows: number) => {
     const supabase = createClient();
 
     try {
+      // Calculate XP based on darts thrown (fewer = more XP)
+      // Performance metric: 100 - totalThrows (so fewer throws = higher score)
+      const xp = calculateXP('around-the-clock-singles', 100 - totalThrows, { completed: true });
+      setXpResult(xp);
+
       const { error } = await supabase
         .from('training_sessions')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
+          xp_earned: xp.totalXP,
+          session_data: {
+            total_throws: totalThrows,
+            xp_breakdown: {
+              base: xp.baseXP,
+              performance: xp.performanceBonus,
+              completion: xp.completionBonus,
+              total: xp.totalXP,
+            },
+          },
         })
         .eq('id', sessionId);
 
       if (error) {
         console.error('[ATC] Failed to complete session:', error);
+      } else {
+        toast.success(`Session complete! +${xp.totalXP} XP earned!`);
       }
     } catch (err) {
       console.error('[ATC] Exception completing session:', err);
@@ -201,6 +221,7 @@ export default function AroundTheClockPage() {
     setCurrentVisit([]);
     setVisitHistory([]);
     setDartNumberInVisit(1);
+    setXpResult(null);
     createTrainingSession(config.atcSettings);
   };
 
@@ -696,6 +717,9 @@ export default function AroundTheClockPage() {
             transition={{ delay: 0.2 }}
             className="space-y-6"
           >
+            {/* XP Reward Display */}
+            {xpResult && <XPRewardDisplay xpResult={xpResult} />}
+
             {/* Time Display */}
             <div className="text-center py-4 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl border border-white/10">
               <div className="text-5xl font-black text-white mb-2">

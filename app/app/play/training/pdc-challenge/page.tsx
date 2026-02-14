@@ -6,9 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, ArrowLeft, Trophy, RotateCcw, Zap } from 'lucide-react';
+import { Target, ArrowLeft, Trophy, RotateCcw, Zap, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 
 interface DartThrow {
   score: number;
@@ -53,6 +55,7 @@ export default function PDCChallengePage() {
   const [currentDarts, setCurrentDarts] = useState<DartThrow[]>([]);
   const [completedRounds, setCompletedRounds] = useState<RoundResult[]>([]);
   const [saving, setSaving] = useState(false);
+  const [xpResult, setXpResult] = useState<XPResult | null>(null);
 
   const currentTarget = PDC_TARGETS[currentRound - 1];
 
@@ -139,6 +142,10 @@ export default function PDCChallengePage() {
         return;
       }
 
+      // Calculate XP based on total score
+      const xp = calculateXP('pdc-challenge', totalScore, { completed: true });
+      setXpResult(xp);
+
       await supabase
         .from('training_stats')
         .insert({
@@ -146,14 +153,21 @@ export default function PDCChallengePage() {
           game_type: 'pdc_challenge',
           score: totalScore,
           completed: true,
+          xp_earned: xp.totalXP,
           session_data: {
             rounds,
             totalHits,
+            xp_breakdown: {
+              base: xp.baseXP,
+              performance: xp.performanceBonus,
+              completion: xp.completionBonus,
+              total: xp.totalXP,
+            },
             date: new Date().toISOString(),
           },
         });
 
-      toast.success('PDC Challenge completed! Score saved.');
+      toast.success(`PDC Challenge completed! +${xp.totalXP} XP earned!`);
     } catch (error) {
       console.error('Failed to save game:', error);
       toast.error('Failed to save score');
@@ -167,6 +181,7 @@ export default function PDCChallengePage() {
     setCurrentRound(1);
     setCurrentDarts([]);
     setCompletedRounds([]);
+    setXpResult(null);
   };
 
   const getTotalScore = () => completedRounds.reduce((sum, r) => sum + r.score, 0);
@@ -200,6 +215,9 @@ export default function PDCChallengePage() {
               <h1 className="text-3xl font-bold text-white mb-2">PDC Challenge Complete!</h1>
               <p className={`text-xl ${grade.color} font-semibold`}>{grade.label}</p>
             </div>
+
+            {/* XP Reward Display */}
+            {xpResult && <XPRewardDisplay xpResult={xpResult} />}
 
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800 rounded-xl p-4 text-center">

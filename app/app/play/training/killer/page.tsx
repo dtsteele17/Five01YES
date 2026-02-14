@@ -12,9 +12,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Trophy, Skull, Heart, Target, RotateCcw, Zap, Undo2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Skull, Heart, Target, RotateCcw, Zap, Undo2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTraining } from '@/lib/context/TrainingContext';
+import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
+import { createClient } from '@/lib/supabase/client';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -80,6 +83,11 @@ export default function KillerTrainingPage() {
     userEliminated: false, 
     botEliminated: false 
   });
+
+  // XP and Supabase
+  const [xpResult, setXpResult] = useState<XPResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const supabase = createClient();
 
   const getAvailableNumbers = useCallback(() => {
     const takenNumbers = players
@@ -278,6 +286,15 @@ export default function KillerTrainingPage() {
     
     if (isMatchOver) {
       setGamePhase('match-over');
+      
+      // Calculate XP based on rounds won (performance metric = user rounds won)
+      const won = newRoundScore.user > newRoundScore.bot;
+      const xp = calculateXP('killer', newRoundScore.user, { completed: true, won });
+      setXpResult(xp);
+      
+      // Save stats to Supabase
+      saveTrainingStats(newRoundScore, updatedResults, xp);
+      
       setShowStatsModal(true); // Only show modal at match end
     } else {
       // Auto-start next round after a short delay
@@ -304,6 +321,41 @@ export default function KillerTrainingPage() {
     setBotKills(0);
     setTurnCount(0);
     setShowStatsModal(false);
+  };
+
+  // Save training stats to Supabase
+  const saveTrainingStats = async (
+    finalScore: { user: number; bot: number },
+    results: RoundResult[],
+    xp: XPResult
+  ) => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const totalKills = results.reduce((sum, r) => sum + r.userKills, 0);
+      const totalTurns = results.reduce((sum, r) => sum + r.turns, 0);
+      const won = finalScore.user > finalScore.bot;
+
+      await supabase.from('training_stats').insert({
+        user_id: user.id,
+        mode: 'killer',
+        rounds_played: results.length,
+        rounds_won: finalScore.user,
+        rounds_lost: finalScore.bot,
+        kills: totalKills,
+        total_turns: totalTurns,
+        won,
+        xp_earned: xp.totalXP,
+        performance_rating: xp.performanceRating,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error saving training stats:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Bot AI
@@ -423,6 +475,7 @@ export default function KillerTrainingPage() {
     setCurrentRound(1);
     setRoundResults([]);
     setRoundScore({ user: 0, bot: 0 });
+    setXpResult(null);
   };
 
   const handleReturn = () => {
@@ -780,6 +833,11 @@ export default function KillerTrainingPage() {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* XP Reward Display */}
+              {gamePhase === 'match-over' && xpResult && (
+                <XPRewardDisplay xpResult={xpResult} />
               )}
 
               {/* Round Score Display (during match) */}

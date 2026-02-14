@@ -84,18 +84,70 @@ const itemVariants: Variants = {
   },
 };
 
-// Helper functions
-function getTierGradient(tierName: string): string {
+// Tier color definitions - matching dashboard exactly
+const TIER_COLORS = {
+  bronze: {
+    gradient: 'from-orange-700 via-amber-700 to-orange-800',
+    bg: 'bg-orange-500',
+    accent: 'bg-orange-500',
+    text: 'text-orange-400',
+    border: 'border-orange-500/30',
+    glow: 'shadow-orange-500/20',
+  },
+  silver: {
+    gradient: 'from-gray-400 via-slate-400 to-gray-500',
+    bg: 'bg-gray-400',
+    accent: 'bg-gray-400',
+    text: 'text-gray-300',
+    border: 'border-gray-400/30',
+    glow: 'shadow-gray-400/20',
+  },
+  gold: {
+    gradient: 'from-yellow-400 via-amber-400 to-yellow-500',
+    bg: 'bg-amber-500',
+    accent: 'bg-amber-500',
+    text: 'text-amber-400',
+    border: 'border-amber-500/30',
+    glow: 'shadow-amber-500/20',
+  },
+  platinum: {
+    gradient: 'from-cyan-400 via-blue-400 to-cyan-500',
+    bg: 'bg-cyan-500',
+    accent: 'bg-cyan-500',
+    text: 'text-cyan-400',
+    border: 'border-cyan-500/30',
+    glow: 'shadow-cyan-500/20',
+  },
+  champion: {
+    gradient: 'from-red-500 via-rose-500 to-red-600',
+    bg: 'bg-red-500',
+    accent: 'bg-red-500',
+    text: 'text-red-400',
+    border: 'border-red-500/30',
+    glow: 'shadow-red-500/20',
+  },
+  grandchampion: {
+    gradient: 'from-purple-500 via-violet-500 to-purple-600',
+    bg: 'bg-purple-500',
+    accent: 'bg-purple-500',
+    text: 'text-purple-400',
+    border: 'border-purple-500/30',
+    glow: 'shadow-purple-500/20',
+  },
+};
+
+// Get tier key from tier name
+function getTierKey(tierName: string): keyof typeof TIER_COLORS {
   const name = tierName.toLowerCase();
-  if (name.includes('grand champion')) return 'from-purple-500 to-pink-500';
-  if (name.includes('champion')) return 'from-amber-500 to-orange-500';
-  if (name.includes('platinum')) return 'from-cyan-500 to-blue-500';
-  if (name.includes('gold')) return 'from-yellow-500 to-amber-500';
-  if (name.includes('silver')) return 'from-gray-400 to-gray-500';
-  if (name.includes('bronze')) return 'from-orange-700 to-amber-600';
-  return 'from-gray-600 to-gray-700';
+  if (name.includes('grand')) return 'grandchampion';
+  if (name.includes('champion')) return 'champion';
+  if (name.includes('platinum')) return 'platinum';
+  if (name.includes('gold')) return 'gold';
+  if (name.includes('silver')) return 'silver';
+  return 'bronze';
 }
 
+// Get tier icon based on tier name
 function getTierIcon(tierName: string) {
   const name = tierName.toLowerCase();
   if (name.includes('grand champion')) return <Crown className="w-8 h-8 text-white" />;
@@ -103,11 +155,10 @@ function getTierIcon(tierName: string) {
   if (name.includes('platinum')) return <Award className="w-8 h-8 text-white" />;
   if (name.includes('gold')) return <Star className="w-8 h-8 text-white" />;
   if (name.includes('silver')) return <Shield className="w-8 h-8 text-white" />;
-  if (name.includes('bronze')) return <Target className="w-8 h-8 text-white" />;
-  return <Shield className="w-8 h-8 text-white" />;
+  return <Target className="w-8 h-8 text-white" />;
 }
 
-// Current Rank Card - Dashboard Style (Single Tile)
+// Current Rank Card - EXACTLY like Dashboard
 function CurrentRankCard({ 
   playerState, 
   season,
@@ -119,26 +170,28 @@ function CurrentRankCard({
   nextTier: RankedTier | null;
   rpToNext: number;
 }) {
-  const currentTierGradient = getTierGradient(playerState.division_name);
+  const tierKey = getTierKey(playerState.division_name);
+  const colors = TIER_COLORS[tierKey];
   const winRate = playerState.games_played > 0 
     ? Math.round((playerState.wins / playerState.games_played) * 100) 
     : 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6">
-      <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${currentTierGradient}`} />
+    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all`}>
+      {/* Colored left border */}
+      <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${colors.gradient}`} />
       
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        {/* Rank Info */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        {/* Rank Info - Left Side */}
         <div className="flex items-center gap-4">
-          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${currentTierGradient} flex items-center justify-center shadow-xl`}>
+          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-xl`}>
             {getTierIcon(playerState.division_name)}
           </div>
           <div>
             <p className="text-slate-400 text-sm">{season?.name || 'Current Season'}</p>
             <h2 className="text-3xl font-black text-white">{playerState.division_name}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+              <Badge className={`${colors.bg}/20 ${colors.text} ${colors.border}`}>
                 <Trophy className="w-3 h-3 mr-1" />
                 {playerState.rp} RP
               </Badge>
@@ -151,25 +204,25 @@ function CurrentRankCard({
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="flex items-center gap-8">
+        {/* Stats Row - Center */}
+        <div className="flex items-center gap-6">
           <div className="text-center">
             <p className="text-3xl font-black text-white">{playerState.wins}-{playerState.losses}</p>
             <p className="text-xs text-slate-400 uppercase tracking-wider">Record</p>
           </div>
-          <div className="w-px h-12 bg-slate-700" />
+          <div className="w-px h-10 bg-slate-700" />
           <div className="text-center">
             <p className="text-3xl font-black text-emerald-400">{winRate}%</p>
             <p className="text-xs text-slate-400 uppercase tracking-wider">Win Rate</p>
           </div>
-          <div className="w-px h-12 bg-slate-700" />
+          <div className="w-px h-10 bg-slate-700" />
           <div className="text-center">
             <p className="text-3xl font-black text-blue-400">{playerState.games_played}</p>
             <p className="text-xs text-slate-400 uppercase tracking-wider">Games</p>
           </div>
         </div>
 
-        {/* Progress to Next */}
+        {/* Progress to Next - Right Side */}
         {nextTier && (
           <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50 min-w-[200px]">
             <div className="flex items-center justify-between text-sm mb-2">
@@ -185,6 +238,42 @@ function CurrentRankCard({
             <p className="text-xs text-slate-500 mt-2">{rpToNext} RP needed</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Tier Page Header - Shows the tier color theme
+function TierPageHeader({ tierName }: { tierName: string }) {
+  const tierKey = getTierKey(tierName);
+  const colors = TIER_COLORS[tierKey];
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.gradient} p-6 mb-6 shadow-lg ${colors.glow}`}>
+      <div className="absolute inset-0 bg-black/20" />
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            {getTierIcon(tierName)}
+          </div>
+          <div>
+            <p className="text-white/80 text-sm font-semibold uppercase tracking-wider">
+              Rank Progression
+            </p>
+            <h2 className="text-3xl font-black text-white">
+              {tierName}
+            </h2>
+          </div>
+        </div>
+        <div className={`px-4 py-2 rounded-xl bg-white/20 backdrop-blur-sm`}>
+          <span className="text-white font-bold text-sm">
+            {tierKey === 'grandchampion' ? 'Elite Tier' : 
+             tierKey === 'champion' ? 'Pro Tier' : 
+             tierKey === 'platinum' ? 'Advanced Tier' : 
+             tierKey === 'gold' ? 'Intermediate Tier' : 
+             tierKey === 'silver' ? 'Developing Tier' : 'Entry Tier'}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -218,7 +307,8 @@ function TierNavigator({
   );
 
   const currentTierName = currentTiers[0]?.tier_name || '';
-  const tierGradient = getTierGradient(currentTierName);
+  const tierKey = getTierKey(currentTierName);
+  const colors = TIER_COLORS[tierKey];
 
   const goToPrevious = () => {
     setCurrentPage(prev => Math.max(0, prev - 1));
@@ -230,45 +320,35 @@ function TierNavigator({
 
   return (
     <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl" />
+      <div className={`absolute top-0 right-0 w-96 h-96 ${colors.bg}/5 rounded-full blur-3xl`} />
       
       <div className="relative">
-        {/* Header with Navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${tierGradient} flex items-center justify-center shadow-lg`}>
-              {getTierIcon(currentTierName)}
-            </div>
-            <div>
-              <p className="text-amber-400 text-sm font-semibold uppercase tracking-wider">
-                Rank Progression
-              </p>
-              <h2 className="text-xl font-bold text-white">
-                {currentTierName}
-              </h2>
-            </div>
+        {/* Tier Header with colors */}
+        <TierPageHeader tierName={currentTierName} />
+        
+        {/* Navigation Arrows */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <button
+            onClick={goToPrevious}
+            disabled={currentPage === 0}
+            className={`w-12 h-12 rounded-xl bg-slate-800 border ${colors.border} flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all`}
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          
+          <div className={`px-6 py-3 rounded-xl bg-slate-800/80 border ${colors.border}`}>
+            <span className={`${colors.text} font-bold text-lg`}>
+              Page {currentPage + 1} of {totalPages}
+            </span>
           </div>
           
-          {/* Navigation Arrows */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={goToPrevious}
-              disabled={currentPage === 0}
-              className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="text-slate-400 text-sm min-w-[60px] text-center">
-              {currentPage + 1} / {totalPages}
-            </span>
-            <button
-              onClick={goToNext}
-              disabled={currentPage === totalPages - 1}
-              className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={goToNext}
+            disabled={currentPage === totalPages - 1}
+            className={`w-12 h-12 rounded-xl bg-slate-800 border ${colors.border} flex items-center justify-center text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all`}
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
         </div>
 
         {/* Rank Cards Grid */}
@@ -282,38 +362,46 @@ function TierNavigator({
               return (
                 <motion.div
                   key={tier.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ delay: index * 0.05 }}
-                  className={`relative overflow-hidden rounded-xl p-4 border ${
+                  className={`relative overflow-hidden rounded-xl p-5 border-2 transition-all ${
                     isCurrent 
-                      ? 'bg-slate-800/80 border-amber-500/50 shadow-lg shadow-amber-500/10' 
-                      : 'bg-slate-900/50 border-slate-700/50'
+                      ? `bg-gradient-to-br ${colors.gradient} border-white/50 shadow-xl ${colors.glow}` 
+                      : 'bg-slate-900/80 border-slate-700/50 hover:border-slate-600'
                   }`}
                 >
                   {isCurrent && (
                     <div className="absolute top-0 right-0">
-                      <Badge className="bg-amber-500 text-white text-[10px] rounded-tl-none rounded-br-none rounded-tr-lg rounded-bl-lg px-2 py-0.5">
-                        You
+                      <Badge className="bg-white text-slate-900 text-xs font-bold rounded-tl-none rounded-br-none rounded-tr-lg rounded-bl-lg px-3 py-1">
+                        YOU
                       </Badge>
                     </div>
                   )}
                   
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+                  <p className={`text-xs uppercase tracking-wider mb-2 font-semibold ${
+                    isCurrent ? 'text-white/80' : colors.text
+                  }`}>
                     {tier.tier_name}
                   </p>
-                  <h3 className="text-lg font-bold text-white mb-2">{tier.division_name}</h3>
+                  <h3 className={`text-xl font-black mb-3 ${isCurrent ? 'text-white' : 'text-white'}`}>
+                    {tier.division_name}
+                  </h3>
                   
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">Min</span>
-                      <span className="text-white font-medium">{tier.rp_min} RP</span>
+                  <div className="space-y-2">
+                    <div className={`flex items-center justify-between text-sm px-2 py-1 rounded-lg ${
+                      isCurrent ? 'bg-white/10' : 'bg-slate-800'
+                    }`}>
+                      <span className={isCurrent ? 'text-white/70' : 'text-slate-500'}>Entry</span>
+                      <span className={`font-bold ${isCurrent ? 'text-white' : 'text-slate-300'}`}>{tier.rp_min} RP</span>
                     </div>
                     {tier.rp_max < 999999 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-500">Max</span>
-                        <span className="text-white font-medium">{tier.rp_max} RP</span>
+                      <div className={`flex items-center justify-between text-sm px-2 py-1 rounded-lg ${
+                        isCurrent ? 'bg-white/10' : 'bg-slate-800'
+                      }`}>
+                        <span className={isCurrent ? 'text-white/70' : 'text-slate-500'}>Max</span>
+                        <span className={`font-bold ${isCurrent ? 'text-white' : 'text-slate-300'}`}>{tier.rp_max} RP</span>
                       </div>
                     )}
                   </div>
@@ -325,17 +413,23 @@ function TierNavigator({
 
         {/* Progress Dots */}
         <div className="flex items-center justify-center gap-2 mt-6">
-          {Array.from({ length: totalPages }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentPage(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentPage 
-                  ? 'w-6 bg-amber-500' 
-                  : 'bg-slate-600 hover:bg-slate-500'
-              }`}
-            />
-          ))}
+          {Array.from({ length: totalPages }).map((_, index) => {
+            const pageTierName = tiers[index * ranksPerPage]?.tier_name || '';
+            const pageTierKey = getTierKey(pageTierName);
+            const pageColors = TIER_COLORS[pageTierKey];
+            
+            return (
+              <button
+                key={index}
+                onClick={() => setCurrentPage(index)}
+                className={`h-2 rounded-full transition-all ${
+                  index === currentPage 
+                    ? `w-8 ${pageColors.bg}` 
+                    : 'w-2 bg-slate-600 hover:bg-slate-500'
+                }`}
+              />
+            );
+          })}
         </div>
       </div>
     </Card>
@@ -596,7 +690,7 @@ export default function RankedDivisionsPage() {
         )}
       </div>
 
-      {/* Single Current Rank Card */}
+      {/* Single Current Rank Card - Dashboard Style */}
       {playerState && (
         <motion.div variants={itemVariants}>
           <CurrentRankCard 
@@ -608,7 +702,7 @@ export default function RankedDivisionsPage() {
         </motion.div>
       )}
 
-      {/* Tier Navigator - 4 ranks at a time with arrows */}
+      {/* Tier Navigator - 4 ranks at a time with colored pages */}
       <motion.div variants={itemVariants}>
         <TierNavigator 
           tiers={tiers} 
