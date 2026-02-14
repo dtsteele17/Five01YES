@@ -1089,7 +1089,22 @@ export default function DartbotMatchPage() {
     else if (type === 'double') { value = number * 2; dartType = 'double'; multiplier = 2; label = `D${number}`; isDouble = true; }
     else { value = number * 3; dartType = 'triple'; multiplier = 3; label = `T${number}`; }
     const dart: Dart = { type: dartType, number, value, multiplier, label, score: value, is_double: isDouble };
-    setCurrentVisit([...currentVisit, dart]);
+    const newDarts = [...currentVisit, dart];
+    setCurrentVisit(newDarts);
+    
+    // Auto-submit after 3 darts
+    if (newDarts.length === 3) {
+      setTimeout(() => {
+        // Validate and submit
+        const visitTotal = newDarts.reduce((sum, d) => sum + d.value, 0);
+        const validation = validateCheckout(visitTotal, newDarts);
+        if (validation.isBust) {
+          submitScore(0, true, newDarts, false);
+        } else {
+          submitScore(visitTotal, false, newDarts, validation.isCheckout);
+        }
+      }, 300);
+    }
   };
 
   const handleClearVisit = () => setCurrentVisit([]);

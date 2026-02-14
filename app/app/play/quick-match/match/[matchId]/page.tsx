@@ -2200,7 +2200,25 @@ export default function QuickMatchRoomPage() {
       label = `T${number}`;
     }
 
-    setCurrentVisit([...currentVisit, { type: dartType, number, value, multiplier, label, score: value, is_double: isDouble }]);
+    const newDarts = [...currentVisit, { type: dartType, number, value, multiplier, label, score: value, is_double: isDouble }];
+    setCurrentVisit(newDarts);
+    
+    // Auto-submit after 3 darts
+    if (newDarts.length === 3) {
+      setTimeout(() => {
+        // Check turn is still valid
+        if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer || submitting) return;
+        
+        const visitTotal = newDarts.reduce((sum, dart) => sum + dart.value, 0);
+        const validation = validateCheckout(visitTotal, newDarts, false);
+        
+        if (validation.isBust) {
+          submitScore(0, true, newDarts, false, false);
+        } else {
+          submitScore(visitTotal, false, newDarts, validation.isCheckout, false);
+        }
+      }, 300);
+    }
   };
 
   const handleClearVisit = () => setCurrentVisit([]);

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, ArrowLeft, Medal, Play } from 'lucide-react';
+import { Target, ArrowLeft, Trophy, RotateCcw, Zap, Medal } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -25,21 +25,22 @@ interface RoundResult {
   total: number;
 }
 
-const TARGETS = [
-  { round: 1, target: '10', description: '10s', type: 'single' },
-  { round: 2, target: '11', description: '11s', type: 'single' },
-  { round: 3, target: '12', description: '12s', type: 'single' },
-  { round: 4, target: '13', description: '13s', type: 'single' },
-  { round: 5, target: '14', description: '14s', type: 'single' },
-  { round: 6, target: '15', description: '15s', type: 'single' },
-  { round: 7, target: 'T10', description: 'T10s', type: 'triple' },
-  { round: 8, target: 'T11', description: 'T11s', type: 'triple' },
-  { round: 9, target: 'T12', description: 'T12s', type: 'triple' },
-  { round: 10, target: 'T13', description: 'T13s', type: 'triple' },
-  { round: 11, target: 'T14', description: 'T14s', type: 'triple' },
-  { round: 12, target: 'T15', description: 'T15s', type: 'triple' },
-  { round: 13, target: 'D', description: 'Doubles (any)', type: 'double' },
-  { round: 14, target: 'DB', description: 'Double Bull', type: 'bull' },
+// JDC Challenge targets - 14 rounds
+const JDC_TARGETS = [
+  { round: 1, target: '10', description: '10s', type: 'single', number: 10 },
+  { round: 2, target: '11', description: '11s', type: 'single', number: 11 },
+  { round: 3, target: '12', description: '12s', type: 'single', number: 12 },
+  { round: 4, target: '13', description: '13s', type: 'single', number: 13 },
+  { round: 5, target: '14', description: '14s', type: 'single', number: 14 },
+  { round: 6, target: '15', description: '15s', type: 'single', number: 15 },
+  { round: 7, target: 'T10', description: 'T10s', type: 'triple', number: 10 },
+  { round: 8, target: 'T11', description: 'T11s', type: 'triple', number: 11 },
+  { round: 9, target: 'T12', description: 'T12s', type: 'triple', number: 12 },
+  { round: 10, target: 'T13', description: 'T13s', type: 'triple', number: 13 },
+  { round: 11, target: 'T14', description: 'T14s', type: 'triple', number: 14 },
+  { round: 12, target: 'T15', description: 'T15s', type: 'triple', number: 15 },
+  { round: 13, target: 'D', description: 'Any Double', type: 'double', number: null },
+  { round: 14, target: 'DB', description: 'Double Bull', type: 'bull', number: null },
 ];
 
 export default function JDCChallengePage() {
@@ -50,7 +51,7 @@ export default function JDCChallengePage() {
   const [completedRounds, setCompletedRounds] = useState<RoundResult[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const currentTarget = TARGETS[currentRound - 1];
+  const currentTarget = JDC_TARGETS[currentRound - 1];
 
   const handleDartInput = (score: number, multiplier: 1 | 2 | 3, segment: string) => {
     if (currentDarts.length >= 3 || gameState === 'completed') return;
@@ -65,18 +66,18 @@ export default function JDCChallengePage() {
     }
   };
 
-  const isTargetHit = (dart: DartThrow, target: string): boolean => {
-    switch (target) {
-      case 'D':
+  const isTargetHit = (dart: DartThrow, targetType: string, targetNumber: number | null): boolean => {
+    switch (targetType) {
+      case 'double':
         return dart.multiplier === 2;
-      case 'DB':
-        return dart.segment === 'BULL';
+      case 'bull':
+        return dart.segment === 'BULL' || dart.score === 50;
+      case 'triple':
+        return dart.score === targetNumber && dart.multiplier === 3;
+      case 'single':
+        return dart.score === targetNumber;
       default:
-        if (target.startsWith('T')) {
-          const num = parseInt(target.replace('T', ''));
-          return dart.score === num && dart.multiplier === 3;
-        }
-        return dart.score === parseInt(target);
+        return false;
     }
   };
 
@@ -85,13 +86,13 @@ export default function JDCChallengePage() {
     let bonus = 0;
 
     darts.forEach(dart => {
-      const isHit = isTargetHit(dart, currentTarget.target);
+      const isHit = isTargetHit(dart, currentTarget.type, currentTarget.number);
       
       if (isHit) {
         score += dart.score * dart.multiplier;
         
-        // Bonus for doubles
-        if (currentTarget.target !== 'DB' && dart.multiplier === 2) {
+        // Bonus for doubles (except double bull round)
+        if (currentTarget.type !== 'bull' && dart.multiplier === 2) {
           bonus += 1;
         }
       }
@@ -110,7 +111,7 @@ export default function JDCChallengePage() {
 
     const newCompletedRounds = [...completedRounds, roundResult];
     const nextRound = currentRound + 1;
-    const isComplete = nextRound > TARGETS.length;
+    const isComplete = nextRound > JDC_TARGETS.length;
 
     setCompletedRounds(newCompletedRounds);
     setCurrentRound(nextRound);
@@ -178,55 +179,187 @@ export default function JDCChallengePage() {
     return { grade: 'Novice', color: 'text-gray-400' };
   };
 
+  // Render scoring buttons based on current round type
+  const renderScoringButtons = () => {
+    const disabled = currentDarts.length >= 3;
+
+    switch (currentTarget.type) {
+      case 'single':
+        // Only show Single button for the target number
+        return (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              onClick={() => handleDartInput(currentTarget.number!, 1, `S${currentTarget.number}`)}
+              disabled={disabled}
+              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
+            >
+              Single {currentTarget.number}
+              <span className="block text-sm text-gray-500">{currentTarget.number}</span>
+            </button>
+            <button
+              onClick={() => handleDartInput(0, 1, 'Miss')}
+              disabled={disabled}
+              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+            >
+              Miss
+              <span className="block text-sm text-gray-600">0</span>
+            </button>
+          </div>
+        );
+
+      case 'triple':
+        // Only show Treble button for the target number
+        return (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              onClick={() => handleDartInput(currentTarget.number!, 3, `T${currentTarget.number}`)}
+              disabled={disabled}
+              className="h-20 rounded-xl bg-amber-900/30 border border-amber-500/50 hover:bg-amber-900/50 disabled:opacity-50 font-bold text-lg text-white"
+            >
+              Treble {currentTarget.number}
+              <span className="block text-sm text-amber-400">{currentTarget.number! * 3}</span>
+            </button>
+            <button
+              onClick={() => handleDartInput(0, 1, 'Miss')}
+              disabled={disabled}
+              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+            >
+              Miss
+              <span className="block text-sm text-gray-600">0</span>
+            </button>
+          </div>
+        );
+
+      case 'double':
+        // Show all doubles D1-D20
+        return (
+          <>
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                <button
+                  key={`D${num}`}
+                  onClick={() => handleDartInput(num, 2, `D${num}`)}
+                  disabled={disabled}
+                  className="h-14 rounded-xl bg-emerald-900/30 border border-emerald-500/50 hover:bg-emerald-900/50 disabled:opacity-50 font-bold text-white"
+                >
+                  D{num}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => handleDartInput(0, 1, 'Miss')}
+              disabled={disabled}
+              className="w-full h-16 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+            >
+              Miss
+              <span className="block text-sm text-gray-600">0</span>
+            </button>
+          </>
+        );
+
+      case 'bull':
+        // Show Outer Bull and Bullseye
+        return (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              onClick={() => handleDartInput(25, 1, '25')}
+              disabled={disabled}
+              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
+            >
+              Outer Bull
+              <span className="block text-sm text-gray-500">25</span>
+            </button>
+            <button
+              onClick={() => handleDartInput(50, 1, 'BULL')}
+              disabled={disabled}
+              className="h-20 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-lg text-white"
+            >
+              Bullseye
+              <span className="block text-sm text-red-400">50</span>
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (gameState === 'completed') {
     const totalScore = getTotalScore();
     const grade = getGrade(totalScore);
 
     return (
       <div className="min-h-screen bg-slate-950">
-        <div className="max-w-md mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto px-4 py-8">
           <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8">
-            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center">
-              <Medal className="w-10 h-10 text-white" />
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <Medal className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">JDC Challenge Complete!</h1>
+              <p className={`text-xl ${grade.color} font-semibold`}>{grade.grade}</p>
             </div>
-            
-            <h2 className="text-2xl font-bold text-white mb-2">JDC Challenge Complete!</h2>
-            
-            <p className={`text-xl font-bold mb-6 ${grade.color}`}>
-              {grade.grade}
-            </p>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-slate-800 rounded-xl p-4">
-                <p className="text-sm text-slate-400">Total Score</p>
-                <p className="text-3xl font-bold text-blue-400">{totalScore}</p>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-slate-800 rounded-xl p-4 text-center">
+                <p className="text-gray-400 text-sm mb-1">Total Score</p>
+                <p className="text-4xl font-bold text-white">{totalScore}</p>
               </div>
-              <div className="bg-slate-800 rounded-xl p-4">
-                <p className="text-sm text-slate-400">Double Bonus</p>
-                <p className="text-2xl font-bold text-green-400">{getTotalBonus()}</p>
+              <div className="bg-slate-800 rounded-xl p-4 text-center">
+                <p className="text-gray-400 text-sm mb-1">Double Bonus</p>
+                <p className="text-4xl font-bold text-emerald-400">{getTotalBonus()}</p>
               </div>
-              <div className="bg-slate-800 rounded-xl p-4">
-                <p className="text-sm text-slate-400">Rounds</p>
-                <p className="text-2xl font-bold text-purple-400">14</p>
+              <div className="bg-slate-800 rounded-xl p-4 text-center">
+                <p className="text-gray-400 text-sm mb-1">Rounds</p>
+                <p className="text-4xl font-bold text-blue-400">14</p>
               </div>
-              <div className="bg-slate-800 rounded-xl p-4">
-                <p className="text-sm text-slate-400">Grade</p>
-                <p className={`text-xl font-bold ${grade.color}`}>{grade.grade}</p>
+              <div className="bg-slate-800 rounded-xl p-4 text-center">
+                <p className="text-gray-400 text-sm mb-1">Grade</p>
+                <p className={`text-2xl font-bold ${grade.color}`}>{grade.grade}</p>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="bg-slate-800/50 rounded-xl p-4 mb-8 max-h-64 overflow-y-auto">
+              <h3 className="text-lg font-semibold text-white mb-4">Round Breakdown</h3>
+              <div className="space-y-2">
+                {completedRounds.map((round) => (
+                  <div key={round.round} className="flex items-center justify-between p-3 bg-slate-800 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500 w-8">R{round.round}</span>
+                      <span className="text-white font-medium">{round.target}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-gray-400">
+                        {round.darts.map(d => d.segment).join(', ')}
+                      </span>
+                      <div className="text-right">
+                        <span className={`font-bold ${round.total > 0 ? 'text-emerald-400' : 'text-gray-500'}`}>
+                          {round.total}
+                        </span>
+                        {round.bonus > 0 && (
+                          <span className="text-xs text-emerald-500 block">+{round.bonus} bonus</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-4">
               <button
                 onClick={resetGame}
                 disabled={saving}
-                className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50"
               >
+                <RotateCcw className="w-5 h-5" />
                 Play Again
               </button>
               <button
                 onClick={() => router.push('/app/play')}
                 disabled={saving}
-                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium disabled:opacity-50"
               >
                 Back to Play
               </button>
@@ -241,7 +374,7 @@ export default function JDCChallengePage() {
     <div className="min-h-screen bg-slate-950">
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -256,169 +389,105 @@ export default function JDCChallengePage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-white">JDC Challenge</h1>
-                  <p className="text-sm text-slate-400">14 rounds of progressive difficulty</p>
+                  <p className="text-sm text-slate-400">Round {currentRound} of {JDC_TARGETS.length}</p>
                 </div>
               </div>
             </div>
-
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-xs text-slate-400">Total Score</p>
-                <p className="text-lg font-bold text-blue-400">{getTotalScore()}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-slate-400">Round</p>
-                <p className="text-lg font-bold text-green-400">{currentRound}/14</p>
+                <p className="text-sm text-gray-400">Score</p>
+                <p className="text-2xl font-bold text-blue-400">{getTotalScore()}</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Panel - Round Info */}
-          <div className="space-y-6">
-            {/* Round Card */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 text-center">
-              <p className="text-sm text-slate-400 mb-2">Round {currentRound} of 14</p>
-              <div className="text-5xl font-bold text-white mb-2">{currentTarget.target}</div>
-              <p className="text-blue-400">{currentTarget.description}</p>
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Current Target Card */}
+        <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-500/30 rounded-2xl p-8 mb-6">
+          <div className="text-center">
+            <p className="text-gray-400 mb-2">Current Target</p>
+            <h2 className="text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
+            <p className="text-blue-400">Target: {currentTarget.target}</p>
+          </div>
+        </div>
 
-              {/* Progress */}
-              <div className="mt-4">
-                <Progress value={(currentRound / 14) * 100} className="h-2" />
-              </div>
-            </div>
+        {/* Progress */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400">Progress</span>
+            <span className="text-sm text-blue-400">{currentRound} / {JDC_TARGETS.length}</span>
+          </div>
+          <Progress value={(currentRound / JDC_TARGETS.length) * 100} className="h-2" />
+        </div>
 
-            {/* Current Throw */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-white">Current Throw</h3>
-                {currentDarts.length > 0 && (
-                  <button
-                    onClick={() => setCurrentDarts([])}
-                    className="text-sm text-red-400 hover:text-red-300"
-                  >
-                    Clear
-                  </button>
+        {/* Darts Display */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {[0, 1, 2].map((i) => {
+            const dart = currentDarts[i];
+            return (
+              <div
+                key={i}
+                className={`h-24 rounded-xl flex flex-col items-center justify-center border-2 ${
+                  dart
+                    ? 'bg-slate-800 border-blue-500'
+                    : 'bg-slate-900 border-slate-700 border-dashed'
+                }`}
+              >
+                {dart ? (
+                  <>
+                    <span className="text-xs text-gray-500">Dart {i + 1}</span>
+                    <span className="text-2xl font-bold text-white">
+                      {dart.segment}
+                    </span>
+                    <span className="text-xs text-blue-400">
+                      {dart.score * dart.multiplier} pts
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-gray-600">{i + 1}</span>
                 )}
               </div>
+            );
+          })}
+        </div>
 
-              {/* Dart Inputs */}
-              <div className="grid grid-cols-3 gap-3">
-                {[0, 1, 2].map((i) => {
-                  const dart = currentDarts[i];
-                  return (
-                    <div
-                      key={i}
-                      className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center ${
-                        dart
-                          ? 'bg-blue-500/10 border-blue-500'
-                          : 'border-slate-700 border-dashed'
-                      }`}
-                    >
-                      {dart ? (
-                        <>
-                          <span className="text-xl font-bold text-white">
-                            {dart.segment}
-                          </span>
-                          <span className="text-sm text-slate-400">
-                            {dart.score * dart.multiplier}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-2xl text-slate-600">{i + 1}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+        {/* Scoring Interface */}
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+          {renderScoringButtons()}
 
-              {/* Submit */}
-              {currentDarts.length === 3 && (
-                <button
-                  onClick={() => submitRound(currentDarts)}
-                  className="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors"
-                >
-                  Submit Round
-                </button>
-              )}
-            </div>
+          {/* Action Buttons */}
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => setCurrentDarts([])}
+              disabled={currentDarts.length === 0}
+              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl font-bold text-white"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => submitRound(currentDarts)}
+              disabled={currentDarts.length === 0}
+              className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-50 rounded-xl font-bold text-white"
+            >
+              Submit Round
+            </button>
           </div>
+        </div>
 
-          {/* Right Panel - Scoring */}
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-            <h3 className="font-semibold text-white mb-4 text-center">
-              Click to Score
-            </h3>
-            
-            <div className="grid grid-cols-5 gap-2">
-              {/* Numbers 10-15 */}
-              {[10, 11, 12, 13, 14, 15].map((num) => (
-                <button
-                  key={num}
-                  onClick={() => handleDartInput(num, 1, `S${num}`)}
-                  disabled={currentDarts.length >= 3}
-                  className="h-14 rounded-lg bg-slate-800 text-white hover:bg-slate-700 font-bold disabled:opacity-50"
-                >
-                  S{num}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-5 gap-2 mt-2">
-              {/* Doubles */}
-              {[...Array(20)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleDartInput(i + 1, 2, `D${i + 1}`)}
-                  disabled={currentDarts.length >= 3}
-                  className="h-14 rounded-lg bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 font-bold disabled:opacity-50"
-                >
-                  D{i + 1}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-5 gap-2 mt-2">
-              {/* Trebles */}
-              {[...Array(20)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleDartInput(i + 1, 3, `T${i + 1}`)}
-                  disabled={currentDarts.length >= 3}
-                  className="h-14 rounded-lg bg-amber-900/30 text-amber-400 hover:bg-amber-900/50 font-bold disabled:opacity-50"
-                >
-                  T{i + 1}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              <button
-                onClick={() => handleDartInput(25, 1, '25')}
-                disabled={currentDarts.length >= 3}
-                className="h-14 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 font-bold disabled:opacity-50"
-              >
-                25
-              </button>
-              <button
-                onClick={() => handleDartInput(50, 1, 'BULL')}
-                disabled={currentDarts.length >= 3}
-                className="h-14 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 font-bold disabled:opacity-50"
-              >
-                BULL
-              </button>
-              <button
-                onClick={() => handleDartInput(0, 1, 'Miss')}
-                disabled={currentDarts.length >= 3}
-                className="h-14 rounded-lg bg-slate-800 text-slate-500 hover:bg-slate-700 font-bold disabled:opacity-50"
-              >
-                Miss
-              </button>
-            </div>
+        {/* Instructions */}
+        <div className="mt-6 bg-slate-900/50 rounded-xl p-4 border border-slate-800">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="w-5 h-5 text-yellow-400" />
+            <h3 className="font-semibold text-white">How to Play</h3>
           </div>
+          <p className="text-gray-400 text-sm">
+            Hit the target shown to score points. For rounds 1-6, hit singles 10-15. 
+            For rounds 7-12, hit trebles 10-15. Round 13: any double. Round 14: Double Bull. 
+            Double bonus points awarded for hitting doubles!
+          </p>
         </div>
       </div>
     </div>
