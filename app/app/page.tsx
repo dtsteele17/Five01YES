@@ -38,6 +38,7 @@ interface DashboardStats {
   winRate: number;
   currentStreak: number;
   bestStreak: number;
+  ranked3DartAvg: number;
 }
 
 interface RecentAchievement {
@@ -120,6 +121,7 @@ export default function DashboardPage() {
   const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
   const [onlineFriends, setOnlineFriends] = useState<OnlineFriend[]>([]);
+  const [ranked3DartAvg, setRanked3DartAvg] = useState<number>(0);
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -155,12 +157,26 @@ export default function DashboardPage() {
             winRate: dashboardStats.win_rate || 0,
             currentStreak: dashboardStats.current_streak || 0,
             bestStreak: dashboardStats.best_streak || 0,
+            ranked3DartAvg: 0,
           });
         } else {
           setStats({
             totalMatches: 0, wins: 0, losses: 0, winRate: 0,
-            currentStreak: 0, bestStreak: 0,
+            currentStreak: 0, bestStreak: 0, ranked3DartAvg: 0,
           });
+        }
+
+        // Fetch ranked 3-dart average from match_history
+        const { data: rankedMatches } = await supabase
+          .from('match_history')
+          .select('avg_3dart')
+          .eq('user_id', profile.id)
+          .eq('match_type', 'ranked')
+          .not('avg_3dart', 'is', null);
+
+        if (rankedMatches && rankedMatches.length > 0) {
+          const avg = rankedMatches.reduce((sum: number, m: any) => sum + (m.avg_3dart || 0), 0) / rankedMatches.length;
+          setRanked3DartAvg(Number(avg.toFixed(1)));
         }
 
         // Get online friends
@@ -411,7 +427,7 @@ export default function DashboardPage() {
           {/* Ranked Status - Taller, aligned with right column */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
             <div className="p-8">
-              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                 {/* Left - Title & Division */}
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl bg-amber-500/20 flex items-center justify-center">
@@ -419,7 +435,6 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-white">Ranked Status</h2>
-                    <p className="text-slate-400">{season?.name || 'Current Season'}</p>
                     {rankedState?.division_name && (
                       <Badge className="mt-2 bg-amber-500/20 text-amber-400 border-amber-500/30">
                         {rankedState.division_name}
@@ -428,27 +443,33 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Middle - RP & Stats */}
-                <div className="flex items-center gap-8">
-                  <div className="text-center px-6 py-4 bg-slate-700/30 rounded-xl">
-                    <p className="text-5xl font-black text-white">{rankedState?.rp || 0}</p>
-                    <p className="text-slate-400 text-sm mt-1">Ranked Points</p>
+                {/* Middle - ELO, Stats Row & 3-Dart Average */}
+                <div className="flex-1 flex flex-col items-center gap-4">
+                  {/* ELO Number */}
+                  <div className="text-center">
+                    <p className="text-6xl font-black text-white">{rankedState?.rp || 0}</p>
+                    <p className="text-slate-400 text-sm mt-1 uppercase tracking-wider">ELO</p>
                   </div>
                   
-                  <div className="flex gap-6">
-                    <div className="text-center px-4 py-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                      <p className="text-2xl font-bold text-emerald-400">{rankedState?.wins || 0}</p>
+                  {/* Wins, Losses, Win Rate Row */}
+                  <div className="flex gap-4">
+                    <div className="text-center px-5 py-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                      <p className="text-xl font-bold text-emerald-400">{rankedState?.wins || 0}</p>
                       <p className="text-slate-400 text-xs">Wins</p>
                     </div>
-                    <div className="text-center px-4 py-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                      <p className="text-2xl font-bold text-red-400">{rankedState?.losses || 0}</p>
+                    <div className="text-center px-5 py-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                      <p className="text-xl font-bold text-red-400">{rankedState?.losses || 0}</p>
                       <p className="text-slate-400 text-xs">Losses</p>
                     </div>
-                    <div className="text-center px-4 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                      <p className="text-2xl font-bold text-blue-400">
+                    <div className="text-center px-5 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                      <p className="text-xl font-bold text-blue-400">
                         {rankedState?.games_played ? Math.round((rankedState.wins / rankedState.games_played) * 100) : 0}%
                       </p>
                       <p className="text-slate-400 text-xs">Win Rate</p>
+                    </div>
+                    <div className="text-center px-5 py-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                      <p className="text-xl font-bold text-purple-400">{ranked3DartAvg}</p>
+                      <p className="text-slate-400 text-xs">3-Dart Avg</p>
                     </div>
                   </div>
                 </div>
