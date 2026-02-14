@@ -232,7 +232,7 @@ function StatsDashboard() {
         loading={loading}
       />
       <StatMiniCard 
-        label="3-Dart Avg" 
+        label="Today's 3-Dart Avg" 
         value={stats.threeDartAverage.toFixed(1)} 
         icon={BarChart3} 
         color="bg-blue-500/20" 

@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTraining } from '@/lib/context/TrainingContext';
-import { useTrainingStats } from '@/lib/hooks/useTrainingStats';
+import { useTrainingStats, TrainingStats } from '@/lib/hooks/useTrainingStats';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -757,6 +757,120 @@ function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   );
 }
 
+// Training Level Badge Component (Top Right)
+function TrainingLevelBadge({ stats, loading }: { stats: TrainingStats; loading: boolean }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.3 }}
+      className="flex items-center gap-4"
+    >
+      <div className="text-right">
+        <p className="text-slate-400 text-sm">Training Level</p>
+        {loading ? (
+          <div className="w-20 h-8 bg-slate-700 rounded animate-pulse mt-1" />
+        ) : (
+          <p className="text-2xl font-bold text-white">Level {stats.level}</p>
+        )}
+      </div>
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-white/10" />
+        <Trophy className="w-8 h-8 text-white relative z-10" />
+      </div>
+    </motion.div>
+  );
+}
+
+// Training Progress Bar Component
+function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="relative overflow-hidden rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
+        <div className="h-24 bg-slate-700/50 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      variants={itemVariants}
+      className="relative overflow-hidden rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6"
+    >
+      {/* Background Effect */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
+      
+      <div className="relative">
+        {/* Header Row */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <Target className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">
+                Training Progress
+              </p>
+              <p className="text-white text-lg font-bold">
+                Level {stats.level} Trainer
+              </p>
+            </div>
+          </div>
+          
+          {/* Session Stats */}
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <p className="text-2xl font-black text-white">{stats.totalSessions}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wider">All Time</p>
+            </div>
+            <div className="w-px h-10 bg-slate-700" />
+            <div className="text-center">
+              <p className="text-2xl font-black text-emerald-400">{stats.todaySessions}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wider">Today</p>
+            </div>
+            <div className="w-px h-10 bg-slate-700" />
+            <div className="text-center">
+              <p className="text-2xl font-black text-amber-400">{stats.xp.toLocaleString()}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wider">Total XP</p>
+            </div>
+          </div>
+        </div>
+
+        {/* XP Progress Bar */}
+        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white">Level {stats.level}</span>
+              <span className="text-slate-500">→</span>
+              <span className="text-sm font-bold text-emerald-400">Level {stats.level + 1}</span>
+            </div>
+            <span className="text-sm text-slate-400">
+              {stats.xpToNextLevel.toLocaleString()} XP to next level
+            </span>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${stats.xpProgress}%` }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 relative"
+            >
+              {/* Shine Effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+            </motion.div>
+          </div>
+          
+          <p className="text-xs text-slate-500 mt-2">
+            Earn XP by completing training sessions. Higher levels require more XP.
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // Main Training Hub Page
 export default function TrainingHubPage() {
   const { stats, loading: statsLoading } = useTrainingStats();
@@ -928,58 +1042,12 @@ export default function TrainingHubPage() {
               </motion.div>
             </div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className="flex items-center gap-4"
-            >
-              <div className="text-right">
-                <p className="text-slate-400 text-sm">Training Level</p>
-                <p className="text-2xl font-bold text-white">Level 12</p>
-              </div>
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-                <Trophy className="w-8 h-8 text-white" />
-              </div>
-            </motion.div>
+            <TrainingLevelBadge stats={stats} loading={statsLoading} />
           </div>
         </div>
 
-        {/* Stats Grid - Real Data */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <QuickStatCard
-            icon={Target}
-            label="Sessions"
-            value={stats.totalSessions.toString()}
-            subtext="Training matches"
-            color="bg-emerald-500/20"
-            loading={statsLoading}
-          />
-          <QuickStatCard
-            icon={Flame}
-            label="Win Streak"
-            value={stats.currentStreak.toString()}
-            subtext="Current streak"
-            color="bg-orange-500/20"
-            loading={statsLoading}
-          />
-          <QuickStatCard
-            icon={BarChart3}
-            label="Avg Score"
-            value={stats.averageScore.toFixed(1)}
-            subtext="3-dart average"
-            color="bg-blue-500/20"
-            loading={statsLoading}
-          />
-          <QuickStatCard
-            icon={Trophy}
-            label="Best Checkout"
-            value={stats.bestCheckout > 0 ? stats.bestCheckout.toString() : '-'}
-            subtext="Personal record"
-            color="bg-amber-500/20"
-            loading={statsLoading}
-          />
-        </div>
+        {/* Training XP Progress Bar */}
+        <TrainingProgressBar stats={stats} loading={statsLoading} />
 
         {/* DartBot Config Card (Large Featured) */}
         <DartBotConfigCard />

@@ -136,6 +136,7 @@ export default function DashboardPage() {
   const [season, setSeason] = useState<Season | null>(null);
   const [onlineFriends, setOnlineFriends] = useState<OnlineFriend[]>([]);
   const [ranked3DartAvg, setRanked3DartAvg] = useState<number>(0);
+  const [overall3DartAvg, setOverall3DartAvg] = useState<number>(0);
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -179,6 +180,17 @@ export default function DashboardPage() {
             totalMatches: 0, wins: 0, losses: 0, winRate: 0,
             currentStreak: 0, bestStreak: 0, avg: 0, ranked3DartAvg: 0,
           });
+        }
+
+        // Fetch all-time 3-dart average from player_stats (same as stats page)
+        const { data: playerStats } = await supabase
+          .from('player_stats')
+          .select('overall_3dart_avg')
+          .eq('user_id', profile.id)
+          .maybeSingle();
+
+        if (playerStats) {
+          setOverall3DartAvg(playerStats.overall_3dart_avg || 0);
         }
 
         // Fetch ranked 3-dart average from match_history
@@ -404,7 +416,7 @@ export default function DashboardPage() {
               color="bg-emerald-500"
             />
             <HeroStat 
-              value={stats?.avg?.toFixed(1) || '0.0'} 
+              value={overall3DartAvg.toFixed(1)} 
               label="3-Dart Average" 
               icon={Target} 
               color="bg-purple-500"
