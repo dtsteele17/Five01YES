@@ -29,6 +29,7 @@ import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, Rota
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
+import { trackScoreAchievement, trackCheckoutAchievement, processMatchEnd } from '@/lib/achievementTracker';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchState } from '@/lib/utils/match-resume';
@@ -1837,6 +1838,27 @@ export default function QuickMatchRoomPage() {
     
     // Save stats to database
     await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, roomData.game_mode);
+    
+    // Track achievements for the winner
+    const winnerStats = isPlayer1Winner ? wStats : lStats;
+    if (currentUserId === winnerId) {
+      processMatchEnd({
+        winnerId,
+        loserId,
+        winnerLegs: isPlayer1Winner ? p1Legs : p2Legs,
+        loserLegs: isPlayer1Winner ? p2Legs : p1Legs,
+        gameMode: roomData.game_mode,
+        matchType: 'quick_match',
+        playerStats: [{
+          playerId: winnerId,
+          average: winnerStats.threeDartAverage,
+          oneEighties: winnerStats.oneEighties,
+          tonPlus: winnerStats.count100Plus + winnerStats.count140Plus,
+          highestCheckout: winnerStats.highestCheckout,
+          checkouts: winnerStats.checkouts,
+        }],
+      }).catch(console.error);
+    }
   }
 
   async function loadMatchData(): Promise<boolean> {
@@ -2697,6 +2719,11 @@ export default function QuickMatchRoomPage() {
 
       console.log('[SUBMIT] RPC success:', data);
 
+      // Track score achievements (180s, 100+, 26s, 69s)
+      if (!isBust && score > 0) {
+        trackScoreAchievement(score, 'quick_match').catch(console.error);
+      }
+
       // Clear local visit state for next turn
       console.log('[SUBMIT] Clearing local visit state');
       setScoreInput('');
@@ -2705,6 +2732,11 @@ export default function QuickMatchRoomPage() {
       if (data.leg_won) {
         console.log('[SUBMIT] Leg won!');
         toast.success('🎯 CHECKOUT! Leg won!');
+        
+        // Track checkout achievements
+        if (!isBust && score > 0) {
+          trackCheckoutAchievement(score).catch(console.error);
+        }
         
         // Check if match was also won - calculate from current legs + this new leg
         const currentP1Legs = room.player1_legs || 0;
@@ -2909,6 +2941,27 @@ export default function QuickMatchRoomPage() {
           const finalWinnerLegs = isPlayer1Winner ? finalP1Legs : finalP2Legs;
           const finalLoserLegs = isPlayer1Winner ? finalP2Legs : finalP1Legs;
           await saveMatchStats(matchId, winnerId, loserId, finalWinnerLegs, finalLoserLegs, room.game_mode);
+          
+          // Track achievements for the winner
+          const winnerStats = isPlayer1Winner ? wStats : lStats;
+          if (currentUserId === winnerId) {
+            processMatchEnd({
+              winnerId,
+              loserId,
+              winnerLegs: finalWinnerLegs,
+              loserLegs: finalLoserLegs,
+              gameMode: room.game_mode,
+              matchType: 'quick_match',
+              playerStats: [{
+                playerId: winnerId,
+                average: winnerStats.threeDartAverage,
+                oneEighties: winnerStats.oneEighties,
+                tonPlus: winnerStats.count100Plus + winnerStats.count140Plus,
+                highestCheckout: winnerStats.highestCheckout,
+                checkouts: winnerStats.checkouts,
+              }],
+            }).catch(console.error);
+          }
           
           // Update room state
           setRoom({

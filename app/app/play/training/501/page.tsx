@@ -22,6 +22,7 @@ import { isBust, getLegsToWin } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
+import { trackScoreAchievement, trackCheckoutAchievement, processMatchEnd } from '@/lib/achievementTracker';
 import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
 import { toast } from 'sonner';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
@@ -685,7 +686,29 @@ export default function DartbotMatchPage() {
       
       const result = await recordDartbotMatchCompletion(dartbotStats);
       console.log('📊 DARTBOT MATCH SAVED:', result);
-      if (result.success) toast.success('Match stats saved!');
+      if (result.success) {
+        toast.success('Match stats saved!');
+        
+        // Track achievements for the winner
+        if (currentMatchWinner === 'player1') {
+          processMatchEnd({
+            winnerId: 'player1',
+            loserId: 'player2',
+            winnerLegs: p1Legs,
+            loserLegs: p2Legs,
+            gameMode: normalizedConfig.mode === '301' ? 301 : 501,
+            matchType: 'dartbot',
+            playerStats: [{
+              playerId: 'player1',
+              average: userStats.threeDartAverage,
+              oneEighties: userStats.oneEighties,
+              tonPlus: userStats.count100Plus + userStats.count140Plus,
+              highestCheckout: userStats.highestCheckout,
+              checkouts: p1Checkouts,
+            }],
+          }).catch(console.error);
+        }
+      }
       else console.error('Failed to save match:', result.error);
     } catch (error) { 
       console.error('Error saving match stats:', error); 
@@ -985,6 +1008,17 @@ export default function DartbotMatchPage() {
     setPlayer1MatchDartsThrown(prev => prev + dartsThrown);
     setPlayer1Score(newScore);
     checkScoreAchievements(score);
+    
+    // Track score achievements (180s, 100+, 26s, 69s)
+    if (score > 0) {
+      trackScoreAchievement(score, 'dartbot').catch(console.error);
+    }
+    
+    // Track checkout achievements
+    if (isCheckout && score > 0) {
+      trackCheckoutAchievement(score).catch(console.error);
+    }
+    
     setScoreInput('');
     setCurrentVisit([]);
     setInputModeError('');
