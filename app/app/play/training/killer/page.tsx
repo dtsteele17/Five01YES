@@ -278,12 +278,14 @@ export default function KillerTrainingPage() {
     
     if (isMatchOver) {
       setGamePhase('match-over');
+      setShowStatsModal(true); // Only show modal at match end
     } else {
+      // Auto-start next round after a short delay
       setGamePhase('round-over');
+      setTimeout(() => {
+        startNextRound();
+      }, 2000); // 2 second delay to show the winner message
     }
-    
-    // Show the stats modal
-    setShowStatsModal(true);
   };
 
   const startNextRound = () => {

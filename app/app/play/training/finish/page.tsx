@@ -502,10 +502,8 @@ function FinishTrainingContent() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-2 overflow-hidden">
-      <div className="h-full w-full grid grid-cols-12 gap-2">
-        {/* Left/Main Content - 8 columns */}
-        <div className="col-span-8 flex flex-col gap-3">
+    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-2 overflow-hidden">
+      <div className="h-full w-full flex flex-col gap-2">
           {/* Animated Header */}
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
@@ -681,7 +679,7 @@ function FinishTrainingContent() {
                       </TabsList>
 
                       <TabsContent value="singles" className="flex-1 mt-0">
-                        <div className="grid grid-cols-10 gap-2 h-full content-start">
+                        <div className="grid grid-cols-10 gap-3 h-full content-start">
                           {Array.from({ length: 20 }, (_, i) => i + 1).map((num, idx) => (
                             <motion.div
                               key={`S${num}`}
@@ -700,7 +698,7 @@ function FinishTrainingContent() {
                                   })
                                 }
                                 disabled={currentDarts.length >= 3}
-                                className="h-12 w-full bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-bold text-base shadow-lg shadow-cyan-500/20 disabled:opacity-30 border-2 border-cyan-400/50"
+                                className="h-16 w-full bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white font-bold text-xl shadow-lg shadow-cyan-500/20 disabled:opacity-30 border-2 border-cyan-400/50"
                               >
                                 {num}
                               </Button>
@@ -710,7 +708,7 @@ function FinishTrainingContent() {
                       </TabsContent>
 
                       <TabsContent value="doubles" className="flex-1 mt-0">
-                        <div className="grid grid-cols-10 gap-2 h-full content-start">
+                        <div className="grid grid-cols-10 gap-3 h-full content-start">
                           {Array.from({ length: 20 }, (_, i) => i + 1).map((num, idx) => (
                             <motion.div
                               key={`D${num}`}
@@ -729,7 +727,7 @@ function FinishTrainingContent() {
                                   })
                                 }
                                 disabled={currentDarts.length >= 3}
-                                className="h-12 w-full bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold text-base shadow-lg shadow-emerald-500/20 disabled:opacity-30 border-2 border-emerald-400/50"
+                                className="h-16 w-full bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold text-xl shadow-lg shadow-emerald-500/20 disabled:opacity-30 border-2 border-emerald-400/50"
                               >
                                 {num}
                               </Button>
@@ -739,7 +737,7 @@ function FinishTrainingContent() {
                       </TabsContent>
 
                       <TabsContent value="trebles" className="flex-1 mt-0">
-                        <div className="grid grid-cols-10 gap-2 h-full content-start">
+                        <div className="grid grid-cols-10 gap-3 h-full content-start">
                           {Array.from({ length: 20 }, (_, i) => i + 1).map((num, idx) => (
                             <motion.div
                               key={`T${num}`}
@@ -758,7 +756,7 @@ function FinishTrainingContent() {
                                   })
                                 }
                                 disabled={currentDarts.length >= 3}
-                                className="h-12 w-full bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold text-base shadow-lg shadow-teal-500/20 disabled:opacity-30 border-2 border-teal-400/50"
+                                className="h-16 w-full bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold text-xl shadow-lg shadow-teal-500/20 disabled:opacity-30 border-2 border-teal-400/50"
                               >
                                 {num}
                               </Button>
@@ -768,7 +766,7 @@ function FinishTrainingContent() {
                       </TabsContent>
 
                       <TabsContent value="bulls" className="flex-1 mt-0">
-                        <div className="grid grid-cols-2 gap-4 max-w-md mx-auto h-full content-center">
+                        <div className="grid grid-cols-2 gap-6 h-full content-center">
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                             <Button
                               onClick={() =>
@@ -779,7 +777,7 @@ function FinishTrainingContent() {
                                 })
                               }
                               disabled={currentDarts.length >= 3}
-                              className="h-16 w-full bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white text-base font-bold disabled:opacity-30 shadow-lg shadow-emerald-500/20 border-2 border-emerald-400/50"
+                              className="h-20 w-full bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white text-xl font-bold disabled:opacity-30 shadow-lg shadow-emerald-500/20 border-2 border-emerald-400/50"
                             >
                               Single Bull (25)
                             </Button>
@@ -794,7 +792,7 @@ function FinishTrainingContent() {
                                 })
                               }
                               disabled={currentDarts.length >= 3}
-                              className="h-16 w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white text-base font-bold disabled:opacity-30 shadow-lg shadow-red-500/20 border-2 border-red-400/50"
+                              className="h-20 w-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white text-xl font-bold disabled:opacity-30 shadow-lg shadow-red-500/20 border-2 border-red-400/50"
                             >
                               Double Bull (50)
                             </Button>
@@ -803,7 +801,7 @@ function FinishTrainingContent() {
                       </TabsContent>
                     </Tabs>
 
-                    <div className="grid grid-cols-2 gap-3 pt-2 max-w-2xl mx-auto shrink-0">
+                    <div className="grid grid-cols-2 gap-4 pt-2 shrink-0">
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
                         <Button
                           onClick={() =>
@@ -814,7 +812,7 @@ function FinishTrainingContent() {
                             })
                           }
                           disabled={currentDarts.length >= 3}
-                          className="h-12 w-full bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white text-base font-bold disabled:opacity-30 border-2 border-slate-500/50"
+                          className="h-16 w-full bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white text-lg font-bold disabled:opacity-30 border-2 border-slate-500/50"
                         >
                           MISS (0)
                         </Button>
@@ -822,7 +820,7 @@ function FinishTrainingContent() {
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
                         <Button
                           onClick={handleBustClick}
-                          className="h-12 w-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-base font-bold shadow-lg shadow-red-500/20 border-2 border-red-500/50"
+                          className="h-16 w-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-lg font-bold shadow-lg shadow-red-500/20 border-2 border-red-500/50"
                         >
                           BUST
                         </Button>
@@ -872,88 +870,16 @@ function FinishTrainingContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="flex justify-center shrink-0"
+            className="flex justify-center shrink-0 pb-2"
           >
             <Button
               onClick={() => setShowStatsModal(true)}
-              className="h-10 px-8 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white text-sm font-bold shadow-lg shadow-emerald-500/25"
+              className="h-14 px-12 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/25"
             >
-              <TrendingUp className="mr-2 h-4 w-4" />
+              <TrendingUp className="mr-2 h-5 w-5" />
               End Session
             </Button>
           </motion.div>
-        </div>
-
-        {/* Right Side - Visit History - 4 columns */}
-        <div className="col-span-4 flex flex-col gap-3 h-full">
-          <AnimatePresence>
-            {history.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="flex-1 min-h-0"
-              >
-                <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm h-full flex flex-col">
-                  <div className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider shrink-0">Visit History</div>
-                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
-                    {history.slice(0, 20).map((item, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl border border-slate-600/30"
-                      >
-                        <div className="flex flex-col gap-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 bg-slate-800/50 px-2 py-0.5 rounded">
-                              <Target className="w-3 h-3 text-emerald-400" />
-                              <span className="text-white font-bold text-sm">{item.target}</span>
-                            </div>
-                            <span className="text-slate-500 text-xs">
-                              Attempt {item.attemptNo}/3
-                            </span>
-                          </div>
-                          <div className="text-slate-300 text-xs truncate">{item.darts}</div>
-                          <div className="text-emerald-400 font-bold text-xs">
-                            {item.visitTotal}
-                          </div>
-                        </div>
-                        {item.result === 'Bust' ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border-2 border-red-500 rounded-lg shrink-0 ml-2">
-                            <span className="text-red-400 font-black text-sm uppercase tracking-wider">BUST</span>
-                            <span className="text-red-500 text-base">💥</span>
-                          </div>
-                        ) : item.result === 'Success' ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 border-2 border-emerald-500 rounded-lg shrink-0 ml-2">
-                            <span className="text-emerald-400 font-black text-sm uppercase tracking-wider">HIT</span>
-                            <span className="text-emerald-500 text-base">✓</span>
-                          </div>
-                        ) : item.result === 'Fail' ? (
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-500/20 border-2 border-slate-500 rounded-lg shrink-0 ml-2">
-                            <span className="text-slate-400 font-black text-sm uppercase tracking-wider">FAIL</span>
-                            <span className="text-slate-500 text-base">✗</span>
-                          </div>
-                        ) : null}
-                      </motion.div>
-                    ))}
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          {history.length === 0 && (
-            <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm flex-1 flex items-center justify-center">
-              <div className="text-slate-500 text-center">
-                <Target className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Visit history will appear here</p>
-              </div>
-            </Card>
-          )}
-        </div>
-
       </div>
 
       <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
