@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -40,13 +40,13 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 100,
       damping: 15,
     },
