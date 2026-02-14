@@ -1,11 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useTraining } from '@/lib/context/TrainingContext';
 import { motion } from 'framer-motion';
 import {
   Zap,
@@ -14,19 +12,16 @@ import {
   Trophy,
   Users,
   Target,
-  Cpu,
   Flame,
   TrendingUp,
   Gamepad2,
   ChevronRight,
-  Crown,
   Clock,
   BarChart3,
   Play,
   Star,
   ArrowRight,
   Activity,
-  TargetIcon,
 } from 'lucide-react';
 
 // Animation variants
@@ -161,149 +156,65 @@ function StatMiniCard({ label, value, icon: Icon, color, trend }: { label: strin
   );
 }
 
-// Live Match Card
-function LiveMatchCard() {
-  return (
-    <motion.div variants={itemVariants} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border border-emerald-500/30 p-6">
-      <div className="absolute top-0 right-0">
-        <div className="flex items-center gap-1.5 bg-red-500/20 text-red-400 px-3 py-1 rounded-bl-xl">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-xs font-semibold">LIVE</span>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-            <Activity className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div>
-            <h3 className="text-white font-bold">Premier League Final</h3>
-            <p className="text-slate-400 text-sm">2.4k watching</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-center">
-          <p className="text-lg font-bold text-white">Smith</p>
-          <p className="text-emerald-400 font-mono">3</p>
-        </div>
-        <div className="text-center px-4">
-          <p className="text-xs text-slate-500 uppercase">vs</p>
-          <p className="text-slate-400 text-sm">Leg 6</p>
-        </div>
-        <div className="text-center">
-          <p className="text-lg font-bold text-white">van Gerwen</p>
-          <p className="text-emerald-400 font-mono">2</p>
-        </div>
-      </div>
-
-      <Button className="w-full bg-emerald-500 hover:bg-emerald-600">
-        <Play className="w-4 h-4 mr-2" />
-        Watch Now
-      </Button>
-    </motion.div>
-  );
-}
-
-// Training Hub Card (Prominent)
+// Training Hub Card (Simplified - Explore only)
 function TrainingHubCard() {
-  const router = useRouter();
-  const { setConfig } = useTraining();
-
-  const quickStart = () => {
-    setConfig({
-      mode: '501',
-      botAverage: 50,
-      bestOf: 3,
-      doubleOut: true,
-    });
-    router.push('/app/play/training/501');
-  };
-
   return (
     <motion.div variants={itemVariants}>
-      <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-gradient-to-br from-rose-500/10 to-orange-500/10 border-rose-500/30 hover:border-rose-500/50 p-6">
-        <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-        
-        <div className="relative z-10 h-full flex flex-col">
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-              <TargetIcon className="w-7 h-7 text-white" />
+      <Link href="/app/play/training">
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-gradient-to-br from-rose-500/10 to-orange-500/10 border-rose-500/30 hover:border-rose-500/50 p-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          
+          <div className="relative z-10 h-full flex flex-col">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                <Target className="w-7 h-7 text-white" />
+              </div>
+              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30">
+                <Star className="w-3 h-3 mr-1" />
+                9 Modes
+              </Badge>
             </div>
-            <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30">
-              <Star className="w-3 h-3 mr-1" />
-              9 Modes
-            </Badge>
-          </div>
 
-          <div className="flex-1">
-            <p className="text-xs text-rose-400 uppercase tracking-wider font-semibold">Practice</p>
-            <h3 className="text-2xl font-bold text-white mt-1 group-hover:text-rose-400 transition-colors">Training Hub</h3>
-            <p className="text-slate-300 text-sm mt-2">
-              Master your skills with AI opponents. 501 practice, checkout training, challenges, and more.
-            </p>
-          </div>
+            <div className="flex-1">
+              <p className="text-xs text-rose-400 uppercase tracking-wider font-semibold">Practice</p>
+              <h3 className="text-2xl font-bold text-white mt-1 group-hover:text-rose-400 transition-colors">Training Hub</h3>
+              <p className="text-slate-300 text-sm mt-2">
+                Master your skills with AI opponents. 501 practice, checkout training, challenges, and more.
+              </p>
+            </div>
 
-          <div className="flex items-center gap-3 pt-4 border-t border-slate-700/30 mt-4">
-            <Button 
-              onClick={quickStart}
-              className="flex-1 bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-600 hover:to-orange-700"
-            >
-              <Play className="w-4 h-4 mr-2" />
-              Quick Start
-            </Button>
-            <Link href="/app/play/training">
-              <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-700/30 mt-4">
+              <Button 
+                className="flex-1 bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-600 hover:to-orange-700"
+              >
                 Explore
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
-            </Link>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </Link>
     </motion.div>
   );
 }
 
 // Quick Actions Bar
 function QuickActionsBar() {
-  const router = useRouter();
-  const { setConfig } = useTraining();
-
-  const quickStartTraining = () => {
-    setConfig({
-      mode: '501',
-      botAverage: 50,
-      bestOf: 3,
-      doubleOut: true,
-    });
-    router.push('/app/play/training/501');
-  };
-
   return (
     <motion.div 
       variants={itemVariants}
       className="flex flex-wrap gap-3"
     >
-      <Button 
-        onClick={quickStartTraining}
-        className="bg-emerald-500 hover:bg-emerald-600"
-      >
-        <Play className="w-4 h-4 mr-2" />
-        Quick Match vs Bot
-      </Button>
+      <Link href="/app/play/training">
+        <Button className="bg-emerald-500 hover:bg-emerald-600">
+          <Play className="w-4 h-4 mr-2" />
+          Start Training
+        </Button>
+      </Link>
       <Link href="/app/play/quick-match">
         <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <Zap className="w-4 h-4 mr-2" />
           Find Opponent
-        </Button>
-      </Link>
-      <Link href="/app/play/private-match">
-        <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-          <Users className="w-4 h-4 mr-2" />
-          Private Room
         </Button>
       </Link>
     </motion.div>
@@ -354,7 +265,7 @@ export default function PlayPage() {
         <StatMiniCard label="Matches Today" value="3" icon={Zap} color="bg-emerald-500/20" trend={{ value: '2', positive: true }} />
         <StatMiniCard label="Win Streak" value="5" icon={Flame} color="bg-orange-500/20" trend={{ value: '1', positive: true }} />
         <StatMiniCard label="Best Average" value="82.4" icon={BarChart3} color="bg-blue-500/20" trend={{ value: '4.2', positive: true }} />
-        <StatMiniCard label="Training XP" value="1,240" icon={TargetIcon} color="bg-purple-500/20" trend={{ value: '150', positive: true }} />
+        <StatMiniCard label="Training XP" value="1,240" icon={Target} color="bg-purple-500/20" trend={{ value: '150', positive: true }} />
       </div>
 
       {/* Main Game Modes Grid */}
@@ -430,64 +341,8 @@ export default function PlayPage() {
             color="bg-gradient-to-br from-slate-500 to-slate-600"
           />
 
-          {/* Training Hub - Now prominent */}
+          {/* Training Hub */}
           <TrainingHubCard />
-        </div>
-      </div>
-
-      {/* Featured / Live Section */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">Featured</p>
-              <h2 className="text-2xl font-bold text-white">Live Now</h2>
-            </div>
-            <Link href="#">
-              <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                View All
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-          </div>
-          <LiveMatchCard />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">Progress</p>
-              <h2 className="text-2xl font-bold text-white">Your Stats</h2>
-            </div>
-          </div>
-          <motion.div variants={itemVariants} className="space-y-4">
-            <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-400 text-sm">Weekly Goal</span>
-                <span className="text-emerald-400 font-bold">70%</span>
-              </div>
-              <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                <div className="h-full w-[70%] bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" />
-              </div>
-              <p className="text-slate-500 text-xs mt-2">12 of 20 sessions completed</p>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-400 text-sm">Ranked Progress</span>
-                <span className="text-amber-400 font-bold">45%</span>
-              </div>
-              <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                <div className="h-full w-[45%] bg-gradient-to-r from-amber-500 to-orange-400 rounded-full" />
-              </div>
-              <p className="text-slate-500 text-xs mt-2">500 / 1000 RP to next tier</p>
-            </div>
-            <Link href="/app/stats">
-              <Button variant="outline" className="w-full border-slate-600 text-slate-300 hover:bg-slate-700">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                View Full Stats
-              </Button>
-            </Link>
-          </motion.div>
         </div>
       </div>
 
@@ -519,8 +374,8 @@ export default function PlayPage() {
                   match.mode === 'Training' ? 'bg-rose-500/20' : 'bg-amber-500/20'
                 }`}>
                   {match.mode === 'Quick Match' ? <Zap className="w-5 h-5 text-emerald-400" /> :
-                   match.mode === 'Training' ? <TargetIcon className="w-5 h-5 text-rose-400" /> :
-                   <Crown className="w-5 h-5 text-amber-400" />}
+                   match.mode === 'Training' ? <Target className="w-5 h-5 text-rose-400" /> :
+                   <Trophy className="w-5 h-5 text-amber-400" />}
                 </div>
                 <div>
                   <p className="text-white font-medium">{match.mode}</p>
