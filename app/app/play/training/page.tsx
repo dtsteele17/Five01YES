@@ -583,10 +583,176 @@ function FinishTrainingModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   );
 }
 
+// Around the Clock Settings Modal
+function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const { setConfig } = useTraining();
+  const [orderMode, setOrderMode] = useState<'in_order' | 'random'>('in_order');
+  const [segmentRule, setSegmentRule] = useState<'singles_only' | 'doubles_only' | 'trebles_only' | 'increase_by_segment'>('singles_only');
+
+  const segmentRules = [
+    { value: 'singles_only', label: 'Singles Only', desc: 'Only single segments count' },
+    { value: 'doubles_only', label: 'Doubles Only', desc: 'Only double segments count' },
+    { value: 'trebles_only', label: 'Trebles Only', desc: 'Only treble segments count' },
+    { value: 'increase_by_segment', label: 'Increase by Segment', desc: 'S=+1, D=+2, T=+3 targets' },
+  ];
+
+  const handlePlay = () => {
+    setConfig({
+      mode: 'around-the-clock',
+      atcSettings: {
+        orderMode,
+        segmentRule,
+        includeBull: true,
+      },
+    });
+    router.push('/app/play/training/around-the-clock');
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+          />
+          
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none p-4"
+          >
+            <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl pointer-events-auto">
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Around the Clock</h3>
+                  <p className="text-slate-400 text-sm">Configure your practice session</p>
+                </div>
+              </div>
+
+              {/* Settings */}
+              <div className="space-y-6">
+                {/* Order Mode */}
+                <div>
+                  <label className="text-slate-300 font-medium mb-3 block">Target Order</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setOrderMode('in_order')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        orderMode === 'in_order'
+                          ? 'border-indigo-500 bg-indigo-500/20'
+                          : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="font-bold text-white mb-1">1-20 then Bull</div>
+                      <div className="text-xs text-slate-400">In sequential order</div>
+                    </button>
+                    <button
+                      onClick={() => setOrderMode('random')}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        orderMode === 'random'
+                          ? 'border-indigo-500 bg-indigo-500/20'
+                          : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="font-bold text-white mb-1">Random</div>
+                      <div className="text-xs text-slate-400">Shuffled order</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Segment Rule */}
+                <div>
+                  <label className="text-slate-300 font-medium mb-3 block">Segment Rule</label>
+                  <div className="space-y-2">
+                    {segmentRules.map((rule) => (
+                      <button
+                        key={rule.value}
+                        onClick={() => setSegmentRule(rule.value as any)}
+                        className={`w-full p-3 rounded-xl border-2 transition-all flex items-center justify-left gap-3 ${
+                          segmentRule === rule.value
+                            ? 'border-indigo-500 bg-indigo-500/20'
+                            : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          segmentRule === rule.value ? 'border-indigo-500' : 'border-slate-500'
+                        }`}>
+                          {segmentRule === rule.value && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <div className="font-semibold text-white text-sm">{rule.label}</div>
+                          <div className="text-xs text-slate-400">{rule.desc}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">Targets:</span>
+                    <span className="text-white font-medium">21 (1-20 + Bull)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-2">
+                    <span className="text-slate-400">Mode:</span>
+                    <span className="text-white font-medium">
+                      {orderMode === 'in_order' ? 'In Order' : 'Random'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-2">
+                    <span className="text-slate-400">Rule:</span>
+                    <span className="text-white font-medium">
+                      {segmentRules.find(r => r.value === segmentRule)?.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Play Button */}
+              <Button
+                onClick={handlePlay}
+                className="w-full mt-6 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-6"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Start Training
+              </Button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // Main Training Hub Page
 export default function TrainingHubPage() {
   const { stats, loading: statsLoading } = useTrainingStats();
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showATCModal, setShowATCModal] = useState(false);
 
   // Training modes configuration (excluding DartBot which is featured separately)
   const otherTrainingModes: TrainingMode[] = [
@@ -670,10 +836,11 @@ export default function TrainingHubPage() {
       color: 'bg-indigo-500',
       gradient: 'bg-gradient-to-br from-indigo-500 to-violet-600',
       glowColor: 'bg-indigo-500',
-      href: '/app/play/training/around-the-clock',
+      href: '#',
       difficulty: 'Beginner',
       duration: '10-20 min',
       xpReward: 125,
+      onClick: () => setShowATCModal(true),
     },
     {
       id: 'bobs-27',
@@ -860,6 +1027,12 @@ export default function TrainingHubPage() {
       <FinishTrainingModal 
         isOpen={showFinishModal} 
         onClose={() => setShowFinishModal(false)} 
+      />
+
+      {/* Around the Clock Settings Modal */}
+      <AroundTheClockModal 
+        isOpen={showATCModal} 
+        onClose={() => setShowATCModal(false)} 
       />
     </>
   );
