@@ -30,7 +30,6 @@ import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { usePresence } from '@/lib/hooks/usePresence';
-import { useState } from 'react';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { formatDistanceToNow } from 'date-fns';
