@@ -3794,26 +3794,28 @@ export default function QuickMatchRoomPage() {
                       {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
                     </Button>
                     {isCameraOn && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                            onClick={handleRefreshCamera}
-                            disabled={isRefreshingCamera}
-                          >
-                            {isRefreshingCamera ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <RotateCcw className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Refresh camera if opponent can't see you</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                              onClick={handleRefreshCamera}
+                              disabled={isRefreshingCamera}
+                            >
+                              {isRefreshingCamera ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <p>Refresh camera if opponent can't see you</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                     <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
                       <Wifi className="w-3 h-3" /> Live
@@ -3854,29 +3856,31 @@ export default function QuickMatchRoomPage() {
                     />
                     {/* Camera refresh overlay button */}
                     <div className="absolute bottom-4 right-4">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            size="sm"
-                            variant="secondary"
-                            className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
-                            onClick={handleRefreshCamera}
-                            disabled={isRefreshingCamera}
-                          >
-                            {isRefreshingCamera ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <>
-                                <RotateCcw className="w-4 h-4 mr-2" />
-                                Refresh
-                              </>
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left">
-                          <p>Restart camera if opponent can't see you</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm"
+                              variant="secondary"
+                              className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                              onClick={handleRefreshCamera}
+                              disabled={isRefreshingCamera}
+                            >
+                              {isRefreshingCamera ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <RotateCcw className="w-4 h-4 mr-2" />
+                                  Refresh
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left">
+                            <p>Restart camera if opponent can't see you</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
                 ) : (
