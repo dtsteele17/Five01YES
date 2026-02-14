@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import {
   Target,
   Cpu,
@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -43,13 +43,13 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 100,
       damping: 15,
     },
@@ -494,17 +494,21 @@ export default function TrainingHubPage() {
     if (mode.id === '501-dartbot') {
       setConfig({
         mode: '501',
+        botDifficulty: 'casual',
         botAverage: 50,
-        bestOf: 3,
+        bestOf: 'best-of-3',
         doubleOut: true,
+        atcOpponent: 'bot',
       });
       router.push(mode.href);
     } else if (mode.id === '121-dartbot') {
       setConfig({
-        mode: '121',
+        mode: '301',
+        botDifficulty: 'casual',
         botAverage: 45,
-        bestOf: 1,
+        bestOf: 'best-of-1',
         doubleOut: true,
+        atcOpponent: 'bot',
       });
       router.push(mode.href);
     }
