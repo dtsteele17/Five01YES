@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Trophy,
   Target,
@@ -16,12 +17,12 @@ import {
   Crown,
   BarChart3,
   ArrowRight,
-  Zap,
-  Shield,
   Activity,
   ChevronRight,
   Gamepad2,
   Users,
+  MessageCircle,
+  Shield,
 } from 'lucide-react';
 import { UpcomingMatchesModal } from '@/components/app/UpcomingMatchesModal';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
@@ -36,7 +37,6 @@ interface DashboardStats {
   winRate: number;
   currentStreak: number;
   bestStreak: number;
-  rankedPoints: number;
 }
 
 interface RecentAchievement {
@@ -65,6 +65,13 @@ interface RankedPlayerState {
 interface Season {
   id: string;
   name: string;
+}
+
+interface OnlineFriend {
+  id: string;
+  username: string;
+  avatar_url: string;
+  activity_label?: string;
 }
 
 // F1/FIFA Style Stat Card - Large format
@@ -97,34 +104,6 @@ function HeroStat({ value, label, icon: Icon, color, trend }: {
   );
 }
 
-// Quick Action Tile
-function ActionTile({ href, icon: Icon, title, subtitle, color }: {
-  href: string;
-  icon: any;
-  title: string;
-  subtitle: string;
-  color: string;
-}) {
-  return (
-    <Link href={href}>
-      <div className={`group relative overflow-hidden rounded-2xl p-6 h-full cursor-pointer transition-all duration-300 hover:scale-[1.02] ${color}`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="relative z-10">
-          <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center mb-4">
-            <Icon className="w-7 h-7 text-white" />
-          </div>
-          <h3 className="text-xl font-bold text-white mb-1">{title}</h3>
-          <p className="text-white/70 text-sm">{subtitle}</p>
-          <div className="mt-4 flex items-center text-white/80 text-sm font-medium">
-            <span>Start</span>
-            <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 export default function DashboardPage() {
   const [showUpcomingMatches, setShowUpcomingMatches] = useState(false);
   const { profile, loading: profileLoading } = useProfile();
@@ -132,6 +111,7 @@ export default function DashboardPage() {
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
   const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
+  const [onlineFriends, setOnlineFriends] = useState<OnlineFriend[]>([]);
   const [loading, setLoading] = useState(true);
 
   usePresence();
@@ -147,12 +127,12 @@ export default function DashboardPage() {
       const supabase = createClient();
 
       try {
-        const { data: dashboardStats } = await supabase.rpc('get_dashboard_stats', {
-          p_user_id: profile.id
-        });
+        const [{ data: dashboardStats }, { data: rankedData }, { data: friendsData }] = await Promise.all([
+          supabase.rpc('get_dashboard_stats', { p_user_id: profile.id }),
+          supabase.rpc('rpc_ranked_get_my_state'),
+          supabase.rpc('rpc_get_friends_overview'),
+        ]);
 
-        const { data: rankedData } = await supabase.rpc('rpc_ranked_get_my_state');
-        
         if (rankedData) {
           setSeason(rankedData.season);
           setRankedState(rankedData.player_state);
@@ -166,13 +146,26 @@ export default function DashboardPage() {
             winRate: dashboardStats.win_rate || 0,
             currentStreak: dashboardStats.current_streak || 0,
             bestStreak: dashboardStats.best_streak || 0,
-            rankedPoints: rankedData?.player_state?.rp || 0,
           });
         } else {
           setStats({
             totalMatches: 0, wins: 0, losses: 0, winRate: 0,
-            currentStreak: 0, bestStreak: 0, rankedPoints: rankedData?.player_state?.rp || 0,
+            currentStreak: 0, bestStreak: 0,
           });
+        }
+
+        // Get online friends
+        if (friendsData?.ok && friendsData.friends) {
+          const online = friendsData.friends
+            .filter((f: any) => f.is_online)
+            .slice(0, 5)
+            .map((f: any) => ({
+              id: f.id,
+              username: f.username,
+              avatar_url: f.avatar_url,
+              activity_label: f.activity_label,
+            }));
+          setOnlineFriends(online);
         }
 
         const { data: achievements } = await supabase
@@ -277,7 +270,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Hero Stats Grid */}
+          {/* Hero Stats Grid - 4 columns: Matches, Win Rate, Win Streak, Online Friends */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
             <HeroStat 
               value={stats?.totalMatches || 0} 
@@ -294,50 +287,102 @@ export default function DashboardPage() {
               trend="+2.4%"
             />
             <HeroStat 
-              value={rankedState?.rp || 0} 
-              label="Ranked Points" 
-              icon={Trophy} 
-              color="bg-amber-500"
-            />
-            <HeroStat 
               value={stats?.currentStreak || 0} 
               label="Win Streak" 
               icon={Flame} 
               color="bg-orange-500"
             />
+            
+            {/* Online Friends - replaces Ranked Points */}
+            <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
+              <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-4xl font-black text-white tracking-tight">{onlineFriends.length}</p>
+                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Friends Online</p>
+                  {onlineFriends.length > 0 && (
+                    <p className="text-xs text-purple-400 mt-2">
+                      {onlineFriends.slice(0, 2).map(f => f.username).join(', ')}
+                      {onlineFriends.length > 2 && ` +${onlineFriends.length - 2} more`}
+                    </p>
+                  )}
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-purple-500 bg-opacity-20 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Ranked Status - Full Width */}
+      <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+        <div className="p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            {/* Left - Title */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <Crown className="w-7 h-7 text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Ranked Status</h2>
+                <p className="text-slate-400">{season?.name || 'Current Season'}</p>
+              </div>
+            </div>
+
+            {/* Middle - RP & Division */}
+            <div className="flex items-center gap-8">
+              <div className="text-center">
+                <p className="text-4xl font-black text-white">{rankedState?.rp || 0}</p>
+                <p className="text-slate-400 text-sm">Ranked Points</p>
+              </div>
+              
+              {rankedState?.division_name && (
+                <div className="px-6 py-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                  <p className="text-amber-400 font-bold text-lg">{rankedState.division_name}</p>
+                  <p className="text-slate-400 text-sm">Current Division</p>
+                </div>
+              )}
+
+              {rankedState?.provisional_games_remaining ? (
+                <div className="w-48">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-slate-400">Placement</span>
+                    <span className="text-white font-medium">{10 - rankedState.provisional_games_remaining}/10</span>
+                  </div>
+                  <Progress value={(10 - rankedState.provisional_games_remaining) * 10} className="h-2" />
+                </div>
+              ) : null}
+            </div>
+
+            {/* Right - Stats & Button */}
+            <div className="flex items-center gap-6">
+              <div className="flex gap-6 text-center">
+                <div>
+                  <p className="text-xl font-bold text-white">{rankedState?.wins || 0}</p>
+                  <p className="text-slate-400 text-xs">Wins</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-white">{rankedState?.losses || 0}</p>
+                  <p className="text-slate-400 text-xs">Losses</p>
+                </div>
+              </div>
+              <Link href="/app/ranked">
+                <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Play Ranked
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Main Grid Layout */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - 2/3 width */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Quick Actions */}
-          <div className="grid sm:grid-cols-3 gap-4">
-            <ActionTile
-              href="/app/play/quick-match"
-              icon={Zap}
-              title="Quick Match"
-              subtitle="Jump into instant action"
-              color="bg-gradient-to-br from-emerald-600 to-teal-700"
-            />
-            <ActionTile
-              href="/app/ranked"
-              icon={Shield}
-              title="Ranked"
-              subtitle="Compete for points"
-              color="bg-gradient-to-br from-amber-600 to-orange-700"
-            />
-            <ActionTile
-              href="/app/friends"
-              icon={Users}
-              title="Friends"
-              subtitle="Connect & play together"
-              color="bg-gradient-to-br from-blue-600 to-indigo-700"
-            />
-          </div>
-
           {/* Recent Activity */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
             <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
@@ -363,50 +408,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Right Column - 1/3 width */}
+        {/* Right Column - 1/3 width - Achievements moved here */}
         <div className="space-y-6">
-          {/* Ranked Status */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                  <Crown className="w-5 h-5 text-amber-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Ranked Status</h2>
-                  <p className="text-sm text-slate-400">{season?.name || 'Current Season'}</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 text-center">
-              <p className="text-6xl font-black text-white">{rankedState?.rp || 0}</p>
-              <p className="text-slate-400 mt-2">Ranked Points</p>
-              
-              {rankedState?.provisional_games_remaining ? (
-                <div className="mt-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-slate-400">Placement</span>
-                    <span className="text-white font-medium">{10 - rankedState.provisional_games_remaining}/10</span>
-                  </div>
-                  <Progress value={(10 - rankedState.provisional_games_remaining) * 10} className="h-2" />
-                </div>
-              ) : rankedState?.division_name ? (
-                <div className="mt-4 p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                  <p className="text-amber-400 font-bold text-lg">{rankedState.division_name}</p>
-                  <p className="text-slate-400 text-sm">Current Division</p>
-                </div>
-              ) : null}
-            </div>
-            <div className="px-6 pb-6">
-              <Link href="/app/ranked">
-                <Button className="w-full bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Play Ranked
-                </Button>
-              </Link>
-            </div>
-          </Card>
-
           {/* Achievements */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
             <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
@@ -448,6 +451,64 @@ export default function DashboardPage() {
                   <Award className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                   <p className="text-slate-400">No achievements yet</p>
                   <p className="text-slate-500 text-sm mt-1">Start playing to unlock</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Online Friends Detail */}
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-purple-400" />
+                </div>
+                <h2 className="text-lg font-bold text-white">Online Friends</h2>
+              </div>
+              <Link href="/app/friends">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                  View All
+                </Button>
+              </Link>
+            </div>
+            <div className="p-6">
+              {onlineFriends.length > 0 ? (
+                <div className="space-y-3">
+                  {onlineFriends.map((friend) => (
+                    <div
+                      key={friend.id}
+                      className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-xl border border-slate-600/30 hover:border-slate-500/50 transition-colors"
+                    >
+                      <Avatar className="w-10 h-10 rounded-lg">
+                        <AvatarImage src={friend.avatar_url} />
+                        <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-bold">
+                          {friend.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium text-sm truncate">{friend.username}</p>
+                        {friend.activity_label && (
+                          <p className="text-emerald-400 text-xs truncate">{friend.activity_label}</p>
+                        )}
+                      </div>
+                      <Link href={`/app/friends?chat=${friend.id}`}>
+                        <Button size="sm" variant="ghost" className="text-slate-400 hover:text-emerald-400">
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">No friends online</p>
+                  <Link href="/app/friends">
+                    <Button variant="ghost" size="sm" className="text-emerald-400 mt-2">
+                      Find Friends
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </Link>
                 </div>
               )}
             </div>
