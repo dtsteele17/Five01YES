@@ -604,6 +604,11 @@ function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   const handlePlay = () => {
     setConfig({
       mode: 'around-the-clock',
+      botDifficulty: 'casual',
+      botAverage: 50,
+      doubleOut: true,
+      bestOf: 'best-of-1',
+      atcOpponent: 'bot',
       atcSettings: {
         orderMode,
         segmentRule,
