@@ -158,6 +158,10 @@ export default function QuickMatchLobbyPage() {
   
   // User stats for displaying in own lobby
   const [userStats, setUserStats] = useState<{ overall_3dart_avg?: number } | null>(null);
+  
+  // Stats for dashboard
+  const [inProgressMatches, setInProgressMatches] = useState<number>(0);
+  const [last5Record, setLast5Record] = useState<string>('-----');
 
   const resumeAttemptedRef = useRef(false);
   const joinRequestSubscriptionRef = useRef<any>(null);
@@ -921,20 +925,20 @@ export default function QuickMatchLobbyPage() {
   };
 
   const getGameModeClass = (mode: string): string => {
-    if (mode === '301') return 'bg-gradient-to-r from-red-500/20 to-red-600/20 text-red-400 border-red-500/40';
-    if (mode === '501') return 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400 border-blue-500/40';
-    return 'bg-slate-600/20 text-slate-400 border-slate-500/30';
+    if (mode === '301') return 'bg-gradient-to-r from-red-500 to-rose-600 text-white border-red-400 shadow-lg shadow-red-500/30';
+    if (mode === '501') return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-blue-400 shadow-lg shadow-blue-500/30';
+    return 'bg-slate-600 text-slate-200 border-slate-500';
   };
 
   const getMatchFormatClass = (format: string): string => {
     const match = format.match(/best-of-(\d+)/i);
     const num = match ? parseInt(match[1]) : 1;
     switch (num) {
-      case 1: return 'bg-gradient-to-r from-pink-500/20 to-pink-600/20 text-pink-400 border-pink-500/40';
-      case 3: return 'bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 border-purple-500/40';
-      case 5: return 'bg-gradient-to-r from-indigo-500/20 to-indigo-600/20 text-indigo-400 border-indigo-500/40';
-      case 7: return 'bg-gradient-to-r from-violet-500/20 to-violet-600/20 text-violet-400 border-violet-500/40';
-      default: return 'bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 border-purple-500/40';
+      case 1: return 'bg-gradient-to-r from-pink-500 to-fuchsia-600 text-white border-pink-400 shadow-lg shadow-pink-500/30';
+      case 3: return 'bg-gradient-to-r from-purple-500 to-violet-600 text-white border-purple-400 shadow-lg shadow-purple-500/30';
+      case 5: return 'bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-indigo-400 shadow-lg shadow-indigo-500/30';
+      case 7: return 'bg-gradient-to-r from-cyan-500 to-teal-600 text-white border-cyan-400 shadow-lg shadow-cyan-500/30';
+      default: return 'bg-gradient-to-r from-purple-500 to-violet-600 text-white border-purple-400 shadow-lg shadow-purple-500/30';
     }
   };
 
@@ -1015,19 +1019,19 @@ export default function QuickMatchLobbyPage() {
       <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <HeroStat 
           value={totalOpenLobbies} 
-          label="Open Lobbies" 
+          label="Available Matches" 
           icon={Gamepad2} 
           color="bg-blue-500"
         />
         <HeroStat 
-          value={filteredLobbies.length} 
-          label="Available Now" 
+          value={inProgressMatches} 
+          label="Matches In Play" 
           icon={Zap} 
           color="bg-emerald-500"
         />
         <HeroStat 
-          value={myLobby ? '1' : '0'} 
-          label="Your Lobbies" 
+          value={last5Record} 
+          label="Last 5 Matches" 
           icon={Target} 
           color="bg-purple-500"
         />

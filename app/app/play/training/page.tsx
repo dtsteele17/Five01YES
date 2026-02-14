@@ -68,7 +68,7 @@ interface TrainingMode {
   gradient: string;
   glowColor: string;
   href: string;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Pro';
+  difficulty: 'Beginner' | 'Easy' | 'Intermediate' | 'Advanced' | 'Pro' | 'Expert';
   duration: string;
   xpReward: number;
   locked?: boolean;
@@ -79,9 +79,11 @@ interface TrainingMode {
 function DifficultyBadge({ level }: { level: TrainingMode['difficulty'] }) {
   const colors = {
     Beginner: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    Easy: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
     Intermediate: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     Advanced: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
     Pro: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+    Expert: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   };
 
   return (
@@ -878,6 +880,7 @@ export default function TrainingHubPage() {
   const [showATCModal, setShowATCModal] = useState(false);
 
   // Training modes configuration (excluding DartBot which is featured separately)
+  // XP values based on difficulty (40-250 base XP range)
   const otherTrainingModes: TrainingMode[] = [
     {
       id: '121-dartbot',
@@ -889,66 +892,9 @@ export default function TrainingHubPage() {
       gradient: 'bg-gradient-to-br from-blue-500 to-cyan-600',
       glowColor: 'bg-blue-500',
       href: '/app/play/training/121',
-      difficulty: 'Beginner',
+      difficulty: 'Easy',
       duration: '5-10 min',
-      xpReward: 75,
-    },
-    {
-      id: 'finish-training',
-      title: 'Finish Training',
-      subtitle: 'Checkout Practice',
-      description: 'Master your checkouts with targeted practice. Work on specific ranges from 2-170.',
-      icon: <Flame className="w-6 h-6 text-white" />,
-      color: 'bg-orange-500',
-      gradient: 'bg-gradient-to-br from-orange-500 to-red-600',
-      glowColor: 'bg-orange-500',
-      href: '#',
-      difficulty: 'Intermediate',
-      duration: '15-30 min',
-      xpReward: 150,
-      onClick: () => setShowFinishModal(true),
-    },
-    {
-      id: 'pdc-challenge',
-      title: 'PDC Challenge',
-      subtitle: 'Pro Routine',
-      description: 'Professional practice routine used by PDC players. Test your skills against the best.',
-      icon: <Crown className="w-6 h-6 text-white" />,
-      color: 'bg-amber-500',
-      gradient: 'bg-gradient-to-br from-amber-500 to-yellow-600',
-      glowColor: 'bg-amber-500',
-      href: '/app/play/training/pdc-challenge',
-      difficulty: 'Pro',
-      duration: '30-45 min',
-      xpReward: 300,
-    },
-    {
-      id: 'jdc-challenge',
-      title: 'JDC Challenge',
-      subtitle: 'Development',
-      description: 'Junior Darts Corporation training routine. Build fundamentals and consistency.',
-      icon: <TrendingUp className="w-6 h-6 text-white" />,
-      color: 'bg-purple-500',
-      gradient: 'bg-gradient-to-br from-purple-500 to-pink-600',
-      glowColor: 'bg-purple-500',
-      href: '/app/play/training/jdc-challenge',
-      difficulty: 'Intermediate',
-      duration: '20-30 min',
-      xpReward: 200,
-    },
-    {
-      id: 'killer',
-      title: 'Killer Training',
-      subtitle: 'Elimination',
-      description: 'Strategic elimination game. Perfect for practicing accuracy under pressure.',
-      icon: <Activity className="w-6 h-6 text-white" />,
-      color: 'bg-rose-500',
-      gradient: 'bg-gradient-to-br from-rose-500 to-pink-600',
-      glowColor: 'bg-rose-500',
-      href: '/app/play/training/killer',
-      difficulty: 'Advanced',
-      duration: '15-25 min',
-      xpReward: 175,
+      xpReward: 50, // Base XP (50-75 with bonuses)
     },
     {
       id: 'around-the-clock',
@@ -962,7 +908,7 @@ export default function TrainingHubPage() {
       href: '#',
       difficulty: 'Beginner',
       duration: '10-20 min',
-      xpReward: 125,
+      xpReward: 40, // Base XP (40-60 with bonuses)
       onClick: () => setShowATCModal(true),
     },
     {
@@ -975,9 +921,66 @@ export default function TrainingHubPage() {
       gradient: 'bg-gradient-to-br from-cyan-500 to-blue-600',
       glowColor: 'bg-cyan-500',
       href: '/app/play/training/bobs-27',
-      difficulty: 'Intermediate',
+      difficulty: 'Easy',
       duration: '10-15 min',
-      xpReward: 100,
+      xpReward: 70, // Base XP (70-105 with bonuses)
+    },
+    {
+      id: 'finish-training',
+      title: 'Finish Training',
+      subtitle: 'Checkout Practice',
+      description: 'Master your checkouts with targeted practice. Work on specific ranges from 2-170.',
+      icon: <Flame className="w-6 h-6 text-white" />,
+      color: 'bg-orange-500',
+      gradient: 'bg-gradient-to-br from-orange-500 to-red-600',
+      glowColor: 'bg-orange-500',
+      href: '#',
+      difficulty: 'Easy',
+      duration: '15-30 min',
+      xpReward: 100, // Base XP (100-150 with bonuses)
+      onClick: () => setShowFinishModal(true),
+    },
+    {
+      id: 'jdc-challenge',
+      title: 'JDC Challenge',
+      subtitle: 'Development',
+      description: 'Junior Darts Corporation training routine. Build fundamentals and consistency.',
+      icon: <TrendingUp className="w-6 h-6 text-white" />,
+      color: 'bg-purple-500',
+      gradient: 'bg-gradient-to-br from-purple-500 to-pink-600',
+      glowColor: 'bg-purple-500',
+      href: '/app/play/training/jdc-challenge',
+      difficulty: 'Intermediate',
+      duration: '20-30 min',
+      xpReward: 110, // Base XP (110-165 with bonuses)
+    },
+    {
+      id: 'killer',
+      title: 'Killer Training',
+      subtitle: 'Elimination',
+      description: 'Strategic elimination game. Perfect for practicing accuracy under pressure.',
+      icon: <Activity className="w-6 h-6 text-white" />,
+      color: 'bg-rose-500',
+      gradient: 'bg-gradient-to-br from-rose-500 to-pink-600',
+      glowColor: 'bg-rose-500',
+      href: '/app/play/training/killer',
+      difficulty: 'Expert',
+      duration: '15-25 min',
+      xpReward: 130, // Base XP (130-195 with bonuses)
+    },
+    {
+      id: 'pdc-challenge',
+      title: 'PDC Challenge',
+      subtitle: 'Pro Routine',
+      description: 'Professional practice routine used by PDC players. Test your skills against the best.',
+      icon: <Crown className="w-6 h-6 text-white" />,
+      color: 'bg-amber-500',
+      gradient: 'bg-gradient-to-br from-amber-500 to-yellow-600',
+      glowColor: 'bg-amber-500',
+      href: '/app/play/training/pdc-challenge',
+      difficulty: 'Advanced',
+      duration: '30-45 min',
+      xpReward: 150, // Base XP (150-225 with bonuses)
     },
     {
       id: 'form-analysis',
@@ -989,9 +992,9 @@ export default function TrainingHubPage() {
       gradient: 'bg-gradient-to-br from-slate-500 to-slate-600',
       glowColor: 'bg-slate-500',
       href: '/app/play/training/form-analysis',
-      difficulty: 'Advanced',
+      difficulty: 'Expert',
       duration: '20-30 min',
-      xpReward: 250,
+      xpReward: 200, // Base XP (200-300 with bonuses)
       locked: true,
     },
   ];

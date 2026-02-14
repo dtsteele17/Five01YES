@@ -6,9 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, ArrowLeft, Trophy, RotateCcw, Zap, Medal } from 'lucide-react';
+import { Target, ArrowLeft, Trophy, RotateCcw, Zap, Medal, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 
 interface DartThrow {
   score: number;
@@ -50,6 +52,7 @@ export default function JDCChallengePage() {
   const [currentDarts, setCurrentDarts] = useState<DartThrow[]>([]);
   const [completedRounds, setCompletedRounds] = useState<RoundResult[]>([]);
   const [saving, setSaving] = useState(false);
+  const [xpResult, setXpResult] = useState<XPResult | null>(null);
 
   const currentTarget = JDC_TARGETS[currentRound - 1];
 
@@ -119,11 +122,17 @@ export default function JDCChallengePage() {
 
     if (isComplete) {
       setGameState('completed');
-      saveGameResult(newCompletedRounds);
+      const totalScore = newCompletedRounds.reduce((sum, r) => sum + r.total, 0);
+      
+      // Calculate XP based on score
+      const xp = calculateXP('jdc-challenge', totalScore, { completed: true });
+      setXpResult(xp);
+      
+      saveGameResult(newCompletedRounds, xp);
     }
   };
 
-  const saveGameResult = async (rounds: RoundResult[]) => {
+  const saveGameResult = async (rounds: RoundResult[], xp: XPResult) => {
     setSaving(true);
     const totalScore = rounds.reduce((sum, r) => sum + r.total, 0);
     const totalBonus = rounds.reduce((sum, r) => sum + r.bonus, 0);
@@ -144,15 +153,22 @@ export default function JDCChallengePage() {
         game_type: 'jdc_challenge',
         score: totalScore,
         completed: true,
+        xp_earned: xp.totalXP,
         session_data: {
           rounds,
           totalBonus,
           grade: grade.grade,
+          xp_breakdown: {
+            base: xp.baseXP,
+            performance: xp.performanceBonus,
+            completion: xp.completionBonus,
+            total: xp.totalXP,
+          },
           date: new Date().toISOString(),
         },
       });
 
-      toast.success(`JDC Challenge Complete! Grade: ${grade.grade}`);
+      toast.success(`JDC Challenge Complete! +${xp.totalXP} XP earned!`);
     } catch (error) {
       console.error('Failed to save game:', error);
       toast.error('Failed to save score');
@@ -318,6 +334,9 @@ export default function JDCChallengePage() {
               <h1 className="text-3xl font-bold text-white mb-2">JDC Challenge Complete!</h1>
               <p className={`text-xl ${grade.color} font-semibold`}>{grade.grade}</p>
             </div>
+
+            {/* XP Reward Display */}
+            {xpResult && <XPRewardDisplay xpResult={xpResult} />}
 
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800 rounded-xl p-4 text-center">

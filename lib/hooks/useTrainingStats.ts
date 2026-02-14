@@ -59,11 +59,17 @@ function getLevelFromXp(xp: number): { level: number; xpToNext: number; progress
   };
 }
 
-// Calculate XP for a match
-// Base: 50 XP
-// Win bonus: +25 XP
-// Average bonus: +1 XP per point of 3-dart average (capped at 50)
+// Calculate XP for a match (fallback if xp_earned not stored)
 function calculateMatchXp(match: any): number {
+  // If xp_earned is stored in session_data, use that
+  if (match.session_data?.xp_breakdown?.total) {
+    return match.session_data.xp_breakdown.total;
+  }
+  if (match.xp_earned) {
+    return match.xp_earned;
+  }
+  
+  // Fallback calculation
   let xp = 50; // Base XP
   
   if (match.result === 'win') {
