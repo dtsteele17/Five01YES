@@ -23,8 +23,9 @@ import {
   Users,
   MessageCircle,
   Shield,
+  Calendar,
+  Clock,
 } from 'lucide-react';
-import { UpcomingMatchesModal } from '@/components/app/UpcomingMatchesModal';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
@@ -74,6 +75,14 @@ interface OnlineFriend {
   activity_label?: string;
 }
 
+interface UpcomingGame {
+  id: string;
+  type: 'tournament' | 'league' | 'match';
+  name: string;
+  opponent?: string;
+  scheduled_at: string;
+}
+
 // F1/FIFA Style Stat Card - Large format
 function HeroStat({ value, label, icon: Icon, color, trend }: { 
   value: string | number; 
@@ -105,13 +114,13 @@ function HeroStat({ value, label, icon: Icon, color, trend }: {
 }
 
 export default function DashboardPage() {
-  const [showUpcomingMatches, setShowUpcomingMatches] = useState(false);
   const { profile, loading: profileLoading } = useProfile();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
   const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
   const [season, setSeason] = useState<Season | null>(null);
   const [onlineFriends, setOnlineFriends] = useState<OnlineFriend[]>([]);
+  const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
   const [loading, setLoading] = useState(true);
 
   usePresence();
@@ -168,6 +177,67 @@ export default function DashboardPage() {
           setOnlineFriends(online);
         }
 
+        // Fetch upcoming games from tournaments and leagues
+        const upcoming: UpcomingGame[] = [];
+        
+        // Check tournament matches
+        const { data: tournamentMatches } = await supabase
+          .from('tournament_matches')
+          .select(`
+            id, scheduled_at, round,
+            tournament:tournament_id (name),
+            player1:player1_id (username),
+            player2:player2_id (username)
+          `)
+          .or(`player1_id.eq.${profile.id},player2_id.eq.${profile.id}`)
+          .gte('scheduled_at', new Date().toISOString())
+          .order('scheduled_at', { ascending: true })
+          .limit(3);
+
+        if (tournamentMatches) {
+          tournamentMatches.forEach((match: any) => {
+            const opponent = match.player1?.id === profile.id ? match.player2?.username : match.player1?.username;
+            upcoming.push({
+              id: match.id,
+              type: 'tournament',
+              name: match.tournament?.name || 'Tournament Match',
+              opponent,
+              scheduled_at: match.scheduled_at,
+            });
+          });
+        }
+
+        // Check league matches
+        const { data: leagueMatches } = await supabase
+          .from('league_matches')
+          .select(`
+            id, scheduled_at, week,
+            league:league_id (name),
+            home_player:home_player_id (username),
+            away_player:away_player_id (username)
+          `)
+          .or(`home_player_id.eq.${profile.id},away_player_id.eq.${profile.id}`)
+          .gte('scheduled_at', new Date().toISOString())
+          .order('scheduled_at', { ascending: true })
+          .limit(3);
+
+        if (leagueMatches) {
+          leagueMatches.forEach((match: any) => {
+            const opponent = match.home_player?.id === profile.id ? match.away_player?.username : match.home_player?.username;
+            upcoming.push({
+              id: match.id,
+              type: 'league',
+              name: match.league?.name || 'League Match',
+              opponent,
+              scheduled_at: match.scheduled_at,
+            });
+          });
+        }
+
+        // Sort by scheduled time
+        upcoming.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+        setUpcomingGames(upcoming.slice(0, 5));
+
         const { data: achievements } = await supabase
           .from('user_achievements')
           .select(`
@@ -200,6 +270,24 @@ export default function DashboardPage() {
       case 'target': return Target;
       case 'trophy': return Trophy;
       default: return Award;
+    }
+  };
+
+  const formatScheduledTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0 && diffHrs < 24) {
+      return `in ${diffHrs}h`;
+    } else if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Tomorrow';
+    } else {
+      return `${diffDays} days`;
     }
   };
 
@@ -316,99 +404,161 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Ranked Status - Full Width */}
-      <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-        <div className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Left - Title */}
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                <Crown className="w-7 h-7 text-amber-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Ranked Status</h2>
-                <p className="text-slate-400">{season?.name || 'Current Season'}</p>
-              </div>
-            </div>
-
-            {/* Middle - RP & Division */}
-            <div className="flex items-center gap-8">
-              <div className="text-center">
-                <p className="text-4xl font-black text-white">{rankedState?.rp || 0}</p>
-                <p className="text-slate-400 text-sm">Ranked Points</p>
-              </div>
-              
-              {rankedState?.division_name && (
-                <div className="px-6 py-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                  <p className="text-amber-400 font-bold text-lg">{rankedState.division_name}</p>
-                  <p className="text-slate-400 text-sm">Current Division</p>
-                </div>
-              )}
-
-              {rankedState?.provisional_games_remaining ? (
-                <div className="w-48">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-slate-400">Placement</span>
-                    <span className="text-white font-medium">{10 - rankedState.provisional_games_remaining}/10</span>
-                  </div>
-                  <Progress value={(10 - rankedState.provisional_games_remaining) * 10} className="h-2" />
-                </div>
-              ) : null}
-            </div>
-
-            {/* Right - Stats & Button */}
-            <div className="flex items-center gap-6">
-              <div className="flex gap-6 text-center">
-                <div>
-                  <p className="text-xl font-bold text-white">{rankedState?.wins || 0}</p>
-                  <p className="text-slate-400 text-xs">Wins</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-white">{rankedState?.losses || 0}</p>
-                  <p className="text-slate-400 text-xs">Losses</p>
-                </div>
-              </div>
-              <Link href="/app/ranked">
-                <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Play Ranked
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Main Grid Layout */}
+      {/* Main Grid Layout - 2 columns */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left Column - 2/3 width */}
+        {/* Left Column - 2/3 width: Ranked Status + Upcoming Games */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recent Activity */}
+          {/* Ranked Status - Taller, aligned with right column */}
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+            <div className="p-8">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                {/* Left - Title & Division */}
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                    <Crown className="w-8 h-8 text-amber-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Ranked Status</h2>
+                    <p className="text-slate-400">{season?.name || 'Current Season'}</p>
+                    {rankedState?.division_name && (
+                      <Badge className="mt-2 bg-amber-500/20 text-amber-400 border-amber-500/30">
+                        {rankedState.division_name}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Middle - RP & Stats */}
+                <div className="flex items-center gap-8">
+                  <div className="text-center px-6 py-4 bg-slate-700/30 rounded-xl">
+                    <p className="text-5xl font-black text-white">{rankedState?.rp || 0}</p>
+                    <p className="text-slate-400 text-sm mt-1">Ranked Points</p>
+                  </div>
+                  
+                  <div className="flex gap-6">
+                    <div className="text-center px-4 py-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                      <p className="text-2xl font-bold text-emerald-400">{rankedState?.wins || 0}</p>
+                      <p className="text-slate-400 text-xs">Wins</p>
+                    </div>
+                    <div className="text-center px-4 py-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                      <p className="text-2xl font-bold text-red-400">{rankedState?.losses || 0}</p>
+                      <p className="text-slate-400 text-xs">Losses</p>
+                    </div>
+                    <div className="text-center px-4 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                      <p className="text-2xl font-bold text-blue-400">
+                        {rankedState?.games_played ? Math.round((rankedState.wins / rankedState.games_played) * 100) : 0}%
+                      </p>
+                      <p className="text-slate-400 text-xs">Win Rate</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right - Placement or Play Button */}
+                <div className="flex flex-col items-end gap-3">
+                  {rankedState?.provisional_games_remaining ? (
+                    <div className="w-48">
+                      <p className="text-sm text-slate-400 mb-2">Placement Progress</p>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-white font-medium">{10 - rankedState.provisional_games_remaining}/10</span>
+                        <span className="text-slate-400">games</span>
+                      </div>
+                      <Progress value={(10 - rankedState.provisional_games_remaining) * 10} className="h-2" />
+                    </div>
+                  ) : null}
+                  <Link href="/app/ranked">
+                    <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 px-6">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Play Ranked
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Upcoming Games - replaces Recent Activity */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
             <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-emerald-400" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">Recent Activity</h2>
-                  <p className="text-sm text-slate-400">Your latest matches</p>
+                  <h2 className="text-lg font-bold text-white">Upcoming Games</h2>
+                  <p className="text-sm text-slate-400">Your scheduled matches</p>
                 </div>
               </div>
-              <Link href="/app/stats">
-                <Button variant="ghost" className="text-slate-400 hover:text-white">
-                  View All
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
-              </Link>
+              <div className="flex gap-2">
+                <Link href="/app/tournaments">
+                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                    Tournaments
+                  </Button>
+                </Link>
+                <Link href="/app/leagues">
+                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                    Leagues
+                  </Button>
+                </Link>
+              </div>
             </div>
             <div className="p-6">
-              <MatchHistoryList limit={5} />
+              {upcomingGames.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingGames.map((game) => (
+                    <div
+                      key={game.id}
+                      className="flex items-center gap-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30 hover:border-slate-500/50 transition-colors"
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        game.type === 'tournament' ? 'bg-amber-500/20' : 'bg-blue-500/20'
+                      }`}>
+                        {game.type === 'tournament' ? (
+                          <Trophy className="w-6 h-6 text-amber-400" />
+                        ) : (
+                          <Shield className="w-6 h-6 text-blue-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold truncate">{game.name}</p>
+                        {game.opponent && (
+                          <p className="text-slate-400 text-sm">vs {game.opponent}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatScheduledTime(game.scheduled_at)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Calendar className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-white mb-2">No upcoming games</h3>
+                  <p className="text-slate-400 mb-4">Join a tournament or league to see scheduled matches here</p>
+                  <div className="flex justify-center gap-3">
+                    <Link href="/app/tournaments">
+                      <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
+                        <Trophy className="w-4 h-4 mr-2" />
+                        Browse Tournaments
+                      </Button>
+                    </Link>
+                    <Link href="/app/leagues">
+                      <Button className="bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Browse Leagues
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </div>
 
-        {/* Right Column - 1/3 width - Achievements moved here */}
+        {/* Right Column - 1/3 width - Achievements + Online Friends moved up */}
         <div className="space-y-6">
           {/* Achievements */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
@@ -515,8 +665,6 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
-
-      <UpcomingMatchesModal open={showUpcomingMatches} onOpenChange={setShowUpcomingMatches} />
     </div>
   );
 }
