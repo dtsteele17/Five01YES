@@ -30,6 +30,10 @@ import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
 import { usePresence } from '@/lib/hooks/usePresence';
+import { useState } from 'react';
+import { MatchStatsModal } from '@/components/app/MatchStatsModal';
+import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
+import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardStats {
   totalMatches: number;
@@ -85,15 +89,19 @@ interface UpcomingGame {
 }
 
 // F1/FIFA Style Stat Card - Large format
-function HeroStat({ value, label, icon: Icon, color, trend }: { 
+function HeroStat({ value, label, icon: Icon, color, trend, onClick }: { 
   value: string | number; 
   label: string; 
   icon: any; 
   color: string;
   trend?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
+  const content = (
+    <div 
+      className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
       <div className="flex items-start justify-between">
         <div>
@@ -112,6 +120,12 @@ function HeroStat({ value, label, icon: Icon, color, trend }: {
       </div>
     </div>
   );
+
+  return onClick ? (
+    <Link href="/app/stats" className="block">
+      {content}
+    </Link>
+  ) : content;
 }
 
 export default function DashboardPage() {

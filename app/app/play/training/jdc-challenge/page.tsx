@@ -185,21 +185,39 @@ export default function JDCChallengePage() {
 
     switch (currentTarget.type) {
       case 'single':
-        // Only show Single button for the target number
+        // Show Single, Double, and Triple buttons for rounds 1-6 (10s-15s)
         return (
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <button
-              onClick={() => handleDartInput(currentTarget.number!, 1, `S${currentTarget.number}`)}
-              disabled={disabled}
-              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
-            >
-              Single {currentTarget.number}
-              <span className="block text-sm text-gray-500">{currentTarget.number}</span>
-            </button>
+          <div className="space-y-3 mb-4">
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => handleDartInput(currentTarget.number!, 1, `S${currentTarget.number}`)}
+                disabled={disabled}
+                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white border border-slate-600"
+              >
+                <span className="text-green-400">S{currentTarget.number}</span>
+                <span className="block text-sm text-gray-500">{currentTarget.number} pts</span>
+              </button>
+              <button
+                onClick={() => handleDartInput(currentTarget.number!, 2, `D${currentTarget.number}`)}
+                disabled={disabled}
+                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white border border-emerald-500/50"
+              >
+                <span className="text-emerald-400">D{currentTarget.number}</span>
+                <span className="block text-sm text-emerald-500">{currentTarget.number! * 2} pts</span>
+              </button>
+              <button
+                onClick={() => handleDartInput(currentTarget.number!, 3, `T${currentTarget.number}`)}
+                disabled={disabled}
+                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white border border-amber-500/50"
+              >
+                <span className="text-amber-400">T{currentTarget.number}</span>
+                <span className="block text-sm text-amber-500">{currentTarget.number! * 3} pts</span>
+              </button>
+            </div>
             <button
               onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={disabled}
-              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+              className="w-full h-14 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
             >
               Miss
               <span className="block text-sm text-gray-600">0</span>

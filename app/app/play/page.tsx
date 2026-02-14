@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { motion, Variants } from 'framer-motion';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { formatDistanceToNow } from 'date-fns';
+import { useState } from 'react';
+import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import {
   Zap,
   Shield,
@@ -226,7 +228,7 @@ function QuickActionsBar() {
 }
 
 // Recent Match Item Component
-function RecentMatchItem({ match }: { match: any }) {
+function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }) {
   const getResultColor = (result: string) => {
     switch (result) {
       case 'win': return 'text-emerald-400';
@@ -265,7 +267,10 @@ function RecentMatchItem({ match }: { match: any }) {
   const timeAgo = formatDistanceToNow(new Date(match.played_at), { addSuffix: true });
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors">
+    <div 
+      onClick={onClick}
+      className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors cursor-pointer"
+    >
       <div className="flex items-center gap-4">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getResultBgColor(match.result)}`}>
           {getResultIcon(match.result)}
@@ -286,62 +291,76 @@ function RecentMatchItem({ match }: { match: any }) {
 // Recent Matches Section
 function RecentMatchesSection() {
   const { matches, loading } = useRecentMatches(3);
+  const [selectedMatch, setSelectedMatch] = useState<any>(null);
 
   return (
-    <motion.div variants={itemVariants} className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
-          <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
-        </div>
-        <Link href="/app/stats">
-          <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-            View All
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </Link>
-      </div>
-      
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 animate-pulse">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-slate-700" />
-                <div>
-                  <div className="w-24 h-4 bg-slate-700 rounded mb-2" />
-                  <div className="w-16 h-3 bg-slate-700 rounded" />
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="w-12 h-4 bg-slate-700 rounded mb-2" />
-                <div className="w-20 h-3 bg-slate-700 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : matches.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
-            <Trophy className="w-8 h-8 text-slate-500" />
+    <>
+      <motion.div variants={itemVariants} className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
+            <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
           </div>
-          <h3 className="text-white font-bold mb-2">No Matches Yet</h3>
-          <p className="text-slate-400 text-sm mb-4">Start playing to see your match history here</p>
-          <Link href="/app/play/training">
-            <Button className="bg-emerald-500 hover:bg-emerald-600">
-              <Play className="w-4 h-4 mr-2" />
-              Start Playing
+          <Link href="/app/stats">
+            <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+              View All
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {matches.map((match) => (
-            <RecentMatchItem key={match.id} match={match} />
-          ))}
-        </div>
-      )}
-    </motion.div>
+        
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-slate-700" />
+                  <div>
+                    <div className="w-24 h-4 bg-slate-700 rounded mb-2" />
+                    <div className="w-16 h-3 bg-slate-700 rounded" />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="w-12 h-4 bg-slate-700 rounded mb-2" />
+                  <div className="w-20 h-3 bg-slate-700 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : matches.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 text-slate-500" />
+            </div>
+            <h3 className="text-white font-bold mb-2">No Matches Yet</h3>
+            <p className="text-slate-400 text-sm mb-4">Start playing to see your match history here</p>
+            <Link href="/app/play/training">
+              <Button className="bg-emerald-500 hover:bg-emerald-600">
+                <Play className="w-4 h-4 mr-2" />
+                Start Playing
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {matches.map((match) => (
+              <RecentMatchItem 
+                key={match.id} 
+                match={match} 
+                onClick={() => setSelectedMatch(match)}
+              />
+            ))}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Match Stats Modal */}
+      <MatchStatsModal
+        isOpen={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        matchId={selectedMatch?.room_id || ''}
+      />
+    </>
   );
 }
 
