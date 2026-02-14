@@ -413,11 +413,11 @@ export default function OneTwentyOnePage() {
                   <TabsTrigger value="singles" className="data-[state=active]:bg-blue-500">
                     Singles
                   </TabsTrigger>
-                  <TabsTrigger value="trebles" className="data-[state=active]:bg-amber-500">
-                    Trebles
-                  </TabsTrigger>
                   <TabsTrigger value="doubles" className="data-[state=active]:bg-red-500">
                     Doubles
+                  </TabsTrigger>
+                  <TabsTrigger value="trebles" className="data-[state=active]:bg-amber-500">
+                    Trebles
                   </TabsTrigger>
                   <TabsTrigger value="bulls" className="data-[state=active]:bg-emerald-500">
                     Bulls
@@ -439,21 +439,6 @@ export default function OneTwentyOnePage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="trebles">
-                  <div className="grid grid-cols-10 gap-2">
-                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                      <Button
-                        key={`T${num}`}
-                        onClick={() => handleDartClick({ segment: 'T', value: num * 3, label: `T${num}` })}
-                        disabled={!gameActive}
-                        className="h-14 bg-amber-600 hover:bg-amber-700 text-white font-semibold disabled:opacity-30"
-                      >
-                        T{num}
-                      </Button>
-                    ))}
-                  </div>
-                </TabsContent>
-
                 <TabsContent value="doubles">
                   <div className="grid grid-cols-10 gap-2">
                     {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
@@ -464,6 +449,21 @@ export default function OneTwentyOnePage() {
                         className="h-14 bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-30"
                       >
                         D{num}
+                      </Button>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="trebles">
+                  <div className="grid grid-cols-10 gap-2">
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                      <Button
+                        key={`T${num}`}
+                        onClick={() => handleDartClick({ segment: 'T', value: num * 3, label: `T${num}` })}
+                        disabled={!gameActive}
+                        className="h-14 bg-amber-600 hover:bg-amber-700 text-white font-semibold disabled:opacity-30"
+                      >
+                        T{num}
                       </Button>
                     ))}
                   </div>
