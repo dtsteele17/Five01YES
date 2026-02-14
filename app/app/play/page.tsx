@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import {
   Target,
@@ -20,14 +19,17 @@ import {
   GraduationCap,
   BarChart3,
   Flame,
-  ChevronRight,
-  Play,
   Crown,
+  Play,
+  ChevronRight,
   Swords,
   Dices,
   ArrowRight,
-  Settings2,
   ChevronDown,
+  TargetIcon,
+  RotateCcw,
+  Sparkles,
+  Award,
 } from 'lucide-react';
 import { PrivateMatchModal } from '@/components/app/PrivateMatchModal';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
@@ -89,67 +91,110 @@ function normalizePollResult(data: any): { ok: boolean; queue_id?: string; statu
   return data;
 }
 
-// Game Mode Button Component
-function GameModeButton({
+// Bento Grid Item Component
+function BentoItem({ 
+  children, 
+  className = '', 
+  colSpan = 1,
+  rowSpan = 1,
+}: { 
+  children: React.ReactNode; 
+  className?: string;
+  colSpan?: number;
+  rowSpan?: number;
+}) {
+  return (
+    <div className={`${className} ${colSpan === 2 ? 'md:col-span-2' : ''} ${rowSpan === 2 ? 'md:row-span-2' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
+// Large Game Mode Card
+function GameModeCard({
   href,
   onClick,
   icon: Icon,
   title,
+  subtitle,
   description,
-  variant = 'default',
+  color,
   disabled = false,
 }: {
   href?: string;
   onClick?: () => void;
   icon: React.ElementType;
   title: string;
+  subtitle: string;
   description: string;
-  variant?: 'default' | 'ranked' | 'quick' | 'private';
+  color: string;
   disabled?: boolean;
 }) {
-  const variants = {
-    default: 'from-slate-700 to-slate-800 border-slate-600/50 hover:border-slate-500',
-    ranked: 'from-amber-600/90 to-amber-800/90 border-amber-500/50 hover:border-amber-400',
-    quick: 'from-emerald-600/90 to-emerald-800/90 border-emerald-500/50 hover:border-emerald-400',
-    private: 'from-blue-600/90 to-blue-800/90 border-blue-500/50 hover:border-blue-400',
-  };
-
   const content = (
-    <div className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${variants[variant]} p-6 border transition-all duration-300 group ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5'}`}>
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_50%_50%,_white_1px,transparent_1px)] bg-[length:20px_20px]" />
+    <div className={`group relative h-full overflow-hidden rounded-3xl bg-gradient-to-br ${color} p-8 transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02] hover:shadow-2xl'}`}>
+      {/* Background pattern */}
+      <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_50%_50%,_white_1px,transparent_1px)] bg-[length:24px_24px]" />
+      <div className="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-500" />
       
-      <div className="relative z-10">
-        <div className="flex items-start justify-between mb-4">
-          <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg ${
-            variant === 'ranked' ? 'bg-amber-500/20 text-amber-300' :
-            variant === 'quick' ? 'bg-emerald-500/20 text-emerald-300' :
-            variant === 'private' ? 'bg-blue-500/20 text-blue-300' :
-            'bg-slate-600/50 text-slate-300'
-          }`}>
-            <Icon className="w-7 h-7" />
+      <div className="relative z-10 h-full flex flex-col">
+        <div className="flex items-start justify-between mb-6">
+          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg">
+            <Icon className="w-8 h-8 text-white" />
           </div>
-          {variant === 'ranked' && (
-            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">
-              Competitive
-            </Badge>
-          )}
+          <div className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white/90 text-sm font-medium">
+            {subtitle}
+          </div>
         </div>
         
-        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-white/70 text-sm leading-relaxed">{description}</p>
+        <div className="flex-1">
+          <h3 className="text-3xl font-bold text-white mb-3">{title}</h3>
+          <p className="text-white/80 text-lg leading-relaxed max-w-md">{description}</p>
+        </div>
         
-        <div className="mt-4 flex items-center text-white/50 text-sm font-medium group-hover:text-white/80 transition-colors">
-          <span>Enter</span>
-          <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+        <div className="mt-6 flex items-center text-white font-semibold">
+          <span>Enter Arena</span>
+          <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" />
         </div>
       </div>
     </div>
   );
 
-  if (disabled) return <div>{content}</div>;
+  if (disabled) return content;
   if (href) return <Link href={href}>{content}</Link>;
   return <div onClick={onClick}>{content}</div>;
+}
+
+// Compact Game Card for training
+function CompactGameCard({
+  title,
+  icon: Icon,
+  color,
+  onClick,
+  active = false,
+}: {
+  title: string;
+  icon: React.ElementType;
+  color: string;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full p-4 rounded-2xl border-2 transition-all duration-200 text-left ${
+        active 
+          ? `bg-gradient-to-r ${color} border-transparent` 
+          : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
+      }`}
+    >
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${active ? 'bg-white/20' : `bg-gradient-to-br ${color}`}`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+        <span className={`font-semibold ${active ? 'text-white' : 'text-slate-300'}`}>{title}</span>
+      </div>
+    </button>
+  );
 }
 
 export default function PlayPage() {
@@ -556,333 +601,203 @@ export default function PlayPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Game Center</h1>
-          <p className="text-slate-400 mt-1">Choose your match type and start playing</p>
-        </div>
+      <div className="text-center py-8">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">Game Center</h1>
+        <p className="text-xl text-gray-400">Choose your arena and start competing</p>
       </div>
 
-      {/* Main Game Modes */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <GameModeButton
-          href="/app/ranked"
-          icon={Crown}
-          title="Ranked Match"
-          description="Compete for ranking points and climb the leaderboard. Test your skills against equally matched opponents."
-          variant="ranked"
-          disabled={rankedSearching}
-        />
-        <GameModeButton
-          href="/app/play/quick-match"
-          icon={Zap}
-          title="Quick Match"
-          description="Jump into casual matches instantly. No pressure, just pure darts action with players worldwide."
-          variant="quick"
-          disabled={rankedSearching}
-        />
-        <GameModeButton
-          onClick={() => setShowPrivateModal(true)}
-          icon={Users}
-          title="Private Match"
-          description="Create a private room and invite friends. Perfect for practice matches with people you know."
-          variant="private"
-          disabled={rankedSearching}
-        />
-      </div>
+      {/* Bento Grid Layout */}
+      <div className="grid md:grid-cols-3 gap-6 auto-rows-[200px]">
+        {/* Ranked - Large Card */}
+        <BentoItem colSpan={2} rowSpan={2}>
+          <GameModeCard
+            href="/app/ranked"
+            icon={Crown}
+            title="Ranked Matches"
+            subtitle="Competitive"
+            description="Climb the leaderboard and prove your skills against equally matched opponents. Earn RP and climb divisions."
+            color="from-amber-600 via-orange-600 to-red-600"
+            disabled={rankedSearching}
+          />
+        </BentoItem>
 
-      {/* Training Section */}
-      <Card className="bg-slate-900/80 border-slate-700/50 overflow-hidden">
-        <div className="p-6 border-b border-slate-700/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Training Grounds</h2>
-              <p className="text-sm text-slate-400">Practice against DartBot or solo drills</p>
-            </div>
-          </div>
-        </div>
+        {/* Quick Match */}
+        <BentoItem>
+          <GameModeCard
+            href="/app/play/quick-match"
+            icon={Zap}
+            title="Quick Match"
+            subtitle="Casual"
+            description="Jump into instant matches. No pressure, just darts."
+            color="from-emerald-600 via-teal-600 to-cyan-600"
+            disabled={rankedSearching}
+          />
+        </BentoItem>
 
-        <div className="p-6 space-y-6">
-          {/* Mode Selection */}
-          <div className="grid sm:grid-cols-3 gap-3">
-            {[
-              { value: '301', label: '301 vs Bot', desc: 'Quick games' },
-              { value: '501', label: '501 vs Bot', desc: 'Classic darts' },
-              { value: 'practice-games', label: 'Practice Games', desc: 'Training drills' },
-            ].map((mode) => (
-              <button
-                key={mode.value}
-                onClick={() => setTrainingMode(mode.value as any)}
-                className={`p-4 rounded-xl border text-left transition-all ${
-                  trainingMode === mode.value
-                    ? 'bg-emerald-500/10 border-emerald-500/50'
-                    : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600'
-                }`}
-              >
-                <p className={`font-medium ${trainingMode === mode.value ? 'text-emerald-400' : 'text-white'}`}>
-                  {mode.label}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">{mode.desc}</p>
-              </button>
-            ))}
-          </div>
+        {/* Private Match */}
+        <BentoItem>
+          <GameModeCard
+            onClick={() => setShowPrivateModal(true)}
+            icon={Users}
+            title="Private Match"
+            subtitle="Friends"
+            description="Create a room and invite friends."
+            color="from-blue-600 via-indigo-600 to-purple-600"
+            disabled={rankedSearching}
+          />
+        </BentoItem>
 
-          {/* Configuration */}
-          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-            {trainingMode === 'practice-games' ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-300 mb-2 block">Training Game</label>
-                  <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as any)}>
-                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
-                      <SelectItem value="around-the-clock">Around the Clock</SelectItem>
-                      <SelectItem value="finish-training">Finish Training</SelectItem>
-                      <SelectItem value="pdc-challenge">PDC Challenge</SelectItem>
-                      <SelectItem value="jdc-challenge">JDC Challenge</SelectItem>
-                      <SelectItem value="bobs-27">Bob's 27</SelectItem>
-                      <SelectItem value="121-game">121 Game</SelectItem>
-                      <SelectItem value="killer">Killer</SelectItem>
-                      <SelectItem value="form-analysis">Form Analysis</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {practiceGameMode === 'finish-training' && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Min Checkout</label>
-                      <input
-                        type="number"
-                        min="2"
-                        max="150"
-                        value={finishMin}
-                        onChange={(e) => setFinishMin(e.target.value)}
-                        placeholder="2"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Max Checkout</label>
-                      <input
-                        type="number"
-                        min="2"
-                        max="170"
-                        value={finishMax}
-                        onChange={(e) => setFinishMax(e.target.value)}
-                        placeholder="170"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {practiceGameMode === 'killer' && (
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">Rounds</label>
-                    <Select value={killerRounds.toString()} onValueChange={(v) => setKillerRounds(parseInt(v) as any)}>
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="1">1 Round</SelectItem>
-                        <SelectItem value="3">3 Rounds</SelectItem>
-                        <SelectItem value="5">5 Rounds</SelectItem>
-                        <SelectItem value="7">7 Rounds</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+        {/* Training Hub */}
+        <BentoItem colSpan={2}>
+          <div className="h-full bg-slate-900/60 border border-white/10 rounded-3xl p-6 overflow-hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 text-indigo-400" />
               </div>
-            ) : (
-              <div className="grid sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Bot Level</label>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Training Hub</h3>
+                <p className="text-sm text-gray-400">Practice against DartBot</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <CompactGameCard
+                title="301"
+                icon={Target}
+                color="from-blue-500 to-blue-600"
+                onClick={() => setTrainingMode('301')}
+                active={trainingMode === '301'}
+              />
+              <CompactGameCard
+                title="501"
+                icon={Target}
+                color="from-indigo-500 to-indigo-600"
+                onClick={() => setTrainingMode('501')}
+                active={trainingMode === '501'}
+              />
+              <CompactGameCard
+                title="Practice"
+                icon={Sparkles}
+                color="from-purple-500 to-purple-600"
+                onClick={() => setTrainingMode('practice-games')}
+                active={trainingMode === 'practice-games'}
+              />
+            </div>
+
+            {/* Quick Settings */}
+            <div className="mt-4 flex items-center gap-3">
+              {trainingMode !== 'practice-games' ? (
+                <>
                   <Select value={botDifficulty} onValueChange={(v) => setBotDifficulty(v as any)}>
-                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-sm">
+                    <SelectTrigger className="w-32 h-9 bg-slate-800 border-slate-700 text-white text-xs">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectContent className="bg-slate-800 border-slate-700">
                       {Object.entries(BOT_DIFFICULTY_CONFIG).map(([key, value]) => (
                         <SelectItem key={key} value={key}>{value.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Format</label>
                   <Select value={bestOf} onValueChange={(v) => setBestOf(v as any)}>
-                    <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-sm">
+                    <SelectTrigger className="w-28 h-9 bg-slate-800 border-slate-700 text-white text-xs">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-700">
+                    <SelectContent className="bg-slate-800 border-slate-700">
                       <SelectItem value="best-of-1">Best of 1</SelectItem>
                       <SelectItem value="best-of-3">Best of 3</SelectItem>
                       <SelectItem value="best-of-5">Best of 5</SelectItem>
-                      <SelectItem value="best-of-7">Best of 7</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Double Out</label>
-                  <button
-                    onClick={() => setDoubleOut(!doubleOut)}
-                    className={`w-full h-9 rounded-lg text-sm font-medium transition-colors ${
-                      doubleOut 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                        : 'bg-slate-900 text-slate-400 border border-slate-700'
+                </>
+              ) : (
+                <Select value={practiceGameMode} onValueChange={(v) => setPracticeGameMode(v as any)}>
+                  <SelectTrigger className="w-48 h-9 bg-slate-800 border-slate-700 text-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectItem value="around-the-clock">Around the Clock</SelectItem>
+                    <SelectItem value="finish-training">Finish Training</SelectItem>
+                    <SelectItem value="pdc-challenge">PDC Challenge</SelectItem>
+                    <SelectItem value="jdc-challenge">JDC Challenge</SelectItem>
+                    <SelectItem value="killer">Killer</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <Button size="sm" onClick={handleStartTraining} className="ml-auto bg-indigo-600 hover:bg-indigo-500">
+                <Play className="w-4 h-4 mr-1" />
+                Start
+              </Button>
+            </div>
+          </div>
+        </BentoItem>
+
+        {/* Recent Matches Mini */}
+        <BentoItem>
+          <div className="h-full bg-slate-900/60 border border-white/10 rounded-3xl p-5 overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-gray-400" />
+                <h3 className="text-sm font-semibold text-white">Recent</h3>
+              </div>
+              <Link href="/app/history">
+                <ChevronRight className="w-4 h-4 text-gray-400 hover:text-white" />
+              </Link>
+            </div>
+
+            {loadingMatches ? (
+              <div className="flex items-center justify-center h-24">
+                <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+              </div>
+            ) : recentMatches.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-gray-500 text-sm">No matches yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentMatches.slice(0, 2).map((match) => (
+                  <div
+                    key={match.id}
+                    onClick={() => handleShowStats(match.id)}
+                    className={`p-3 rounded-xl cursor-pointer transition-colors ${
+                      match.result === 'win' 
+                        ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                        : 'bg-red-500/10 border border-red-500/20'
                     }`}
                   >
-                    {doubleOut ? 'Enabled' : 'Disabled'}
-                  </button>
-                </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-sm font-medium truncate">{match.player2_name}</span>
+                      <span className={`text-sm font-bold ${match.result === 'win' ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {match.player1_legs_won}-{match.player2_legs_won}
+                      </span>
+                    </div>
+                    <p className="text-gray-500 text-xs mt-1">{getTimeAgo(match.completed_at)}</p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-
-          <Button
-            onClick={handleStartTraining}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            Start Training
-          </Button>
-        </div>
-      </Card>
-
-      {/* Recent Matches */}
-      <Card className="bg-slate-900/80 border-slate-700/50 overflow-hidden">
-        <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-slate-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Recent Matches</h2>
-              <p className="text-sm text-slate-400">Your last 3 games</p>
-            </div>
-          </div>
-          <Link href="/app/history">
-            <Button variant="ghost" className="text-slate-400 hover:text-white">
-              View All
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="p-6">
-          {loadingMatches ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-            </div>
-          ) : recentMatches.length === 0 ? (
-            <div className="text-center py-12">
-              <Target className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400">No recent games yet</p>
-              <p className="text-slate-500 text-sm mt-1">Start playing to see your match history</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentMatches.map((match) => {
-                const isWin = match.result === 'win';
-                const isLoss = match.result === 'loss';
-                const userLegs = match.player1_legs_won;
-                const opponentLegs = match.player2_legs_won;
-
-                return (
-                  <div
-                    key={match.id}
-                    className={`group flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.01] ${
-                      isWin 
-                        ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                        : isLoss 
-                          ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40'
-                          : 'bg-slate-800/30 border-slate-700/50 hover:border-slate-600'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                      isWin 
-                        ? 'bg-emerald-500/20 text-emerald-400' 
-                        : isLoss 
-                          ? 'bg-red-500/20 text-red-400'
-                          : 'bg-slate-700 text-slate-400'
-                    }`}>
-                      {isWin ? <Trophy className="w-5 h-5" /> : isLoss ? <X className="w-5 h-5" /> : <Dices className="w-5 h-5" />}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-medium truncate">{match.player2_name}</span>
-                        <Badge variant="outline" className={`text-xs ${
-                          isWin ? 'border-emerald-500/30 text-emerald-400' : 
-                          isLoss ? 'border-red-500/30 text-red-400' : 
-                          'border-slate-500/30 text-slate-400'
-                        }`}>
-                          {isWin ? 'Win' : isLoss ? 'Loss' : 'Draw'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
-                        <span>{match.game_mode}</span>
-                        <span className="text-slate-600">•</span>
-                        <span className={isWin ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
-                          {userLegs} - {opponentLegs}
-                        </span>
-                        <span className="text-slate-600">•</span>
-                        <span>{getTimeAgo(match.completed_at)}</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleShowStats(match.id)}
-                      className="text-slate-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </Card>
+        </BentoItem>
+      </div>
 
       {/* Ranked Search Modal */}
       {showRankedSearch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <Card className="relative w-full max-w-md bg-slate-900 border-amber-500/30 p-8">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/10 rounded-xl" />
-            
-            <div className="relative text-center">
-              <div className="relative w-24 h-24 mx-auto mb-6">
-                <div className="absolute inset-0 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
-                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-                  <Crown className="w-10 h-10 text-white" />
-                </div>
+          <Card className="relative w-full max-w-md bg-slate-900 border-amber-500/30 p-8 text-center">
+            <div className="relative w-24 h-24 mx-auto mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
+              <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                <Crown className="w-10 h-10 text-white" />
               </div>
-
-              <h3 className="text-2xl font-bold text-white mb-2">Finding Opponent</h3>
-              <p className="text-slate-400 mb-6">Searching for a worthy challenger...</p>
-
-              <div className="flex items-center justify-center gap-2 text-sm text-amber-400 mb-8">
-                <Clock className="w-4 h-4" />
-                <span>Average wait: 30-60 seconds</span>
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={cancelRankedSearch}
-                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-              >
-                Cancel Search
-              </Button>
             </div>
+            <h3 className="text-2xl font-bold text-white mb-2">Finding Opponent</h3>
+            <p className="text-gray-400 mb-6">Searching for a worthy challenger...</p>
+            <div className="flex items-center justify-center gap-2 text-sm text-amber-400 mb-8">
+              <Clock className="w-4 h-4" />
+              <span>Average wait: 30-60 seconds</span>
+            </div>
+            <Button variant="outline" onClick={cancelRankedSearch} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+              Cancel Search
+            </Button>
           </Card>
         </div>
       )}
@@ -893,11 +808,7 @@ export default function PlayPage() {
       </MatchErrorBoundary>
 
       {selectedMatchId && (
-        <MatchStatsModal
-          isOpen={showStatsModal}
-          onClose={() => setShowStatsModal(false)}
-          matchId={selectedMatchId}
-        />
+        <MatchStatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} matchId={selectedMatchId} />
       )}
     </div>
   );
