@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { motion, Variants } from 'framer-motion';
 import {
   Select,
   SelectContent,
@@ -26,6 +27,13 @@ import {
   UserPlus,
   Camera,
   CameraOff,
+  Zap,
+  Flame,
+  BarChart3,
+  Crown,
+  Gamepad2,
+  Activity,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -67,6 +75,54 @@ interface JoinRequest {
   requester_has_camera?: boolean;
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
+}
+
+// Animation variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 100,
+      damping: 15,
+    },
+  },
+};
+
+// F1/FIFA Style Stat Card
+function HeroStat({ value, label, icon: Icon, color }: { 
+  value: string | number; 
+  label: string; 
+  icon: any; 
+  color: string;
+}) {
+  return (
+    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all`}>
+      <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function QuickMatchLobbyPage() {
@@ -865,8 +921,8 @@ export default function QuickMatchLobbyPage() {
   };
 
   const getGameModeClass = (mode: string): string => {
-    if (mode === '301') return 'bg-red-600/20 text-red-400 border-red-500/40';
-    if (mode === '501') return 'bg-blue-600/20 text-blue-400 border-blue-500/40';
+    if (mode === '301') return 'bg-gradient-to-r from-red-500/20 to-red-600/20 text-red-400 border-red-500/40';
+    if (mode === '501') return 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-400 border-blue-500/40';
     return 'bg-slate-600/20 text-slate-400 border-slate-500/30';
   };
 
@@ -874,11 +930,11 @@ export default function QuickMatchLobbyPage() {
     const match = format.match(/best-of-(\d+)/i);
     const num = match ? parseInt(match[1]) : 1;
     switch (num) {
-      case 1: return 'bg-pink-600/20 text-pink-400 border-pink-500/40';
-      case 3: return 'bg-purple-600/20 text-purple-400 border-purple-500/40';
-      case 5: return 'bg-indigo-600/20 text-indigo-400 border-indigo-500/40';
-      case 7: return 'bg-violet-600/20 text-violet-400 border-violet-500/40';
-      default: return 'bg-purple-600/20 text-purple-400 border-purple-500/40';
+      case 1: return 'bg-gradient-to-r from-pink-500/20 to-pink-600/20 text-pink-400 border-pink-500/40';
+      case 3: return 'bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 border-purple-500/40';
+      case 5: return 'bg-gradient-to-r from-indigo-500/20 to-indigo-600/20 text-indigo-400 border-indigo-500/40';
+      case 7: return 'bg-gradient-to-r from-violet-500/20 to-violet-600/20 text-violet-400 border-violet-500/40';
+      default: return 'bg-gradient-to-r from-purple-500/20 to-purple-600/20 text-purple-400 border-purple-500/40';
     }
   };
 
@@ -891,423 +947,490 @@ export default function QuickMatchLobbyPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-gray-500 mb-2">
-          Quick Match Route: /play/quick-match
-        </div>
-      )}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link 
-            href="/app/play"
-            onClick={() => {
-              // Clean up lobby when navigating back
-              if (myLobby) {
-                supabase.rpc('rpc_delete_user_lobbies');
-              }
-            }}
+    <motion.div 
+      className="max-w-7xl mx-auto space-y-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <motion.div 
+            className="flex items-center gap-3 mb-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
           >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-white"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-1">
-              Quick Match
-            </h1>
-            <p className="text-gray-400">
-              Create or join an online match
+            <Link href="/app/play">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">
+              Online Play
             </p>
-          </div>
+          </motion.div>
+          <motion.h1 
+            className="text-4xl md:text-5xl font-black text-white tracking-tight"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            Quick Match
+          </motion.h1>
+          <motion.p 
+            className="text-slate-400 mt-2 text-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            Create or join an online match with players worldwide
+          </motion.p>
         </div>
-        <Badge
-          variant="outline"
-          className="border-emerald-500/30 text-emerald-400"
+        
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
         >
-          <Users className="w-3 h-3 mr-1" />
-          {filteredLobbies.length} Games Available
-          {isFilterActive && totalOpenLobbies > filteredLobbies.length && (
-            <span className="ml-1 text-gray-400 text-xs">(Filters active)</span>
-          )}
-        </Badge>
+          <Badge
+            variant="outline"
+            className="border-emerald-500/30 text-emerald-400 px-4 py-2 text-sm"
+          >
+            <Users className="w-4 h-4 mr-2" />
+            {filteredLobbies.length} Games Available
+            {isFilterActive && totalOpenLobbies > filteredLobbies.length && (
+              <span className="ml-1 text-slate-400 text-xs">(Filters active)</span>
+            )}
+          </Badge>
+        </motion.div>
       </div>
 
+      {/* Stats Dashboard */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <HeroStat 
+          value={totalOpenLobbies} 
+          label="Open Lobbies" 
+          icon={Gamepad2} 
+          color="bg-blue-500"
+        />
+        <HeroStat 
+          value={filteredLobbies.length} 
+          label="Available Now" 
+          icon={Zap} 
+          color="bg-emerald-500"
+        />
+        <HeroStat 
+          value={myLobby ? '1' : '0'} 
+          label="Your Lobbies" 
+          icon={Target} 
+          color="bg-purple-500"
+        />
+        <HeroStat 
+          value={realtimeStatus === 'connected' ? 'Live' : 'Connecting'} 
+          label="Status" 
+          icon={Activity} 
+          color="bg-orange-500"
+        />
+      </motion.div>
+
       {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-yellow-500/30 p-4">
-          <h3 className="text-sm font-bold text-yellow-400 mb-3">Online Debug</h3>
-          <div className="grid grid-cols-2 gap-4 text-xs">
-            <div>
-              <p className="text-gray-500 mb-1">Origin</p>
-              <p className="text-white font-mono">{typeof window !== 'undefined' ? window.location.origin : 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-1">Supabase Host</p>
-              <p className="text-white font-mono">
-                {process.env.NEXT_PUBLIC_SUPABASE_URL
-                  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
-                  : 'NOT SET'}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-1">Open Lobbies Count</p>
-              <p className="text-white font-mono">{totalOpenLobbies}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-1">Realtime Status</p>
-              <p className={`font-mono ${realtimeStatus === 'connected' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {realtimeStatus}
-              </p>
-            </div>
-            {lastRealtimeEvent && (
-              <div className="col-span-2">
-                <p className="text-gray-500 mb-1">Last Realtime Event</p>
+        <motion.div variants={itemVariants}>
+          <Card className="bg-slate-900/50 backdrop-blur-sm border-yellow-500/30 p-4">
+            <h3 className="text-sm font-bold text-yellow-400 mb-3">Online Debug</h3>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <p className="text-gray-500 mb-1">Origin</p>
+                <p className="text-white font-mono">{typeof window !== 'undefined' ? window.location.origin : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 mb-1">Supabase Host</p>
                 <p className="text-white font-mono">
-                  {lastRealtimeEvent.type} - {lastRealtimeEvent.lobbyId.slice(0, 8)}...
+                  {process.env.NEXT_PUBLIC_SUPABASE_URL
+                    ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+                    : 'NOT SET'}
                 </p>
               </div>
-            )}
-          </div>
-        </Card>
-      )}
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6 lg:col-span-1">
-          <div className="flex items-center space-x-2 mb-6">
-            <Play className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white">
-              {myLobby ? 'Your Lobby' : 'Create Match'}
-            </h2>
-          </div>
-
-          {myLobby ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-                <div className="flex items-center space-x-2 mb-3">
-                  <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  <p className="text-sm text-emerald-400 font-medium">
-                    Waiting for opponent...
-                  </p>
-                </div>
-                <div className="text-xs text-gray-400 space-y-1">
-                  <p>Game: {myLobby.game_type}</p>
-                  <p>Format: {myLobby.match_format}</p>
-                  {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
-                    <div className="flex items-center gap-1 pt-1">
-                      <Target className="w-3 h-3 text-blue-400" />
-                      <span className="text-blue-400">
-                        Your 3-Dart Avg: {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg || 0).toFixed(1)}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
+              <div>
+                <p className="text-gray-500 mb-1">Open Lobbies Count</p>
+                <p className="text-white font-mono">{totalOpenLobbies}</p>
               </div>
-              
-              {/* Join Request Status */}
-              {currentJoinRequest ? (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                    <span className="text-sm text-amber-400">
-                      {currentJoinRequest.requester_username} wants to join
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-slate-800/50 rounded-lg">
-                  <p className="text-xs text-gray-500 text-center">
-                    No join requests yet. Waiting for players...
+              <div>
+                <p className="text-gray-500 mb-1">Realtime Status</p>
+                <p className={`font-mono ${realtimeStatus === 'connected' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {realtimeStatus}
+                </p>
+              </div>
+              {lastRealtimeEvent && (
+                <div className="col-span-2">
+                  <p className="text-gray-500 mb-1">Last Realtime Event</p>
+                  <p className="text-white font-mono">
+                    {lastRealtimeEvent.type} - {lastRealtimeEvent.lobbyId.slice(0, 8)}...
                   </p>
                 </div>
               )}
-              
-              <Button
-                className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
-                onClick={cancelLobby}
-                disabled={isCancelling}
-              >
-                {isCancelling ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Cancelling...
-                  </>
-                ) : (
-                  <>
-                    <X className="w-4 h-4 mr-2" />
-                    Stop Searching
-                  </>
-                )}
-              </Button>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label className="text-gray-300">Game Mode</Label>
-                <Select value={gameMode} onValueChange={setGameMode}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-white/10">
-                    <SelectItem value="301">301</SelectItem>
-                    <SelectItem value="501">501</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          </Card>
+        </motion.div>
+      )}
 
-              <div className="space-y-2">
-                <Label className="text-gray-300">Match Format</Label>
-                <Select
-                  value={matchFormat}
-                  onValueChange={setMatchFormat}
-                >
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-white/10">
-                    <SelectItem value="best-of-1">Best of 1</SelectItem>
-                    <SelectItem value="best-of-3">Best of 3</SelectItem>
-                    <SelectItem value="best-of-5">Best of 5</SelectItem>
-                    <SelectItem value="best-of-7">Best of 7</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white"
-                onClick={createLobby}
-                disabled={creating}
-              >
-                {creating ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : null}
-                Create Lobby
-              </Button>
-            </div>
-          )}
-        </Card>
-
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <Trophy className="w-5 h-5 text-emerald-400" />
-              <h2 className="text-xl font-bold text-white">
-                Open Lobbies
-              </h2>
-            </div>
-
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <Select value={filterMode} onValueChange={setFilterMode}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white text-sm">
-                <SelectValue placeholder="Game Mode" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/10">
-                <SelectItem value="all">All Modes</SelectItem>
-                <SelectItem value="301">301</SelectItem>
-                <SelectItem value="501">501</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterFormat} onValueChange={setFilterFormat}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white text-sm">
-                <SelectValue placeholder="Format" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/10">
-                <SelectItem value="all">All Formats</SelectItem>
-                <SelectItem value="best-of-1">Best of 1</SelectItem>
-                <SelectItem value="best-of-3">Best of 3</SelectItem>
-                <SelectItem value="best-of-5">Best of 5</SelectItem>
-                <SelectItem value="best-of-7">Best of 7</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {fetchError && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <p className="text-red-400 text-sm">{fetchError}</p>
-            </div>
-          )}
-
-          {hiddenByFilter > 0 && (
-            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-blue-400 text-sm">
-                {hiddenByFilter} {hiddenByFilter === 1 ? 'lobby is' : 'lobbies are'} hidden by your filters
-                {filterMode !== 'all' && ` (${filterMode})`}
-                {filterFormat !== 'all' && ` (${filterFormat})`}
-              </p>
-            </div>
-          )}
-
-          <ScrollArea className="h-[600px] pr-4">
-            {filteredLobbies.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Target className="w-8 h-8 text-gray-500" />
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Create Lobby Card */}
+        <motion.div variants={itemVariants}>
+          <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 h-full">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
+                  <Play className="w-6 h-6 text-white" />
                 </div>
-                <p className="text-gray-400 mb-2">
-                  {totalOpenLobbies > 0 && isFilterActive
-                    ? 'No lobbies match your filters'
-                    : 'No open lobbies available'}
-                </p>
-                <p className="text-gray-500 text-sm">
-                  {totalOpenLobbies > 0 && isFilterActive
-                    ? 'Try adjusting your filters'
-                    : 'Create a lobby to get started'}
-                </p>
+                <div>
+                  <p className="text-xs text-emerald-400 uppercase tracking-wider font-semibold">Host</p>
+                  <h2 className="text-xl font-bold text-white">
+                    {myLobby ? 'Your Lobby' : 'Create Match'}
+                  </h2>
+                </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {filteredLobbies.map((lobby) => (
-                  <div
-                    key={lobby.id}
-                    className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
-                  >
-                    <div className="flex flex-col h-full">
-                      {/* Player Header - Bigger */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <h3 className="text-white font-bold text-lg truncate">
-                            {lobby.player1?.username ?? 'Player'}
-                          </h3>
-                          <TrustRatingBadge
-                            letter={lobby.player1?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null}
-                            count={lobby.player1?.trust_rating_count || 0}
-                            showTooltip={false}
-                          />
+
+              {myLobby ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      <p className="text-sm text-emerald-400 font-medium">
+                        Waiting for opponent...
+                      </p>
+                    </div>
+                    <div className="text-xs text-slate-400 space-y-1">
+                      <p>Game: <span className="text-white">{myLobby.game_type}</span></p>
+                      <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
+                      {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
+                        <div className="flex items-center gap-1 pt-1">
+                          <Target className="w-3 h-3 text-blue-400" />
+                          <span className="text-blue-400">
+                            Your 3-Dart Avg: {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg || 0).toFixed(1)}
+                          </span>
                         </div>
-                        {/* Bigger Average Badge */}
-                        <Badge 
-                          className={`text-sm px-3 py-1 rounded-full border font-semibold ${
-                            (lobby.player1?.overall_3dart_avg || 0) > 0
-                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                              : 'bg-gray-600/20 text-gray-400 border-gray-500/30'
-                          }`}
-                          title="3-Dart Average"
-                        >
-                          <Target className="w-4 h-4 mr-1" />
-                          {(lobby.player1?.overall_3dart_avg || 0) > 0
-                            ? `${(lobby.player1?.overall_3dart_avg || 0).toFixed(1)}`
-                            : 'New'
-                          }
-                        </Badge>
-                      </div>
-
-                      {/* Settings Row - Subtly Color Coded */}
-                      <div className="flex flex-wrap items-center gap-2 mb-4">
-                        {/* Game Mode - Red for 301, Blue for 501 */}
-                        <Badge
-                          className={`text-sm font-bold px-3 py-1 rounded-md border ${getGameModeClass(lobby.game_type)}`}
-                        >
-                          {lobby.game_type}
-                        </Badge>
-                        {/* Match Format - Different color per best-of */}
-                        <Badge className={`${getMatchFormatClass(lobby.match_format)} text-sm font-bold px-3 py-1 rounded-md border`}>
-                          {formatMatchFormat(lobby.match_format)}
-                        </Badge>
-                        {/* Double Out - Green when on, Slate when off */}
-                        <Badge
-                          className={`text-xs px-2 py-0.5 rounded-md border ${
-                            lobby.double_out
-                              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
-                              : 'bg-slate-600/20 text-slate-400 border-slate-500/30'
-                          }`}
-                        >
-                          {lobby.double_out ? 'Double Out' : 'Straight Out'}
-                        </Badge>
-                        {/* Straight In badge only when applicable */}
-                        {!lobby.double_in && (
-                          <Badge className="bg-orange-600/20 text-orange-400 border-orange-500/40 text-xs px-2 py-0.5 rounded-md border">
-                            Straight In
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Join Button - At bottom */}
-                      <div className="mt-auto">
-                        <Button
-                          size="sm"
-                          onClick={() => joinLobby(lobby.id)}
-                          disabled={joining === lobby.id}
-                          className="w-full bg-emerald-500 hover:bg-emerald-600"
-                        >
-                          {joining === lobby.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            'Join'
-                          )}
-                        </Button>
-                      </div>
+                      ) : null}
                     </div>
                   </div>
-                ))}
+                  
+                  {/* Join Request Status */}
+                  {currentJoinRequest ? (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                        <span className="text-sm text-amber-400">
+                          {currentJoinRequest.requester_username} wants to join
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-800/50 rounded-lg">
+                      <p className="text-xs text-slate-500 text-center">
+                        No join requests yet. Waiting for players...
+                      </p>
+                    </div>
+                  )}
+                  
+                  <Button
+                    className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                    onClick={cancelLobby}
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Cancelling...
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-4 h-4 mr-2" />
+                        Stop Searching
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm">Game Mode</Label>
+                    <Select value={gameMode} onValueChange={setGameMode}>
+                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="301">301</SelectItem>
+                        <SelectItem value="501">501</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm">Match Format</Label>
+                    <Select value={matchFormat} onValueChange={setMatchFormat}>
+                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-700">
+                        <SelectItem value="best-of-1">Best of 1</SelectItem>
+                        <SelectItem value="best-of-3">Best of 3</SelectItem>
+                        <SelectItem value="best-of-5">Best of 5</SelectItem>
+                        <SelectItem value="best-of-7">Best of 7</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-6"
+                    onClick={createLobby}
+                    disabled={creating}
+                  >
+                    {creating ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <UserPlus className="w-5 h-5 mr-2" />
+                    )}
+                    Create Lobby
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Open Lobbies Card */}
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+          <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 h-full">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                  <Trophy className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-amber-400 uppercase tracking-wider font-semibold">Join</p>
+                  <h2 className="text-xl font-bold text-white">Open Lobbies</h2>
+                </div>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <Select value={filterMode} onValueChange={setFilterMode}>
+                <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
+                  <SelectValue placeholder="Game Mode" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  <SelectItem value="all">All Modes</SelectItem>
+                  <SelectItem value="301">301</SelectItem>
+                  <SelectItem value="501">501</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterFormat} onValueChange={setFilterFormat}>
+                <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
+                  <SelectValue placeholder="Format" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700">
+                  <SelectItem value="all">All Formats</SelectItem>
+                  <SelectItem value="best-of-1">Best of 1</SelectItem>
+                  <SelectItem value="best-of-3">Best of 3</SelectItem>
+                  <SelectItem value="best-of-5">Best of 5</SelectItem>
+                  <SelectItem value="best-of-7">Best of 7</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {fetchError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm">{fetchError}</p>
               </div>
             )}
-          </ScrollArea>
-        </Card>
+
+            {hiddenByFilter > 0 && (
+              <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-blue-400 text-sm">
+                  {hiddenByFilter} {hiddenByFilter === 1 ? 'lobby is' : 'lobbies are'} hidden by your filters
+                  {filterMode !== 'all' && ` (${filterMode})`}
+                  {filterFormat !== 'all' && ` (${formatMatchFormat(filterFormat)})`}
+                </p>
+              </div>
+            )}
+
+            <ScrollArea className="h-[500px] pr-4">
+              {filteredLobbies.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Target className="w-10 h-10 text-slate-500" />
+                  </div>
+                  <p className="text-slate-400 mb-2 text-lg">
+                    {totalOpenLobbies > 0 && isFilterActive
+                      ? 'No lobbies match your filters'
+                      : 'No open lobbies available'}
+                  </p>
+                  <p className="text-slate-500 text-sm">
+                    {totalOpenLobbies > 0 && isFilterActive
+                      ? 'Try adjusting your filters'
+                      : 'Create a lobby to get started'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredLobbies.map((lobby) => (
+                    <div
+                      key={lobby.id}
+                      className="p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl hover:bg-slate-800/50 hover:border-slate-600/50 transition-all group"
+                    >
+                      <div className="flex flex-col h-full">
+                        {/* Player Header */}
+                        <div className="flex items-center justify-between gap-2 mb-4">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                              {lobby.player1?.username?.charAt(0).toUpperCase() || 'P'}
+                            </div>
+                            <div>
+                              <h3 className="text-white font-bold truncate">
+                                {lobby.player1?.username ?? 'Player'}
+                              </h3>
+                              <TrustRatingBadge
+                                letter={lobby.player1?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null}
+                                count={lobby.player1?.trust_rating_count || 0}
+                                showTooltip={false}
+                              />
+                            </div>
+                          </div>
+                          {/* Average Badge */}
+                          <Badge 
+                            className={`px-3 py-1 rounded-full border font-semibold ${
+                              (lobby.player1?.overall_3dart_avg || 0) > 0
+                                ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                                : 'bg-slate-700 text-slate-400 border-slate-600'
+                            }`}
+                            title="3-Dart Average"
+                          >
+                            <Target className="w-3 h-3 mr-1" />
+                            {(lobby.player1?.overall_3dart_avg || 0) > 0
+                              ? `${(lobby.player1?.overall_3dart_avg || 0).toFixed(1)}`
+                              : 'New'
+                            }
+                          </Badge>
+                        </div>
+
+                        {/* Settings Row */}
+                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                          <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${getGameModeClass(lobby.game_type)}`}>
+                            {lobby.game_type}
+                          </Badge>
+                          <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${getMatchFormatClass(lobby.match_format)}`}>
+                            {formatMatchFormat(lobby.match_format)}
+                          </Badge>
+                          <Badge
+                            className={`text-xs px-2 py-0.5 rounded-lg border ${
+                              lobby.double_out
+                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                                : 'bg-slate-700 text-slate-400 border-slate-600'
+                            }`}
+                          >
+                            {lobby.double_out ? 'Double Out' : 'Straight Out'}
+                          </Badge>
+                          {!lobby.double_in && (
+                            <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/40 text-xs px-2 py-0.5 rounded-lg border">
+                              Straight In
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Join Button */}
+                        <div className="mt-auto">
+                          <Button
+                            onClick={() => joinLobby(lobby.id)}
+                            disabled={joining === lobby.id}
+                            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold"
+                          >
+                            {joining === lobby.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                              <UserPlus className="w-4 h-4 mr-2" />
+                            )}
+                            Join Match
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </Card>
+        </motion.div>
       </div>
 
-      {/* Join Request Modal - Shows when someone wants to join your lobby */}
+      {/* Join Request Modal */}
       {showJoinRequestModal && currentJoinRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-white/10 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
+          >
             <div className="flex justify-end mb-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setShowJoinRequestModal(false);
-                  // Check for more requests after a short delay
                   setTimeout(() => {
                     if (myLobby) {
                       fetchPendingRequestsForLobby(myLobby.id);
                     }
                   }, 500);
                 }}
-                className="text-gray-400 hover:text-white"
+                className="text-slate-400 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </Button>
             </div>
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UserPlus className="w-8 h-8 text-emerald-400" />
+              <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserPlus className="w-10 h-10 text-emerald-400" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-white mb-2">
                 Join Request
               </h2>
-              <p className="text-gray-400">
+              <p className="text-slate-400">
                 {currentJoinRequest.requester_username} wants to join your match
               </p>
             </div>
 
-            <div className="bg-white/5 rounded-lg p-4 mb-6 space-y-2">
+            <div className="bg-slate-800/50 rounded-xl p-4 mb-6 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Player</span>
+                <span className="text-slate-400">Player</span>
                 <span className="text-white font-semibold">{currentJoinRequest.requester_username}</span>
               </div>
               {currentJoinRequest.requester_3dart_avg !== undefined && currentJoinRequest.requester_3dart_avg > 0 && (
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">3-Dart Average</span>
-                  <Badge className="bg-blue-600/20 text-blue-400 border-blue-500/30">
+                  <span className="text-slate-400">3-Dart Average</span>
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
                     <Target className="w-3 h-3 mr-1" />
                     {currentJoinRequest.requester_3dart_avg.toFixed(1)}
                   </Badge>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Camera</span>
+                <span className="text-slate-400">Camera</span>
                 {currentJoinRequest.requester_has_camera ? (
-                  <Badge className="bg-green-600/20 text-green-400 border-green-500/30">
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                     <Camera className="w-3 h-3 mr-1" />
                     Connected
                   </Badge>
                 ) : (
-                  <Badge className="bg-gray-600/20 text-gray-400 border-gray-500/30">
+                  <Badge className="bg-slate-700 text-slate-400 border-slate-600">
                     <CameraOff className="w-3 h-3 mr-1" />
                     No Camera
                   </Badge>
@@ -1318,14 +1441,14 @@ export default function QuickMatchLobbyPage() {
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 h-12"
                 onClick={() => handleDeclineJoinRequest(currentJoinRequest)}
                 disabled={processingRequest}
               >
                 {processingRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Decline'}
               </Button>
               <Button
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold h-12"
                 onClick={() => handleAcceptJoinRequest(currentJoinRequest)}
                 disabled={processingRequest}
               >
@@ -1333,16 +1456,20 @@ export default function QuickMatchLobbyPage() {
                 Accept
               </Button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
       {/* Pending Join Request Indicator */}
       {pendingLobbyId && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-lg px-6 py-4 shadow-2xl z-40">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-6 py-4 shadow-2xl z-40"
+        >
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-            <span className="text-white">Waiting for host approval...</span>
+            <span className="text-white font-medium">Waiting for host approval...</span>
             <Button
               variant="ghost"
               size="sm"
@@ -1350,13 +1477,13 @@ export default function QuickMatchLobbyPage() {
                 setPendingLobbyId(null);
                 setJoining(null);
               }}
-              className="text-gray-400 hover:text-white ml-2"
+              className="text-slate-400 hover:text-white ml-2"
             >
               Cancel
             </Button>
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }
