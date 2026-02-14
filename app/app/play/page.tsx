@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
+import { formatDistanceToNow } from 'date-fns';
 import {
   Zap,
   Shield,
@@ -22,6 +24,8 @@ import {
   Star,
   ArrowRight,
   Activity,
+  Cpu,
+  Crown,
 } from 'lucide-react';
 
 // Animation variants
@@ -221,6 +225,126 @@ function QuickActionsBar() {
   );
 }
 
+// Recent Match Item Component
+function RecentMatchItem({ match }: { match: any }) {
+  const getResultColor = (result: string) => {
+    switch (result) {
+      case 'win': return 'text-emerald-400';
+      case 'loss': return 'text-rose-400';
+      case 'draw': return 'text-amber-400';
+      default: return 'text-slate-400';
+    }
+  };
+
+  const getResultBgColor = (result: string) => {
+    switch (result) {
+      case 'win': return 'bg-emerald-500/20';
+      case 'loss': return 'bg-rose-500/20';
+      case 'draw': return 'bg-amber-500/20';
+      default: return 'bg-slate-500/20';
+    }
+  };
+
+  const getResultIcon = (result: string) => {
+    switch (result) {
+      case 'win': return <Trophy className="w-5 h-5 text-emerald-400" />;
+      case 'loss': return <TrendingUp className="w-5 h-5 text-rose-400 rotate-180" />;
+      case 'draw': return <Activity className="w-5 h-5 text-amber-400" />;
+      default: return <Activity className="w-5 h-5 text-slate-400" />;
+    }
+  };
+
+  const getModeLabel = (match: any) => {
+    if (match.match_format === 'dartbot') return 'Training';
+    if (match.match_format === 'quick') return 'Quick Match';
+    if (match.match_format === 'ranked') return 'Ranked';
+    if (match.match_format === 'private') return 'Private';
+    return match.match_format || 'Match';
+  };
+
+  const timeAgo = formatDistanceToNow(new Date(match.played_at), { addSuffix: true });
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors">
+      <div className="flex items-center gap-4">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getResultBgColor(match.result)}`}>
+          {getResultIcon(match.result)}
+        </div>
+        <div>
+          <p className="text-white font-medium">{getModeLabel(match)}</p>
+          <p className="text-slate-400 text-sm">vs {match.opponent_username}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className={`font-bold capitalize ${getResultColor(match.result)}`}>{match.result}</p>
+        <p className="text-slate-500 text-sm">{match.legs_won}-{match.legs_lost} • {timeAgo}</p>
+      </div>
+    </div>
+  );
+}
+
+// Recent Matches Section
+function RecentMatchesSection() {
+  const { matches, loading } = useRecentMatches(3);
+
+  return (
+    <motion.div variants={itemVariants} className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
+          <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
+        </div>
+        <Link href="/app/stats">
+          <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+            View All
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </Link>
+      </div>
+      
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 animate-pulse">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-slate-700" />
+                <div>
+                  <div className="w-24 h-4 bg-slate-700 rounded mb-2" />
+                  <div className="w-16 h-3 bg-slate-700 rounded" />
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="w-12 h-4 bg-slate-700 rounded mb-2" />
+                <div className="w-20 h-3 bg-slate-700 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : matches.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <Trophy className="w-8 h-8 text-slate-500" />
+          </div>
+          <h3 className="text-white font-bold mb-2">No Matches Yet</h3>
+          <p className="text-slate-400 text-sm mb-4">Start playing to see your match history here</p>
+          <Link href="/app/play/training">
+            <Button className="bg-emerald-500 hover:bg-emerald-600">
+              <Play className="w-4 h-4 mr-2" />
+              Start Playing
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {matches.map((match) => (
+            <RecentMatchItem key={match.id} match={match} />
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 export default function PlayPage() {
   return (
     <motion.div 
@@ -346,50 +470,8 @@ export default function PlayPage() {
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <motion.div variants={itemVariants} className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
-            <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
-          </div>
-          <Link href="/app/stats">
-            <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-              View All
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
-        </div>
-        
-        <div className="space-y-3">
-          {[
-            { mode: 'Quick Match', opponent: 'Player123', result: 'Win', score: '3-1', time: '2h ago', color: 'text-emerald-400' },
-            { mode: 'Training', opponent: 'DartBot (60)', result: 'Loss', score: '2-3', time: '5h ago', color: 'text-rose-400' },
-            { mode: 'Ranked', opponent: 'ProPlayer', result: 'Win', score: '3-2', time: '1d ago', color: 'text-emerald-400' },
-          ].map((match, index) => (
-            <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  match.mode === 'Quick Match' ? 'bg-emerald-500/20' :
-                  match.mode === 'Training' ? 'bg-rose-500/20' : 'bg-amber-500/20'
-                }`}>
-                  {match.mode === 'Quick Match' ? <Zap className="w-5 h-5 text-emerald-400" /> :
-                   match.mode === 'Training' ? <Target className="w-5 h-5 text-rose-400" /> :
-                   <Trophy className="w-5 h-5 text-amber-400" />}
-                </div>
-                <div>
-                  <p className="text-white font-medium">{match.mode}</p>
-                  <p className="text-slate-400 text-sm">vs {match.opponent}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`font-bold ${match.color}`}>{match.result}</p>
-                <p className="text-slate-500 text-sm">{match.score} • {match.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
+      {/* Recent Matches - Real Data */}
+      <RecentMatchesSection />
     </motion.div>
   );
 }
