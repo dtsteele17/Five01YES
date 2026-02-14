@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion, Variants } from 'framer-motion';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
+import { useTodayStats } from '@/lib/hooks/useTodayStats';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
@@ -138,7 +139,7 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
 }
 
 // Stats Mini Card
-function StatMiniCard({ label, value, icon: Icon, color, trend }: { label: string; value: string; icon: any; color: string; trend?: { value: string; positive: boolean } }) {
+function StatMiniCard({ label, value, icon: Icon, color, trend, loading }: { label: string; value: string; icon: any; color: string; trend?: { value: string; positive: boolean }; loading?: boolean }) {
   return (
     <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/50 p-4 group hover:border-slate-500/50 transition-all">
       <div className={`absolute inset-0 ${color} opacity-0 group-hover:opacity-10 transition-opacity`} />
@@ -149,11 +150,17 @@ function StatMiniCard({ label, value, icon: Icon, color, trend }: { label: strin
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wider">{label}</p>
           <div className="flex items-center gap-2">
-            <p className="text-xl font-bold text-white">{value}</p>
-            {trend && (
-              <span className={`text-xs font-medium ${trend.positive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {trend.positive ? '+' : ''}{trend.value}
-              </span>
+            {loading ? (
+              <div className="w-12 h-6 bg-slate-700 rounded animate-pulse" />
+            ) : (
+              <>
+                <p className="text-xl font-bold text-white">{value}</p>
+                {trend && (
+                  <span className={`text-xs font-medium ${trend.positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {trend.positive ? '+' : ''}{trend.value}
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -201,6 +208,44 @@ function TrainingHubCard() {
         </Card>
       </Link>
     </motion.div>
+  );
+}
+
+// Stats Dashboard Component
+function StatsDashboard() {
+  const { stats, loading } = useTodayStats();
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatMiniCard 
+        label="Matches Today" 
+        value={stats.matchesPlayed.toString()} 
+        icon={Zap} 
+        color="bg-emerald-500/20" 
+        loading={loading}
+      />
+      <StatMiniCard 
+        label="Win Streak" 
+        value={stats.currentStreak.toString()} 
+        icon={Flame} 
+        color="bg-orange-500/20" 
+        loading={loading}
+      />
+      <StatMiniCard 
+        label="3-Dart Avg" 
+        value={stats.threeDartAverage.toFixed(1)} 
+        icon={BarChart3} 
+        color="bg-blue-500/20" 
+        loading={loading}
+      />
+      <StatMiniCard 
+        label="Wins Today" 
+        value={stats.wins.toString()} 
+        icon={Target} 
+        color="bg-purple-500/20" 
+        loading={loading}
+      />
+    </div>
   );
 }
 
@@ -403,13 +448,8 @@ export default function PlayPage() {
         <QuickActionsBar />
       </div>
 
-      {/* Stats Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatMiniCard label="Matches Today" value="3" icon={Zap} color="bg-emerald-500/20" trend={{ value: '2', positive: true }} />
-        <StatMiniCard label="Win Streak" value="5" icon={Flame} color="bg-orange-500/20" trend={{ value: '1', positive: true }} />
-        <StatMiniCard label="Best Average" value="82.4" icon={BarChart3} color="bg-blue-500/20" trend={{ value: '4.2', positive: true }} />
-        <StatMiniCard label="Training XP" value="1,240" icon={Target} color="bg-purple-500/20" trend={{ value: '150', positive: true }} />
-      </div>
+      {/* Stats Dashboard - Real Data */}
+      <StatsDashboard />
 
       {/* Main Game Modes Grid */}
       <div>
