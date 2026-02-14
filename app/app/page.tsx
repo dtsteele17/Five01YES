@@ -424,78 +424,98 @@ export default function DashboardPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - 2/3 width: Ranked Status + Upcoming Games */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Ranked Status - Taller, aligned with right column */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-8">
+          {/* Ranked Status - Premium Design */}
+          <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-900/40 via-slate-900/60 to-slate-900/80 shadow-2xl shadow-amber-500/10">
+            {/* Background Effects */}
+            <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(251,191,36,0.05)_50%,transparent_75%)]" />
+            <div className="absolute top-0 left-1/4 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl" />
+            
+            {/* Top Accent Line */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+            
+            <div className="relative z-10 p-8">
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-                {/* Left - Title & Division */}
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                    <Crown className="w-8 h-8 text-amber-400" />
+                {/* Left - Crown Icon & Division */}
+                <div className="flex items-center gap-5">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-amber-500/30 rounded-2xl blur-lg" />
+                    <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-xl">
+                      <Crown className="w-10 h-10 text-white drop-shadow-lg" />
+                    </div>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white">Ranked Status</h2>
-                    {rankedState?.division_name && (
-                      <Badge className="mt-2 bg-amber-500/20 text-amber-400 border-amber-500/30">
-                        {rankedState.division_name}
-                      </Badge>
-                    )}
+                    <p className="text-amber-400 text-sm font-semibold uppercase tracking-wider">Current Rank</p>
+                    <h2 className="text-3xl font-black text-white mt-1">
+                      {rankedState?.division_name || 'Unranked'}
+                    </h2>
                   </div>
                 </div>
 
-                {/* Middle - ELO, Stats Row & 3-Dart Average */}
-                <div className="flex-1 flex flex-col items-center gap-4">
-                  {/* ELO Number */}
-                  <div className="text-center">
-                    <p className="text-6xl font-black text-white">{rankedState?.rp || 0}</p>
-                    <p className="text-slate-400 text-sm mt-1 uppercase tracking-wider">ELO</p>
+                {/* Center - ELO Display */}
+                <div className="flex flex-col items-center">
+                  <div className="relative">
+                    <div className="absolute -inset-4 bg-amber-500/10 rounded-full blur-2xl" />
+                    <p className="relative text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-200 drop-shadow-2xl">
+                      {rankedState?.rp || 0}
+                    </p>
                   </div>
-                  
-                  {/* Wins, Losses, Win Rate Row */}
-                  <div className="flex gap-4">
-                    <div className="text-center px-5 py-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                      <p className="text-xl font-bold text-emerald-400">{rankedState?.wins || 0}</p>
-                      <p className="text-slate-400 text-xs">Wins</p>
-                    </div>
-                    <div className="text-center px-5 py-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                      <p className="text-xl font-bold text-red-400">{rankedState?.losses || 0}</p>
-                      <p className="text-slate-400 text-xs">Losses</p>
-                    </div>
-                    <div className="text-center px-5 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                      <p className="text-xl font-bold text-blue-400">
-                        {rankedState?.games_played ? Math.round((rankedState.wins / rankedState.games_played) * 100) : 0}%
-                      </p>
-                      <p className="text-slate-400 text-xs">Win Rate</p>
-                    </div>
-                    <div className="text-center px-5 py-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                      <p className="text-xl font-bold text-purple-400">{ranked3DartAvg}</p>
-                      <p className="text-slate-400 text-xs">3-Dart Avg</p>
-                    </div>
-                  </div>
+                  <p className="text-amber-400/80 text-sm font-bold uppercase tracking-[0.2em] mt-2">ELO Rating</p>
                 </div>
 
-                {/* Right - Placement or Play Button */}
-                <div className="flex flex-col items-end gap-3">
+                {/* Right - Play Button & Placement */}
+                <div className="flex flex-col items-end gap-4">
                   {rankedState?.provisional_games_remaining ? (
-                    <div className="w-48">
-                      <p className="text-sm text-slate-400 mb-2">Placement Progress</p>
+                    <div className="w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
                       <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white font-medium">{10 - rankedState.provisional_games_remaining}/10</span>
-                        <span className="text-slate-400">games</span>
+                        <span className="text-amber-400 font-medium">Placement</span>
+                        <span className="text-white font-bold">{10 - rankedState.provisional_games_remaining}/10</span>
                       </div>
-                      <Progress value={(10 - rankedState.provisional_games_remaining) * 10} className="h-2" />
+                      <Progress 
+                        value={(10 - rankedState.provisional_games_remaining) * 10} 
+                        className="h-2 bg-slate-700"
+                      />
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="flex items-center gap-2 text-amber-400/60 text-sm">
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                      Ranked Active
+                    </div>
+                  )}
                   <Link href="/app/ranked">
-                    <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 px-6">
-                      <Shield className="w-4 h-4 mr-2" />
+                    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-8 py-6 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 transition-all">
+                      <Shield className="w-5 h-5 mr-2" />
                       Play Ranked
                     </Button>
                   </Link>
                 </div>
               </div>
+
+              {/* Stats Row */}
+              <div className="mt-8 pt-6 border-t border-amber-500/20">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-emerald-500/20 backdrop-blur-sm">
+                    <p className="text-2xl font-black text-emerald-400">{rankedState?.wins || 0}</p>
+                    <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Wins</p>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-red-500/20 backdrop-blur-sm">
+                    <p className="text-2xl font-black text-red-400">{rankedState?.losses || 0}</p>
+                    <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Losses</p>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-blue-500/20 backdrop-blur-sm">
+                    <p className="text-2xl font-black text-blue-400">
+                      {rankedState?.games_played ? Math.round((rankedState.wins / rankedState.games_played) * 100) : 0}%
+                    </p>
+                    <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Win Rate</p>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-purple-500/20 backdrop-blur-sm">
+                    <p className="text-2xl font-black text-purple-400">{ranked3DartAvg}</p>
+                    <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">3-Dart Avg</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </Card>
+          </div>
 
           {/* Upcoming Games - replaces Recent Activity */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
