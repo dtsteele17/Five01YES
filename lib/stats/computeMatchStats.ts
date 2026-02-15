@@ -89,7 +89,7 @@ export function computeMatchStats(
     // Calculate darts at double properly like dartcounter.net
     // Only count darts from visits where player started on a valid checkout
     checkoutDartsAttempted = playerVisits.reduce((sum, v) => {
-      const remainingBefore = v.remainingBefore || v.remainingScore + v.score;
+      const remainingBefore = v.remainingScore + v.score;
       // Only count if starting on a valid checkout
       if (isValidCheckout(remainingBefore)) {
         return sum + (v.dartsAtDouble ?? v.dartsThrown ?? 3);
@@ -99,7 +99,7 @@ export function computeMatchStats(
   }
 
   const checkoutAttempts = playerVisits.filter(v => {
-    const remainingBefore = v.remainingBefore || v.remainingScore + v.score;
+    const remainingBefore = v.remainingScore + v.score;
     return isValidCheckout(remainingBefore);
   }).length;
 

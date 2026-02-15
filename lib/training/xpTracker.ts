@@ -181,25 +181,15 @@ export async function awardXP(
     });
 
     // Show toast notification
-    toast.success(
-      <div className="flex flex-col gap-1">
-        <span className="font-bold">+{xpBreakdown.total} XP Earned!</span>
-        <span className="text-xs text-slate-300">
-          {mode.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-        </span>
-        {xpBreakdown.performanceBonus > 0 && (
-          <span className="text-xs text-emerald-400">
-            Performance Bonus: +{xpBreakdown.performanceBonus}
-          </span>
-        )}
-        {xpBreakdown.winBonus > 0 && (
-          <span className="text-xs text-blue-400">
-            Win Bonus: +{xpBreakdown.winBonus}
-          </span>
-        )}
-      </div>,
-      { duration: 4000 }
-    );
+    const modeName = mode.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    let message = `+${xpBreakdown.total} XP Earned! ${modeName}`;
+    if (xpBreakdown.performanceBonus > 0) {
+      message += ` | Performance Bonus: +${xpBreakdown.performanceBonus}`;
+    }
+    if (xpBreakdown.winBonus > 0) {
+      message += ` | Win Bonus: +${xpBreakdown.winBonus}`;
+    }
+    toast.success(message, { duration: 4000 });
 
     return {
       success: true,
@@ -275,18 +265,11 @@ export async function awardDartBotXP(
     }
 
     // Show success toast
-    toast.success(
-      <div className="flex flex-col gap-1">
-        <span className="font-bold">+{xpBreakdown.total} XP Earned!</span>
-        <span className="text-xs text-slate-300">
-          {gameMode} vs DartBot • {won ? 'Victory!' : 'Defeat'}
-        </span>
-        {won && (
-          <span className="text-xs text-blue-400">Win Bonus Applied</span>
-        )}
-      </div>,
-      { duration: 4000 }
-    );
+    let message = `+${xpBreakdown.total} XP Earned! ${gameMode} vs DartBot • ${won ? 'Victory!' : 'Defeat'}`;
+    if (won) {
+      message += ' | Win Bonus Applied';
+    }
+    toast.success(message, { duration: 4000 });
 
     return {
       success: true,
