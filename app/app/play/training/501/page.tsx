@@ -1446,7 +1446,9 @@ export default function DartbotMatchPage() {
                   color="text-purple-400"
                   position="right"
                   stats={calculateMatchStats(false)}
-            />
+                />
+              </div>
+            </div>
           </div>
 
           {/* CONDITIONAL: Show Scoring Panel when my turn, Visit History when bot turn */}
