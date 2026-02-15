@@ -183,20 +183,38 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const markAllAsRead = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.error('[NOTIFICATIONS] No user found when marking all as read');
+        return;
+      }
 
       const now = new Date().toISOString();
-      const { error } = await supabase
+      
+      // Update all unread notifications for this user
+      const { data, error } = await supabase
         .from('notifications')
         .update({ read_at: now })
         .eq('user_id', user.id)
-        .is('read_at', null);
+        .is('read_at', null)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[NOTIFICATIONS] Error marking all as read:', error);
+        throw error;
+      }
 
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, read_at: n.read_at || now })));
+      console.log(`[NOTIFICATIONS] Marked ${data?.length || 0} notifications as read`);
+
+      // Update local state immediately
+      setNotifications((prev) => 
+        prev.map((n) => ({ 
+          ...n, 
+          read: true, 
+          read_at: n.read_at || now 
+        }))
+      );
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('[NOTIFICATIONS] Error marking all notifications as read:', error);
     }
   };
 

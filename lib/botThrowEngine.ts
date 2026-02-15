@@ -58,7 +58,7 @@ const impossibleCheckouts = new Set([159, 162, 163, 165, 166, 168, 169]);
  * Get the best checkout route for a given remaining score and darts available
  * Returns optimal dart sequence considering what's actually possible
  */
-function findBestCheckoutRoute(remaining: number, dartsAvailable: number): string[] | null {
+export function findBestCheckoutRoute(remaining: number, dartsAvailable: number): string[] | null {
   if (remaining <= 0 || remaining > 170) return null;
   
   // Check impossible checkouts

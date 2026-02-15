@@ -44,6 +44,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const { notifications, unreadCount, markAllAsRead, markAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
   const [processingFriendRequest, setProcessingFriendRequest] = useState<string | null>(null);
+  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -662,13 +663,22 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs h-auto py-1.5 px-3 rounded-lg"
-                onClick={(e) => {
+                disabled={markingAllAsRead}
+                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs h-auto py-1.5 px-3 rounded-lg disabled:opacity-50"
+                onClick={async (e) => {
                   e.stopPropagation();
-                  markAllAsRead();
+                  setMarkingAllAsRead(true);
+                  try {
+                    await markAllAsRead();
+                    toast.success('All notifications marked as read');
+                  } catch (err) {
+                    toast.error('Failed to mark notifications as read');
+                  } finally {
+                    setMarkingAllAsRead(false);
+                  }
                 }}
               >
-                Mark all as read
+                {markingAllAsRead ? 'Marking...' : 'Mark all as read'}
               </Button>
             )}
           </div>

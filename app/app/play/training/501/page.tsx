@@ -28,7 +28,7 @@ import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
 import { toast } from 'sonner';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
-import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker } from '@/lib/botThrowEngine';
+import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, findBestCheckoutRoute } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
 import type { PlayerStats } from '@/lib/match/recordMatchCompletion';
@@ -273,10 +273,14 @@ function ScoringPanel({
   // Bogey numbers - no checkout possible with 3 darts
   const BOGEY_NUMBERS = [159, 162, 163, 166, 168, 169];
   
+  // Get checkout suggestion based on remaining score and darts left
   const getCheckoutSuggestion = () => {
     if (previewRemaining <= 0 || previewRemaining > 170) return null;
     if (BOGEY_NUMBERS.includes(previewRemaining)) return 'BOGEY';
-    return CHECKOUT_ROUTES[previewRemaining] || null;
+    
+    // Use the engine's checkout finder which handles dynamic dart counts
+    // This will find the best route considering how many darts we have left
+    return findBestCheckoutRoute(previewRemaining, dartsRemaining);
   };
 
   const checkoutSuggestion = getCheckoutSuggestion();
@@ -292,7 +296,12 @@ function ScoringPanel({
           <div className="text-center">
             <p className={`text-xs uppercase tracking-wider mb-1 ${
               checkoutSuggestion === 'BOGEY' ? 'text-red-400' : 'text-amber-400'
-            }`}>Checkout {previewRemaining}</p>
+            }`}>
+              Checkout {previewRemaining}
+              {dartsRemaining < 3 && checkoutSuggestion && checkoutSuggestion !== 'BOGEY' && (
+                <span className="ml-1 text-white/70">({dartsRemaining} dart{dartsRemaining !== 1 ? 's' : ''})</span>
+              )}
+            </p>
             {checkoutSuggestion === 'BOGEY' ? (
               <p className="text-red-400 font-bold text-sm">Bogey - No checkout possible</p>
             ) : checkoutSuggestion ? (
@@ -306,7 +315,11 @@ function ScoringPanel({
                   }`}>{dart}</span>
                 ))}
               </div>
-            ) : (<p className="text-amber-400 font-bold text-sm">No checkout</p>)}
+            ) : dartsRemaining < 3 ? (
+              <p className="text-red-400 font-bold text-sm">Can&apos;t checkout with {dartsRemaining} dart{dartsRemaining !== 1 ? 's' : ''}</p>
+            ) : (
+              <p className="text-amber-400 font-bold text-sm">No checkout</p>
+            )}
           </div>
         </div>
       )}
@@ -754,10 +767,6 @@ export default function DartbotMatchPage() {
     const currentConfig = config;
     const p1Legs = player1LegsWon;
     const p2Legs = player2LegsWon;
-    const p1DartsAtDouble = player1TotalDartsAtDouble;
-    const p1Checkouts = player1CheckoutsMade;
-    const p2DartsAtDouble = player2TotalDartsAtDouble;
-    const p2Checkouts = player2CheckoutsMade;
     
     if (!currentConfig || !currentMatchWinner) return;
     
@@ -773,12 +782,50 @@ export default function DartbotMatchPage() {
         if (!leg.visits || leg.visits.length === 0) continue;
         const p1Visits = leg.visits.filter(v => v.player === 'player1');
         const p2Visits = leg.visits.filter(v => v.player === 'player2');
-        p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'user', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: (visit.remainingBefore || 0) <= 170 && !visit.isBust }));
-        p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ player: 'opponent', legNumber: leg.legNumber, visitNumber: idx + 1, score: visit.score, dartsThrown: visit.dartsThrown || 3, remainingScore: visit.remainingScore, isBust: visit.isBust, isCheckout: visit.isCheckout, wasCheckoutAttempt: (visit.remainingBefore || 0) <= 170 && !visit.isBust }));
+        p1Visits.forEach((visit, idx) => allVisitsFormatted.push({ 
+          player: 'user', 
+          legNumber: leg.legNumber, 
+          visitNumber: idx + 1, 
+          score: visit.score, 
+          dartsThrown: visit.dartsThrown || 3, 
+          remainingScore: visit.remainingScore, 
+          isBust: visit.isBust, 
+          isCheckout: visit.isCheckout, 
+          wasCheckoutAttempt: (visit.remainingBefore || 0) <= 170 && !visit.isBust,
+          dartsAtDouble: visit.dartsAtDouble || 0,
+          remainingBefore: visit.remainingBefore
+        }));
+        p2Visits.forEach((visit, idx) => allVisitsFormatted.push({ 
+          player: 'opponent', 
+          legNumber: leg.legNumber, 
+          visitNumber: idx + 1, 
+          score: visit.score, 
+          dartsThrown: visit.dartsThrown || 3, 
+          remainingScore: visit.remainingScore, 
+          isBust: visit.isBust, 
+          isCheckout: visit.isCheckout, 
+          wasCheckoutAttempt: (visit.remainingBefore || 0) <= 170 && !visit.isBust,
+          dartsAtDouble: visit.dartsAtDouble || 0,
+          remainingBefore: visit.remainingBefore
+        }));
       }
       
-      const userStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'user'), 'user', normalizedConfig.mode, p1DartsAtDouble, p1Checkouts);
-      const opponentStats = computeMatchStats(allVisitsFormatted.filter(v => v.player === 'opponent'), 'opponent', normalizedConfig.mode, p2DartsAtDouble, p2Checkouts);
+      // Calculate checkout stats from visit data (more reliable than state variables)
+      const userVisits = allVisitsFormatted.filter(v => v.player === 'user');
+      const opponentVisits = allVisitsFormatted.filter(v => v.player === 'opponent');
+      
+      const p1DartsAtDouble = userVisits
+        .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
+        .reduce((sum, v) => sum + (v.dartsAtDouble || 1), 0);
+      const p1Checkouts = userVisits.filter(v => v.isCheckout).length;
+      
+      const p2DartsAtDouble = opponentVisits
+        .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
+        .reduce((sum, v) => sum + (v.dartsAtDouble || 1), 0);
+      const p2Checkouts = opponentVisits.filter(v => v.isCheckout).length;
+      
+      const userStats = computeMatchStats(userVisits, 'user', normalizedConfig.mode, p1DartsAtDouble, p1Checkouts);
+      const opponentStats = computeMatchStats(opponentVisits, 'opponent', normalizedConfig.mode, p2DartsAtDouble, p2Checkouts);
       
       // Set match end stats for WinnerPopup using ref data
       const completedLegs = allLegsData;
@@ -955,12 +1002,15 @@ export default function DartbotMatchPage() {
       const dartsThrown = visualVisit.darts.length;
       
       // Track checkout stats for DartBot
+      // Calculate darts at double for this visit
+      const botDartsAtDouble = visualVisit.dartsAtDouble || 0;
+      
       if (visualVisit.wasCheckoutAttempt) {
         setPlayer2CheckoutAttempts(prev => prev + 1);
       }
       // Track darts at double on ANY visit where remaining was <= 170
       if (currentScore <= 170 && currentScore > 0) {
-        setPlayer2TotalDartsAtDouble(prev => prev + dartsThrown);
+        setPlayer2TotalDartsAtDouble(prev => prev + (botDartsAtDouble > 0 ? botDartsAtDouble : dartsThrown));
       }
       if (visualVisit.finished) {
         setPlayer2CheckoutsMade(prev => prev + 1);
@@ -974,6 +1024,7 @@ export default function DartbotMatchPage() {
         isCheckout: visualVisit.finished, 
         timestamp: Date.now(), 
         dartsThrown, 
+        dartsAtDouble: botDartsAtDouble > 0 ? botDartsAtDouble : (currentScore <= 170 && currentScore > 0 ? dartsThrown : 0),
         darts: visualVisit.darts.map(d => ({
           type: d.isDouble ? 'double' : d.isTreble ? 'triple' : d.offboard ? 'single' : 'single',
           number: d.offboard ? 0 : parseInt(d.label.replace(/[^0-9]/g, '')) || (d.label.includes('Bull') ? 25 : 0),
