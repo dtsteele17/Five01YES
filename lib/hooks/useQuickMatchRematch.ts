@@ -162,10 +162,8 @@ export function useQuickMatchRematch({
       newRoomId: record.new_room_id || prev.newRoomId,
     }));
 
-    // Auto-create room if both ready and not created yet
-    if (bothReady && record.status === 'ready' && !record.new_room_id) {
-      createRematchRoom(record.id);
-    }
+    // Note: Room creation is handled by database trigger when both players are ready
+    // We just need to navigate when the room is created
 
     // Navigate if room created
     if (record.new_room_id && !isNavigatingRef.current) {
@@ -209,10 +207,8 @@ export function useQuickMatchRematch({
           isLoading: false,
         }));
 
-        // If both ready, create the room
-        if (data.both_ready) {
-          await createRematchRoom(data.request_id);
-        }
+        // Note: Room creation is handled by database trigger when both_ready is true
+        // The realtime subscription will pick up the new_room_id when it's created
       } else {
         setState(prev => ({ 
           ...prev, 

@@ -35,18 +35,21 @@ CREATE INDEX IF NOT EXISTS idx_rematch_requests_new_room ON quick_match_rematch_
 ALTER TABLE quick_match_rematch_requests ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "Players can view their own rematch requests" ON quick_match_rematch_requests;
 CREATE POLICY "Players can view their own rematch requests"
   ON quick_match_rematch_requests
   FOR SELECT
   TO authenticated
   USING (player1_id = auth.uid() OR player2_id = auth.uid());
 
+DROP POLICY IF EXISTS "Players can create rematch requests for their matches" ON quick_match_rematch_requests;
 CREATE POLICY "Players can create rematch requests for their matches"
   ON quick_match_rematch_requests
   FOR INSERT
   TO authenticated
   WITH CHECK (player1_id = auth.uid() OR player2_id = auth.uid());
 
+DROP POLICY IF EXISTS "Players can update their own rematch requests" ON quick_match_rematch_requests;
 CREATE POLICY "Players can update their own rematch requests"
   ON quick_match_rematch_requests
   FOR UPDATE

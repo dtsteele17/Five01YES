@@ -122,7 +122,7 @@ export function WinnerPopup({
       return (
         <>
           <RotateCcw className="w-4 h-4 mr-1" />
-          Join Rematch (1/2)
+          Join Rematch ({readyCount}/2)
         </>
       );
     }
@@ -130,7 +130,7 @@ export function WinnerPopup({
     return (
       <>
         <RotateCcw className="w-4 h-4 mr-1" />
-        Rematch 0/2
+        Rematch ({readyCount}/2)
       </>
     );
   };

@@ -41,7 +41,8 @@ import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
 import type { SafetyGrade } from '@/lib/safety/safetyService';
-import { submitRating, subscribeToRatings } from '@/lib/safety/safetyService';
+import { submitRating, subscribeToRatings, getUserSafetyRating } from '@/lib/safety/safetyService';
+import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 import { useQuickMatchRematch } from '@/lib/hooks/useQuickMatchRematch';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
 import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
@@ -1241,6 +1242,46 @@ export default function QuickMatchRoomPage() {
       unsubscribe();
     };
   }, [currentUserId]);
+
+  // Subscribe to safety rating updates to refresh opponent's trust rating display
+  useEffect(() => {
+    if (!room || !currentUserId) return;
+
+    const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
+    if (!opponentId) return;
+
+    // Subscribe to updates for the opponent's safety rating
+    const unsubscribe = onSafetyRatingUpdated((updatedUserId) => {
+      if (updatedUserId === opponentId || updatedUserId === 'all') {
+        // Refresh opponent's profile to get updated trust rating
+        supabase
+          .from('profiles')
+          .select('user_id, username, trust_rating_letter, trust_rating_count')
+          .eq('user_id', opponentId)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              // Update profiles state with new trust rating
+              setProfiles(prev => {
+                const existing = prev.find(p => p.user_id === opponentId);
+                if (existing) {
+                  return prev.map(p => 
+                    p.user_id === opponentId 
+                      ? { ...p, trust_rating_letter: data.trust_rating_letter }
+                      : p
+                  );
+                }
+                return prev;
+              });
+            }
+          });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [room, currentUserId]);
   
   // Callback refs that attach stream immediately when element mounts
   const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {

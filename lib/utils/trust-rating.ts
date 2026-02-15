@@ -71,5 +71,5 @@ export function getTrustRatingDescription(letter: 'A' | 'B' | 'C' | 'D' | 'E'): 
  * @returns Label text
  */
 export function getUnratedLabel(): string {
-  return 'No Trust Rating';
+  return 'No Trust Rating yet';
 }
