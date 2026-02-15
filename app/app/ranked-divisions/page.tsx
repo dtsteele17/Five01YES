@@ -403,7 +403,6 @@ function TierNavigator({
   currentTierIndex: number;
 }) {
   const [currentPage, setCurrentPage] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
   const ranksPerPage = 4;
   
   // Separate Grand Champion from other tiers - it gets its own page
@@ -458,19 +457,23 @@ function TierNavigator({
   const colors = TIER_COLORS[tierKey];
 
   const goToPrevious = () => {
-    console.log('[RankedDivisions] goToPrevious called, currentPage:', currentPage, 'isAnimating:', isAnimating);
-    if (isAnimating || currentPage === 0) return;
-    setIsAnimating(true);
-    setCurrentPage(prev => prev - 1);
-    setTimeout(() => setIsAnimating(false), 400);
+    console.log('[RankedDivisions] goToPrevious called, currentPage:', currentPage);
+    if (currentPage === 0) return;
+    setCurrentPage(prev => {
+      const newPage = prev - 1;
+      console.log('[RankedDivisions] Setting page to:', newPage);
+      return newPage;
+    });
   };
 
   const goToNext = () => {
-    console.log('[RankedDivisions] goToNext called, currentPage:', currentPage, 'totalPages:', totalPages, 'isAnimating:', isAnimating);
-    if (isAnimating || currentPage >= totalPages - 1) return;
-    setIsAnimating(true);
-    setCurrentPage(prev => prev + 1);
-    setTimeout(() => setIsAnimating(false), 400);
+    console.log('[RankedDivisions] goToNext called, currentPage:', currentPage, 'totalPages:', totalPages);
+    if (currentPage >= totalPages - 1) return;
+    setCurrentPage(prev => {
+      const newPage = prev + 1;
+      console.log('[RankedDivisions] Setting page to:', newPage);
+      return newPage;
+    });
   };
 
   // Keyboard navigation
@@ -481,7 +484,7 @@ function TierNavigator({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, totalPages, isAnimating]);
+  }, [currentPage, totalPages]);
 
   return (
     <div className="space-y-6">
@@ -509,33 +512,37 @@ function TierNavigator({
           <TierPageHeader tierName={currentTierName} />
           
           {/* Navigation Controls - Ultra Premium */}
-          <div className="flex items-center justify-center gap-4 mb-8">
+          <div className="flex items-center justify-center gap-4 mb-8 relative z-10">
             <button
-              type="button"
-              onClick={() => goToPrevious()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('LEFT ARROW CLICKED');
+                goToPrevious();
+              }}
               disabled={currentPage === 0}
-              className={`group relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border-2 ${colors.border} flex items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-2xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden cursor-pointer z-20`}
-              style={{ boxShadow: isGrandChampionPage ? '0 0 30px rgba(168, 85, 247, 0.3)' : undefined }}
+              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              <ChevronLeft className="w-7 h-7 relative z-10 group-hover:-translate-x-0.5 transition-transform pointer-events-none" />
+              <ChevronLeft className="w-7 h-7" />
             </button>
             
-            <div className={`px-8 py-4 rounded-2xl bg-gradient-to-b from-slate-800/80 to-slate-900/80 border-2 ${colors.border} backdrop-blur-sm shadow-xl`}>
-              <span className={`${colors.text} font-black text-xl tracking-wide`}>
-                Tier {currentPage + 1} <span className="text-white/30 mx-2">/</span> {totalPages}
+            <div className="px-8 py-4 rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl min-w-[180px] text-center">
+              <span className="text-white font-black text-xl">
+                Tier <span className="text-amber-400">{currentPage + 1}</span> / {totalPages}
               </span>
             </div>
             
             <button
-              type="button"
-              onClick={() => goToNext()}
-              disabled={currentPage === totalPages - 1}
-              className={`group relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border-2 ${colors.border} flex items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-2xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden cursor-pointer z-20`}
-              style={{ boxShadow: isGrandChampionPage ? '0 0 30px rgba(168, 85, 247, 0.3)' : undefined }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('RIGHT ARROW CLICKED');
+                goToNext();
+              }}
+              disabled={currentPage >= totalPages - 1}
+              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              <ChevronRight className="w-7 h-7 relative z-10 group-hover:translate-x-0.5 transition-transform pointer-events-none" />
+              <ChevronRight className="w-7 h-7" />
             </button>
           </div>
           
@@ -664,13 +671,7 @@ function TierNavigator({
               return (
                 <button
                   key={index}
-                  onClick={() => {
-                    if (!isAnimating) {
-                      setIsAnimating(true);
-                      setCurrentPage(index);
-                      setTimeout(() => setIsAnimating(false), 400);
-                    }
-                  }}
+                  onClick={() => setCurrentPage(index)}
                   className={`h-2.5 rounded-full transition-all duration-300 ${
                     isActive
                       ? `w-10 ${pageColors.bg} shadow-lg ${pageColors.glow}`
