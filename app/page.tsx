@@ -583,9 +583,9 @@ function Footer({ scrollToSection }: any) {
               <Image 
                 src="/logo.png" 
                 alt="FIVE01" 
-                width={120} 
-                height={108} 
-                className="h-12 w-auto object-contain"
+                width={180} 
+                height={162} 
+                className="h-20 w-auto object-contain"
               />
             </div>
             <p className="text-gray-400">The ultimate online darts league.</p>
