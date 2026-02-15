@@ -33,7 +33,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             <div className="space-y-4">
               <div className="flex items-center">
                 <Image 
-                  src="/logo.jpg" 
+                  src="/logo.png" 
                   alt="FIVE01" 
                   width={180} 
                   height={60} 

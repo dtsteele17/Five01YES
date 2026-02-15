@@ -78,7 +78,7 @@ export function TopBar() {
             <div className="flex items-center space-x-6">
               <Link href="/" className="flex items-center">
                 <Image 
-                  src="/logo.jpg" 
+                  src="/logo.png" 
                   alt="FIVE01" 
                   width={120} 
                   height={40} 

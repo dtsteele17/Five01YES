@@ -580,7 +580,7 @@ function Footer({ scrollToSection }: any) {
           <div>
             <div className="flex items-center mb-4">
               <Image 
-                src="/logo.jpg" 
+                src="/logo.png" 
                 alt="FIVE01" 
                 width={120} 
                 height={40} 

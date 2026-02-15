@@ -35,7 +35,7 @@ export function WebsiteMobileMenu({ isOpen, onClose, scrollToSection }: WebsiteM
         <SheetHeader className="border-b border-white/10 p-6">
           <div className="flex items-center">
             <Image 
-              src="/logo.jpg" 
+              src="/logo.png" 
               alt="FIVE01" 
               width={100} 
               height={35} 
