@@ -37,9 +37,9 @@ export function WebsiteMobileMenu({ isOpen, onClose, scrollToSection }: WebsiteM
             <Image 
               src="/logo.png" 
               alt="FIVE01" 
-              width={130} 
-              height={46} 
-              className="h-10 w-auto object-contain"
+              width={115} 
+              height={40} 
+                className="h-9 w-auto object-contain"
               priority
             />
           </div>

@@ -32,9 +32,9 @@ export function TopNav({ scrollToSection }: TopNavProps) {
               <Image 
                 src="/logo.png" 
                 alt="FIVE01" 
-                width={156} 
-                height={52} 
-                className="h-13 w-auto object-contain"
+                width={138} 
+                height={46} 
+                className="h-11 w-auto object-contain"
                 priority
               />
             </Link>
