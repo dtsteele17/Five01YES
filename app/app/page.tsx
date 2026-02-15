@@ -34,6 +34,7 @@ import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { formatDistanceToNow } from 'date-fns';
 import { SafetyRatingBadge } from '@/components/safety/SafetyRatingBadge';
+import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 
 interface DashboardStats {
   totalMatches: number;
@@ -130,7 +131,7 @@ function HeroStat({ value, label, icon: Icon, color, trend, onClick }: {
 }
 
 export default function DashboardPage() {
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, refreshProfile } = useProfile();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
   const [rankedState, setRankedState] = useState<RankedPlayerState | null>(null);
@@ -143,6 +144,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   usePresence();
+
+  // Subscribe to safety rating updates and refresh profile when rating changes
+  useEffect(() => {
+    const unsubscribe = onSafetyRatingUpdated(() => {
+      // Refresh profile to get updated safety rating
+      refreshProfile();
+    });
+
+    return () => unsubscribe();
+  }, [refreshProfile]);
 
   useEffect(() => {
     async function fetchDashboardData() {

@@ -31,6 +31,7 @@ import {
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import Link from 'next/link';
 import { SafetyRatingDetailed } from '@/components/safety/SafetyRatingBadge';
+import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 
 interface Profile {
   user_id: string;
@@ -77,29 +78,68 @@ export default function ProfilePage() {
   const { overallStats } = usePlayerStats();
   const supabase = createClient();
 
-  useEffect(() => {
-    async function loadProfile() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+  // Load profile function
+  const loadProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-        const [{ data: profileData }, { data: rankedData }] = await Promise.all([
-          supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
-          supabase.rpc('rpc_ranked_get_my_state'),
-        ]);
+      const [{ data: profileData }, { data: rankedData }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.rpc('rpc_ranked_get_my_state'),
+      ]);
 
-        setProfile(profileData);
-        if (rankedData?.player_state) {
-          setRankedInfo(rankedData.player_state);
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      } finally {
-        setLoading(false);
+      setProfile(profileData);
+      if (rankedData?.player_state) {
+        setRankedInfo(rankedData.player_state);
       }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  // Initial load
+  useEffect(() => {
     loadProfile();
+  }, []);
+
+  // Subscribe to safety rating updates
+  useEffect(() => {
+    const unsubscribe = onSafetyRatingUpdated(() => {
+      // Reload profile to get updated safety rating
+      loadProfile();
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to real-time profile updates (for safety rating changes)
+  useEffect(() => {
+    const { data: { user } } = supabase.auth.getUser();
+    if (!user) return;
+
+    const subscription = supabase
+      .channel('profile_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          // Update profile when it changes in the database
+          setProfile(payload.new as Profile);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const formatDate = (dateStr?: string) => {
