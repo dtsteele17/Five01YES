@@ -163,12 +163,14 @@ function CurrentRankCard({
   playerState, 
   season,
   nextTier,
-  rpToNext 
+  rpToNext,
+  rankedAverage
 }: { 
   playerState: PlayerState; 
   season: Season | null;
   nextTier: RankedTier | null;
   rpToNext: number;
+  rankedAverage: number;
 }) {
   const tierKey = getTierKey(playerState.division_name);
   const colors = TIER_COLORS[tierKey];
@@ -316,7 +318,7 @@ function CurrentRankCard({
               { label: 'Wins', value: playerState.wins, color: 'emerald', icon: Trophy },
               { label: 'Losses', value: playerState.losses, color: 'rose', icon: Flame },
               { label: 'Win Rate', value: `${winRate}%`, color: 'blue', icon: TrendingUp },
-              { label: 'Games', value: playerState.games_played, color: 'purple', icon: Gamepad2 },
+              { label: '3-Dart Avg', value: rankedAverage.toFixed(1), color: 'purple', icon: Target },
             ].map((stat, index) => (
               <div 
                 key={index}
@@ -402,7 +404,6 @@ function TierNavigator({
   playerState: PlayerState | null;
   currentTierIndex: number;
 }) {
-  const [currentPage, setCurrentPage] = useState(0);
   const ranksPerPage = 4;
   
   // Separate Grand Champion from other tiers - it gets its own page
@@ -424,29 +425,25 @@ function TierNavigator({
   
   const totalPages = allPages.length;
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[RankedDivisions] totalPages:', totalPages, 'currentPage:', currentPage, 'allPages:', allPages.length);
-  }, [totalPages, currentPage, allPages]);
-
-  // Set initial page to show user's current tier
-  useEffect(() => {
+  // Calculate initial page based on user's current tier - only once on mount
+  const getInitialPage = () => {
     if (currentTierIndex >= 0 && allPages.length > 0) {
       const userTier = tiers[currentTierIndex];
       if (userTier) {
         if (userTier.tier_name.toLowerCase().includes('grand')) {
-          // Grand Champion is always last page
-          setCurrentPage(totalPages - 1);
+          return totalPages - 1;
         } else {
-          // Find which page the user's tier is on
           const userPage = allPages.findIndex(page => 
             page.some(t => t.id === userTier.id)
           );
-          if (userPage >= 0) setCurrentPage(userPage);
+          if (userPage >= 0) return userPage;
         }
       }
     }
-  }, [currentTierIndex, tiers, totalPages, allPages]);
+    return 0;
+  };
+
+  const [currentPage, setCurrentPage] = useState(getInitialPage);
 
   const currentTiers = allPages[currentPage] || [];
   const isGrandChampionPage = currentTiers.length === 1 && currentTiers[0]?.tier_name.toLowerCase().includes('grand');
@@ -456,52 +453,29 @@ function TierNavigator({
   const tierKey = getTierKey(currentTierName);
   const colors = TIER_COLORS[tierKey];
 
-  // Use refs for keyboard navigation to avoid stale closures
-  const currentPageRef = useRef(currentPage);
-  const totalPagesRef = useRef(totalPages);
-  
-  useEffect(() => {
-    currentPageRef.current = currentPage;
-    totalPagesRef.current = totalPages;
-  }, [currentPage, totalPages]);
+  const goToPrevious = () => {
+    setCurrentPage(prev => Math.max(0, prev - 1));
+  };
 
-  const goToPrevious = useCallback(() => {
-    console.log('[RankedDivisions] goToPrevious clicked');
-    setCurrentPage(prev => {
-      if (prev <= 0) return prev;
-      return prev - 1;
-    });
-  }, []);
+  const goToNext = () => {
+    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+  };
 
-  const goToNext = useCallback(() => {
-    console.log('[RankedDivisions] goToNext clicked');
-    setCurrentPage(prev => {
-      if (prev >= totalPagesRef.current - 1) return prev;
-      return prev + 1;
-    });
-  }, []);
-
-  // Keyboard navigation - using refs to avoid dependency issues
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setCurrentPage(prev => {
-          if (prev <= 0) return prev;
-          return prev - 1;
-        });
+        setCurrentPage(prev => Math.max(0, prev - 1));
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setCurrentPage(prev => {
-          if (prev >= totalPagesRef.current - 1) return prev;
-          return prev + 1;
-        });
+        setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []); // Empty deps - uses refs internally
+  }, [totalPages]);
 
   return (
     <div className="space-y-6">
@@ -830,6 +804,7 @@ export default function RankedDivisionsPage() {
   const [season, setSeason] = useState<Season | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [rankedAverage, setRankedAverage] = useState<number>(0);
 
   useEffect(() => {
     loadData();
@@ -865,6 +840,19 @@ export default function RankedDivisionsPage() {
         setSeason(stateData.season);
         setPlayerState(stateData.player_state);
       }
+
+      // Fetch ranked 3-dart average
+      if (user?.id) {
+        const { data: rankedStats } = await supabase.rpc('fn_get_filtered_player_stats', {
+          p_user_id: user.id,
+          p_game_mode: null,
+          p_match_format: 'ranked'
+        });
+        
+        if (rankedStats?.success && rankedStats?.stats) {
+          setRankedAverage(rankedStats.stats.three_dart_average || 0);
+        }
+      }
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('Failed to load data');
@@ -878,8 +866,11 @@ export default function RankedDivisionsPage() {
     playerState.rp >= t.rp_min && playerState.rp <= t.rp_max
   ) : -1;
 
-  // Get next tier
-  const nextTier = currentTierIndex > 0 ? tiers[currentTierIndex - 1] : null;
+  // Get next tier (next higher division - moving UP in the array)
+  // If current is Gold 3, next should be Gold 2 (higher division number)
+  const nextTier = currentTierIndex >= 0 && currentTierIndex < tiers.length - 1 
+    ? tiers[currentTierIndex + 1] 
+    : null;
 
   // Calculate RP to next tier
   const rpToNext = nextTier ? nextTier.rp_min - (playerState?.rp || 0) : 0;
@@ -958,6 +949,7 @@ export default function RankedDivisionsPage() {
             season={season}
             nextTier={nextTier}
             rpToNext={rpToNext}
+            rankedAverage={rankedAverage}
           />
         </motion.div>
       )}

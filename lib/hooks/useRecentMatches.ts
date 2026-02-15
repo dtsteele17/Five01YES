@@ -35,7 +35,7 @@ export interface RecentMatch {
   opponent_visits_180?: number;
 }
 
-export function useRecentMatches(limit: number = 3) {
+export function useRecentMatches(limit: number = 5) {
   const [matches, setMatches] = useState<RecentMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

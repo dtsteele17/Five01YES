@@ -1,33 +1,13 @@
 -- ============================================================================
--- VERIFY AND FIX MATCH RECORDING SYSTEM
+-- COMPLETE MATCH RECORDING FIX
 -- ============================================================================
+-- This migration ensures QuickMatch, DartBot, and all game modes are properly
+-- recorded to match_history and show in Recent Games
 
--- 1. First, let's check the match_history table structure
-SELECT 
-  column_name, 
-  data_type, 
-  is_nullable,
-  column_default
-FROM information_schema.columns 
-WHERE table_name = 'match_history'
-ORDER BY ordinal_position;
-
--- 2. Check if the required columns exist for opponent stats
-SELECT 
-  column_name
-FROM information_schema.columns 
-WHERE table_name = 'match_history'
-  AND column_name IN (
-    'opponent_three_dart_avg', 'opponent_first9_avg', 'opponent_highest_checkout',
-    'opponent_checkout_percentage', 'opponent_darts_thrown',
-    'opponent_visits_100_plus', 'opponent_visits_140_plus', 'opponent_visits_180',
-    'bot_level'
-  );
-
--- 3. Add opponent stats columns if they don't exist
+-- 1. Add opponent stats columns to match_history if they don't exist
+-- ============================================================================
 DO $$
 BEGIN
-  -- Add opponent stats columns
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'match_history' AND column_name = 'opponent_three_dart_avg') THEN
     ALTER TABLE match_history ADD COLUMN opponent_three_dart_avg DECIMAL(5,2) DEFAULT 0;
   END IF;
@@ -57,12 +37,9 @@ BEGIN
   END IF;
 END $$;
 
--- 4. Check unique constraints
-SELECT indexname, indexdef 
-FROM pg_indexes 
-WHERE tablename = 'match_history';
-
--- 5. Add unique constraint on room_id, user_id if not exists
+-- ============================================================================
+-- 2. Add unique constraint to prevent duplicate entries
+-- ============================================================================
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -76,7 +53,9 @@ EXCEPTION
   WHEN duplicate_table THEN NULL;
 END $$;
 
--- 6. Create or replace the main stats function with opponent stats
+-- ============================================================================
+-- 3. Create/Replace the main stats function for QuickMatch recording
+-- ============================================================================
 CREATE OR REPLACE FUNCTION fn_update_player_match_stats(
   p_room_id UUID,
   p_user_id UUID,
@@ -363,7 +342,9 @@ $$;
 GRANT EXECUTE ON FUNCTION fn_update_player_match_stats(UUID, UUID, UUID, TEXT, INTEGER, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION fn_update_player_match_stats(UUID, UUID, UUID, TEXT, INTEGER, INTEGER, INTEGER) TO service_role;
 
--- 7. Create DartBot match recording function
+-- ============================================================================
+-- 4. Create/Replace DartBot match recording function
+-- ============================================================================
 CREATE OR REPLACE FUNCTION record_dartbot_match_completion(
   p_user_id UUID,
   p_bot_level INTEGER,
@@ -431,25 +412,9 @@ $$;
 GRANT EXECUTE ON FUNCTION record_dartbot_match_completion(UUID, INTEGER, INTEGER, INTEGER, INTEGER, DECIMAL, DECIMAL, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION record_dartbot_match_completion(UUID, INTEGER, INTEGER, INTEGER, INTEGER, DECIMAL, DECIMAL, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER) TO service_role;
 
--- 8. Check recent match_history entries
-SELECT 'Recent match_history entries:' AS info;
-SELECT 
-  mh.id,
-  mh.room_id,
-  mh.user_id,
-  mh.opponent_id,
-  mh.match_format,
-  mh.result,
-  mh.legs_won,
-  mh.legs_lost,
-  mh.three_dart_avg,
-  mh.bot_level,
-  mh.played_at
-FROM match_history mh
-ORDER BY mh.played_at DESC
-LIMIT 10;
-
--- 9. Create a view for easier querying
+-- ============================================================================
+-- 5. Create view for easier querying of recent matches
+-- ============================================================================
 CREATE OR REPLACE VIEW match_history_recent AS
 SELECT 
   mh.*,
@@ -462,4 +427,26 @@ ORDER BY mh.played_at DESC;
 GRANT SELECT ON match_history_recent TO authenticated;
 GRANT SELECT ON match_history_recent TO service_role;
 
-SELECT 'Match recording system verified and fixed!' AS status;
+-- ============================================================================
+-- 6. Verify match_history accepts all match formats
+-- ============================================================================
+DO $$
+BEGIN
+  ALTER TABLE match_history 
+  DROP CONSTRAINT IF EXISTS match_history_match_format_check;
+  
+  ALTER TABLE match_history 
+  ADD CONSTRAINT match_history_match_format_check 
+  CHECK (match_format IN (
+    'quick',      -- Quick Match
+    'ranked',     -- Ranked Match
+    'private',    -- Private Match
+    'local',      -- Local Match
+    'tournament', -- Tournament Match
+    'league',     -- League Match
+    'training',   -- Training Mode
+    'dartbot'     -- vs Dartbot
+  ));
+END $$;
+
+SELECT 'Match recording system fully configured!' AS status;

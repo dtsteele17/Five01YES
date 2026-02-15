@@ -225,10 +225,10 @@ function StatsDashboard() {
         loading={loading}
       />
       <StatMiniCard 
-        label="Win Streak" 
-        value={stats.currentStreak.toString()} 
-        icon={Flame} 
-        color="bg-orange-500/20" 
+        label="Wins Today" 
+        value={stats.wins.toString()} 
+        icon={Target} 
+        color="bg-purple-500/20" 
         loading={loading}
       />
       <StatMiniCard 
@@ -239,10 +239,10 @@ function StatsDashboard() {
         loading={loading}
       />
       <StatMiniCard 
-        label="Wins Today" 
-        value={stats.wins.toString()} 
-        icon={Target} 
-        color="bg-purple-500/20" 
+        label="Win Streak" 
+        value={stats.currentStreak.toString()} 
+        icon={Flame} 
+        color="bg-orange-500/20" 
         loading={loading}
       />
     </div>
@@ -348,7 +348,7 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
 
 // Recent Matches Section
 function RecentMatchesSection() {
-  const { matches, loading } = useRecentMatches(3);
+  const { matches, loading } = useRecentMatches(5);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
 
   return (
