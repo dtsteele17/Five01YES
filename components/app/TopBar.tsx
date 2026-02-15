@@ -80,7 +80,7 @@ export function TopBar() {
                 <Image 
                   src="/logo.png" 
                   alt="FIVE01" 
-                  width={174} 
+                  width={175} 
                   height={58} 
                   className="h-14 w-auto object-contain"
                   priority
