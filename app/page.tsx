@@ -583,8 +583,8 @@ function Footer({ scrollToSection }: any) {
               <Image 
                 src="/logo.png" 
                 alt="FIVE01" 
-                width={175} 
-                height={58} 
+                width={176} 
+                height={59} 
                 className="h-14 w-auto object-contain"
               />
             </div>
