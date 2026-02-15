@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { SafetyGrade, getUserSafetyRating, GRADE_COLORS, GRADE_TEXT_COLORS, GRADE_LABELS } from '@/lib/safety/safetyService';
 import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
-import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 import { Shield } from 'lucide-react';
 
 interface SafetyRatingDisplayProps {
