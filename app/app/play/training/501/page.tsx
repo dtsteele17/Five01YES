@@ -31,6 +31,7 @@ import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, findBestCheckoutRoute } from '@/lib/botThrowEngine';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
+import { awardXP } from '@/lib/training/xpTracker';
 import type { PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
@@ -660,7 +661,11 @@ export default function DartbotMatchPage() {
     const playerVisits = allPlayerVisits.filter(v => !v.isBust);
     
     // ALWAYS calculate from visits - works for both user and bot
-    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    // For bot (player2), ALWAYS count exactly 3 darts per visit unless it's a checkout with fewer darts
+    const totalDarts = allPlayerVisits.reduce((sum, v) => {
+      const darts = v.dartsThrown || 3;
+      return sum + darts;
+    }, 0);
     const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
     
@@ -907,6 +912,26 @@ export default function DartbotMatchPage() {
             durationMinutes: matchStartTime ? Math.floor((Date.now() - matchStartTime) / 60000) : 15,
           }).catch(console.error);
         }
+        
+        // Award XP for DartBot match
+        const gameMode = normalizedConfig.mode === '301' ? 301 : 501;
+        const won = currentMatchWinner === 'player1';
+        await awardXP(`${gameMode}-dartbot`, 0, {
+          won,
+          threeDartAvg: userStats.threeDartAverage,
+          completed: true,
+          sessionData: {
+            gameMode,
+            legsWon: p1Legs,
+            legsLost: p2Legs,
+            average: userStats.threeDartAverage,
+            highestCheckout: userStats.highestCheckout,
+            totalDarts: userStats.totalDartsThrown,
+            visits100Plus: userStats.count100Plus,
+            visits140Plus: userStats.count140Plus,
+            visits180: userStats.oneEighties,
+          },
+        });
       }
       else console.error('Failed to save match:', result.error);
     } catch (error) { 
@@ -998,8 +1023,10 @@ export default function DartbotMatchPage() {
       // Animate the throws (shows exactly 3 darts or fewer if checkout)
       await animateBotThrows(visualVisit.darts);
       
-      // Record the visit
-      const dartsThrown = visualVisit.darts.length;
+      // CRITICAL: Bot ALWAYS throws exactly 3 darts per visit (unless checkout)
+      // Even on bust, we count 3 darts for stats consistency
+      const actualDartsThrown = visualVisit.darts.length;
+      const dartsThrown = visualVisit.finished ? actualDartsThrown : 3; // Force 3 darts except on checkout
       
       // Track checkout stats for DartBot
       // Calculate darts at double for this visit
@@ -1016,6 +1043,21 @@ export default function DartbotMatchPage() {
         setPlayer2CheckoutsMade(prev => prev + 1);
       }
       
+      // Ensure darts array always has 3 darts for display consistency
+      const paddedDarts = [...visualVisit.darts];
+      while (paddedDarts.length < 3) {
+        paddedDarts.push({
+          label: 'MISS',
+          score: 0,
+          isDouble: false,
+          isTreble: false,
+          offboard: true,
+          aimTarget: '-',
+          x: 1.5,
+          y: 0
+        });
+      }
+      
       const visit: Visit = { 
         player: 'player2', 
         score: visualVisit.bust ? 0 : visualVisit.visitTotal, 
@@ -1023,9 +1065,9 @@ export default function DartbotMatchPage() {
         isBust: visualVisit.bust, 
         isCheckout: visualVisit.finished, 
         timestamp: Date.now(), 
-        dartsThrown, 
+        dartsThrown, // Always 3 except on checkout
         dartsAtDouble: botDartsAtDouble > 0 ? botDartsAtDouble : (currentScore <= 170 && currentScore > 0 ? dartsThrown : 0),
-        darts: visualVisit.darts.map(d => ({
+        darts: paddedDarts.map(d => ({
           type: d.isDouble ? 'double' : d.isTreble ? 'triple' : d.offboard ? 'single' : 'single',
           number: d.offboard ? 0 : parseInt(d.label.replace(/[^0-9]/g, '')) || (d.label.includes('Bull') ? 25 : 0),
           value: d.score,
@@ -1055,9 +1097,13 @@ export default function DartbotMatchPage() {
       if (!visualVisit.bust) {
         setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
       } else {
-        console.log(`[DartBot] BUST: ${dartsThrown} darts thrown, counted toward total`);
+        console.log(`[DartBot] BUST: ${actualDartsThrown} actual darts, counting ${dartsThrown} toward stats`);
       }
-      setPlayer2MatchDartsThrown(prev => prev + dartsThrown);
+      setPlayer2MatchDartsThrown(prev => {
+        const newTotal = prev + dartsThrown;
+        console.log(`[DartBot] Darts thrown: ${dartsThrown} (total: ${newTotal})`);
+        return newTotal;
+      });
       setPlayer2Score(visualVisit.newRemaining);
       
       if (visualVisit.finished) {

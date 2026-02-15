@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Zap, ArrowLeft, Trophy, Heart, HeartCrack, Target } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { awardXP } from '@/lib/training/xpTracker';
 
 interface DartThrow {
   score: number;
@@ -114,8 +115,9 @@ export default function Bobs27Page() {
 
       const totalHits = roundResults.reduce((sum, r) => sum + r.hits, 0);
       const totalDarts = roundResults.length * 3;
-      const accuracy = totalDarts > 0 ? ((totalHits / totalDarts) * 100).toFixed(1) : '0';
+      const accuracy = totalDarts > 0 ? ((totalHits / totalDarts) * 100) : 0;
 
+      // Save to training_stats
       await supabase.from('training_stats').insert({
         player_id: user.id,
         game_type: 'bobs27',
@@ -124,9 +126,22 @@ export default function Bobs27Page() {
         session_data: {
           rounds_completed: roundResults.length,
           total_hits: totalHits,
-          accuracy,
+          accuracy: accuracy.toFixed(1),
           lives_remaining: lives,
           date: new Date().toISOString(),
+        },
+      });
+
+      // Award XP
+      await awardXP('bobs-27', finalScore, {
+        completed: survived,
+        won: survived,
+        sessionData: {
+          score: finalScore,
+          roundsCompleted: roundResults.length,
+          totalHits,
+          accuracy,
+          livesRemaining: lives,
         },
       });
 
@@ -362,79 +377,40 @@ export default function Bobs27Page() {
               Click to hit {currentNumber}
             </h3>
             
-            <div className="grid grid-cols-4 gap-2">
-              {/* Singles */}
-              {[...Array(20)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleDartInput(i + 1, 1, `S${i + 1}`)}
-                  disabled={currentDarts.length >= 3}
-                  className={`h-12 rounded-lg font-bold text-sm transition-colors ${
-                    i + 1 === currentNumber
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  } disabled:opacity-50`}
-                >
-                  S{i + 1}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {/* Doubles */}
-              {[...Array(20)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleDartInput(i + 1, 2, `D${i + 1}`)}
-                  disabled={currentDarts.length >= 3}
-                  className={`h-12 rounded-lg font-bold text-sm transition-colors ${
-                    i + 1 === currentNumber
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-slate-800 text-emerald-400 hover:bg-slate-700'
-                  } disabled:opacity-50`}
-                >
-                  D{i + 1}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {/* Trebles */}
-              {[...Array(20)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleDartInput(i + 1, 3, `T${i + 1}`)}
-                  disabled={currentDarts.length >= 3}
-                  className={`h-12 rounded-lg font-bold text-sm transition-colors ${
-                    i + 1 === currentNumber
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-slate-800 text-amber-400 hover:bg-slate-700'
-                  } disabled:opacity-50`}
-                >
-                  T{i + 1}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 mt-2">
+            {/* Only show buttons for the current target number */}
+            <div className="space-y-3">
+              {/* Single of current number */}
               <button
-                onClick={() => handleDartInput(25, 1, '25')}
+                onClick={() => handleDartInput(currentNumber, 1, `S${currentNumber}`)}
                 disabled={currentDarts.length >= 3}
-                className="h-12 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 font-bold disabled:opacity-50"
+                className="w-full h-14 rounded-lg font-bold text-lg transition-colors bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-50"
               >
-                25
+                Single {currentNumber}
               </button>
+              
+              {/* Double of current number */}
               <button
-                onClick={() => handleDartInput(50, 1, 'BULL')}
+                onClick={() => handleDartInput(currentNumber, 2, `D${currentNumber}`)}
                 disabled={currentDarts.length >= 3}
-                className="h-12 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 font-bold disabled:opacity-50"
+                className="w-full h-14 rounded-lg font-bold text-lg transition-colors bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 disabled:opacity-50"
               >
-                BULL
+                Double {currentNumber}
               </button>
+              
+              {/* Treble of current number */}
+              <button
+                onClick={() => handleDartInput(currentNumber, 3, `T${currentNumber}`)}
+                disabled={currentDarts.length >= 3}
+                className="w-full h-14 rounded-lg font-bold text-lg transition-colors bg-amber-900/30 text-amber-400 hover:bg-amber-900/50 disabled:opacity-50"
+              >
+                Treble {currentNumber}
+              </button>
+              
+              {/* Miss button */}
               <button
                 onClick={() => handleDartInput(0, 1, 'Miss')}
                 disabled={currentDarts.length >= 3}
-                className="h-12 rounded-lg bg-slate-800 text-slate-500 hover:bg-slate-700 font-bold disabled:opacity-50"
+                className="w-full h-14 rounded-lg font-bold text-lg transition-colors bg-slate-800 text-slate-500 hover:bg-slate-700 disabled:opacity-50"
               >
                 Miss
               </button>

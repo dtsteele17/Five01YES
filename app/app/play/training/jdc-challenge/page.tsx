@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
+import { awardXP } from '@/lib/training/xpTracker';
 
 interface DartThrow {
   score: number;
@@ -165,6 +166,18 @@ export default function JDCChallengePage() {
             total: xp.totalXP,
           },
           date: new Date().toISOString(),
+        },
+      });
+
+      // Award XP via unified tracker (records to match_history too)
+      await awardXP('jdc-challenge', totalScore, {
+        completed: true,
+        won: totalScore >= 350,
+        sessionData: {
+          totalScore,
+          totalBonus,
+          grade: grade.grade,
+          rounds: rounds.length,
         },
       });
 

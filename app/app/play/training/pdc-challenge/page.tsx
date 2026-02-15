@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
+import { awardXP } from '@/lib/training/xpTracker';
 
 interface DartThrow {
   score: number;
@@ -166,6 +167,17 @@ export default function PDCChallengePage() {
             date: new Date().toISOString(),
           },
         });
+
+      // Award XP via unified tracker (records to match_history too)
+      await awardXP('pdc-challenge', totalScore, {
+        completed: true,
+        won: totalScore >= 500,
+        sessionData: {
+          totalScore,
+          totalHits,
+          rounds: rounds.length,
+        },
+      });
 
       toast.success(`PDC Challenge completed! +${xp.totalXP} XP earned!`);
     } catch (error) {
