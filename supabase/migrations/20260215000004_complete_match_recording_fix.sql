@@ -1,8 +1,6 @@
 -- ============================================================================
 -- COMPLETE MATCH RECORDING FIX
 -- ============================================================================
--- This migration ensures QuickMatch, DartBot, and all game modes are properly
--- recorded to match_history and show in Recent Games
 
 -- 1. Add opponent stats columns to match_history if they don't exist
 -- ============================================================================
@@ -37,7 +35,6 @@ BEGIN
   END IF;
 END $$;
 
--- ============================================================================
 -- 2. Add unique constraint to prevent duplicate entries
 -- ============================================================================
 DO $$
@@ -53,7 +50,6 @@ EXCEPTION
   WHEN duplicate_table THEN NULL;
 END $$;
 
--- ============================================================================
 -- 3. Create/Replace the main stats function for QuickMatch recording
 -- ============================================================================
 CREATE OR REPLACE FUNCTION fn_update_player_match_stats(
@@ -338,81 +334,103 @@ BEGIN
 END;
 $$;
 
--- Grant execute permissions
+-- Grant execute permissions for QuickMatch function
 GRANT EXECUTE ON FUNCTION fn_update_player_match_stats(UUID, UUID, UUID, TEXT, INTEGER, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION fn_update_player_match_stats(UUID, UUID, UUID, TEXT, INTEGER, INTEGER, INTEGER) TO service_role;
 
--- ============================================================================
 -- 4. Create/Replace DartBot match recording function
 -- ============================================================================
 CREATE OR REPLACE FUNCTION record_dartbot_match_completion(
-  p_user_id UUID,
-  p_bot_level INTEGER,
   p_game_mode INTEGER,
-  p_legs_won INTEGER,
-  p_legs_lost INTEGER,
-  p_three_dart_avg DECIMAL DEFAULT 0,
-  p_first9_avg DECIMAL DEFAULT 0,
-  p_highest_checkout INTEGER DEFAULT 0,
-  p_darts_thrown INTEGER DEFAULT 0,
-  p_total_score INTEGER DEFAULT 0,
-  p_visits_100_plus INTEGER DEFAULT 0,
-  p_visits_140_plus INTEGER DEFAULT 0,
-  p_visits_180 INTEGER DEFAULT 0
+  p_match_format TEXT,
+  p_dartbot_level INTEGER,
+  p_player_legs_won INTEGER,
+  p_bot_legs_won INTEGER,
+  p_winner TEXT,
+  p_player_three_dart_avg NUMERIC DEFAULT 0,
+  p_player_first9_avg NUMERIC DEFAULT 0,
+  p_player_checkout_pct NUMERIC DEFAULT 0,
+  p_player_highest_checkout INTEGER DEFAULT 0,
+  p_player_darts_at_double INTEGER DEFAULT 0,
+  p_player_total_darts INTEGER DEFAULT 0,
+  p_player_100_plus INTEGER DEFAULT 0,
+  p_player_140_plus INTEGER DEFAULT 0,
+  p_player_180s INTEGER DEFAULT 0,
+  p_bot_three_dart_avg NUMERIC DEFAULT 0,
+  p_bot_first9_avg NUMERIC DEFAULT 0,
+  p_bot_checkout_pct NUMERIC DEFAULT 0,
+  p_bot_highest_checkout INTEGER DEFAULT 0,
+  p_bot_darts_at_double INTEGER DEFAULT 0,
+  p_bot_total_darts INTEGER DEFAULT 0,
+  p_bot_100_plus INTEGER DEFAULT 0,
+  p_bot_140_plus INTEGER DEFAULT 0,
+  p_bot_180s INTEGER DEFAULT 0,
+  p_bot_total_score INTEGER DEFAULT 0
 )
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+  v_user_id UUID;
   v_room_id UUID;
   v_result TEXT;
+  v_player_legs INTEGER;
+  v_bot_legs INTEGER;
+  v_total_score INTEGER;
 BEGIN
-  -- Generate a unique room ID for DartBot matches
-  v_room_id := gen_random_uuid();
-  v_result := CASE WHEN p_legs_won > p_legs_lost THEN 'win' ELSE 'loss' END;
+  v_user_id := auth.uid();
   
-  -- Create a dartbot_match_rooms entry
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
+  END IF;
+  
+  v_player_legs := p_player_legs_won;
+  v_bot_legs := p_bot_legs_won;
+  v_result := CASE WHEN p_winner = 'player' THEN 'win' ELSE 'loss' END;
+  
+  IF p_player_total_darts > 0 THEN
+    v_total_score := ROUND((p_player_three_dart_avg / 3) * p_player_total_darts);
+  ELSE
+    v_total_score := 0;
+  END IF;
+  
+  v_room_id := gen_random_uuid();
+  
   INSERT INTO dartbot_match_rooms (
     id, player_id, dartbot_level, game_mode, match_format,
     status, player_legs, dartbot_legs, winner_id, completed_at
   ) VALUES (
-    v_room_id, p_user_id, p_bot_level, p_game_mode, 
-    CASE WHEN p_legs_won + p_legs_lost <= 1 THEN 'best-of-1'
-         WHEN p_legs_won + p_legs_lost <= 3 THEN 'best-of-3'
-         WHEN p_legs_won + p_legs_lost <= 5 THEN 'best-of-5'
-         ELSE 'best-of-7' END,
-    'finished', p_legs_won, p_legs_lost,
-    CASE WHEN p_legs_won > p_legs_lost THEN p_user_id ELSE NULL END,
+    v_room_id, v_user_id, p_dartbot_level, p_game_mode, p_match_format,
+    'finished', v_player_legs, v_bot_legs,
+    CASE WHEN p_winner = 'player' THEN v_user_id ELSE NULL END,
     now()
   );
   
-  -- Insert into match_history
   INSERT INTO match_history (
     room_id, user_id, opponent_id, game_mode, match_format, bot_level, result,
     legs_won, legs_lost, three_dart_avg, first9_avg, highest_checkout,
     checkout_percentage, darts_thrown, total_score,
     visits_100_plus, visits_140_plus, visits_180, played_at
   ) VALUES (
-    v_room_id, p_user_id, NULL, p_game_mode, 'dartbot', p_bot_level, v_result,
-    p_legs_won, p_legs_lost, p_three_dart_avg, p_first9_avg, p_highest_checkout,
-    0, p_darts_thrown, p_total_score,
-    p_visits_100_plus, p_visits_140_plus, p_visits_180, now()
+    v_room_id, v_user_id, NULL, p_game_mode, 'dartbot', p_dartbot_level, v_result,
+    v_player_legs, v_bot_legs, p_player_three_dart_avg, p_player_first9_avg, p_player_highest_checkout,
+    p_player_checkout_pct, p_player_total_darts, v_total_score,
+    p_player_100_plus, p_player_140_plus, p_player_180s, now()
   );
   
   RETURN jsonb_build_object(
-    'ok', true,
+    'success', true,
     'room_id', v_room_id,
     'result', v_result
   );
 END;
 $$;
 
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION record_dartbot_match_completion(UUID, INTEGER, INTEGER, INTEGER, INTEGER, DECIMAL, DECIMAL, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION record_dartbot_match_completion(UUID, INTEGER, INTEGER, INTEGER, INTEGER, DECIMAL, DECIMAL, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER) TO service_role;
+-- Grant execute permissions for DartBot function
+GRANT EXECUTE ON FUNCTION record_dartbot_match_completion(INTEGER, TEXT, INTEGER, INTEGER, INTEGER, TEXT, NUMERIC, NUMERIC, NUMERIC, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, NUMERIC, NUMERIC, NUMERIC, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION record_dartbot_match_completion(INTEGER, TEXT, INTEGER, INTEGER, INTEGER, TEXT, NUMERIC, NUMERIC, NUMERIC, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, NUMERIC, NUMERIC, NUMERIC, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER, INTEGER) TO service_role;
 
--- ============================================================================
 -- 5. Create view for easier querying of recent matches
 -- ============================================================================
 CREATE OR REPLACE VIEW match_history_recent AS
@@ -423,11 +441,9 @@ FROM match_history mh
 LEFT JOIN profiles p ON mh.opponent_id = p.user_id
 ORDER BY mh.played_at DESC;
 
--- Grant select on view
 GRANT SELECT ON match_history_recent TO authenticated;
 GRANT SELECT ON match_history_recent TO service_role;
 
--- ============================================================================
 -- 6. Verify match_history accepts all match formats
 -- ============================================================================
 DO $$
@@ -438,15 +454,26 @@ BEGIN
   ALTER TABLE match_history 
   ADD CONSTRAINT match_history_match_format_check 
   CHECK (match_format IN (
-    'quick',      -- Quick Match
-    'ranked',     -- Ranked Match
-    'private',    -- Private Match
-    'local',      -- Local Match
-    'tournament', -- Tournament Match
-    'league',     -- League Match
-    'training',   -- Training Mode
-    'dartbot'     -- vs Dartbot
+    'quick',
+    'ranked',
+    'private',
+    'local',
+    'tournament',
+    'league',
+    'training',
+    'dartbot'
   ));
 END $$;
 
-SELECT 'Match recording system fully configured!' AS status;
+-- 7. Create index for today's stats query
+-- ============================================================================
+CREATE INDEX IF NOT EXISTS idx_match_history_today_stats 
+ON match_history(user_id, played_at, match_format) 
+WHERE match_format IN ('quick', 'dartbot');
+
+-- 8. Verify the setup
+-- ============================================================================
+SELECT 
+  'Match recording system fully configured!' AS status,
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'match_history') AS column_count,
+  (SELECT COUNT(*) FROM pg_indexes WHERE tablename = 'match_history') AS index_count;
