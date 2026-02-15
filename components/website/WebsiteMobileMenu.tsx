@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Target } from 'lucide-react';
 
 interface WebsiteMobileMenuProps {
   isOpen: boolean;
@@ -33,9 +33,15 @@ export function WebsiteMobileMenu({ isOpen, onClose, scrollToSection }: WebsiteM
         className="w-80 bg-slate-900/95 backdrop-blur-xl border-white/10 p-0"
       >
         <SheetHeader className="border-b border-white/10 p-6">
-          <div className="flex items-center space-x-2">
-            <Target className="w-6 h-6 text-emerald-400" />
-            <SheetTitle className="text-xl font-bold text-white">FIVE01</SheetTitle>
+          <div className="flex items-center">
+            <Image 
+              src="/logo.jpg" 
+              alt="FIVE01" 
+              width={100} 
+              height={35} 
+              className="h-8 w-auto object-contain"
+              priority
+            />
           </div>
         </SheetHeader>
 

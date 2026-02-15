@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import {
-  Target,
   Globe,
   Trophy,
   User,
@@ -578,9 +578,14 @@ function Footer({ scrollToSection }: any) {
       <div className="container mx-auto">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <Target className="w-6 h-6 text-orange-500" />
-              <span className="text-xl font-bold text-white">FIVE01</span>
+            <div className="flex items-center mb-4">
+              <Image 
+                src="/logo.jpg" 
+                alt="FIVE01" 
+                width={120} 
+                height={40} 
+                className="h-10 w-auto object-contain"
+              />
             </div>
             <p className="text-gray-400">The ultimate online darts league.</p>
           </div>

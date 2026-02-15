@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Target, CheckCircle } from 'lucide-react';
+import Image from 'next/image';
+import { CheckCircle } from 'lucide-react';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -30,11 +31,15 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           {/* Left side - Branding */}
           <div className="hidden lg:block space-y-8">
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                  <Target className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <span className="text-4xl font-bold font-display text-foreground">FIVE01</span>
+              <div className="flex items-center">
+                <Image 
+                  src="/logo.jpg" 
+                  alt="FIVE01" 
+                  width={180} 
+                  height={60} 
+                  className="h-14 w-auto object-contain"
+                  priority
+                />
               </div>
               <p className="text-xl text-muted-foreground font-medium">
                 Play. Compete. Climb the ranks.

@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
-  Target,
   Home,
   Play,
   Trophy,
@@ -16,7 +16,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  X,
   Award,
   UserPlus,
 } from 'lucide-react';
@@ -77,9 +76,15 @@ export function TopBar() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-6">
-              <Link href="/" className="flex items-center space-x-2">
-                <Target className="w-6 h-6 text-emerald-400" />
-                <span className="text-xl font-bold text-white tracking-tight">FIVE01</span>
+              <Link href="/" className="flex items-center">
+                <Image 
+                  src="/logo.jpg" 
+                  alt="FIVE01" 
+                  width={120} 
+                  height={40} 
+                  className="h-10 w-auto object-contain"
+                  priority
+                />
               </Link>
 
               <div className="hidden lg:flex items-center">
