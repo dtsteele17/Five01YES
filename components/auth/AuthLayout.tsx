@@ -35,9 +35,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
                 <Image 
                   src="/logo.png" 
                   alt="FIVE01" 
-                  width={252} 
-                  height={84} 
-                  className="h-20 w-auto object-contain"
+                  width={270} 
+                  height={90} 
+                  className="h-22 w-auto object-contain"
                   priority
                 />
               </div>
