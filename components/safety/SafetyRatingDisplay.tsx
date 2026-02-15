@@ -56,7 +56,7 @@ export function SafetyRatingDisplay({
     return (
       <div className="flex items-center gap-1.5 text-slate-600">
         <Shield className="w-4 h-4" />
-        <span className="text-xs">Unrated</span>
+        <span className="text-xs">No Trust Rating</span>
       </div>
     );
   }
@@ -159,7 +159,7 @@ export function SafetyRatingVerified({ userId, showScore = true }: SafetyRatingV
     return (
       <div className="flex items-center gap-1 text-slate-500 text-xs">
         <Shield className="w-3.5 h-3.5" />
-        <span>New Player</span>
+        <span>No Trust Rating</span>
       </div>
     );
   }

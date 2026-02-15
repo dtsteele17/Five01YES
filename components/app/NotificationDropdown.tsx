@@ -29,6 +29,7 @@ import {
   isInviteAlreadyHandled,
   handleStaleRoom,
 } from '@/lib/utils/stale-state-cleanup';
+import { SafetyRatingDisplay } from '@/components/safety/SafetyRatingDisplay';
 
 const DEBUG_INVITES = true;
 const DEBUG_FRIENDS = true;
@@ -260,10 +261,15 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   };
 
   const isFriendRequest = (notification: any) => {
-    // Check for friend request notifications
+    // Check for pending friend request notifications (only show buttons on actual requests, not confirmations)
+    const title = notification.title?.toLowerCase() || '';
+    const isPendingRequest = title.startsWith('friend request') && 
+      !title.includes('accepted') && 
+      !title.includes('declined');
+    
     return (
-      (notification.type === 'system' && notification.data?.request_id) ||
-      notification.title?.toLowerCase().includes('friend request')
+      (notification.type === 'system' && notification.data?.request_id && isPendingRequest) ||
+      isPendingRequest
     );
   };
 
@@ -550,18 +556,23 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return;
       }
 
-      // Get sender username
+      // Get sender username and safety rating
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, safety_rating_letter, safety_rating_count')
         .eq('id', invite.from_user_id)
         .maybeSingle();
 
-      // Open modal with invite details
+      // Open modal with invite details including trust rating
       setSelectedInvite({
         ...notification,
         senderName: profile?.username || 'Unknown',
+        senderId: invite.from_user_id,
         options: invite.options,
+        senderSafetyRating: {
+          letter: profile?.safety_rating_letter || null,
+          count: profile?.safety_rating_count || 0,
+        },
       });
       setInviteModalOpen(true);
     } catch (err) {
@@ -839,6 +850,16 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                 </div>
               )}
             </div>
+
+            {/* Sender's Trust Rating */}
+            {selectedInvite.senderId && (
+              <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-sm">{selectedInvite.senderName}'s Trust Rating:</span>
+                  <SafetyRatingDisplay userId={selectedInvite.senderId} size="sm" showTooltip={false} />
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button
