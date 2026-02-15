@@ -7,7 +7,7 @@ export interface TrainingConfig {
   botDifficulty: 'novice' | 'beginner' | 'casual' | 'intermediate' | 'advanced' | 'elite' | 'pro' | 'worldClass';
   botAverage: number;
   doubleOut: boolean;
-  bestOf: 'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7';
+  bestOf: 'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7' | 'best-of-9' | 'best-of-11';
   atcOpponent: 'solo' | 'bot';
   atcSettings?: {
     orderMode: 'in_order' | 'random';

@@ -411,6 +411,8 @@ export function getLegsToWin(format: string): number {
   if (format === 'best-of-3') return 2;
   if (format === 'best-of-5') return 3;
   if (format === 'best-of-7') return 4;
+  if (format === 'best-of-9') return 5;
+  if (format === 'best-of-11') return 6;
   return 1;
 }
 

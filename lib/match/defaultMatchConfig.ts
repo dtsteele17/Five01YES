@@ -23,7 +23,7 @@ export function parseBestOf(bestOf: unknown): number {
     const match = normalized.match(/(\d+)/);
     if (match) {
       const num = parseInt(match[1], 10);
-      if ([1, 3, 5, 7, 9].includes(num)) {
+      if ([1, 3, 5, 7, 9, 11].includes(num)) {
         return num;
       }
     }

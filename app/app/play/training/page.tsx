@@ -231,7 +231,15 @@ function DartBotConfigCard() {
 
   const handleStart = () => {
     const selectedLevel = botLevels.find(l => l.level === botLevel);
-    const bestOfString = bestOf === 1 ? 'best-of-1' : bestOf === 3 ? 'best-of-3' : bestOf === 5 ? 'best-of-5' : 'best-of-7';
+    const bestOfMap: Record<number, string> = {
+      1: 'best-of-1',
+      3: 'best-of-3',
+      5: 'best-of-5',
+      7: 'best-of-7',
+      9: 'best-of-9',
+      11: 'best-of-11',
+    };
+    const bestOfString = bestOfMap[bestOf] as 'best-of-1' | 'best-of-3' | 'best-of-5' | 'best-of-7' | 'best-of-9' | 'best-of-11';
     const difficultyLevel = selectedLevel?.label.toLowerCase().replace(' ', '') as 'novice' | 'beginner' | 'casual' | 'intermediate' | 'advanced' | 'elite' | 'pro' | 'worldClass';
     setConfig({
       mode: gameMode === 301 ? '301' : '501',
