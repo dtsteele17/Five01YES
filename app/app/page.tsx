@@ -138,6 +138,7 @@ export default function DashboardPage() {
   const [ranked3DartAvg, setRanked3DartAvg] = useState<number>(0);
   const [overall3DartAvg, setOverall3DartAvg] = useState<number>(0);
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
+  const [last5Games, setLast5Games] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   usePresence();
@@ -218,6 +219,18 @@ export default function DashboardPage() {
               activity_label: f.activity_label,
             }));
           setOnlineFriends(online);
+        }
+
+        // Fetch last 5 games for form display
+        const { data: recentGames } = await supabase
+          .from('match_history')
+          .select('result')
+          .eq('user_id', profile.id)
+          .order('played_at', { ascending: false })
+          .limit(5);
+
+        if (recentGames) {
+          setLast5Games(recentGames.map((g: any) => g.result));
         }
 
         // Fetch upcoming games from tournaments and leagues
@@ -621,55 +634,9 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Right Column - 1/3 width - Achievements + Online Friends moved up */}
+        {/* Right Column - 1/3 width - Online Friends + Last 5 Games + Achievements */}
         <div className="space-y-6">
-          {/* Achievements */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-purple-400" />
-                </div>
-                <h2 className="text-lg font-bold text-white">Achievements</h2>
-              </div>
-              <Link href="/app/achievements">
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                  All
-                </Button>
-              </Link>
-            </div>
-            <div className="p-6">
-              {recentAchievements.length > 0 ? (
-                <div className="space-y-3">
-                  {recentAchievements.map((achievement) => {
-                    const Icon = getAchievementIcon(achievement.achievements_master?.icon || 'award');
-                    return (
-                      <div
-                        key={achievement.id}
-                        className="flex items-center gap-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30"
-                      >
-                        <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <Icon className="w-6 h-6 text-amber-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-semibold truncate">{achievement.achievements_master?.name}</p>
-                          <p className="text-slate-400 text-sm truncate">{achievement.achievements_master?.description}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Award className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400">No achievements yet</p>
-                  <p className="text-slate-500 text-sm mt-1">Start playing to unlock</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Online Friends Detail */}
+          {/* Online Friends Detail - Moved to top */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
             <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -722,6 +689,103 @@ export default function DashboardPage() {
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Last 5 Games Record - New Component */}
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h2 className="text-lg font-bold text-white">Last 5 Games</h2>
+              </div>
+              <Link href="/app/stats">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                  History
+                </Button>
+              </Link>
+            </div>
+            <div className="p-6">
+              {last5Games.length > 0 ? (
+                <div className="flex items-center justify-center gap-2">
+                  {last5Games.map((result, index) => (
+                    <div
+                      key={index}
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black ${
+                        result === 'win'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : result === 'loss'
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      }`}
+                    >
+                      {result === 'win' ? 'W' : result === 'loss' ? 'L' : 'D'}
+                    </div>
+                  ))}
+                  {/* Fill empty slots if less than 5 games */}
+                  {Array.from({ length: Math.max(0, 5 - last5Games.length) }).map((_, index) => (
+                    <div
+                      key={`empty-${index}`}
+                      className="w-12 h-12 rounded-xl bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-xl font-black text-slate-600"
+                    >
+                      -
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Activity className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                  <p className="text-slate-400 text-sm">No games played yet</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Achievements - Moved below Online Friends */}
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-purple-400" />
+                </div>
+                <h2 className="text-lg font-bold text-white">Achievements</h2>
+              </div>
+              <Link href="/app/achievements">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                  All
+                </Button>
+              </Link>
+            </div>
+            <div className="p-6">
+              {recentAchievements.length > 0 ? (
+                <div className="space-y-3">
+                  {recentAchievements.map((achievement) => {
+                    const Icon = getAchievementIcon(achievement.achievements_master?.icon || 'award');
+                    return (
+                      <div
+                        key={achievement.id}
+                        className="flex items-center gap-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30"
+                      >
+                        <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Icon className="w-6 h-6 text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold truncate">{achievement.achievements_master?.name}</p>
+                          <p className="text-slate-400 text-sm truncate">{achievement.achievements_master?.description}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Award className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">No achievements yet</p>
+                  <p className="text-slate-500 text-sm mt-1">Start playing to unlock</p>
                 </div>
               )}
             </div>
