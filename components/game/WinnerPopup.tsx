@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Target, TrendingUp, Award, RotateCcw, Loader2, Check, Zap, Undo2, Crown, Sparkles } from 'lucide-react';
+import { Trophy, Target, TrendingUp, Award, RotateCcw, Loader2, Check, Zap, Undo2, Crown, Sparkles, ThumbsUp, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { SafetyGrade } from '@/lib/safety/safetyService';
+import { GRADE_COLORS } from '@/lib/safety/safetyService';
 
 interface PlayerStats {
   id: string;
@@ -45,6 +48,11 @@ interface WinnerPopupProps {
   youReady?: boolean;
   currentUserId?: string;
   readyCount?: number; // 0, 1, or 2 - for showing Rematch 1/2, 2/2
+  // Safety rating props
+  matchId?: string;
+  onRateOpponent?: (grade: SafetyGrade) => void;
+  hasRated?: boolean;
+  isQuickMatch?: boolean;
 }
 
 export function WinnerPopup({
@@ -62,9 +70,18 @@ export function WinnerPopup({
   youReady = false,
   currentUserId,
   readyCount = 0,
+  matchId,
+  onRateOpponent,
+  hasRated = false,
+  isQuickMatch = false,
 }: WinnerPopupProps) {
+  const [selectedGrade, setSelectedGrade] = useState<SafetyGrade | null>(null);
+  const [submitted, setSubmitted] = useState(hasRated);
+  
   const isPlayer1Winner = player1.id === winnerId;
   const winnerName = isPlayer1Winner ? player1.name : player2.name;
+  const opponentName = isPlayer1Winner ? player2.name : player1.name;
+  const opponentId = isPlayer1Winner ? player2.id : player1.id;
   
   const p1Color = isPlayer1Winner ? 'text-amber-400' : 'text-blue-400';
   const p1Border = isPlayer1Winner ? 'border-amber-500/30' : 'border-blue-500/30';
@@ -120,6 +137,27 @@ export function WinnerPopup({
 
   const fmt = (v: number, suffix = '') => v > 0 ? `${v.toFixed(1)}${suffix}` : '-';
   const fmtInt = (v: number) => v > 0 ? v.toString() : '-';
+
+  // Handle rating submission
+  const handleRate = (grade: SafetyGrade) => {
+    setSelectedGrade(grade);
+  };
+
+  const handleSubmitRating = () => {
+    if (selectedGrade && onRateOpponent) {
+      onRateOpponent(selectedGrade);
+      setSubmitted(true);
+    }
+  };
+
+  // Safety rating labels
+  const gradeLabels: Record<SafetyGrade, string> = {
+    A: 'Excellent',
+    B: 'Good',
+    C: 'Average',
+    D: 'Poor',
+    E: 'Avoid'
+  };
 
   // Stat row component
   const StatRow = ({ label, p1Value, p2Value, icon: Icon }: { label: string; p1Value: React.ReactNode; p2Value: React.ReactNode; icon: any }) => (
@@ -294,6 +332,74 @@ export function WinnerPopup({
             </div>
           </div>
         </div>
+
+        {/* Safety Rating Section - Only for QuickMatch */}
+        {isQuickMatch && !submitted && (
+          <div className="px-4 pb-3">
+            <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-white">Rate Your Opponent</h3>
+              </div>
+              <p className="text-slate-400 text-sm mb-3">
+                How was your experience with <span className="text-white font-medium">{opponentName}</span>?
+              </p>
+              
+              <div className="flex gap-2 justify-center mb-3">
+                {(['A', 'B', 'C', 'D', 'E'] as SafetyGrade[]).map((grade) => (
+                  <button
+                    key={grade}
+                    onClick={() => handleRate(grade)}
+                    className={`
+                      w-10 h-10 rounded-lg font-bold text-sm transition-all
+                      ${selectedGrade === grade 
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 ' + GRADE_COLORS[grade]
+                        : GRADE_COLORS[grade] + ' hover:opacity-80'
+                      }
+                    `}
+                  >
+                    {grade}
+                  </button>
+                ))}
+              </div>
+              
+              {selectedGrade && (
+                <div className="text-center mb-3">
+                  <span className="text-sm text-slate-300">{gradeLabels[selectedGrade]}</span>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSubmitRating}
+                  disabled={!selectedGrade}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm font-medium disabled:opacity-50"
+                >
+                  <ThumbsUp className="w-4 h-4 mr-1" />
+                  Submit Rating
+                </Button>
+                <Button
+                  onClick={() => setSubmitted(true)}
+                  variant="outline"
+                  className="border-slate-600 text-slate-400 hover:bg-slate-700 h-9 text-sm"
+                >
+                  Skip
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isQuickMatch && submitted && (
+          <div className="px-4 pb-3">
+            <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-emerald-400 text-sm">
+                <Check className="w-4 h-4" />
+                <span>Thanks for rating! Your feedback helps keep the community safe.</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="px-4 pb-4 pt-3">

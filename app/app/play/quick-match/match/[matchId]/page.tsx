@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home } from 'lucide-react';
+import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -39,6 +39,9 @@ import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
+import type { SafetyGrade } from '@/lib/safety/safetyService';
+import { submitRating, subscribeToRatings } from '@/lib/safety/safetyService';
 import { useQuickMatchRematch } from '@/lib/hooks/useQuickMatchRematch';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
 import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
@@ -1065,6 +1068,13 @@ export default function QuickMatchRoomPage() {
   const [selectedRating, setSelectedRating] = useState<string | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
 
+  // Safety rating notification toast
+  const [safetyRatingNotification, setSafetyRatingNotification] = useState<{
+    show: boolean;
+    grade: SafetyGrade | null;
+    raterName: string | null;
+  }>({ show: false, grade: null, raterName: null });
+
   // Chat
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
@@ -1156,6 +1166,23 @@ export default function QuickMatchRoomPage() {
       console.log('[CAMERA] localStream:', localStream ? 'YES' : 'NO', 'remoteStream:', remoteStream ? 'YES' : 'NO');
     }
   }, [localStream, remoteStream]);
+
+  // Subscribe to safety rating notifications
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const unsubscribe = subscribeToRatings(currentUserId, (grade, raterName) => {
+      setSafetyRatingNotification({
+        show: true,
+        grade,
+        raterName: raterName || null
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUserId]);
   
   // Callback refs that attach stream immediately when element mounts
   const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -3359,6 +3386,25 @@ export default function QuickMatchRoomPage() {
     }
   };
 
+  // Handle safety rating submission from WinnerPopup
+  const handleSafetyRating = async (grade: SafetyGrade) => {
+    if (!matchId || !room || !currentUserId) return;
+    
+    const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
+    if (!opponentId) return;
+
+    try {
+      const result = await submitRating(matchId, opponentId, grade);
+      if (result.success) {
+        toast.success(`Rated opponent ${grade}`);
+      } else {
+        toast.error(result.error || 'Failed to submit rating');
+      }
+    } catch (error: any) {
+      toast.error(`Failed to submit rating: ${error.message}`);
+    }
+  };
+
   // Simple rematch handler - uses the new hook
   const handleRematch = async () => {
     if (rematchLoading) return;
@@ -3963,6 +4009,19 @@ export default function QuickMatchRoomPage() {
           youReady={iAmReadyForRematch}
           currentUserId={currentUserId || ''}
           readyCount={readyCount}
+          matchId={matchId}
+          onRateOpponent={handleSafetyRating}
+          isQuickMatch={true}
+        />
+      )}
+
+      {/* Safety Rating Toast Notification */}
+      {safetyRatingNotification.show && safetyRatingNotification.grade && (
+        <SafetyRatingToast
+          grade={safetyRatingNotification.grade}
+          raterName={safetyRatingNotification.raterName || undefined}
+          onClose={() => setSafetyRatingNotification({ show: false, grade: null, raterName: null })}
+          duration={2000}
         />
       )}
     </div>
