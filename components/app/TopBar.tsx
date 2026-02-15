@@ -172,40 +172,61 @@ export function TopBar() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10">
-                  <div className="px-3 py-2">
-                    <p className="text-sm font-medium text-white">
-                      {profile?.display_name || profile?.username || 'User'}
-                    </p>
-                    <p className="text-xs text-gray-400">@{profile?.username || 'user'}</p>
+                <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+                  {/* Header - Dashboard Style */}
+                  <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-800/30">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={profile?.avatar_url || ''} />
+                        <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
+                          {getInitials()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-bold text-white">
+                          {profile?.display_name || profile?.username || 'User'}
+                        </p>
+                        <p className="text-xs text-slate-400">@{profile?.username || 'user'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem asChild className="text-gray-300 hover:text-white hover:bg-white/5 cursor-pointer">
-                    <Link href="/app/profile" className="flex items-center">
-                      <User className="w-4 h-4 mr-2" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="text-gray-300 hover:text-white hover:bg-white/5 cursor-pointer">
-                    <Link href="/app/friends" className="flex items-center">
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Friends
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="text-gray-300 hover:text-white hover:bg-white/5 cursor-pointer">
-                    <Link href="/app/settings" className="flex items-center">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Log out
-                  </DropdownMenuItem>
+                  {/* Menu Items - Dashboard Style */}
+                  <div className="p-1.5">
+                    <DropdownMenuItem asChild className="text-slate-300 hover:text-emerald-400 hover:bg-slate-700/50 cursor-pointer rounded-lg focus:bg-slate-700/50 focus:text-emerald-400 transition-colors">
+                      <Link href="/app/profile" className="flex items-center gap-3">
+                        <User className="w-4 h-4 text-slate-400 group-hover:text-emerald-400" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="text-slate-300 hover:text-emerald-400 hover:bg-slate-700/50 cursor-pointer rounded-lg focus:bg-slate-700/50 focus:text-emerald-400 transition-colors">
+                      <Link href="/app/achievements" className="flex items-center gap-3">
+                        <Award className="w-4 h-4 text-slate-400 group-hover:text-emerald-400" />
+                        Achievements
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="text-slate-300 hover:text-emerald-400 hover:bg-slate-700/50 cursor-pointer rounded-lg focus:bg-slate-700/50 focus:text-emerald-400 transition-colors">
+                      <Link href="/app/friends" className="flex items-center gap-3">
+                        <UserPlus className="w-4 h-4 text-slate-400 group-hover:text-emerald-400" />
+                        Friends
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="text-slate-300 hover:text-emerald-400 hover:bg-slate-700/50 cursor-pointer rounded-lg focus:bg-slate-700/50 focus:text-emerald-400 transition-colors">
+                      <Link href="/app/settings" className="flex items-center gap-3">
+                        <Settings className="w-4 h-4 text-slate-400 group-hover:text-emerald-400" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-slate-700/50 my-1.5" />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/20 cursor-pointer rounded-lg focus:bg-red-500/20 focus:text-red-300 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <LogOut className="w-4 h-4" />
+                        Log out
+                      </div>
+                    </DropdownMenuItem>
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
 

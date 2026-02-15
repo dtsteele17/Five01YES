@@ -117,29 +117,33 @@ export default function ProfilePage() {
 
   // Subscribe to real-time profile updates (for safety rating changes)
   useEffect(() => {
-    const { data: { user } } = supabase.auth.getUser();
-    if (!user) return;
+    const setupSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const subscription = supabase
-      .channel('profile_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          // Update profile when it changes in the database
-          setProfile(payload.new as Profile);
-        }
-      )
-      .subscribe();
+      const subscription = supabase
+        .channel('profile_updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            // Update profile when it changes in the database
+            setProfile(payload.new as Profile);
+          }
+        )
+        .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
+      return () => {
+        subscription.unsubscribe();
+      };
     };
+
+    setupSubscription();
   }, []);
 
   const formatDate = (dateStr?: string) => {
