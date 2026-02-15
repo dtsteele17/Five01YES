@@ -580,17 +580,17 @@ function TierNavigator({
           {/* Progress Dots */}
           <div className="flex items-center justify-center gap-2 mt-6">
             {Array.from({ length: totalPages }).map((_, index) => {
-              const pageTierName = allTiers[index * ranksPerPage]?.tier_name || '';
+              const pageTierName = allPages[index]?.[0]?.tier_name || '';
               const pageTierKey = getTierKey(pageTierName);
               const pageColors = TIER_COLORS[pageTierKey];
-              
+
               return (
                 <button
                   key={index}
                   onClick={() => setCurrentPage(index)}
                   className={`h-2 rounded-full transition-all ${
-                    index === currentPage 
-                      ? `w-8 ${pageColors.bg}` 
+                    index === currentPage
+                      ? `w-8 ${pageColors.bg}`
                       : 'w-2 bg-slate-600 hover:bg-slate-500'
                   }`}
                 />
