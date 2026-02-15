@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 
 export type SafetyGrade = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -57,6 +57,7 @@ export async function submitRating(
   grade: SafetyGrade
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .rpc('submit_safety_rating', {
         p_match_id: matchId,
@@ -85,6 +86,7 @@ export async function hasRatedOpponent(
   ratedId: string
 ): Promise<boolean> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .rpc('has_rated_in_match', {
         p_match_id: matchId,
@@ -112,6 +114,7 @@ export async function getUserSafetyRating(userId: string): Promise<{
   totalRatings: number;
 } | null> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .rpc('get_user_safety_rating', {
         p_user_id: userId
@@ -156,6 +159,7 @@ export function subscribeToRatings(
   userId: string,
   onNewRating: (grade: SafetyGrade, raterName?: string) => void
 ): () => void {
+  const supabase = createClient();
   const subscription = supabase
     .channel('safety_ratings')
     .on(
@@ -173,6 +177,7 @@ export function subscribeToRatings(
         };
 
         // Get rater's profile
+        const supabase = createClient();
         const { data: profile } = await supabase
           .from('profiles')
           .select('display_name')
@@ -201,6 +206,7 @@ export async function getUserSafetyStats(userId: string): Promise<{
   average: number | null;
 } | null> {
   try {
+    const supabase = createClient();
     // Get the basic rating info
     const { data: ratingData, error: ratingError } = await supabase
       .rpc('get_user_safety_rating', {
@@ -255,6 +261,7 @@ export async function getUserSafetyStats(userId: string): Promise<{
  */
 export async function getSafetyGrade(userId: string): Promise<SafetyGrade | null> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from('user_safety_rating_view')
       .select('safety_rating_letter')
