@@ -29,7 +29,7 @@ import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, Rota
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
-import { trackScoreAchievement, trackCheckoutAchievement, processMatchEnd } from '@/lib/achievementTracker';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 import { clearMatchState } from '@/lib/utils/match-resume';
@@ -1968,21 +1968,13 @@ export default function QuickMatchRoomPage() {
     // Track achievements for the winner
     const winnerStats = isPlayer1Winner ? wStats : lStats;
     if (currentUserId === winnerId) {
-      processMatchEnd({
-        winnerId,
-        loserId,
-        winnerLegs: isPlayer1Winner ? p1Legs : p2Legs,
-        loserLegs: isPlayer1Winner ? p2Legs : p1Legs,
-        gameMode: roomData.game_mode,
-        matchType: 'quick_match',
-        playerStats: [{
-          playerId: winnerId,
-          average: winnerStats.threeDartAverage,
-          oneEighties: winnerStats.oneEighties,
-          tonPlus: winnerStats.count100Plus + winnerStats.count140Plus,
-          highestCheckout: winnerStats.highestCheckout,
-          checkouts: winnerStats.checkouts,
-        }],
+      trackMatchEnd(currentUserId, {
+        won: true,
+        matchType: 'ranked',
+        legsWon: isPlayer1Winner ? p1Legs : p2Legs,
+        legsLost: isPlayer1Winner ? p2Legs : p1Legs,
+        average: winnerStats.threeDartAverage,
+        durationMinutes: 15, // Approximate - would need actual tracking
       }).catch(console.error);
     }
   }
@@ -2912,8 +2904,11 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] RPC success:', data);
 
       // Track score achievements (180s, 100+, 26s, 69s)
-      if (!isBust && score > 0) {
-        trackScoreAchievement(score, 'quick_match').catch(console.error);
+      if (!isBust && score > 0 && currentUserId) {
+        trackScoreAchievement(score, currentUserId, {
+          isCheckout: data.leg_won,
+          checkoutValue: data.leg_won ? score : undefined,
+        }).catch(console.error);
       }
 
       // Clear local visit state for next turn
@@ -2926,8 +2921,11 @@ export default function QuickMatchRoomPage() {
         toast.success('🎯 CHECKOUT! Leg won!');
         
         // Track checkout achievements
-        if (!isBust && score > 0) {
-          trackCheckoutAchievement(score).catch(console.error);
+        if (!isBust && score > 0 && currentUserId) {
+          trackScoreAchievement(score, currentUserId, {
+            isCheckout: true,
+            checkoutValue: score,
+          }).catch(console.error);
         }
         
         // Check if match was also won - calculate from current legs + this new leg
@@ -3137,21 +3135,13 @@ export default function QuickMatchRoomPage() {
           // Track achievements for the winner
           const winnerStats = isPlayer1Winner ? wStats : lStats;
           if (currentUserId === winnerId) {
-            processMatchEnd({
-              winnerId,
-              loserId,
-              winnerLegs: finalWinnerLegs,
-              loserLegs: finalLoserLegs,
-              gameMode: room.game_mode,
-              matchType: 'quick_match',
-              playerStats: [{
-                playerId: winnerId,
-                average: winnerStats.threeDartAverage,
-                oneEighties: winnerStats.oneEighties,
-                tonPlus: winnerStats.count100Plus + winnerStats.count140Plus,
-                highestCheckout: winnerStats.highestCheckout,
-                checkouts: winnerStats.checkouts,
-              }],
+            trackMatchEnd(currentUserId, {
+              won: true,
+              matchType: 'ranked',
+              legsWon: finalWinnerLegs,
+              legsLost: finalLoserLegs,
+              average: winnerStats.threeDartAverage,
+              durationMinutes: 15,
             }).catch(console.error);
           }
           

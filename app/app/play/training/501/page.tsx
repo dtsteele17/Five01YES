@@ -20,9 +20,10 @@ import {
 import { Trophy, RotateCcw, Home, X, Check, Bot, BarChart3, Wifi, WifiOff, Edit2, Trash2 } from 'lucide-react';
 import { isBust, getLegsToWin } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
+import { createClient } from '@/lib/supabase/client';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
-import { trackScoreAchievement, trackCheckoutAchievement, processMatchEnd } from '@/lib/achievementTracker';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
 import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
 import { toast } from 'sonner';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
@@ -560,6 +561,19 @@ export default function DartbotMatchPage() {
   const botName = config?.botAverage ? `DartBot (${config.botAverage})` : 'DartBot';
   const legsToWin = config ? getLegsToWin(config.bestOf) : 1;
   const startingScore = config ? getStartScore(config.mode) : 501;
+  
+  // Current user ID for achievements
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const supabase = createClient();
+  
+  // Get current user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    };
+    getUser();
+  }, []);
 
   useEffect(() => {
     if (!config || (config.mode !== '301' && config.mode !== '501')) {
@@ -836,22 +850,14 @@ export default function DartbotMatchPage() {
         toast.success('Match stats saved!');
         
         // Track achievements for the winner
-        if (currentMatchWinner === 'player1') {
-          processMatchEnd({
-            winnerId: 'player1',
-            loserId: 'player2',
-            winnerLegs: p1Legs,
-            loserLegs: p2Legs,
-            gameMode: normalizedConfig.mode === '301' ? 301 : 501,
-            matchType: 'dartbot',
-            playerStats: [{
-              playerId: 'player1',
-              average: userStats.threeDartAverage,
-              oneEighties: userStats.oneEighties,
-              tonPlus: userStats.count100Plus + userStats.count140Plus,
-              highestCheckout: userStats.highestCheckout,
-              checkouts: p1Checkouts,
-            }],
+        if (currentMatchWinner === 'player1' && currentUserId) {
+          trackMatchEnd(currentUserId, {
+            won: true,
+            matchType: 'practice',
+            legsWon: p1Legs,
+            legsLost: p2Legs,
+            average: userStats.threeDartAverage,
+            durationMinutes: matchStartTime ? Math.floor((Date.now() - matchStartTime) / 60000) : 15,
           }).catch(console.error);
         }
       }
@@ -1168,13 +1174,11 @@ export default function DartbotMatchPage() {
     checkScoreAchievements(score);
     
     // Track score achievements (180s, 100+, 26s, 69s)
-    if (score > 0) {
-      trackScoreAchievement(score, 'dartbot').catch(console.error);
-    }
-    
-    // Track checkout achievements
-    if (isCheckout && score > 0) {
-      trackCheckoutAchievement(score).catch(console.error);
+    if (score > 0 && currentUserId) {
+      trackScoreAchievement(score, currentUserId, {
+        isCheckout,
+        checkoutValue: isCheckout ? score : undefined,
+      }).catch(console.error);
     }
     
     setScoreInput('');
