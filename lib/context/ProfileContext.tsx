@@ -17,6 +17,9 @@ export interface UserProfile {
   trust_rating_letter?: string | null;
   trust_rating_avg?: number | null;
   trust_rating_count?: number | null;
+  safety_rating_letter?: string | null;
+  safety_rating_avg?: number | null;
+  safety_rating_count?: number | null;
   created_at: string;
   updated_at: string | null;
 }

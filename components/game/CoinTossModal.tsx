@@ -53,16 +53,28 @@ export function CoinTossModal({
           const isP1Winner = Math.random() < 0.5;
           const winner = isP1Winner ? player1Id : player2Id;
           console.log('[COIN TOSS] Player 1 determined winner:', winner);
-          onComplete(winner);
+          // Show result locally first before calling onComplete
+          setResult(isP1Winner ? 'heads' : 'tails');
+          setWinnerId(winner);
+          setPhase('result');
+          const finalRotation = 360 * 5 + (isP1Winner ? 0 : 180);
+          setRotation(finalRotation);
+          
+          // Delay calling onComplete to show the result
+          setTimeout(() => {
+            onComplete(winner);
+          }, 3500);
         }, 3000);
       }
     }
   }, [isOpen, bothPlayersConnected, phase, isPlayer1, player1Id, player2Id, onComplete]);
 
-  // Handle winner being set (from DB for Player 2, or local for Player 1)
+  // Handle winner being set from DB for Player 2 only
+  // Player 1 handles their own result display in the first useEffect
   useEffect(() => {
-    if (predeterminedWinner && phase === 'spinning') {
-      console.log('[COIN TOSS] Winner received:', predeterminedWinner);
+    // Only process if we're Player 2 and we have a winner from the server
+    if (predeterminedWinner && phase === 'spinning' && !isPlayer1) {
+      console.log('[COIN TOSS] Player 2 received winner:', predeterminedWinner);
       const isP1Winner = predeterminedWinner === player1Id;
       setResult(isP1Winner ? 'heads' : 'tails');
       setWinnerId(predeterminedWinner);
@@ -77,7 +89,7 @@ export function CoinTossModal({
         onComplete(predeterminedWinner);
       }, 3500);
     }
-  }, [predeterminedWinner, phase, player1Id, onComplete]);
+  }, [predeterminedWinner, phase, player1Id, onComplete, isPlayer1]);
 
   // Spinning animation
   useEffect(() => {

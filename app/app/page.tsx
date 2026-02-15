@@ -33,6 +33,7 @@ import { usePresence } from '@/lib/hooks/usePresence';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { formatDistanceToNow } from 'date-fns';
+import { SafetyRatingBadge } from '@/components/safety/SafetyRatingBadge';
 
 interface DashboardStats {
   totalMatches: number;
@@ -394,6 +395,13 @@ export default function DashboardPage() {
                       <Crown className="w-3 h-3 mr-1" />
                       {rankedState.division_name}
                     </Badge>
+                  )}
+                  {profile?.safety_rating_letter && (
+                    <SafetyRatingBadge 
+                      grade={profile.safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'} 
+                      size="sm"
+                      totalRatings={profile.safety_rating_count || 0}
+                    />
                   )}
                 </div>
                 <h1 className="text-4xl font-black text-white tracking-tight">

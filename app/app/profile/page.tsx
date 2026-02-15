@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import Link from 'next/link';
+import { SafetyRatingDetailed } from '@/components/safety/SafetyRatingBadge';
 
 interface Profile {
   user_id: string;
@@ -41,6 +42,9 @@ interface Profile {
   website?: string;
   avatar_url?: string;
   created_at?: string;
+  safety_rating_letter?: string;
+  safety_rating_avg?: number;
+  safety_rating_count?: number;
 }
 
 interface RankedInfo {
@@ -307,6 +311,13 @@ export default function ProfilePage() {
 
         {/* Right Column - Ranked & Quick Info */}
         <div className="space-y-6">
+          {/* Safety Rating */}
+          <SafetyRatingDetailed 
+            grade={(profile?.safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E') || null}
+            average={profile?.safety_rating_avg || null}
+            totalRatings={profile?.safety_rating_count || 0}
+          />
+
           {/* Ranked Status */}
           <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
             <div className="p-6 border-b border-slate-700/50">

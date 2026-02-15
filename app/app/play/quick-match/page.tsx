@@ -41,6 +41,7 @@ import { requireUser } from '@/lib/supabase/auth';
 import { toast } from 'sonner';
 import { validateMatchRoom, hasAttemptedResume, markResumeAttempted } from '@/lib/utils/match-resume';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
+import { SafetyRatingBadge, SafetyRatingMini } from '@/components/safety/SafetyRatingBadge';
 
 interface QuickMatchLobby {
   id: string;
@@ -61,6 +62,8 @@ interface QuickMatchLobby {
     avatar_url?: string;
     trust_rating_letter?: string;
     trust_rating_count?: number;
+    safety_rating_letter?: string;
+    safety_rating_count?: number;
     overall_3dart_avg?: number;
   };
 }
@@ -72,6 +75,8 @@ interface JoinRequest {
   requester_username: string;
   requester_avatar_url?: string;
   requester_3dart_avg?: number;
+  requester_safety_rating_letter?: string;
+  requester_safety_rating_count?: number;
   requester_has_camera?: boolean;
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
@@ -473,7 +478,9 @@ export default function QuickMatchLobbyPage() {
             username,
             avatar_url,
             trust_rating_letter,
-            trust_rating_count
+            trust_rating_count,
+            safety_rating_letter,
+            safety_rating_count
           )
         `)
         .eq('status', 'open')
@@ -610,7 +617,7 @@ export default function QuickMatchLobbyPage() {
       // Fetch host profile for the new lobby
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, avatar_url, trust_rating_letter, trust_rating_count')
+        .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -1302,11 +1309,15 @@ export default function QuickMatchLobbyPage() {
                               <h3 className="text-white font-bold truncate">
                                 {lobby.player1?.username ?? 'Player'}
                               </h3>
-                              <TrustRatingBadge
-                                letter={lobby.player1?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null}
-                                count={lobby.player1?.trust_rating_count || 0}
-                                showTooltip={false}
-                              />
+                              {lobby.player1?.safety_rating_letter ? (
+                                <SafetyRatingBadge
+                                  grade={lobby.player1.safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
+                                  size="sm"
+                                  totalRatings={lobby.player1.safety_rating_count || 0}
+                                />
+                              ) : (
+                                <span className="text-slate-500 text-xs">No rating</span>
+                              )}
                             </div>
                           </div>
                           {/* Average Badge */}
@@ -1424,6 +1435,16 @@ export default function QuickMatchLobbyPage() {
                     <Target className="w-3 h-3 mr-1" />
                     {currentJoinRequest.requester_3dart_avg.toFixed(1)}
                   </Badge>
+                </div>
+              )}
+              {currentJoinRequest.requester_safety_rating_letter && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Safety Rating</span>
+                  <SafetyRatingBadge 
+                    grade={currentJoinRequest.requester_safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
+                    size="sm"
+                    totalRatings={currentJoinRequest.requester_safety_rating_count || 0}
+                  />
                 </div>
               )}
               <div className="flex items-center justify-between">
