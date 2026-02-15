@@ -161,122 +161,86 @@ function ScoringPanel({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Checkout Suggestion - Training Page Style */}
       {previewRemaining > 0 && previewRemaining <= 170 && (
-        <div className="mb-4 p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-500/30 rounded-2xl">
+        <div className="mb-3 p-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <p className="text-xs text-amber-400 uppercase tracking-wider font-medium">Checkout {previewRemaining}</p>
-            </div>
+            <p className="text-xs text-amber-400 uppercase tracking-wider mb-1">Checkout {previewRemaining}</p>
             {checkoutSuggestion ? (
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 text-lg font-bold">
                 {checkoutSuggestion.map((dart, idx) => (
-                  <span key={idx} className={`px-3 py-2 rounded-xl text-sm font-bold ${
-                    dart.startsWith('D') ? 'bg-red-500/30 text-red-300 border border-red-500/40' : 
-                    dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' :
+                  <span key={idx} className={`px-2 py-1 rounded-lg text-sm ${
+                    dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
+                    dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
                     dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
-                    'bg-slate-700 text-white border border-slate-600'
+                    'bg-slate-700 text-white'
                   }`}>{dart}</span>
                 ))}
               </div>
-            ) : (<p className="text-amber-400 font-bold text-sm">No checkout available</p>)}
+            ) : (<p className="text-amber-400 font-bold text-sm">No checkout</p>)}
           </div>
         </div>
       )}
 
-      {/* Score Input - Training Page Style */}
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="flex gap-2">
-          <Input 
-            type="number" 
-            placeholder="Type score (0-180)" 
-            value={scoreInput}
+          <Input type="number" placeholder="Type score (0-180)" value={scoreInput}
             onChange={(e) => onScoreInputChange(e.target.value)}
-            className="flex-1 bg-slate-800/50 border-slate-700 text-white rounded-xl h-12 text-lg"
-            onKeyDown={(e) => e.key === 'Enter' && onTypeScoreSubmit()} 
-          />
-          <Button 
-            onClick={onTypeScoreSubmit} 
-            disabled={!scoreInput || submitting}
-            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 rounded-xl h-12 px-6 font-bold shadow-lg"
-          >
-            {submitting ? <RotateCcw className="w-5 h-5 animate-spin" /> : 'Submit'}
+            className="flex-1 bg-slate-800 border-white/10 text-white"
+            onKeyDown={(e) => e.key === 'Enter' && onTypeScoreSubmit()} />
+          <Button onClick={onTypeScoreSubmit} disabled={!scoreInput || submitting}
+            className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50">
+            {submitting ? '...' : 'Submit'}
           </Button>
         </div>
       </div>
 
-      {/* Current Visit Display - Training Page Style */}
-      <div className="flex items-center justify-between mb-4 p-4 bg-slate-800/30 rounded-2xl border border-slate-700/50">
-        <div>
-          <span className="text-sm text-slate-400 block">Current Visit</span>
-          <span className="text-2xl font-black text-white">{visitTotal}</span>
-        </div>
-        <div className="text-right">
-          <span className="text-sm text-slate-400 block">Remaining</span>
-          <span className="text-2xl font-black text-emerald-400">{previewRemaining}</span>
-        </div>
+      <div className="text-center mb-2">
+        <span className="text-sm text-gray-400">Current Visit: </span>
+        <span className="text-xl font-bold text-white">{visitTotal}</span>
+        <span className="text-sm text-gray-400 ml-2">→ {previewRemaining}</span>
       </div>
 
-      {/* Dart Display - Training Page Style */}
-      <div className="flex justify-center gap-2 mb-4">
+      <div className="flex justify-center gap-2 mb-3">
         {currentDarts.map((dart, idx) => (
-          <div key={idx} className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold ${
+          <div key={idx} className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${
             dart.is_double ? 'bg-red-500/20 text-red-400 border border-red-500/50' :
             dart.type === 'triple' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' :
-            'bg-slate-700 text-white border border-slate-600'
+            'bg-slate-700 text-white border border-white/20'
           }`}>{dart.label}</div>
         ))}
         {Array.from({ length: 3 - currentDarts.length }).map((_, idx) => (
-          <div key={`empty-${idx}`} className="w-12 h-12 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/30" />
+          <div key={`empty-${idx}`} className="w-10 h-10 rounded-lg border-2 border-dashed border-white/20" />
         ))}
       </div>
 
-      {/* Tab Buttons - Training Page Style */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-1 mb-2">
         {(['singles', 'doubles', 'triples', 'bulls'] as const).map((tab) => (
-          <Button 
-            key={tab} 
-            size="sm" 
-            variant={activeTab === tab ? 'default' : 'outline'}
-            onClick={() => setActiveTab(tab)} 
-            className={`flex-1 text-xs rounded-xl h-10 font-semibold ${
-              activeTab === tab 
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-transparent' 
-                : tab === 'doubles' ? 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20' :
-                tab === 'triples' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' :
-                tab === 'bulls' ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' :
-                'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+          <Button key={tab} size="sm" variant={activeTab === tab ? 'default' : 'outline'}
+            onClick={() => setActiveTab(tab)} className={`flex-1 text-xs ${
+              tab === 'doubles' ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' :
+              tab === 'triples' ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' :
+              tab === 'bulls' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : ''
             }`}>
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </Button>
         ))}
       </div>
 
-      {/* Number Pad - Training Page Style */}
-      <div className="flex-1 grid grid-cols-5 gap-2 mb-4">
+      <div className="flex-1 grid grid-cols-5 gap-1 mb-3">
         {activeTab === 'bulls' ? (
           <>
-            <Button 
-              onClick={() => onDartClick('bull', 25)} 
-              disabled={currentDarts.length >= 3}
-              className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg rounded-xl font-bold border border-green-500/30"
-            >25</Button>
-            <Button 
-              onClick={() => onDartClick('bull', 50)} 
-              disabled={currentDarts.length >= 3}
-              className="h-full bg-red-500/20 text-red-400 hover:bg-red-500/30 text-lg font-bold rounded-xl border border-red-500/30"
-            >50</Button>
+            <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">25</Button>
+            <Button onClick={() => onDartClick('bull', 50)} className="h-full bg-red-500/20 text-red-400 hover:bg-red-500/30 text-lg font-bold">50</Button>
           </>
         ) : (
           Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
             <Button key={num}
               onClick={() => onDartClick(activeTab === 'singles' ? 'single' : activeTab === 'doubles' ? 'double' : 'triple', num)}
               disabled={currentDarts.length >= 3}
-              className={`h-full text-sm font-bold rounded-xl ${
-                activeTab === 'doubles' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30' :
-                activeTab === 'triples' ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30' :
-                'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
+              className={`h-full text-sm font-bold ${
+                activeTab === 'doubles' ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' :
+                activeTab === 'triples' ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' :
+                'bg-slate-700 text-white hover:bg-slate-600'
               }`}>
               {activeTab === 'doubles' ? 'D' : activeTab === 'triples' ? 'T' : ''}{num}
             </Button>
@@ -284,51 +248,25 @@ function ScoringPanel({
         )}
       </div>
 
-      {/* Action Buttons - Training Page Style */}
-      <div className="grid grid-cols-5 gap-2">
-        <Button 
-          variant="outline" 
-          onClick={onUndoDart} 
-          disabled={currentDarts.length === 0}
-          className="border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl h-11 text-xs font-medium"
-        >
-          Undo
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={onClearVisit} 
-          disabled={currentDarts.length === 0}
-          className="border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl h-11 text-xs font-medium"
-        >
-          Clear
-        </Button>
-        <Button 
-          onClick={onMiss} 
-          disabled={currentDarts.length >= 3}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl h-11 text-xs font-medium border border-slate-700"
-        >
-          Miss
-        </Button>
-        <Button 
-          onClick={onBust} 
-          disabled={submitting}
-          className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-xl h-11 text-xs font-medium"
-        >
-          Bust
-        </Button>
-        <Button 
-          onClick={onSubmitVisit} 
-          disabled={currentDarts.length === 0 || submitting}
-          className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl h-11 text-xs font-bold shadow-lg"
-        >
-          {submitting ? <RotateCcw className="w-4 h-4 animate-spin" /> : 'Submit'}
+      <div className="flex gap-1">
+        <Button variant="outline" onClick={onUndoDart} disabled={currentDarts.length === 0}
+          className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs">Undo</Button>
+        <Button variant="outline" onClick={onClearVisit} disabled={currentDarts.length === 0}
+          className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs">Clear</Button>
+        <Button onClick={onMiss} disabled={currentDarts.length >= 3}
+          className="flex-1 bg-slate-700 hover:bg-slate-600 text-xs">Miss</Button>
+        <Button onClick={onBust} disabled={submitting}
+          className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50 text-xs">Bust</Button>
+        <Button onClick={onSubmitVisit} disabled={currentDarts.length === 0 || submitting}
+          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-xs">
+          {submitting ? '...' : 'Submit'}
         </Button>
       </div>
     </div>
   );
 }
 
-// Visit History Panel - Training Page Style
+// Visit History Panel
 function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Visit[]; myName: string; botName: string; currentLeg: number }) {
   const currentLegVisits = useMemo(() => visits.filter(v => v.legNumber === currentLeg), [visits, currentLeg]);
 
@@ -344,81 +282,72 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg }: { visits: Vi
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-emerald-400" />
-          Visit History - Leg {currentLeg}
-        </h3>
-      </div>
-      <div className="flex-1 overflow-auto space-y-2 pr-2">
-        <div className="grid grid-cols-2 gap-3 text-xs text-slate-400 pb-2 sticky top-0 bg-slate-900/50 backdrop-blur-sm z-10">
-          <div className="text-center font-bold text-emerald-400 bg-emerald-500/10 rounded-xl py-2 border border-emerald-500/20">{myName}</div>
-          <div className="text-center font-bold text-purple-400 bg-purple-500/10 rounded-xl py-2 border border-purple-500/20">{botName}</div>
+      <h3 className="text-sm font-semibold text-white mb-2">Visit History - Leg {currentLeg}</h3>
+      <div className="flex-1 overflow-auto space-y-1">
+        <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 border-b border-white/10 pb-1">
+          <div className="text-center font-bold text-emerald-400">{myName}</div>
+          <div className="text-center font-bold text-purple-400">{botName}</div>
         </div>
-        {maxVisits === 0 ? (<div className="text-center text-slate-500 py-8 text-sm">No visits yet</div>) : (
+        {maxVisits === 0 ? (<div className="text-center text-gray-500 py-4 text-sm">No visits yet</div>) : (
           Array.from({ length: maxVisits }, (_, i) => {
             const myVisit = myVisits[i];
             const botVisit = botVisits[i];
             return (
-              <div key={i} className="grid grid-cols-2 gap-3 text-sm">
+              <div key={i} className="grid grid-cols-2 gap-2 py-1 border-b border-white/5 text-sm">
                 <div>{myVisit ? (
-                  <div className={`rounded-xl p-3 border ${myVisit.isCheckout ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-800/50 border-slate-700/50'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-slate-500 font-medium">#{myVisits.length - i}</span>
-                      <span className={`font-black text-2xl ${myVisit.isCheckout ? 'text-emerald-400' : 'text-white'}`}>{myVisit.score}</span>
+                  <div className="bg-slate-800/50 rounded p-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">#{myVisits.length - i}</span>
+                      <span className={`font-bold text-emerald-400 text-lg`}>{myVisit.score}</span>
                     </div>
                     {/* Show individual darts */}
                     {myVisit.darts && myVisit.darts.length > 0 && (
-                      <div className="flex gap-1 mb-2">
+                      <div className="flex gap-1 mt-1 mb-1">
                         {myVisit.darts.map((dart, idx) => (
-                          <span key={idx} className={`text-xs px-2 py-1 rounded-lg font-bold ${
-                            dart.is_double ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                            dart.multiplier === 3 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                            'bg-slate-700 text-slate-300 border border-slate-600'
+                          <span key={idx} className={`text-xs px-1.5 py-0.5 rounded ${
+                            dart.is_double ? 'bg-red-500/30 text-red-300' :
+                            dart.multiplier === 3 ? 'bg-amber-500/30 text-amber-300' :
+                            'bg-slate-700 text-gray-300'
                           }`}>
                             {formatDartLabel(dart)}
                           </span>
                         ))}
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-400">→ {myVisit.remainingScore}</span>
-                      {myVisit.isBust && (
-                        <span className="text-xs text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded" title={myVisit.bustReason}>BUST</span>
-                      )}
-                      {myVisit.isCheckout && <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">CHECKOUT!</span>}
-                    </div>
+                    <div className="text-xs text-gray-500">→ {myVisit.remainingScore}</div>
+                    {myVisit.isBust && (
+                      <span className="text-xs text-red-400 font-bold" title={myVisit.bustReason}>BUST</span>
+                    )}
+                    {myVisit.isCheckout && <span className="text-xs text-emerald-400 font-bold">CHECKOUT!</span>}
                   </div>
-                ) : (<div className="h-24 bg-slate-800/20 rounded-xl flex items-center justify-center text-slate-600 border border-slate-800">-</div>)}</div>
+                ) : (<div className="h-20 bg-slate-800/20 rounded flex items-center justify-center text-gray-600">-</div>)}</div>
                 <div>{botVisit ? (
-                  <div className={`rounded-xl p-3 border ${botVisit.isCheckout ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-800/50 border-slate-700/50'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className={`font-black text-2xl ${botVisit.isCheckout ? 'text-emerald-400' : 'text-purple-400'}`}>{botVisit.score}</span>
-                      <span className="text-xs text-slate-500 font-medium">#{botVisits.length - i}</span>
+                  <div className="bg-slate-800/50 rounded p-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className={`font-bold text-purple-400 text-lg`}>{botVisit.score}</span>
+                      <span className="text-xs text-gray-500">#{botVisits.length - i}</span>
                     </div>
                     {/* Show individual darts for bot */}
                     {botVisit.darts && botVisit.darts.length > 0 && (
-                      <div className="flex gap-1 mb-2 justify-end">
+                      <div className="flex gap-1 mt-1 mb-1 justify-end">
                         {botVisit.darts.map((dart, idx) => (
-                          <span key={idx} className={`text-xs px-2 py-1 rounded-lg font-bold ${
-                            dart.is_double ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                            dart.multiplier === 3 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                            'bg-slate-700 text-slate-300 border border-slate-600'
+                          <span key={idx} className={`text-xs px-1.5 py-0.5 rounded ${
+                            dart.is_double ? 'bg-red-500/30 text-red-300' :
+                            dart.multiplier === 3 ? 'bg-amber-500/30 text-amber-300' :
+                            'bg-slate-700 text-gray-300'
                           }`}>
                             {formatDartLabel(dart)}
                           </span>
                         ))}
                       </div>
                     )}
-                    <div className="flex items-center justify-between">
-                      {botVisit.isBust && (
-                        <span className="text-xs text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded" title={botVisit.bustReason}>BUST</span>
-                      )}
-                      {botVisit.isCheckout && <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">CHECKOUT!</span>}
-                      <span className="text-xs text-slate-400 ml-auto">{botVisit.remainingScore} ←</span>
-                    </div>
+                    <div className="text-xs text-gray-500 text-right">{botVisit.remainingScore} ←</div>
+                    {botVisit.isBust && (
+                      <span className="text-xs text-red-400 font-bold" title={botVisit.bustReason}>BUST</span>
+                    )}
+                    {botVisit.isCheckout && <span className="text-xs text-emerald-400 font-bold">CHECKOUT!</span>}
                   </div>
-                ) : (<div className="h-24 bg-slate-800/20 rounded-xl flex items-center justify-center text-slate-600 border border-slate-800">-</div>)}</div>
+                ) : (<div className="h-20 bg-slate-800/20 rounded flex items-center justify-center text-gray-600">-</div>)}</div>
               </div>
             );
           })
@@ -1288,51 +1217,30 @@ export default function DartbotMatchPage() {
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
-      {/* Background Effects - Training Page Style */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/5 rounded-full blur-3xl" />
-      </div>
-
-      {/* Top Bar - Styled like Training Page */}
-      <div className="relative flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm z-10">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between p-3 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowEndMatchDialog(true)} 
-            className="border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-xl"
-          >
-            <X className="w-4 h-4 mr-2" />End Match
+          <Button variant="outline" size="sm" onClick={() => setShowEndMatchDialog(true)} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+            <X className="w-4 h-4 mr-2" />End
           </Button>
-          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 rounded-lg px-3 py-1">
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
             <Wifi className="w-3 h-3 mr-1" />
             {config.bestOf.replace('best-of-', 'Best of ')}
           </Badge>
         </div>
-        <div className="flex flex-col items-center">
-          <h2 className="text-xl font-black text-white tracking-tight">DartBot Training</h2>
-          <p className="text-sm text-slate-400">Leg {currentLeg.legNumber} of {legsToWin * 2 - 1}</p>
-        </div>
+        <h2 className="text-lg font-bold text-white">Leg {currentLeg.legNumber} of {legsToWin * 2 - 1}</h2>
         <div className="flex items-center gap-2">
-          <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 rounded-lg px-3 py-1">
-            <Bot className="w-3 h-3 mr-1" />
-            {botName}
-          </Badge>
+          <Badge variant="outline" className="border-purple-500/30 text-purple-400"><Bot className="w-3 h-3 mr-1" />{botName}</Badge>
         </div>
       </div>
 
-      {/* Main Content - Training Page Style */}
-      <div className="relative flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden z-10">
+      {/* Main Content - QuickMatch Style */}
+      <div className="flex-1 grid grid-cols-2 gap-3 p-3 overflow-hidden">
         {/* LEFT: Dartboard */}
-        <div className="bg-slate-900/50 rounded-3xl border border-slate-700/50 overflow-hidden flex flex-col backdrop-blur-sm shadow-2xl">
-          <div className="flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-800/30">
-            <span className="text-sm font-medium text-slate-400">Dartboard</span>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-sm font-medium text-emerald-400">Live</span>
-            </div>
+        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between p-2 border-b border-white/5">
+            <span className="text-xs text-gray-400">Dartboard</span>
+            <div className="text-xs text-purple-400">{botName}</div>
           </div>
           <div className="flex-1 relative flex items-center justify-center p-4">
             <div className="relative w-full max-w-lg aspect-square">
@@ -1349,18 +1257,15 @@ export default function DartbotMatchPage() {
           )}
           {/* Show DartBot's last throw - visible after bot completes turn */}
           {lastThreeDarts.length > 0 && currentPlayer === 'player1' && !isBotThinking && (
-            <div className="p-4 bg-slate-800/50 mx-4 mb-4 rounded-2xl border border-purple-500/20">
-              <div className="text-sm text-purple-400 mb-2 font-medium flex items-center gap-2">
-                <Bot className="w-4 h-4" />
-                {botName}&apos;s Last Throw
-              </div>
+            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/20">
+              <div className="text-xs text-purple-400 mb-1 font-medium">{botName}&apos;s Last Throw:</div>
               <div className="flex items-center gap-2">
                 {lastThreeDarts.map((dart, i) => (
-                  <span key={i} className={`text-sm font-bold px-3 py-2 rounded-xl ${
-                    dart.isDouble ? 'bg-red-500/30 text-red-300 border border-red-500/30' : 
-                    dart.isTreble ? 'bg-amber-500/30 text-amber-300 border border-amber-500/30' :
-                    dart.offboard ? 'bg-gray-500/30 text-gray-400 border border-gray-500/30' :
-                    'bg-slate-700 text-white border border-slate-600'
+                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                    dart.isDouble ? 'bg-red-500/30 text-red-300' : 
+                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                    'bg-slate-700 text-white'
                   }`}>
                     {dart.label}
                   </span>
@@ -1377,132 +1282,88 @@ export default function DartbotMatchPage() {
           
           {/* Live dart display during bot's turn */}
           {isBotThinking && lastThreeDarts.length > 0 && (
-            <div className="p-4 bg-slate-800/50 mx-4 mb-4 rounded-2xl border border-purple-500/30">
-              <div className="text-sm text-purple-400 mb-2 font-medium flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                {botName} throwing...
-              </div>
+            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/30">
+              <div className="text-xs text-purple-400 mb-1 font-medium">{botName} throwing...</div>
               <div className="flex items-center gap-2">
                 {lastThreeDarts.map((dart, i) => (
-                  <span key={i} className={`text-sm font-bold px-3 py-2 rounded-xl ${
-                    dart.isDouble ? 'bg-red-500/30 text-red-300 border border-red-500/30' : 
-                    dart.isTreble ? 'bg-amber-500/30 text-amber-300 border border-amber-500/30' :
-                    dart.offboard ? 'bg-gray-500/30 text-gray-400 border border-gray-500/30' :
-                    'bg-slate-700 text-white border border-slate-600'
+                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                    dart.isDouble ? 'bg-red-500/30 text-red-300' : 
+                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                    'bg-slate-700 text-white'
                   }`}>
                     {dart.label}
                   </span>
                 ))}
                 {lastThreeDarts.length < 3 && (
-                  <span className="w-10 h-10 rounded-xl bg-slate-700/50 border-2 border-dashed border-purple-400/30 animate-pulse" />
+                  <span className="w-8 h-8 rounded bg-slate-700/50 border-2 border-dashed border-purple-400/30 animate-pulse" />
                 )}
               </div>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
-        <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Player Cards - Training Page Style */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
-              currentPlayer === 'player1' && !matchWinner
-                ? 'bg-gradient-to-br from-emerald-600/20 via-slate-800/60 to-teal-600/20 border-emerald-500/40 shadow-lg shadow-emerald-500/10'
-                : 'bg-slate-800/40 border-slate-700/50'
-            }`}>
-              {/* Glow effect for active player */}
-              {currentPlayer === 'player1' && !matchWinner && (
-                <div className="absolute inset-0 bg-emerald-500/5 rounded-2xl blur-xl" />
-              )}
-              <div className="relative p-4">
-                <QuickMatchPlayerCard
-                  name="You"
-                  remaining={player1Score}
-                  legs={player1LegsWon}
-                  legsToWin={legsToWin}
-                  isActive={currentPlayer === 'player1' && !matchWinner}
-                  color="text-emerald-400"
-                  position="left"
-                  stats={calculateMatchStats(true)}
-                />
-              </div>
-            </div>
-            <div className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
-              currentPlayer === 'player2' && !matchWinner
-                ? 'bg-gradient-to-br from-purple-600/20 via-slate-800/60 to-indigo-600/20 border-purple-500/40 shadow-lg shadow-purple-500/10'
-                : 'bg-slate-800/40 border-slate-700/50'
-            }`}>
-              {/* Glow effect for active player */}
-              {currentPlayer === 'player2' && !matchWinner && (
-                <div className="absolute inset-0 bg-purple-500/5 rounded-2xl blur-xl" />
-              )}
-              <div className="relative p-4">
-                <QuickMatchPlayerCard
-                  name={botName}
-                  remaining={player2Score}
-                  legs={player2LegsWon}
-                  legsToWin={legsToWin}
-                  isActive={currentPlayer === 'player2' && !matchWinner}
-                  color="text-purple-400"
-                  position="right"
-                  stats={calculateMatchStats(false)}
+        <div className="flex flex-col gap-3 overflow-hidden">
+          {/* Player Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <QuickMatchPlayerCard
+              name="You"
+              remaining={player1Score}
+              legs={player1LegsWon}
+              legsToWin={legsToWin}
+              isActive={currentPlayer === 'player1' && !matchWinner}
+              color="text-emerald-400"
+              position="left"
+              stats={calculateMatchStats(true)}
+            />
+            <QuickMatchPlayerCard
+              name={botName}
+              remaining={player2Score}
+              legs={player2LegsWon}
+              legsToWin={legsToWin}
+              isActive={currentPlayer === 'player2' && !matchWinner}
+              color="text-purple-400"
+              position="right"
+              stats={calculateMatchStats(false)}
             />
           </div>
 
           {/* CONDITIONAL: Show Scoring Panel when my turn, Visit History when bot turn */}
-          <div className="flex-1 bg-slate-900/50 rounded-3xl border border-slate-700/50 overflow-hidden backdrop-blur-sm shadow-2xl">
-            <div className="flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-800/30">
-              <span className="text-sm font-medium text-slate-400">
-                {currentPlayer === 'player1' && !matchWinner ? 'Score Entry' : 'Visit History'}
-              </span>
-              {currentPlayer === 'player1' && !matchWinner && (
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                  Your Turn
-                </Badge>
-              )}
-            </div>
-            <div className="p-4 h-[calc(100%-60px)] overflow-hidden">
-              {currentPlayer === 'player1' && !matchWinner ? (
-                <ScoringPanel
-                  scoreInput={scoreInput}
-                  onScoreInputChange={setScoreInput}
-                  onTypeScoreSubmit={handleTypeScoreSubmit}
-                  onSubmitVisit={handleSubmitVisit}
-                  onMiss={handleMiss}
-                  onBust={handleBust}
-                  currentDarts={currentVisit}
-                  onDartClick={handleDartClick}
-                  onUndoDart={handleUndoDart}
-                  onClearVisit={handleClearVisit}
-                  submitting={submitting}
-                  currentRemaining={player1Score}
-                  doubleOut={config.doubleOut}
-                />
-              ) : (
-                <VisitHistoryPanel visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} myName="You" botName={botName} currentLeg={currentLeg.legNumber} />
-              )}
-            </div>
-          </div>
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-3 overflow-hidden">
+            {currentPlayer === 'player1' && !matchWinner ? (
+              <ScoringPanel
+                scoreInput={scoreInput}
+                onScoreInputChange={setScoreInput}
+                onTypeScoreSubmit={handleTypeScoreSubmit}
+                onSubmitVisit={handleSubmitVisit}
+                onMiss={handleMiss}
+                onBust={handleBust}
+                currentDarts={currentVisit}
+                onDartClick={handleDartClick}
+                onUndoDart={handleUndoDart}
+                onClearVisit={handleClearVisit}
+                submitting={submitting}
+                currentRemaining={player1Score}
+                doubleOut={config.doubleOut}
+              />
+            ) : (
+              <VisitHistoryPanel visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} myName="You" botName={botName} currentLeg={currentLeg.legNumber} />
+            )}
+          </Card>
         </div>
       </div>
 
-      {/* End Match Dialog - Training Page Style */}
+      {/* End Match Dialog */}
       <AlertDialog open={showEndMatchDialog} onOpenChange={setShowEndMatchDialog}>
-        <AlertDialogContent className="bg-slate-900 border-slate-700 rounded-2xl shadow-2xl">
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
           <AlertDialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
-                <X className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <AlertDialogTitle className="text-white text-xl">End Match?</AlertDialogTitle>
-                <AlertDialogDescription className="text-slate-400">Are you sure? Your progress will not be saved.</AlertDialogDescription>
-              </div>
-            </div>
+            <AlertDialogTitle className="text-white">End Match?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">Are you sure? Your progress will not be saved.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-3">
-            <AlertDialogCancel className="bg-slate-800 text-white border-slate-600 hover:bg-slate-700 rounded-xl px-6">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReturnToPlay} className="bg-red-500 hover:bg-red-600 text-white rounded-xl px-6">End Match</AlertDialogAction>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-800 text-white border-slate-600">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReturnToPlay} className="bg-red-500 hover:bg-red-600">End Match</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
