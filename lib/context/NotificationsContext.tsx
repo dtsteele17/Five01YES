@@ -201,10 +201,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   };
 
   const handleNotificationClick = async (notification: Notification) => {
-    if (notification.link) {
+    // Get the link from either link field or data.href
+    const link = notification.link || notification.data?.href || notification.data?.link;
+    
+    if (link) {
       // Check if this is a match room link
       const matchRoomPattern = /\/app\/(play\/quick-match\/match|ranked\/match|match\/online)\/([a-f0-9-]+)/;
-      const match = notification.link.match(matchRoomPattern);
+      const match = link.match(matchRoomPattern);
 
       if (match) {
         const roomId = match[2];
@@ -244,7 +247,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
       // Mark as read before navigation
       await markAsRead(notification.id);
-      router.push(notification.link);
+      router.push(link);
     } else {
       // If there's no link, just mark as read
       await markAsRead(notification.id);

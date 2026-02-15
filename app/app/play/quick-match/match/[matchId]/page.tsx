@@ -1138,6 +1138,64 @@ export default function QuickMatchRoomPage() {
   
   // Note: Rematch navigation is handled by useQuickMatchRematch hook
 
+  // ========== PAGE REFRESH PERSISTENCE ==========
+  // Save match state to sessionStorage for recovery after page refresh
+  useEffect(() => {
+    if (!matchId || !currentUserId) return;
+    
+    const matchStateToSave = {
+      matchId,
+      currentUserId,
+      coinTossCompleted,
+      player1Ready,
+      player2Ready,
+      timestamp: Date.now()
+    };
+    
+    sessionStorage.setItem(`quick_match_state_${matchId}`, JSON.stringify(matchStateToSave));
+    console.log('[PERSISTENCE] Saved match state:', matchStateToSave);
+  }, [matchId, currentUserId, coinTossCompleted, player1Ready, player2Ready]);
+
+  // Restore match state from sessionStorage on page load
+  useEffect(() => {
+    if (!matchId) return;
+    
+    const savedState = sessionStorage.getItem(`quick_match_state_${matchId}`);
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        console.log('[PERSISTENCE] Restoring match state:', parsed);
+        
+        // Check if state is not too old (5 minutes max)
+        const age = Date.now() - parsed.timestamp;
+        if (age < 5 * 60 * 1000) {
+          // Restore states
+          if (parsed.coinTossCompleted) {
+            console.log('[PERSISTENCE] Restoring coin toss completion');
+            setCoinTossCompleted(true);
+            setShowCoinToss(false);
+          }
+          if (parsed.player1Ready) setPlayer1Ready(true);
+          if (parsed.player2Ready) setPlayer2Ready(true);
+          
+          toast.success('Reconnected to match');
+        } else {
+          console.log('[PERSISTENCE] Saved state too old, clearing');
+          sessionStorage.removeItem(`quick_match_state_${matchId}`);
+        }
+      } catch (e) {
+        console.error('[PERSISTENCE] Error restoring state:', e);
+      }
+    }
+  }, [matchId]);
+
+  // Clean up sessionStorage when match ends
+  useEffect(() => {
+    if (room?.status === 'finished' || room?.status === 'forfeited') {
+      sessionStorage.removeItem(`quick_match_state_${matchId}`);
+    }
+  }, [room?.status, matchId]);
+
   // WebRTC - only connect after coin toss is complete
   const bothPlayersReady = player1Ready && player2Ready;
   const webrtc = useMatchWebRTC({
@@ -2357,8 +2415,21 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
+    // Check submission lock first (faster than React state)
+    if (submitLockRef.current) {
+      console.warn('[SUBMIT] Submission lock active - blocked');
+      return;
+    }
+
     if (submitting) {
       console.warn('[SUBMIT] Already submitting - blocked');
+      return;
+    }
+
+    // Check cooldown period
+    const now = Date.now();
+    if (now - lastSubmissionTimeRef.current < SUBMISSION_COOLDOWN_MS) {
+      console.warn('[SUBMIT] Submission cooldown active - blocked');
       return;
     }
 
@@ -2369,7 +2440,7 @@ export default function QuickMatchRoomPage() {
     }
 
     if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer) {
-      console.warn('[SUBMIT] Not your turn – blocked');
+      console.warn('[SUBSUBMIT] Not your turn – blocked');
       toast.error('Not your turn');
       return;
     }
@@ -2380,20 +2451,29 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
+    // Acquire submission lock
+    submitLockRef.current = true;
+    lastSubmissionTimeRef.current = Date.now();
+
     const visitTotal = currentVisit.reduce((sum, dart) => sum + dart.value, 0);
     const validation = validateCheckout(visitTotal, currentVisit, false);  // false = button input
 
     console.log('[SUBMIT] Validation result:', validation);
 
-    // If bust, submit with score 0
-    if (validation.isBust) {
-      console.log('[SUBMIT] Bust detected, submitting with score 0');
-      await submitScore(0, true, currentVisit, false);
-      return;
-    }
+    try {
+      // If bust, submit with score 0
+      if (validation.isBust) {
+        console.log('[SUBMIT] Bust detected, submitting with score 0');
+        await submitScore(0, true, currentVisit, false);
+        return;
+      }
 
-    console.log('[SUBMIT] All checks passed, proceeding to submitScore');
-    await submitScore(visitTotal, false, currentVisit, validation.isCheckout);
+      console.log('[SUBMIT] All checks passed, proceeding to submitScore');
+      await submitScore(visitTotal, false, currentVisit, validation.isCheckout);
+    } finally {
+      // Release submission lock
+      submitLockRef.current = false;
+    }
   };
 
   // Store pending checkout info for typed scores
@@ -2402,6 +2482,11 @@ export default function QuickMatchRoomPage() {
     remainingBefore: number;
     isBust: boolean;
   } | null>(null);
+
+  // Submission lock to prevent race conditions between button and typed inputs
+  const submitLockRef = useRef(false);
+  const lastSubmissionTimeRef = useRef(0);
+  const SUBMISSION_COOLDOWN_MS = 2000; // Minimum time between submissions
 
   // Helper to get darts options based on score
   const getDartsOptions = (checkoutScore: number, isBust: boolean) => {
@@ -2416,6 +2501,12 @@ export default function QuickMatchRoomPage() {
 
   const handleInputScoreSubmit = async () => {
     console.log('[TYPED SCORE] Submit clicked, scoreInput:', scoreInput);
+    
+    // Check submission lock first (prevents race with button input)
+    if (submitLockRef.current) {
+      console.warn('[TYPED SCORE] Submission lock active - blocked');
+      return;
+    }
     
     if (!scoreInput || scoreInput.trim() === '') {
       toast.error('Please enter a score');
@@ -2439,6 +2530,17 @@ export default function QuickMatchRoomPage() {
       toast.error('Not your turn');
       return;
     }
+
+    // Check cooldown period
+    const now = Date.now();
+    if (now - lastSubmissionTimeRef.current < SUBMISSION_COOLDOWN_MS) {
+      console.warn('[TYPED SCORE] Submission cooldown active - blocked');
+      return;
+    }
+    
+    // Acquire submission lock
+    submitLockRef.current = true;
+    lastSubmissionTimeRef.current = Date.now();
     
     // For typed scores, create generic darts (not a double)
     // Typed scores can checkout (win leg) - double only required for button inputs
@@ -2465,38 +2567,43 @@ export default function QuickMatchRoomPage() {
         const dartsThrown = dartsOptions[0];
         console.log('[TYPED SCORE] Auto-picking', dartsThrown, 'darts (only option)');
         
-        // Create darts array
-        const darts: Dart[] = [];
-        if (isBust) {
-          // Bust: all misses
-          for (let i = 0; i < dartsThrown; i++) {
-            darts.push({
-              type: 'single', number: 0, value: 0, multiplier: 1,
-              label: 'Miss', score: 0, is_double: false
-            });
+        try {
+          // Create darts array
+          const darts: Dart[] = [];
+          if (isBust) {
+            // Bust: all misses
+            for (let i = 0; i < dartsThrown; i++) {
+              darts.push({
+                type: 'single', number: 0, value: 0, multiplier: 1,
+                label: 'Miss', score: 0, is_double: false
+              });
+            }
+            await submitScore(0, true, darts, false, true);
+          } else {
+            // Checkout: last dart is the checkout
+            for (let i = 0; i < dartsThrown; i++) {
+              const isLastDart = i === dartsThrown - 1;
+              darts.push({
+                type: isLastDart ? 'double' : 'single',
+                number: isLastDart ? score : 0,
+                value: isLastDart ? score : 0,
+                multiplier: isLastDart ? 2 : 1,
+                label: isLastDart ? `D${score/2}` : 'Miss',
+                score: isLastDart ? score : 0,
+                is_double: isLastDart
+              });
+            }
+            await submitScoreWithCheckoutDetails(score, darts, dartsThrown, 1);
           }
-          await submitScore(0, true, darts, false, true);
-        } else {
-          // Checkout: last dart is the checkout
-          for (let i = 0; i < dartsThrown; i++) {
-            const isLastDart = i === dartsThrown - 1;
-            darts.push({
-              type: isLastDart ? 'double' : 'single',
-              number: isLastDart ? score : 0,
-              value: isLastDart ? score : 0,
-              multiplier: isLastDart ? 2 : 1,
-              label: isLastDart ? `D${score/2}` : 'Miss',
-              score: isLastDart ? score : 0,
-              is_double: isLastDart
-            });
-          }
-          await submitScoreWithCheckoutDetails(score, darts, dartsThrown, 1);
+        } finally {
+          // Release submission lock
+          submitLockRef.current = false;
         }
         setScoreInput('');
         return;
       }
       
-      // Multiple options - show dialog
+      // Multiple options - show dialog (lock will be released by dialog handler)
       console.log('[TYPED SCORE] Bust or Checkout detected, showing darts dialog');
       setPendingCheckoutInfo({ 
         score: isBust ? 0 : score,
@@ -2504,6 +2611,7 @@ export default function QuickMatchRoomPage() {
         isBust 
       });
       setShowCheckoutDialog(true);
+      // Note: Lock is NOT released here - it will be released by handleCheckoutDetailsSubmit
       return;
     }
     
@@ -2517,65 +2625,79 @@ export default function QuickMatchRoomPage() {
       { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }
     ];
     
-    await submitScore(score, false, normalDarts, false, true);
+    try {
+      await submitScore(score, false, normalDarts, false, true);
+    } finally {
+      // Release submission lock
+      submitLockRef.current = false;
+    }
     setScoreInput('');
   };
 
   // Handle checkout/bust details submission from dialog
   const handleCheckoutDetailsSubmit = async (dartsThrown: number, dartsAtDouble: number) => {
-    if (!pendingCheckoutInfo) return;
+    if (!pendingCheckoutInfo) {
+      // Release lock if somehow called without pending info
+      submitLockRef.current = false;
+      return;
+    }
     
     console.log('[TYPED SCORE] Details submitted:', { dartsThrown, dartsAtDouble, isBust: pendingCheckoutInfo.isBust });
     
     const { score, remainingBefore, isBust } = pendingCheckoutInfo;
     
-    // Create darts array
-    const darts: Dart[] = [];
-    
-    if (isBust) {
-      // Bust: Add darts thrown (all misses that led to the bust)
-      // The last dart caused the bust
-      for (let i = 0; i < dartsThrown; i++) {
-        darts.push({
-          type: 'single',
-          number: 0,
-          value: 0,
-          multiplier: 1,
-          label: 'Miss',
-          score: 0,
-          is_double: false
-        });
+    try {
+      // Create darts array
+      const darts: Dart[] = [];
+      
+      if (isBust) {
+        // Bust: Add darts thrown (all misses that led to the bust)
+        // The last dart caused the bust
+        for (let i = 0; i < dartsThrown; i++) {
+          darts.push({
+            type: 'single',
+            number: 0,
+            value: 0,
+            multiplier: 1,
+            label: 'Miss',
+            score: 0,
+            is_double: false
+          });
+        }
+        
+        // Close dialog and clear pending state
+        setShowCheckoutDialog(false);
+        setPendingCheckoutInfo(null);
+        setScoreInput('');
+        
+        // Submit as bust (score = 0)
+        await submitScore(0, true, darts, false, true);
+      } else {
+        // Checkout: Add darts (last one is the checkout dart)
+        for (let i = 0; i < dartsThrown; i++) {
+          const isLastDart = i === dartsThrown - 1;
+          darts.push({
+            type: isLastDart ? 'double' : 'single',
+            number: isLastDart ? score : 0,
+            value: isLastDart ? score : 0,
+            multiplier: isLastDart ? 2 : 1,
+            label: isLastDart ? `D${score/2}` : 'Miss',
+            score: isLastDart ? score : 0,
+            is_double: isLastDart
+          });
+        }
+        
+        // Close dialog and clear pending state
+        setShowCheckoutDialog(false);
+        setPendingCheckoutInfo(null);
+        setScoreInput('');
+        
+        // Submit with checkout details
+        await submitScoreWithCheckoutDetails(score, darts, dartsThrown, dartsAtDouble);
       }
-      
-      // Close dialog and clear pending state
-      setShowCheckoutDialog(false);
-      setPendingCheckoutInfo(null);
-      setScoreInput('');
-      
-      // Submit as bust (score = 0)
-      await submitScore(0, true, darts, false, true);
-    } else {
-      // Checkout: Add darts (last one is the checkout dart)
-      for (let i = 0; i < dartsThrown; i++) {
-        const isLastDart = i === dartsThrown - 1;
-        darts.push({
-          type: isLastDart ? 'double' : 'single',
-          number: isLastDart ? score : 0,
-          value: isLastDart ? score : 0,
-          multiplier: isLastDart ? 2 : 1,
-          label: isLastDart ? `D${score/2}` : 'Miss',
-          score: isLastDart ? score : 0,
-          is_double: isLastDart
-        });
-      }
-      
-      // Close dialog and clear pending state
-      setShowCheckoutDialog(false);
-      setPendingCheckoutInfo(null);
-      setScoreInput('');
-      
-      // Submit with checkout details
-      await submitScoreWithCheckoutDetails(score, darts, dartsThrown, dartsAtDouble);
+    } finally {
+      // ALWAYS release submission lock when done
+      submitLockRef.current = false;
     }
   };
 
@@ -2651,6 +2773,8 @@ export default function QuickMatchRoomPage() {
       toast.error(error?.message || 'Failed to submit visit');
     } finally {
       setSubmitting(false);
+      // Release submission lock
+      submitLockRef.current = false;
     }
   }
 
@@ -3019,7 +3143,9 @@ export default function QuickMatchRoomPage() {
       toast.error(error?.message || 'Failed to submit visit');
     } finally {
       setSubmitting(false);
-      console.log('[SUBMIT] Submitting flag cleared');
+      // Release submission lock
+      submitLockRef.current = false;
+      console.log('[SUBMIT] Submitting flag and lock cleared');
     }
   }
 

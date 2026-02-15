@@ -369,6 +369,37 @@ export function useMatchWebRTC({
 
   // ========== CAMERA CONTROLS ==========
   
+  // Persist camera state to sessionStorage for page refresh recovery
+  useEffect(() => {
+    if (roomId && isCameraOn) {
+      sessionStorage.setItem(`webrtc_camera_${roomId}`, JSON.stringify({
+        wasOn: true,
+        timestamp: Date.now()
+      }));
+    }
+  }, [roomId, isCameraOn]);
+
+  // Restore camera on page refresh if it was on
+  useEffect(() => {
+    if (!roomId || !myUserId || !opponentUserId) return;
+    
+    const savedState = sessionStorage.getItem(`webrtc_camera_${roomId}`);
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        const age = Date.now() - parsed.timestamp;
+        
+        // If camera was on within last 5 minutes, auto-restart it
+        if (parsed.wasOn && age < 5 * 60 * 1000 && coinTossComplete) {
+          console.log('[WebRTC] Restoring camera after page refresh');
+          startCamera();
+        }
+      } catch (e) {
+        console.error('[WebRTC] Error restoring camera state:', e);
+      }
+    }
+  }, [roomId, myUserId, opponentUserId, coinTossComplete]);
+  
   const startCamera = useCallback(async () => {
     console.log('[WebRTC] Starting camera');
 
@@ -419,6 +450,11 @@ export function useMatchWebRTC({
     }
 
     setIsCameraOn(false);
+
+    // Clear persisted camera state
+    if (roomId) {
+      sessionStorage.removeItem(`webrtc_camera_${roomId}`);
+    }
 
     if (roomId && myUserId && opponentUserId) {
       sendSignal(roomId, myUserId, opponentUserId, 'state', { camera: false });

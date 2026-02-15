@@ -31,6 +31,7 @@ import {
 } from '@/lib/utils/stale-state-cleanup';
 
 const DEBUG_INVITES = true;
+const DEBUG_FRIENDS = true;
 
 interface NotificationDropdownProps {
   children: React.ReactNode;
@@ -41,6 +42,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const supabase = createClient();
   const { notifications, unreadCount, markAllAsRead, markAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
+  const [processingFriendRequest, setProcessingFriendRequest] = useState<string | null>(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -257,6 +259,137 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     return notification.type === 'system' && notification.data?.kind === 'private_match_accepted';
   };
 
+  const isFriendRequest = (notification: any) => {
+    // Check for friend request notifications
+    return (
+      (notification.type === 'system' && notification.data?.request_id) ||
+      notification.title?.toLowerCase().includes('friend request')
+    );
+  };
+
+  const handleAcceptFriendRequest = async (notification: any, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    const requestId = notification.data?.request_id;
+    if (!requestId) {
+      if (DEBUG_FRIENDS) console.error('[FRIEND] No request_id in notification data');
+      toast.error('Invalid friend request');
+      return;
+    }
+
+    if (DEBUG_FRIENDS) console.log('[FRIEND] Accept clicked', requestId);
+    setProcessingFriendRequest(notification.id);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setProcessingFriendRequest(null);
+        toast.error('Please log in');
+        return;
+      }
+
+      // Call RPC function to accept friend request
+      if (DEBUG_FRIENDS) console.log('[FRIEND] Calling rpc_accept_friend_request', requestId);
+
+      const { data, error: rpcError } = await supabase.rpc('rpc_accept_friend_request', {
+        p_request_id: requestId
+      });
+
+      if (DEBUG_FRIENDS) console.log('[FRIEND] RPC response:', data);
+
+      if (rpcError) {
+        console.error('[FRIEND] RPC error:', rpcError);
+        toast.error("Couldn't accept friend request. Try again.");
+        setProcessingFriendRequest(null);
+        return;
+      }
+
+      if (data && !data.success) {
+        toast.error(data.error || "Couldn't accept friend request");
+        setProcessingFriendRequest(null);
+        return;
+      }
+
+      if (DEBUG_FRIENDS) console.log('[FRIEND] Friend request accepted successfully');
+
+      // Mark notification as read
+      await markAsRead(notification.id);
+      refreshNotifications();
+
+      toast.success('Friend request accepted!');
+
+      // Navigate to friends page
+      setDropdownOpen(false);
+      router.push('/app/friends');
+      setProcessingFriendRequest(null);
+    } catch (err: any) {
+      console.error('[FRIEND] Exception accepting request:', err);
+      toast.error("Couldn't accept friend request. Try again.");
+      setProcessingFriendRequest(null);
+    }
+  };
+
+  const handleDeclineFriendRequest = async (notification: any, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    const requestId = notification.data?.request_id;
+    if (!requestId) {
+      if (DEBUG_FRIENDS) console.error('[FRIEND] No request_id in notification data');
+      toast.error('Invalid friend request');
+      return;
+    }
+
+    if (DEBUG_FRIENDS) console.log('[FRIEND] Decline clicked', requestId);
+    setProcessingFriendRequest(notification.id);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setProcessingFriendRequest(null);
+        toast.error('Please log in');
+        return;
+      }
+
+      // Directly update the friend request status to declined
+      if (DEBUG_FRIENDS) console.log('[FRIEND] Updating friend request status to declined', requestId);
+
+      const { error: updateError } = await supabase
+        .from('friend_requests')
+        .update({ status: 'declined', responded_at: new Date().toISOString() })
+        .eq('id', requestId)
+        .eq('to_user_id', user.id)
+        .eq('status', 'pending');
+
+      if (updateError) {
+        console.error('[FRIEND] Update error:', updateError);
+        toast.error("Couldn't decline friend request. Try again.");
+        setProcessingFriendRequest(null);
+        return;
+      }
+
+      if (DEBUG_FRIENDS) console.log('[FRIEND] Friend request declined successfully');
+
+      // Mark notification as read
+      await markAsRead(notification.id);
+      refreshNotifications();
+
+      toast.success('Friend request declined');
+      setProcessingFriendRequest(null);
+    } catch (err: any) {
+      console.error('[FRIEND] Exception declining request:', err);
+      toast.error("Couldn't decline friend request. Try again.");
+      setProcessingFriendRequest(null);
+    }
+  };
+
   // Listen for invite acceptances (inviter side)
   useEffect(() => {
     if (!supabase) return;
@@ -437,7 +570,12 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     }
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, notification?: any) => {
+    // Check for friend request first
+    if (notification && isFriendRequest(notification)) {
+      return <UserPlus className="w-4 h-4 text-blue-400" />;
+    }
+    
     switch (type) {
       case 'league_announcement':
         return <Users className="w-4 h-4 text-emerald-400" />;
@@ -455,6 +593,8 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         return <Award className="w-4 h-4 text-amber-400" />;
       case 'app_update':
         return <Megaphone className="w-4 h-4 text-blue-400" />;
+      case 'system':
+        return <Bell className="w-4 h-4 text-gray-400" />;
       default:
         return <Bell className="w-4 h-4 text-gray-400" />;
     }
@@ -535,6 +675,8 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
             <div className="py-2">
               {deduplicatedNotifications.map((notification) => {
                 const isInvite = isPrivateMatchInvite(notification);
+                const isFriendReq = isFriendRequest(notification);
+                const link = notification.link || notification.data?.href || notification.data?.link;
 
                 return (
                   <div
@@ -542,11 +684,20 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                     className="w-full px-4 py-3 hover:bg-white/5 transition-colors border-b border-slate-800/50 last:border-0"
                   >
                     <button
-                      onClick={() => handleInviteClick(notification)}
+                      onClick={() => {
+                        if (isFriendReq) {
+                          // Navigate to friends page requests tab for friend requests
+                          setDropdownOpen(false);
+                          markAsRead(notification.id);
+                          router.push('/app/friends?tab=requests');
+                        } else {
+                          handleInviteClick(notification);
+                        }
+                      }}
                       className="w-full text-left flex items-start space-x-3 group"
                     >
                       <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-                        {getNotificationIcon(notification.type)}
+                        {getNotificationIcon(notification.type, notification)}
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -567,6 +718,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                           {formatTimestamp(notification.created_at)}
                         </p>
 
+                        {/* Match Invite Buttons */}
                         {isInvite && (
                           <div className="flex gap-2 mt-3">
                             <Button
@@ -592,6 +744,40 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                               variant="outline"
                               onClick={(e) => handleDeclineInvite(notification, e)}
                               disabled={processingInvite === notification.id}
+                              className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 rounded-lg"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Decline
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Friend Request Buttons */}
+                        {isFriendReq && (
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              size="sm"
+                              onClick={(e) => handleAcceptFriendRequest(notification, e)}
+                              disabled={processingFriendRequest === notification.id}
+                              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white disabled:opacity-50 rounded-lg"
+                            >
+                              {processingFriendRequest === notification.id ? (
+                                <>
+                                  <div className="w-3 h-3 mr-1 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  Accepting...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Accept
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleDeclineFriendRequest(notification, e)}
+                              disabled={processingFriendRequest === notification.id}
                               className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 rounded-lg"
                             >
                               <X className="w-3 h-3 mr-1" />
