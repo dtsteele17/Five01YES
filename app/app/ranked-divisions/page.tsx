@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -456,35 +456,52 @@ function TierNavigator({
   const tierKey = getTierKey(currentTierName);
   const colors = TIER_COLORS[tierKey];
 
-  const goToPrevious = () => {
-    console.log('[RankedDivisions] goToPrevious called, currentPage:', currentPage);
-    if (currentPage === 0) return;
-    setCurrentPage(prev => {
-      const newPage = prev - 1;
-      console.log('[RankedDivisions] Setting page to:', newPage);
-      return newPage;
-    });
-  };
+  // Use refs for keyboard navigation to avoid stale closures
+  const currentPageRef = useRef(currentPage);
+  const totalPagesRef = useRef(totalPages);
+  
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+    totalPagesRef.current = totalPages;
+  }, [currentPage, totalPages]);
 
-  const goToNext = () => {
-    console.log('[RankedDivisions] goToNext called, currentPage:', currentPage, 'totalPages:', totalPages);
-    if (currentPage >= totalPages - 1) return;
+  const goToPrevious = useCallback(() => {
+    console.log('[RankedDivisions] goToPrevious clicked');
     setCurrentPage(prev => {
-      const newPage = prev + 1;
-      console.log('[RankedDivisions] Setting page to:', newPage);
-      return newPage;
+      if (prev <= 0) return prev;
+      return prev - 1;
     });
-  };
+  }, []);
 
-  // Keyboard navigation
+  const goToNext = useCallback(() => {
+    console.log('[RankedDivisions] goToNext clicked');
+    setCurrentPage(prev => {
+      if (prev >= totalPagesRef.current - 1) return prev;
+      return prev + 1;
+    });
+  }, []);
+
+  // Keyboard navigation - using refs to avoid dependency issues
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') goToPrevious();
-      if (e.key === 'ArrowRight') goToNext();
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentPage(prev => {
+          if (prev <= 0) return prev;
+          return prev - 1;
+        });
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCurrentPage(prev => {
+          if (prev >= totalPagesRef.current - 1) return prev;
+          return prev + 1;
+        });
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, totalPages]);
+  }, []); // Empty deps - uses refs internally
 
   return (
     <div className="space-y-6">
@@ -514,16 +531,12 @@ function TierNavigator({
           {/* Navigation Controls - Ultra Premium */}
           <div className="flex items-center justify-center gap-4 mb-8 relative z-10">
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('LEFT ARROW CLICKED');
-                goToPrevious();
-              }}
+              type="button"
+              onClick={goToPrevious}
               disabled={currentPage === 0}
-              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
             >
-              <ChevronLeft className="w-7 h-7" />
+              <ChevronLeft className="w-7 h-7 pointer-events-none" />
             </button>
             
             <div className="px-8 py-4 rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl min-w-[180px] text-center">
@@ -533,16 +546,12 @@ function TierNavigator({
             </div>
             
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('RIGHT ARROW CLICKED');
-                goToNext();
-              }}
+              type="button"
+              onClick={goToNext}
               disabled={currentPage >= totalPages - 1}
-              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
             >
-              <ChevronRight className="w-7 h-7" />
+              <ChevronRight className="w-7 h-7 pointer-events-none" />
             </button>
           </div>
           
