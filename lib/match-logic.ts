@@ -198,6 +198,48 @@ export function isBust(currentScore: number, scoreEntered: number, doubleOut: bo
   return false;
 }
 
+// Bogey numbers - cannot be checked out with 3 darts or fewer
+const BOGEY_NUMBERS = new Set([159, 162, 163, 166, 168, 169]);
+
+/**
+ * Check if a score is a valid checkout (can be finished on in double-out)
+ * Valid checkouts: 2-170, excluding bogey numbers
+ */
+export function isValidCheckout(score: number, doubleOut: boolean = true): boolean {
+  if (!doubleOut) {
+    // In single-out, any score 1-180 can be finished
+    return score >= 1 && score <= 180;
+  }
+  
+  // In double-out, must be 2-170 and not a bogey number
+  if (score < 2 || score > 170) {
+    return false;
+  }
+  
+  // Check if it's a bogey number
+  if (BOGEY_NUMBERS.has(score)) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Calculate checkout percentage like dartcounter.net
+ * Formula: (Checkouts Made / Darts Thrown at Double) × 100
+ * 
+ * A "dart at double" is any dart thrown when the player is on a valid checkout score
+ */
+export function calculateCheckoutPercentage(
+  checkoutsMade: number,
+  dartsAtDouble: number
+): number {
+  if (dartsAtDouble === 0) {
+    return 0;
+  }
+  return Math.round((checkoutsMade / dartsAtDouble) * 100 * 100) / 100;
+}
+
 export interface Visit {
   score: number;
   isBust: boolean;

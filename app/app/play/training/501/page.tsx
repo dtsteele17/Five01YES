@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Trophy, RotateCcw, Home, X, Check, Bot, BarChart3, Wifi, WifiOff, Edit2, Trash2 } from 'lucide-react';
-import { isBust, getLegsToWin } from '@/lib/match-logic';
+import { isBust, getLegsToWin, isValidCheckout, calculateCheckoutPercentage } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
 import { getStartScore } from '@/lib/game-modes';
@@ -704,16 +704,18 @@ export default function DartbotMatchPage() {
     // Calculate checkout stats from visits
     const successfulCheckouts = checkouts.length;
     
-    // FIX: Count darts at double using dartsAtDouble field from visits
-    // Sum up dartsAtDouble for all visits in checkout range (remaining <= 170)
+    // FIX: Count darts at double properly like dartcounter.net
+    // Only count visits where the player started on a VALID checkout (not just <= 170)
     const dartsAtDouble = playerVisits
       .filter(v => {
         const remainingBefore = v.remainingBefore || 0;
-        return remainingBefore <= 170 && remainingBefore > 0;
+        // Must be a valid checkout score (2-170, not a bogey number)
+        return isValidCheckout(remainingBefore);
       })
-      .reduce((sum, v) => sum + (v.dartsAtDouble || 1), 0); // Default to 1 if not set
+      .reduce((sum, v) => sum + (v.dartsAtDouble || v.dartsThrown || 3), 0);
     
-    const checkoutPercentage = dartsAtDouble > 0 ? (successfulCheckouts / dartsAtDouble) * 100 : 0;
+    // Calculate checkout percentage: (Checkouts Made / Darts at Double) × 100
+    const checkoutPercentage = calculateCheckoutPercentage(successfulCheckouts, dartsAtDouble);
     
     // BEST LEG CALCULATION - Find lowest darts in a won leg
     let bestLegDarts = 0;
@@ -819,14 +821,15 @@ export default function DartbotMatchPage() {
       const userVisits = allVisitsFormatted.filter(v => v.player === 'user');
       const opponentVisits = allVisitsFormatted.filter(v => v.player === 'opponent');
       
+      // Use proper checkout calculation like dartcounter.net
       const p1DartsAtDouble = userVisits
-        .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
-        .reduce((sum, v) => sum + (v.dartsAtDouble || 1), 0);
+        .filter(v => isValidCheckout(v.remainingBefore || 0))
+        .reduce((sum, v) => sum + (v.dartsAtDouble || v.dartsThrown || 3), 0);
       const p1Checkouts = userVisits.filter(v => v.isCheckout).length;
       
       const p2DartsAtDouble = opponentVisits
-        .filter(v => (v.remainingBefore || 0) <= 170 && (v.remainingBefore || 0) > 0)
-        .reduce((sum, v) => sum + (v.dartsAtDouble || 1), 0);
+        .filter(v => isValidCheckout(v.remainingBefore || 0))
+        .reduce((sum, v) => sum + (v.dartsAtDouble || v.dartsThrown || 3), 0);
       const p2Checkouts = opponentVisits.filter(v => v.isCheckout).length;
       
       const userStats = computeMatchStats(userVisits, 'user', normalizedConfig.mode, p1DartsAtDouble, p1Checkouts);
@@ -1029,15 +1032,16 @@ export default function DartbotMatchPage() {
       const dartsThrown = visualVisit.finished ? actualDartsThrown : 3; // Force 3 darts except on checkout
       
       // Track checkout stats for DartBot
-      // Calculate darts at double for this visit
-      const botDartsAtDouble = visualVisit.dartsAtDouble || 0;
+      // Calculate darts at double properly like dartcounter.net
+      const isOnValidCheckout = config?.doubleOut !== false ? isValidCheckout(currentScore) : currentScore > 0 && currentScore <= 180;
+      const botDartsAtDouble = isOnValidCheckout ? dartsThrown : 0;
       
       if (visualVisit.wasCheckoutAttempt) {
         setPlayer2CheckoutAttempts(prev => prev + 1);
       }
-      // Track darts at double on ANY visit where remaining was <= 170
-      if (currentScore <= 170 && currentScore > 0) {
-        setPlayer2TotalDartsAtDouble(prev => prev + (botDartsAtDouble > 0 ? botDartsAtDouble : dartsThrown));
+      // Track darts at double only when on a valid checkout
+      if (isOnValidCheckout) {
+        setPlayer2TotalDartsAtDouble(prev => prev + botDartsAtDouble);
       }
       if (visualVisit.finished) {
         setPlayer2CheckoutsMade(prev => prev + 1);
@@ -1066,7 +1070,7 @@ export default function DartbotMatchPage() {
         isCheckout: visualVisit.finished, 
         timestamp: Date.now(), 
         dartsThrown, // Always 3 except on checkout
-        dartsAtDouble: botDartsAtDouble > 0 ? botDartsAtDouble : (currentScore <= 170 && currentScore > 0 ? dartsThrown : 0),
+        dartsAtDouble: botDartsAtDouble, // Properly calculated based on valid checkout
         darts: paddedDarts.map(d => ({
           type: d.isDouble ? 'double' : d.isTreble ? 'triple' : d.offboard ? 'single' : 'single',
           number: d.offboard ? 0 : parseInt(d.label.replace(/[^0-9]/g, '')) || (d.label.includes('Bull') ? 25 : 0),
@@ -1228,18 +1232,20 @@ export default function DartbotMatchPage() {
     const newScore = currentScore - score;
     
     // Calculate darts at double for this visit
-    // For typed input, use the value from dialog. For button input, calculate from darts array
+    // Like dartcounter.net: count ALL darts thrown when on a valid checkout
     let dartsAtDouble = 0;
     if (isBust(currentScore, score, doubleOut)) {
       dartsAtDouble = 0; // Busts don't count as darts at double
     } else if (isTypedInput) {
       dartsAtDouble = dartsAtDoubleForInput;
     } else {
-      // For button input, count how many darts were thrown when remaining was <= 170
-      let remainingBeforeDart = currentScore;
-      // This is approximated - actual tracking would need the darts array
-      if (currentScore <= 170 && currentScore > 0) {
-        dartsAtDouble = dartsThrown; // Assume all darts were at double when in checkout range
+      // For button input: if on a valid checkout, ALL darts count as "at double"
+      // A valid checkout means: score <= 170, > 0, and not a bogey number
+      if (doubleOut && isValidCheckout(currentScore)) {
+        dartsAtDouble = dartsThrown;
+      } else if (!doubleOut && currentScore > 0 && currentScore <= 180) {
+        // Single-out: any score 1-180 is a valid checkout
+        dartsAtDouble = dartsThrown;
       }
     }
     
@@ -1522,18 +1528,30 @@ export default function DartbotMatchPage() {
     await submitScore(score, false, genericDarts, isCheckout);
   };
 
-  async function submitScore(score: number, isBust: boolean, darts: Dart[], isCheckout: boolean = false) {
+  async function submitScore(score: number, isBustParam: boolean, darts: Dart[], isCheckout: boolean = false) {
     if (!config || currentPlayer !== 'player1') return;
     setSubmitting(true);
     try {
       let dartsToSubmit = [...darts];
-      if (isBust) { while (dartsToSubmit.length < 3) dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }); }
+      if (isBustParam) { while (dartsToSubmit.length < 3) dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }); }
       else if (!isCheckout && dartsToSubmit.length > 0 && dartsToSubmit.length < 3) { while (dartsToSubmit.length < 3) dartsToSubmit.push({ type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }); }
       const dartsThrown = dartsToSubmit.length;
+      
+      // Calculate darts at double like dartcounter.net:
+      // If starting on a valid checkout, ALL darts in this visit count
       let dartsAtDoubleCount = 0;
-      let remainingBeforeDart = player1Score;
-      for (const dart of dartsToSubmit) { if (config.doubleOut && remainingBeforeDart <= 170 && remainingBeforeDart > 0) dartsAtDoubleCount++; remainingBeforeDart -= dart.value; }
-      if (dartsAtDoubleCount > 0) { setPlayer1TotalDartsAtDouble(prev => prev + dartsAtDoubleCount); if (isCheckout) setPlayer1CheckoutsMade(prev => prev + 1); }
+      if (!isBustParam) {
+        if (config.doubleOut && isValidCheckout(player1Score)) {
+          dartsAtDoubleCount = dartsThrown;
+        } else if (!config.doubleOut && player1Score > 0 && player1Score <= 180) {
+          dartsAtDoubleCount = dartsThrown;
+        }
+      }
+      
+      if (dartsAtDoubleCount > 0) { 
+        setPlayer1TotalDartsAtDouble(prev => prev + dartsAtDoubleCount); 
+        if (isCheckout) setPlayer1CheckoutsMade(prev => prev + 1); 
+      }
       let lastDartType: 'S' | 'D' | 'T' | 'BULL' | 'SBULL' | undefined = undefined;
       if (dartsToSubmit.length > 0) { const lastDart = dartsToSubmit[dartsToSubmit.length - 1]; if (lastDart.type === 'single') lastDartType = 'S'; else if (lastDart.type === 'double') lastDartType = 'D'; else if (lastDart.type === 'triple') lastDartType = 'T'; else if (lastDart.type === 'bull') lastDartType = lastDart.number === 50 ? 'BULL' : 'SBULL'; }
       handleScoreSubmit(score, dartsThrown, lastDartType);

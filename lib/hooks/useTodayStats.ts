@@ -10,6 +10,7 @@ export interface TodayStats {
   threeDartAverage: number;
   currentStreak: number;
   bestStreak: number;
+  last5Results: string[];
 }
 
 export function useTodayStats() {
@@ -20,74 +21,41 @@ export function useTodayStats() {
     threeDartAverage: 0,
     currentStreak: 0,
     bestStreak: 0,
+    last5Results: [],
   });
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
-    async function loadTodayStats() {
+    async function loadStats() {
       try {
         setLoading(true);
-        
+
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           setLoading(false);
           return;
         }
 
-        // Get start of today (midnight)
+        // Get today's matches
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayISO = today.toISOString();
 
-        // Fetch matches from today (quick matches and dartbot only)
-        const { data: todayMatches, error: matchesError } = await supabase
+        const { data: todayMatches, error: todayError } = await supabase
           .from('match_history')
-          .select('result, three_dart_avg, darts_thrown, total_score, match_format, played_at')
+          .select('*')
           .eq('user_id', user.id)
-          .gte('played_at', todayISO)
-          .in('match_format', ['quick', 'dartbot']) // Only quick matches and dartbot
+          .gte('played_at', today.toISOString())
           .order('played_at', { ascending: false });
 
-        if (matchesError) {
-          console.error('[useTodayStats] Error fetching today matches:', matchesError);
+        if (todayError) {
+          console.error('[useTodayStats] Error fetching today matches:', todayError);
         }
 
-        // Calculate today's stats
-        const matches = todayMatches || [];
-        
-        console.log('[useTodayStats] Today matches found:', matches.length);
-        console.log('[useTodayStats] Matches:', matches.map(m => ({ 
-          format: m.match_format, 
-          result: m.result, 
-          darts: m.darts_thrown, 
-          score: m.total_score,
-          avg: m.three_dart_avg 
-        })));
-
-        const matchesPlayed = matches.length;
-        const wins = matches.filter(m => m.result === 'win').length;
-        const losses = matches.filter(m => m.result === 'loss').length;
-        
-        // Calculate 3-dart average for today
-        // Formula: (totalScore / totalDarts) * 3
-        let threeDartAverage = 0;
-        if (matches.length > 0) {
-          const totalDarts = matches.reduce((sum, m) => sum + (m.darts_thrown || 0), 0);
-          const totalScore = matches.reduce((sum, m) => sum + (m.total_score || 0), 0);
-          
-          console.log('[useTodayStats] Total darts:', totalDarts, 'Total score:', totalScore);
-          
-          if (totalDarts > 0) {
-            threeDartAverage = (totalScore / totalDarts) * 3;
-            console.log('[useTodayStats] Calculated 3-dart avg:', threeDartAverage);
-          }
-        }
-
-        // Get current and best streak from player_stats
+        // Get player stats for streaks
         const { data: playerStats, error: statsError } = await supabase
           .from('player_stats')
-          .select('current_win_streak, best_win_streak')
+          .select('*')
           .eq('user_id', user.id)
           .single();
 
@@ -95,17 +63,28 @@ export function useTodayStats() {
           console.error('[useTodayStats] Error fetching player stats:', statsError);
         }
 
-        const finalStats = {
-          matchesPlayed,
+        // Calculate today's stats
+        const matches = todayMatches || [];
+        const wins = matches.filter(m => m.result === 'win').length;
+        const losses = matches.filter(m => m.result === 'loss').length;
+        
+        // Calculate average from today's matches
+        const validAvgs = matches
+          .filter(m => m.three_dart_avg > 0)
+          .map(m => m.three_dart_avg);
+        const avg = validAvgs.length > 0
+          ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length
+          : 0;
+
+        setStats({
+          matchesPlayed: matches.length,
           wins,
           losses,
-          threeDartAverage: Math.round(threeDartAverage * 10) / 10,
+          threeDartAverage: Math.round(avg * 10) / 10,
           currentStreak: playerStats?.current_win_streak || 0,
           bestStreak: playerStats?.best_win_streak || 0,
-        };
-        
-        console.log('[useTodayStats] Final stats:', finalStats);
-        setStats(finalStats);
+          last5Results: playerStats?.last_5_results || [],
+        });
       } catch (err) {
         console.error('[useTodayStats] Unexpected error:', err);
       } finally {
@@ -113,7 +92,73 @@ export function useTodayStats() {
       }
     }
 
-    loadTodayStats();
+    loadStats();
+  }, [supabase]);
+
+  return { stats, loading };
+}
+
+// Hook for dashboard stats using the RPC function
+export function useDashboardStats() {
+  const [stats, setStats] = useState({
+    today_matches: 0,
+    today_wins: 0,
+    current_streak: 0,
+    last_5_results: [],
+    avg_3dart: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function loadDashboardStats() {
+      try {
+        setLoading(true);
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.rpc('get_dashboard_stats', {
+          p_user_id: user.id,
+        });
+
+        if (error) {
+          console.error('[useDashboardStats] Error:', error);
+          // Fallback to manual calculation
+          const { data: matches } = await supabase
+            .from('match_history')
+            .select('*')
+            .eq('user_id', user.id)
+            .gte('played_at', new Date().toISOString().split('T')[0])
+            .order('played_at', { ascending: false });
+
+          const { data: playerStats } = await supabase
+            .from('player_stats')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          setStats({
+            today_matches: matches?.length || 0,
+            today_wins: matches?.filter(m => m.result === 'win').length || 0,
+            current_streak: playerStats?.current_win_streak || 0,
+            last_5_results: playerStats?.last_5_results || [],
+            avg_3dart: 0,
+          });
+        } else {
+          setStats(data);
+        }
+      } catch (err) {
+        console.error('[useDashboardStats] Unexpected error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboardStats();
   }, [supabase]);
 
   return { stats, loading };

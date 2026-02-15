@@ -1,4 +1,5 @@
 import { MatchVisit } from '@/lib/utils/match-persistence';
+import { calculateCheckoutPercentage, isValidCheckout } from '@/lib/match-logic';
 
 export interface PlayerMatchStats {
   threeDartAverage: number;
@@ -85,19 +86,25 @@ export function computeMatchStats(
   let checkoutsMade = checkoutsMadeOverride ?? playerVisits.filter(v => v.checkoutSuccess || v.isCheckout).length;
 
   if (checkoutDartsAttemptedOverride === undefined) {
+    // Calculate darts at double properly like dartcounter.net
+    // Only count darts from visits where player started on a valid checkout
     checkoutDartsAttempted = playerVisits.reduce((sum, v) => {
-      return sum + (v.dartsAtDouble ?? 0);
+      const remainingBefore = v.remainingBefore || v.remainingScore + v.score;
+      // Only count if starting on a valid checkout
+      if (isValidCheckout(remainingBefore)) {
+        return sum + (v.dartsAtDouble ?? v.dartsThrown ?? 3);
+      }
+      return sum;
     }, 0);
   }
 
   const checkoutAttempts = playerVisits.filter(v => {
-    return v.wasCheckoutAttempt ||
-           v.dartsAtDouble !== undefined ||
-           v.checkoutSuccess ||
-           v.isCheckout;
+    const remainingBefore = v.remainingBefore || v.remainingScore + v.score;
+    return isValidCheckout(remainingBefore);
   }).length;
 
-  const checkoutPercent = checkoutDartsAttempted > 0 ? (checkoutsMade / checkoutDartsAttempted) * 100 : 0;
+  // Use proper checkout percentage calculation
+  const checkoutPercent = calculateCheckoutPercentage(checkoutsMade, checkoutDartsAttempted);
 
   let highestCheckout = 0;
 

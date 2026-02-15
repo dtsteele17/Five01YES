@@ -111,6 +111,7 @@ export default function StatsPage() {
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showAllMatches, setShowAllMatches] = useState(false);
   const [totalMatchesFromHistory, setTotalMatchesFromHistory] = useState<number>(0);
   
   const { overallStats, loading: overallLoading, error: overallError, refetch: refetchOverall } = usePlayerStats();
@@ -390,12 +391,22 @@ export default function StatsPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Match History</h2>
-              <p className="text-slate-400 text-sm">Your recent games</p>
+              <p className="text-slate-400 text-sm">
+                {showAllMatches ? 'All matches from last 3 months' : 'Last 5 matches'}
+              </p>
             </div>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowAllMatches(!showAllMatches)}
+            className="border-slate-600 text-slate-300 hover:text-white"
+          >
+            {showAllMatches ? 'Show Last 5' : 'View All'}
+          </Button>
         </div>
         <MatchHistoryList 
-          limit={10} 
+          limit={showAllMatches ? 100 : 5}
+          days={showAllMatches ? 90 : undefined}
           gameMode={isFiltered ? gameModeParam : null}
           matchType={isFiltered ? matchTypeParam : null}
         />

@@ -48,11 +48,12 @@ interface MatchHistoryItem {
 interface MatchHistoryListProps {
   userId?: string;
   limit?: number;
+  days?: number;  // Filter by days (e.g., 90 for last 3 months)
   gameMode?: number | null;  // Filter by game mode (301, 501)
   matchType?: string | null; // Filter by match type
 }
 
-export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchType = null }: MatchHistoryListProps) {
+export function MatchHistoryList({ userId, limit = 20, days, gameMode = null, matchType = null }: MatchHistoryListProps) {
   const [matches, setMatches] = useState<MatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<MatchHistoryItem | null>(null);
@@ -81,6 +82,13 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
           `)
           .eq('user_id', targetUserId)
           .order('played_at', { ascending: false });
+
+        // Apply days filter
+        if (days !== undefined) {
+          const since = new Date();
+          since.setDate(since.getDate() - days);
+          query = query.gte('played_at', since.toISOString());
+        }
 
         // Apply game mode filter
         if (gameMode !== null) {
@@ -120,7 +128,7 @@ export function MatchHistoryList({ userId, limit = 20, gameMode = null, matchTyp
     }
 
     loadMatchHistory();
-  }, [userId, limit, gameMode, matchType]);
+  }, [userId, limit, days, gameMode, matchType]);
 
   if (loading) {
     return (
