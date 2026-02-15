@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { SafetyGrade, getUserSafetyRating, GRADE_COLORS, GRADE_TEXT_COLORS, GRADE_LABELS } from '@/lib/safety/safetyService';
+import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
+import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 import { Shield } from 'lucide-react';
 
 interface SafetyRatingDisplayProps {
@@ -22,15 +24,25 @@ export function SafetyRatingDisplay({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchRating = async () => {
-      const data = await getUserSafetyRating(userId);
-      setRating(data);
-      setLoading(false);
-    };
-
-    fetchRating();
+  const fetchRating = useCallback(async () => {
+    setLoading(true);
+    const data = await getUserSafetyRating(userId);
+    setRating(data);
+    setLoading(false);
   }, [userId]);
+
+  useEffect(() => {
+    fetchRating();
+
+    // Subscribe to safety rating updates
+    const unsubscribe = onSafetyRatingUpdated((updatedUserId) => {
+      if (updatedUserId === userId || updatedUserId === 'all') {
+        fetchRating();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [userId, fetchRating]);
 
   if (loading) {
     return (
@@ -86,6 +98,15 @@ export function SafetyRatingCompact({ userId }: { userId: string }) {
     };
 
     fetchRating();
+
+    // Subscribe to safety rating updates
+    const unsubscribe = onSafetyRatingUpdated((updatedUserId) => {
+      if (updatedUserId === userId || updatedUserId === 'all') {
+        fetchRating();
+      }
+    });
+
+    return () => unsubscribe();
   }, [userId]);
 
   if (!grade) return null;
@@ -124,6 +145,15 @@ export function SafetyRatingVerified({ userId, showScore = true }: SafetyRatingV
     };
 
     fetchRating();
+
+    // Subscribe to safety rating updates
+    const unsubscribe = onSafetyRatingUpdated((updatedUserId) => {
+      if (updatedUserId === userId || updatedUserId === 'all') {
+        fetchRating();
+      }
+    });
+
+    return () => unsubscribe();
   }, [userId]);
 
   if (!rating || !rating.grade) {

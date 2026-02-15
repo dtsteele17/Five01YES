@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { notifySafetyRatingUpdated } from './safetyEvents';
 
 export type SafetyGrade = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -69,6 +70,9 @@ export async function submitRating(
       console.error('Error submitting safety rating:', error);
       return { success: false, error: error.message };
     }
+
+    // Notify all listeners that the rating has been updated
+    notifySafetyRatingUpdated(ratedId);
 
     return { success: true };
   } catch (err) {

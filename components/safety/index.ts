@@ -29,3 +29,10 @@ export {
   useRatingNotifications,
   useMatchRating
 } from '@/lib/safety/useSafetyRatings';
+
+// Events
+export {
+  onSafetyRatingUpdated,
+  notifySafetyRatingUpdated,
+  refreshAllSafetyRatings
+} from '@/lib/safety/safetyEvents';
