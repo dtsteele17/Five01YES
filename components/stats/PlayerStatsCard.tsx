@@ -7,7 +7,6 @@ interface PlayerStats {
   total_matches: number;
   wins: number;
   losses: number;
-  draws: number;
   // Overall stats use these names
   overall_3dart_avg?: number;
   overall_first9_avg?: number;
@@ -57,7 +56,7 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
       </div>
 
       {/* Win/Loss Record */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="text-center">
           <div className="text-3xl font-bold text-emerald-400">{stats.wins}</div>
           <div className="text-xs text-slate-400">Wins</div>
@@ -65,10 +64,6 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
         <div className="text-center">
           <div className="text-3xl font-bold text-red-400">{stats.losses}</div>
           <div className="text-xs text-slate-400">Losses</div>
-        </div>
-        <div className="text-center">
-          <div className="text-3xl font-bold text-yellow-400">{stats.draws}</div>
-          <div className="text-xs text-slate-400">Draws</div>
         </div>
         <div className="text-center">
           <div className="text-3xl font-bold text-white">{winPercentage}%</div>
