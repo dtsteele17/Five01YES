@@ -1102,6 +1102,22 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
   // If we busted, return bust result with darts thrown (counts as full visit - 3 darts)
   if (bustState) {
     console.log(`[DartBot❌] BUST! ${remaining}->${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
+    
+    // IMPORTANT: Add "miss" darts for remaining throws to ensure 3 darts are always counted
+    // In real darts, when you bust, your turn ends but you still threw those darts
+    while (darts.length < 3) {
+      darts.push({
+        label: 'MISS',
+        score: 0,
+        isDouble: false,
+        isTreble: false,
+        offboard: true,
+        aimTarget: '-',
+        x: 1.5, // Off board
+        y: 0
+      });
+    }
+    
     return {
       darts,
       visitTotal: 0,

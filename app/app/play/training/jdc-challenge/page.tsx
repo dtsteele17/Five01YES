@@ -294,22 +294,32 @@ export default function JDCChallengePage() {
       case 'bull':
         // Show Outer Bull and Bullseye
         return (
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="space-y-3 mb-4">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleDartInput(25, 1, '25')}
+                disabled={disabled}
+                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
+              >
+                Outer Bull
+                <span className="block text-sm text-gray-500">25</span>
+              </button>
+              <button
+                onClick={() => handleDartInput(50, 1, 'BULL')}
+                disabled={disabled}
+                className="h-20 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-lg text-white"
+              >
+                Bullseye
+                <span className="block text-sm text-red-400">50</span>
+              </button>
+            </div>
             <button
-              onClick={() => handleDartInput(25, 1, '25')}
+              onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={disabled}
-              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
+              className="w-full h-14 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
             >
-              Outer Bull
-              <span className="block text-sm text-gray-500">25</span>
-            </button>
-            <button
-              onClick={() => handleDartInput(50, 1, 'BULL')}
-              disabled={disabled}
-              className="h-20 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-lg text-white"
-            >
-              Bullseye
-              <span className="block text-sm text-red-400">50</span>
+              Miss
+              <span className="block text-sm text-gray-600">0</span>
             </button>
           </div>
         );
