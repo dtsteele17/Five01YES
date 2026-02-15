@@ -425,9 +425,14 @@ function TierNavigator({
   
   const totalPages = allPages.length;
 
+  // Debug logging
+  useEffect(() => {
+    console.log('[RankedDivisions] totalPages:', totalPages, 'currentPage:', currentPage, 'allPages:', allPages.length);
+  }, [totalPages, currentPage, allPages]);
+
   // Set initial page to show user's current tier
   useEffect(() => {
-    if (currentTierIndex >= 0) {
+    if (currentTierIndex >= 0 && allPages.length > 0) {
       const userTier = tiers[currentTierIndex];
       if (userTier) {
         if (userTier.tier_name.toLowerCase().includes('grand')) {
@@ -453,6 +458,7 @@ function TierNavigator({
   const colors = TIER_COLORS[tierKey];
 
   const goToPrevious = () => {
+    console.log('[RankedDivisions] goToPrevious called, currentPage:', currentPage, 'isAnimating:', isAnimating);
     if (isAnimating || currentPage === 0) return;
     setIsAnimating(true);
     setCurrentPage(prev => prev - 1);
@@ -460,7 +466,8 @@ function TierNavigator({
   };
 
   const goToNext = () => {
-    if (isAnimating || currentPage === totalPages - 1) return;
+    console.log('[RankedDivisions] goToNext called, currentPage:', currentPage, 'totalPages:', totalPages, 'isAnimating:', isAnimating);
+    if (isAnimating || currentPage >= totalPages - 1) return;
     setIsAnimating(true);
     setCurrentPage(prev => prev + 1);
     setTimeout(() => setIsAnimating(false), 400);
@@ -504,27 +511,31 @@ function TierNavigator({
           {/* Navigation Controls - Ultra Premium */}
           <div className="flex items-center justify-center gap-4 mb-8">
             <button
-              onClick={goToPrevious}
+              type="button"
+              onClick={() => goToPrevious()}
               disabled={currentPage === 0}
-              className={`group relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border ${colors.border} flex items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-${isGrandChampionPage ? 'purple' : colors.bg.split('-')[1]}-500/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden`}
+              className={`group relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border-2 ${colors.border} flex items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-2xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden cursor-pointer z-20`}
+              style={{ boxShadow: isGrandChampionPage ? '0 0 30px rgba(168, 85, 247, 0.3)' : undefined }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <ChevronLeft className="w-7 h-7 relative z-10 group-hover:-translate-x-0.5 transition-transform" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <ChevronLeft className="w-7 h-7 relative z-10 group-hover:-translate-x-0.5 transition-transform pointer-events-none" />
             </button>
             
-            <div className={`px-8 py-4 rounded-2xl bg-gradient-to-b from-slate-800/80 to-slate-900/80 border ${colors.border} backdrop-blur-sm shadow-xl`}>
+            <div className={`px-8 py-4 rounded-2xl bg-gradient-to-b from-slate-800/80 to-slate-900/80 border-2 ${colors.border} backdrop-blur-sm shadow-xl`}>
               <span className={`${colors.text} font-black text-xl tracking-wide`}>
                 Tier {currentPage + 1} <span className="text-white/30 mx-2">/</span> {totalPages}
               </span>
             </div>
             
             <button
-              onClick={goToNext}
+              type="button"
+              onClick={() => goToNext()}
               disabled={currentPage === totalPages - 1}
-              className={`group relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border ${colors.border} flex items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-${isGrandChampionPage ? 'purple' : colors.bg.split('-')[1]}-500/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden`}
+              className={`group relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-700 to-slate-800 border-2 ${colors.border} flex items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-2xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden cursor-pointer z-20`}
+              style={{ boxShadow: isGrandChampionPage ? '0 0 30px rgba(168, 85, 247, 0.3)' : undefined }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <ChevronRight className="w-7 h-7 relative z-10 group-hover:translate-x-0.5 transition-transform" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <ChevronRight className="w-7 h-7 relative z-10 group-hover:translate-x-0.5 transition-transform pointer-events-none" />
             </button>
           </div>
           
