@@ -304,9 +304,6 @@ function ATCLobbyModal({
   const [atcSettings, setAtcSettings] = useState<any>(null);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [processingRequest, setProcessingRequest] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [lobbyFullAt, setLobbyFullAt] = useState<number | null>(null);
-  const [timerActive, setTimerActive] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   
@@ -378,51 +375,7 @@ function ATCLobbyModal({
     };
   }, [lobby.id, userId, router, isHost]);
 
-  // Timer effect for ready-up phase
-  useEffect(() => {
-    const playerSlots = atcSettings?.player_count || 2;
-    const isFull = players.length >= playerSlots;
-    const minPlayers = 2; // Minimum to start a match
-    const readyCount = players.filter(p => p.is_ready).length;
-    const allReady = players.length > 0 && players.every(p => p.is_ready);
-
-    // Check if we should start the match
-    // Case 1: All players are ready (regardless of max)
-    if (allReady && players.length >= minPlayers && !timerActive) {
-      console.log('[ATC] All players ready, starting match...');
-      createMatchAndStart();
-      return;
-    }
-
-    // Case 2: Lobby is full AND timer hasn't started yet
-    if (isFull && !lobbyFullAt && !timerActive && players.length >= minPlayers) {
-      console.log('[ATC] Lobby full, starting 60s timer...');
-      setLobbyFullAt(Date.now());
-      setTimeRemaining(60);
-      setTimerActive(true);
-      toast.info('Lobby full! 60 seconds to ready up');
-    }
-
-    // Countdown timer
-    let interval: NodeJS.Timeout;
-    if (lobbyFullAt && timerActive && timeRemaining !== null && timeRemaining > 0) {
-      interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - lobbyFullAt) / 1000);
-        const remaining = Math.max(0, 60 - elapsed);
-        setTimeRemaining(remaining);
-
-        if (remaining === 0) {
-          // Time's up - handle timer expiration
-          clearInterval(interval);
-          handleTimerExpired();
-        }
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [players, atcSettings, lobbyFullAt, timeRemaining, timerActive]);
+  // NO AUTO-START - Host must click Play button to start the match
   
   const fetchJoinRequests = async () => {
     const { data } = await supabase
@@ -490,49 +443,7 @@ function ATCLobbyModal({
     }
   };
 
-  const handleTimerExpired = async () => {
-    const readyPlayers = players.filter(p => p.is_ready);
-    
-    if (readyPlayers.length >= 2) {
-      // Start with ready players only
-      toast.info('Timer expired - starting match with ready players...');
-      
-      // Update lobby to only include ready players
-      await supabase
-        .from('quick_match_lobbies')
-        .update({ 
-          players: readyPlayers,
-          status: 'starting'
-        })
-        .eq('id', lobby.id);
-      
-      // Small delay to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await createMatchAndStart();
-    } else {
-      // Not enough ready players - reset lobby
-      toast.info('Not enough ready players. Resetting lobby...');
-      
-      // Keep only ready players (which could be 0 or 1)
-      const updatedPlayers = players.filter(p => p.is_ready);
-      
-      // Reset all players' ready status for a fresh start
-      const resetPlayers = updatedPlayers.map(p => ({ ...p, is_ready: false }));
-      
-      await supabase
-        .from('quick_match_lobbies')
-        .update({ 
-          players: resetPlayers,
-          status: 'waiting'
-        })
-        .eq('id', lobby.id);
-      
-      setLobbyFullAt(null);
-      setTimeRemaining(null);
-      setTimerActive(false);
-    }
-  };
+  // Timer and auto-start logic removed - Host must click Play
 
   const handleAcceptRequest = async (request: JoinRequest) => {
     if (processingRequest) return;
@@ -638,8 +549,6 @@ function ATCLobbyModal({
   const playerSlots = atcSettings?.player_count || 2;
   const availableSlots = playerSlots - players.length;
   const allPlayersReady = players.length > 0 && players.every(p => p.is_ready);
-  const isLobbyFull = players.length >= playerSlots;
-  const showTimer = isLobbyFull && timeRemaining !== null && timeRemaining > 0;
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -793,38 +702,26 @@ function ATCLobbyModal({
             </div>
           )}
 
-          {/* Ready Count & Timer */}
+          {/* Ready Status */}
           <div className="text-center space-y-2">
-            {/* Countdown Timer - Show when lobby is full */}
-            {showTimer && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                <p className="text-amber-400 font-bold text-lg">
-                  {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
-                </p>
-                <p className="text-amber-400/80 text-xs">
-                  {allPlayersReady 
-                    ? 'All players ready! Starting...' 
-                    : 'Time remaining to ready up'}
-                </p>
-              </div>
-            )}
-            
-            {/* Lobby Full Message */}
-            {isLobbyFull && !showTimer && (
-              <p className="text-emerald-400 text-sm font-medium">
-                All players ready! Starting match...
-              </p>
-            )}
-            
-            {/* Ready Status */}
-            {!isLobbyFull && (
-              <span className="text-slate-400 text-sm">
-                {players.filter(p => p.is_ready).length} / {players.length} players ready
-              </span>
-            )}
+            <span className="text-slate-400 text-sm">
+              {players.filter(p => p.is_ready).length} / {players.length} players ready
+            </span>
             
             {players.length < 2 && (
               <p className="text-xs text-amber-400 mt-1">Need at least 2 players to start</p>
+            )}
+            
+            {players.length >= 2 && allPlayersReady && isHost && (
+              <p className="text-emerald-400 text-sm font-medium">
+                Everyone ready! Click PLAY to start
+              </p>
+            )}
+            
+            {players.length >= 2 && !allPlayersReady && (
+              <p className="text-amber-400 text-xs">
+                Waiting for all players to ready up...
+              </p>
             )}
           </div>
           
@@ -838,7 +735,6 @@ function ATCLobbyModal({
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
               }`}
               onClick={toggleReady}
-              disabled={showTimer && allPlayersReady} // Disable once auto-starting
             >
               {isReady ? (
                 <>
@@ -853,33 +749,26 @@ function ATCLobbyModal({
               )}
             </Button>
             
-            {/* Status Message - Shows when waiting */}
-            {isLobbyFull && !allPlayersReady && (
-              <div className="text-center py-2">
-                <p className="text-amber-400 text-sm">
-                  Waiting for all players to ready up...
-                </p>
-                <p className="text-slate-500 text-xs mt-1">
-                  ({players.filter(p => p.is_ready).length}/{players.length} ready)
-                </p>
-              </div>
-            )}
-            
-            {/* Auto-start Indicator */}
-            {allPlayersReady && players.length >= 2 && (
-              <div className="text-center py-2">
-                <p className="text-emerald-400 text-sm font-medium flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Starting match...
-                </p>
-              </div>
+            {/* PLAY Button - Host only, when all players ready */}
+            {isHost && (
+              <Button
+                className="w-full py-4 text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={onStartMatch}
+                disabled={!allPlayersReady || players.length < 2}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {!allPlayersReady 
+                  ? `Waiting for players (${players.filter(p => p.is_ready).length}/${players.length} ready)` 
+                  : players.length < 2 
+                    ? 'Need more players'
+                    : 'PLAY NOW!'}
+              </Button>
             )}
             
             <Button
               className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
               onClick={onLeave}
               variant="outline"
-              disabled={allPlayersReady && players.length >= 2} // Prevent leaving once starting
             >
               <X className="w-4 h-4 mr-2" />
               {isHost ? 'Cancel Lobby' : 'Leave Lobby'}
