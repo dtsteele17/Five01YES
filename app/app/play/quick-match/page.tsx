@@ -288,6 +288,8 @@ function ATCLobbyModal({
   const [players, setPlayers] = useState<ATCPlayer[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [atcSettings, setAtcSettings] = useState<any>(null);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [processingRequest, setProcessingRequest] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   
@@ -299,6 +301,11 @@ function ATCLobbyModal({
     
     const currentPlayer = lobbyPlayers.find((p: ATCPlayer) => p.id === userId);
     setIsReady(currentPlayer?.is_ready || false);
+    
+    // Fetch pending join requests if host
+    if (isHost) {
+      fetchJoinRequests();
+    }
     
     // Subscribe to lobby changes
     const channel = supabase
@@ -325,14 +332,45 @@ function ATCLobbyModal({
         }
       )
       .subscribe();
+    
+    // Subscribe to join requests if host
+    let joinRequestChannel: any;
+    if (isHost) {
+      joinRequestChannel = supabase
+        .channel(`join-requests-${lobby.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'quick_match_join_requests',
+            filter: `lobby_id=eq.${lobby.id}`,
+          },
+          () => {
+            fetchJoinRequests();
+          }
+        )
+        .subscribe();
+    }
       
     return () => {
       channel.unsubscribe();
+      if (joinRequestChannel) joinRequestChannel.unsubscribe();
     };
-  }, [lobby.id, userId, router]);
+  }, [lobby.id, userId, router, isHost]);
+  
+  const fetchJoinRequests = async () => {
+    const { data } = await supabase
+      .from('quick_match_join_requests')
+      .select('*')
+      .eq('lobby_id', lobby.id)
+      .eq('status', 'pending');
+    
+    if (data) setJoinRequests(data);
+  };
   
   const toggleReady = async () => {
-    if (!userId || isHost) return;
+    if (!userId) return;
     
     const newReadyState = !isReady;
     setIsReady(newReadyState);
@@ -347,14 +385,77 @@ function ATCLobbyModal({
       .eq('id', lobby.id);
   };
   
+  const handleAcceptJoin = async (request: JoinRequest) => {
+    if (processingRequest) return;
+    setProcessingRequest(true);
+    
+    try {
+      // Get current players
+      const currentPlayers = [...players];
+      
+      // Add new player
+      const newPlayer: ATCPlayer = {
+        id: request.requester_id,
+        username: request.requester_username,
+        avatar_url: request.requester_avatar_url,
+        is_ready: false,
+        current_target: 1,
+        completed_targets: [],
+        is_winner: false
+      };
+      
+      const updatedPlayers = [...currentPlayers, newPlayer];
+      
+      // Update lobby
+      const { error: updateError } = await supabase
+        .from('quick_match_lobbies')
+        .update({ players: updatedPlayers })
+        .eq('id', lobby.id);
+      
+      if (updateError) throw updateError;
+      
+      // Update request status
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'accepted' })
+        .eq('id', request.id);
+      
+      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+      toast.success(`${request.requester_username} joined the lobby!`);
+    } catch (error: any) {
+      toast.error(`Failed to accept: ${error.message}`);
+    } finally {
+      setProcessingRequest(false);
+    }
+  };
+  
+  const handleDeclineJoin = async (request: JoinRequest) => {
+    if (processingRequest) return;
+    setProcessingRequest(true);
+    
+    try {
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'declined' })
+        .eq('id', request.id);
+      
+      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+      toast.info(`Declined ${request.requester_username}`);
+    } catch (error: any) {
+      toast.error(`Failed to decline: ${error.message}`);
+    } finally {
+      setProcessingRequest(false);
+    }
+  };
+  
   const playerSlots = atcSettings?.player_count || 2;
-  const emptySlots = playerSlots - players.length;
-  const allPlayersReady = players.length > 1 && players.every(p => p.is_ready);
-  const canStart = isHost && allPlayersReady;
+  const availableSlots = playerSlots - players.length;
+  const allPlayersReady = players.length >= 1 && players.every(p => p.is_ready);
+  const canStart = isHost && allPlayersReady && players.length >= 2;
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
           <div className="flex items-center justify-between">
@@ -402,7 +503,8 @@ function ATCLobbyModal({
           {/* Player List */}
           <div className="space-y-2">
             <p className="text-xs text-slate-500 uppercase tracking-wider">Players</p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-2">
+              {/* Current Players */}
               {players.map((player) => (
                 <div 
                   key={player.id}
@@ -428,8 +530,43 @@ function ATCLobbyModal({
                 </div>
               ))}
               
+              {/* Join Requests (Host only) */}
+              {isHost && joinRequests.map((request) => (
+                <div 
+                  key={request.id}
+                  className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-sm font-bold">
+                      {request.requester_username.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-white text-sm">{request.requester_username}</span>
+                    <Badge className="bg-amber-500/20 text-amber-400 text-xs">Wants to Join</Badge>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-2 py-1 h-7"
+                      onClick={() => handleAcceptJoin(request)}
+                      disabled={processingRequest || players.length >= playerSlots}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs px-2 py-1 h-7"
+                      onClick={() => handleDeclineJoin(request)}
+                      disabled={processingRequest}
+                      variant="outline"
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
               {/* Empty slots */}
-              {Array.from({ length: emptySlots }).map((_, i) => (
+              {Array.from({ length: availableSlots }).map((_, i) => (
                 <div 
                   key={`empty-${i}`}
                   className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700"
@@ -446,65 +583,59 @@ function ATCLobbyModal({
             <span className="text-slate-400">
               {players.filter(p => p.is_ready).length} / {players.length} players ready
             </span>
+            {players.length < 2 && (
+              <p className="text-xs text-amber-400 mt-1">Need at least 2 players to start</p>
+            )}
           </div>
           
           {/* Action Buttons */}
           <div className="space-y-3">
-            {isHost ? (
-              // Host buttons
-              <>
-                <Button
-                  className="w-full py-4 text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={onStartMatch}
-                  disabled={!canStart}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  {!allPlayersReady 
-                    ? `Waiting for players (${players.filter(p => p.is_ready).length}/${players.length} ready)` 
-                    : 'Start Match!'}
-                </Button>
-                <Button
-                  className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
-                  onClick={onLeave}
-                  variant="outline"
-                >
+            {/* Ready Button - For EVERYONE including host */}
+            <Button
+              className={`w-full py-3 text-base font-bold ${
+                isReady 
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+              onClick={toggleReady}
+            >
+              {isReady ? (
+                <>
                   <X className="w-4 h-4 mr-2" />
-                  Cancel Lobby
-                </Button>
-              </>
-            ) : (
-              // Joined player buttons
-              <>
-                <Button
-                  className={`w-full py-4 text-base font-bold ${
-                    isReady 
-                      ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
-                      : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                  }`}
-                  onClick={toggleReady}
-                >
-                  {isReady ? (
-                    <>
-                      <X className="w-4 h-4 mr-2" />
-                      Cancel Ready
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Ready Up!
-                    </>
-                  )}
-                </Button>
-                <Button
-                  className="w-full bg-slate-700 text-slate-300 hover:bg-slate-600"
-                  onClick={onLeave}
-                  variant="outline"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Leave Lobby
-                </Button>
-              </>
+                  Cancel Ready
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {isHost ? 'Host Ready Up!' : 'Ready Up!'}
+                </>
+              )}
+            </Button>
+            
+            {/* Play Button - Host only, when all ready */}
+            {isHost && (
+              <Button
+                className="w-full py-4 text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={onStartMatch}
+                disabled={!canStart}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {!allPlayersReady 
+                  ? `Waiting for players (${players.filter(p => p.is_ready).length}/${players.length} ready)` 
+                  : players.length < 2 
+                    ? 'Need more players'
+                    : 'PLAY NOW!'}
+              </Button>
             )}
+            
+            <Button
+              className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+              onClick={onLeave}
+              variant="outline"
+            >
+              <X className="w-4 h-4 mr-2" />
+              {isHost ? 'Cancel Lobby' : 'Leave Lobby'}
+            </Button>
           </div>
         </div>
       </div>
