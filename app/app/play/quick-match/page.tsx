@@ -1179,7 +1179,11 @@ export default function QuickMatchLobbyPage() {
       console.log('[FETCH] Loading lobbies...');
       setFetchError(null);
 
-      // Fetch open lobbies with host profile and stored stats
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+
+      // Fetch open lobbies AND my lobby (regardless of status) with host profile and stored stats
       const { data: lobbiesData, error: lobbiesError } = await supabase
         .from('quick_match_lobbies')
         .select(`
@@ -1207,7 +1211,7 @@ export default function QuickMatchLobbyPage() {
             safety_rating_count
           )
         `)
-        .eq('status', 'open')
+        .or(`status.eq.open${userId ? `,created_by.eq.${userId}` : ''}`)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -1266,17 +1270,19 @@ export default function QuickMatchLobbyPage() {
       setLobbies(transformedLobbies as QuickMatchLobby[]);
 
       // Only update myLobby if not currently cancelling (to prevent race conditions)
-      if (!isCancelling) {
-        const myOpenLobby = transformedLobbies.find(l => l.created_by === userId && l.status === 'open');
-        if (myOpenLobby) {
-          setMyLobby(myOpenLobby as QuickMatchLobby);
-        } else if (myLobby) {
+      if (!isCancelling && userId) {
+        // Find my lobby regardless of status (open, waiting, full, etc.)
+        const myCurrentLobby = transformedLobbies.find(l => l.created_by === userId);
+        if (myCurrentLobby) {
+          console.log('[FETCH] Found my lobby:', myCurrentLobby.id, 'status:', myCurrentLobby.status);
+          setMyLobby(myCurrentLobby as QuickMatchLobby);
+        } else if (myLobby && !isCancelling) {
           // My lobby no longer exists in the database, clear it
           console.log('[FETCH] My lobby no longer in database, clearing state');
           setMyLobby(null);
         }
       } else {
-        console.log('[FETCH] Skipping myLobby update - cancellation in progress');
+        console.log('[FETCH] Skipping myLobby update - cancellation in progress or no user');
       }
     } catch (error: any) {
       console.error('[FETCH] Exception:', error);
