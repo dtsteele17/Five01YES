@@ -156,6 +156,41 @@ export default function QuickMatchLobbyPage() {
     return () => void channel.unsubscribe();
   }, [userId, myLobby?.id]);
 
+  // ============================================
+  // SUBSCRIBE TO JOIN REQUEST STATUS (for joiners)
+  // ============================================
+  useEffect(() => {
+    if (!userId || !pendingLobbyId) return;
+    
+    // Subscribe to lobby updates while waiting
+    const lobbyChannel = supabase
+      .channel(`pending-lobby-${pendingLobbyId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'quick_match_lobbies',
+        filter: `id=eq.${pendingLobbyId}`
+      }, async (payload) => {
+        const updated = payload.new as QuickMatchLobby;
+        
+        // Check if I was added to the lobby
+        const isInLobby = updated.players?.some(p => p.id === userId);
+        
+        if (isInLobby) {
+          console.log('[PENDING] I was added to the lobby!');
+          setPendingLobbyId(null);
+          setMyLobby(updated);
+          if (updated.game_type === 'atc') {
+            setShowATCModal(true);
+            toast.success('Join request accepted! You are in the lobby.');
+          }
+        }
+      })
+      .subscribe();
+      
+    return () => void lobbyChannel.unsubscribe();
+  }, [userId, pendingLobbyId]);
+
   async function initialize() {
     try {
       const { data: { user } } = await supabase.auth.getUser();

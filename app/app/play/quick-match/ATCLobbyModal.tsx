@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trophy, Target, CheckCircle2, X, Play, UserPlus, Loader2 } from 'lucide-react';
+import { Target, CheckCircle2, X, Play, UserPlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
@@ -15,9 +14,6 @@ interface ATCPlayer {
   username: string;
   avatar_url?: string;
   is_ready: boolean;
-  current_target?: number | 'bull';
-  completed_targets?: (number | 'bull')[];
-  is_winner?: boolean;
 }
 
 interface ATCSettings {
@@ -34,7 +30,6 @@ interface ATCLobby {
   atc_settings: ATCSettings;
   players: ATCPlayer[];
   match_id?: string;
-  created_at: string;
 }
 
 interface JoinRequest {
@@ -68,10 +63,8 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
   const allPlayersReady = players.length >= 2 && players.every(p => p.is_ready);
 
   useEffect(() => {
-    // Set initial ready state
     setIsReady(currentPlayer?.is_ready || false);
 
-    // Subscribe to lobby updates
     const lobbyChannel = supabase
       .channel(`lobby-${lobby.id}`)
       .on('postgres_changes', {
@@ -83,21 +76,17 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
         const updated = payload.new as ATCLobby;
         setPlayers(updated.players || []);
         
-        // Update my ready status
         const me = updated.players?.find((p: ATCPlayer) => p.id === userId);
         setIsReady(me?.is_ready || false);
 
-        // If match started, redirect
         if (updated.match_id && updated.status === 'in_progress') {
           router.push(`/app/play/quick-match/atc-match?matchId=${updated.match_id}`);
         }
       })
       .subscribe();
 
-    // If host, subscribe to join requests
     let requestsChannel: any;
     if (isHost) {
-      // Initial fetch
       fetchJoinRequests();
 
       requestsChannel = supabase
@@ -137,8 +126,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
         username: request.requester_username,
         avatar_url: request.requester_avatar_url,
         is_ready: false,
-        current_target: settings?.order === 'random' ? undefined : 1,
-        completed_targets: [],
       };
 
       const updatedPlayers = [...players, newPlayer];
@@ -204,7 +191,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg p-0 overflow-hidden">
-        {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2">
@@ -218,7 +204,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Settings */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="bg-slate-800/50 p-3 rounded-lg">
               <p className="text-slate-400">Order</p>
@@ -230,7 +215,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
             </div>
           </div>
 
-          {/* Players */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-400">Players ({players.length}/{maxPlayers})</p>
@@ -267,7 +251,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
                 </div>
               ))}
 
-              {/* Empty Slots */}
               {Array.from({ length: emptySlots }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
@@ -287,7 +270,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
             </div>
           </div>
 
-          {/* Join Requests (Host Only) */}
           {isHost && joinRequests.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm text-amber-400 flex items-center gap-2">
@@ -328,7 +310,6 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
             </div>
           )}
 
-          {/* Actions */}
           <div className="space-y-3 pt-4 border-t border-slate-700">
             {!isHost && (
               <Button
