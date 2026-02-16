@@ -2156,10 +2156,10 @@ export default function QuickMatchLobbyPage() {
                             {/* Trust Rating */}
                             {lobby.player1?.trust_rating_letter && (
                               <div className="flex items-center gap-1 mt-0.5">
-                                <TrustRatingBadge 
-                                  grade={lobby.player1.trust_rating_letter} 
-                                  size="sm" 
-                                  totalRatings={lobby.player1.trust_rating_count || 0}
+                                <TrustRatingBadge
+                                  letter={lobby.player1.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
+                                  size="sm"
+                                  count={lobby.player1.trust_rating_count || 0}
                                 />
                               </div>
                             )}
