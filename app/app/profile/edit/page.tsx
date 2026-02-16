@@ -95,7 +95,7 @@ const profileSchema = z.object({
       z.nan(),
     ])
     .optional()
-    .transform((val) => (val === '' || Number.isNaN(val) ? undefined : val)),
+    .transform((val) => (val === undefined || Number.isNaN(val) ? undefined : val)),
   preferred_hand: z.enum(['Left', 'Right']).optional().or(z.literal('')),
 });
 
