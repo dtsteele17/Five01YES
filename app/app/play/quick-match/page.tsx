@@ -42,6 +42,7 @@ import { validateMatchRoom, hasAttemptedResume, markResumeAttempted } from '@/li
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { SafetyRatingBadge, SafetyRatingMini } from '@/components/safety/SafetyRatingBadge';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { JoinAcceptedPopup } from '@/components/app/JoinAcceptedPopup';
 
 // ============================================
 // TYPES
@@ -666,6 +667,8 @@ export default function QuickMatchLobbyPage() {
   const [pendingLobbyId, setPendingLobbyId] = useState<string | null>(null);
   
   const [showATCLobbyModal, setShowATCLobbyModal] = useState(false);
+  const [showJoinAcceptedPopup, setShowJoinAcceptedPopup] = useState(false);
+  const [acceptedLobbyId, setAcceptedLobbyId] = useState<string | null>(null);
   const [cleanupDone, setCleanupDone] = useState(false);
   
   const [inProgressMatches, setInProgressMatches] = useState<number>(0);
@@ -733,73 +736,14 @@ export default function QuickMatchLobbyPage() {
         console.log('[REALTIME] Join request update:', request.status, 'for lobby:', request.lobby_id);
         
         if (request.status === 'accepted') {
-          console.log('[REALTIME] Request accepted! Opening lobby...');
+          console.log('[REALTIME] Request accepted! Showing popup...');
           
-          // Retry logic for fetching lobby
-          let lobby = null;
-          let retries = 0;
-          const maxRetries = 15;
-          
-          while (!lobby && retries < maxRetries) {
-            // Try simple fetch first (without profile join to avoid RLS issues)
-            console.log(`[REALTIME] Fetching lobby ${request.lobby_id} (attempt ${retries + 1}/${maxRetries})`);
-            const { data: lobbyData, error: lobbyError } = await supabase
-              .from('quick_match_lobbies')
-              .select('*')
-              .eq('id', request.lobby_id)
-              .maybeSingle();
-              
-            if (lobbyError) {
-              console.log(`[REALTIME] Error fetching lobby (retry ${retries + 1}/${maxRetries}):`, lobbyError.message, lobbyError.code);
-            }
-            
-            if (lobbyData) {
-              console.log('[REALTIME] Lobby fetched successfully:', lobbyData.id, 'type:', lobbyData.game_type, 'players:', lobbyData.players?.length);
-              // Verify user is in players list
-              const currentUserId = userIdRef.current;
-              const isInPlayers = lobbyData.players?.some((p: any) => p.id === currentUserId);
-              console.log('[REALTIME] User in players list:', isInPlayers);
-              
-              // Now fetch player1 profile separately
-              const { data: profileData } = await supabase
-                .from('profiles')
-                .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
-                .eq('user_id', lobbyData.player1_id)
-                .maybeSingle();
-                
-              lobby = {
-                ...lobbyData,
-                player1: profileData || { username: 'Host' }
-              };
-            } else {
-              retries++;
-              if (retries < maxRetries) {
-                console.log(`[REALTIME] Lobby not found, retrying in 400ms... (${retries}/${maxRetries})`);
-                await new Promise(r => setTimeout(r, 400));
-              }
-            }
-          }
-          
-          if (!lobby) {
-            console.error('[REALTIME] Failed to fetch lobby after all retries');
-            toast.error('Failed to join lobby. Please try refreshing the page.');
-            return;
-          }
-            
-          if (lobby.game_type === 'atc') {
-            console.log('[REALTIME] ATC lobby found, opening modal');
-            setPendingLobbyId(null);
-            setJoining(null);
-            setMyLobby(lobby as QuickMatchLobby);
-            setShowATCLobbyModal(true);
-            toast.success('Join request accepted! You are in the lobby.');
-          } else if (request.match_id) {
-            // Regular match
-            console.log('[REALTIME] Regular match, redirecting');
-            setPendingLobbyId(null);
-            setJoining(null);
-            router.push(`/app/play/quick-match/match/${request.match_id}`);
-          }
+          // Show the join accepted popup instead of fetching full lobby
+          setPendingLobbyId(null);
+          setJoining(null);
+          setAcceptedLobbyId(request.lobby_id);
+          setShowJoinAcceptedPopup(true);
+          toast.success('Join request accepted! You are in the lobby.');
         } else if (request.status === 'declined') {
           console.log('[REALTIME] Request declined');
           setPendingLobbyId(null);
@@ -937,7 +881,8 @@ export default function QuickMatchLobbyPage() {
         setPendingLobbyId(null);
         setJoining(null);
         setMyLobby(updatedLobby);
-        if (updatedLobby.game_type === 'atc') {
+        // Only show ATCLobbyModal if popup is not already shown
+        if (updatedLobby.game_type === 'atc' && !showJoinAcceptedPopup) {
           setShowATCLobbyModal(true);
           toast.success('Join request accepted! You are in the lobby.');
         }
@@ -949,6 +894,8 @@ export default function QuickMatchLobbyPage() {
         console.log('[REALTIME] User removed from lobby, clearing myLobby');
         setMyLobby(null);
         setShowATCLobbyModal(false);
+        setShowJoinAcceptedPopup(false);
+        setAcceptedLobbyId(null);
         return;
       }
       
@@ -965,6 +912,8 @@ export default function QuickMatchLobbyPage() {
           // Lobby was cancelled
           setMyLobby(null);
           setShowATCLobbyModal(false);
+          setShowJoinAcceptedPopup(false);
+          setAcceptedLobbyId(null);
         }
       }
 
@@ -1379,122 +1328,15 @@ export default function QuickMatchLobbyPage() {
         console.log('[POLL] Request status:', request.status);
 
         if (request.status === 'accepted') {
-          console.log('[POLL] Request ACCEPTED! Fetching lobby...');
+          console.log('[POLL] Request ACCEPTED! Showing popup...');
           clearInterval(checkInterval);
           
-          // Retry logic for fetching lobby (handle race condition)
-          let fullLobby: QuickMatchLobby | null = null;
-          let retries = 0;
-          const maxRetries = 10;
-          
-          while (retries < maxRetries && !fullLobby) {
-            // Simple fetch without profile join to avoid RLS issues
-            const { data, error } = await supabase
-              .from('quick_match_lobbies')
-              .select('*')
-              .eq('id', request.lobby_id)
-              .maybeSingle();
-              
-            if (error) {
-              console.log(`[POLL] Error fetching lobby (retry ${retries + 1}/${maxRetries}):`, error.message);
-            }
-            
-            if (data) {
-              // For ATC, verify we're in the players list
-              if (data.game_type === 'atc') {
-                const currentUserId = userIdRef.current;
-                const isInPlayers = data.players?.some((p: any) => p.id === currentUserId);
-                if (isInPlayers) {
-                  // Fetch player1 profile separately
-                  const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
-                    .eq('user_id', data.player1_id)
-                    .maybeSingle();
-                    
-                  fullLobby = {
-                    ...data,
-                    player1: profileData || { username: 'Host' }
-                  } as QuickMatchLobby;
-                  console.log('[POLL] Lobby fetched with player in it');
-                } else {
-                  console.log(`[POLL] Player not in lobby yet, retry ${retries + 1}/${maxRetries}...`);
-                  await new Promise(r => setTimeout(r, 400));
-                  retries++;
-                }
-              } else {
-                // Fetch player1 profile separately
-                const { data: profileData } = await supabase
-                  .from('profiles')
-                  .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
-                  .eq('user_id', data.player1_id)
-                  .maybeSingle();
-                  
-                fullLobby = {
-                  ...data,
-                  player1: profileData || { username: 'Host' }
-                } as QuickMatchLobby;
-              }
-            } else {
-              console.log(`[POLL] Lobby data null, retry ${retries + 1}/${maxRetries}...`);
-              await new Promise(r => setTimeout(r, 400));
-              retries++;
-            }
-          }
-            
-          if (!fullLobby) {
-            console.error('[POLL] Failed to fetch lobby after all retries');
-            toast.error('Failed to join lobby. Please try refreshing the page.');
-            setJoining(null);
-            setPendingLobbyId(null);
-            return;
-          }
-            
-          if (fullLobby) {
-            console.log('[POLL] Lobby fetched:', fullLobby.id, 'game_type:', fullLobby.game_type);
-            
-            if (fullLobby.game_type === 'atc') {
-              // For ATC, show the lobby modal
-              console.log('[POLL] ATC lobby - preparing to show modal');
-              
-              // FORCE CLEAR all pending/joining state first
-              setPendingLobbyId(null);
-              setJoining(null);
-              
-              // Create a properly typed lobby object
-              const typedLobby: QuickMatchLobby = {
-                ...fullLobby,
-                players: fullLobby.players || [],
-                atc_settings: fullLobby.atc_settings || undefined,
-              };
-              
-              console.log('[POLL] Setting myLobby and opening modal...');
-              
-              // Set lobby first, then show modal
-              setMyLobby(typedLobby);
-              
-              // Use a longer delay and force the modal open
-              setTimeout(() => {
-                console.log('[POLL] Opening ATC modal now!');
-                setShowATCLobbyModal(true);
-                toast.success('Join request accepted! You are in the lobby.');
-              }, 200);
-            } else if (request.match_id) {
-              // For 301/501, go to match
-              console.log('[POLL] Regular match - redirecting to:', request.match_id);
-              toast.success('Join request accepted! Match starting...');
-              router.push(`/app/play/quick-match/match/${request.match_id}`);
-            } else {
-              console.warn('[POLL] No match_id for non-ATC lobby');
-              setJoining(null);
-              setPendingLobbyId(null);
-            }
-          } else {
-            console.error('[POLL] Lobby not found or player not added');
-            toast.error('Error joining lobby. Please try again.');
-            setJoining(null);
-            setPendingLobbyId(null);
-          }
+          // Show the join accepted popup instead of fetching full lobby
+          setPendingLobbyId(null);
+          setJoining(null);
+          setAcceptedLobbyId(request.lobby_id);
+          setShowJoinAcceptedPopup(true);
+          toast.success('Join request accepted! You are in the lobby.');
         } else if (request.status === 'declined') {
           console.log('[POLL] Request DECLINED');
           clearInterval(checkInterval);
@@ -2222,6 +2064,24 @@ export default function QuickMatchLobbyPage() {
             } else {
               leaveLobby();
             }
+          }}
+        />
+      )}
+
+      {/* Join Accepted Popup - Shows when user's join request is accepted */}
+      {showJoinAcceptedPopup && acceptedLobbyId && userId && (
+        <JoinAcceptedPopup
+          lobbyId={acceptedLobbyId}
+          userId={userId}
+          onLeave={() => {
+            setShowJoinAcceptedPopup(false);
+            setAcceptedLobbyId(null);
+            setMyLobby(null);
+          }}
+          onMatchStart={(matchId) => {
+            setShowJoinAcceptedPopup(false);
+            setAcceptedLobbyId(null);
+            router.push(`/app/play/quick-match/atc-match?matchId=${matchId}`);
           }}
         />
       )}

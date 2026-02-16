@@ -54,7 +54,7 @@ export function useRecentMatches(limit: number = 5) {
 
       console.log('[useRecentMatches] Fetching matches for user:', user.id);
 
-      // Fetch from match_history which includes all match types (quick, dartbot, training)
+      // Fetch from match_history - 301/501 quick matches for play menu
       const { data: historyData, error: fetchError } = await supabase
         .from('match_history')
         .select(`
@@ -62,6 +62,8 @@ export function useRecentMatches(limit: number = 5) {
           opponent:opponent_id (username)
         `)
         .eq('user_id', user.id)
+        .eq('match_format', 'quick')
+        .in('game_mode', [301, 501])
         .order('played_at', { ascending: false })
         .limit(limit);
 

@@ -3620,48 +3620,30 @@ export default function QuickMatchRoomPage() {
     console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs, gameMode });
     
     try {
-      // Use the comprehensive function that updates both match_history AND player_stats
-      // This function calculates stats from quick_match_visits automatically
-      
-      // Save winner stats
-      const { data: winnerResult, error: winnerError } = await supabase.rpc('fn_update_player_match_stats', {
+      // Use the new comprehensive function that records both players at once
+      const { data, error } = await supabase.rpc('fn_record_quick_match_complete', {
         p_room_id: roomId,
-        p_user_id: winnerId,
-        p_opponent_id: loserId,
-        p_result: 'win',
-        p_legs_won: winnerLegs,
-        p_legs_lost: loserLegs,
+        p_winner_id: winnerId,
+        p_loser_id: loserId,
+        p_winner_legs: winnerLegs,
+        p_loser_legs: loserLegs,
         p_game_mode: gameMode
       });
       
-      if (winnerError) {
-        console.error('[STATS] Error saving winner stats:', winnerError);
-      } else {
-        console.log('[STATS] Winner stats saved:', winnerResult);
+      if (error) {
+        console.error('[STATS] Error saving match stats:', error);
+        toast.error('Failed to save match stats');
+        return;
       }
       
-      // Save loser stats
-      const { data: loserResult, error: loserError } = await supabase.rpc('fn_update_player_match_stats', {
-        p_room_id: roomId,
-        p_user_id: loserId,
-        p_opponent_id: winnerId,
-        p_result: 'loss',
-        p_legs_won: loserLegs,
-        p_legs_lost: winnerLegs,
-        p_game_mode: gameMode
-      });
+      console.log('[STATS] Match stats saved successfully:', data);
       
-      if (loserError) {
-        console.error('[STATS] Error saving loser stats:', loserError);
-      } else {
-        console.log('[STATS] Loser stats saved:', loserResult);
-      }
-      
-      if (!winnerError && !loserError) {
+      if (data?.success) {
         toast.success('Match stats saved!');
+      } else {
+        console.error('[STATS] Function returned error:', data?.error);
+        toast.error('Failed to save match stats: ' + (data?.error || 'Unknown error'));
       }
-      
-      console.log('[STATS] Match stats save attempt completed');
     } catch (error: any) {
       console.error('[STATS] Failed to save match stats:', error);
       toast.error('Failed to save match stats');

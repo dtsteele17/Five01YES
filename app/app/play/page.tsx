@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion, Variants } from 'framer-motion';
-import { useRecentQuickMatches } from '@/lib/hooks/useRecentQuickMatches';
+import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { useTodayStats } from '@/lib/hooks/useTodayStats';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
@@ -358,7 +358,7 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
 
 // Recent Matches Section
 function RecentMatchesSection() {
-  const { matches, loading, refresh } = useRecentQuickMatches(5);
+  const { matches, loading, refresh } = useRecentMatches(5);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
 
   return (
@@ -367,7 +367,7 @@ function RecentMatchesSection() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
-            <h2 className="text-2xl font-bold text-white">Recent 301/501 Games</h2>
+            <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -415,12 +415,12 @@ function RecentMatchesSection() {
             <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
               <Trophy className="w-8 h-8 text-slate-500" />
             </div>
-            <h3 className="text-white font-bold mb-2">No 301/501 Games Yet</h3>
-            <p className="text-slate-400 text-sm mb-4">Play quick matches to see your game history here</p>
+            <h3 className="text-white font-bold mb-2">No Matches Yet</h3>
+            <p className="text-slate-400 text-sm mb-4">Start playing to see your match history here</p>
             <Link href="/app/play/quick-match">
               <Button className="bg-emerald-500 hover:bg-emerald-600">
                 <Play className="w-4 h-4 mr-2" />
-                Play Quick Match
+                Play Now
               </Button>
             </Link>
           </div>
