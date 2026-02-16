@@ -58,7 +58,6 @@ interface QuickMatchLobby {
   match_id: string | null;
   created_at: string;
   player1_3dart_avg?: number;
-  players?: any[];
   player1?: {
     username: string;
     avatar_url?: string;
@@ -988,14 +987,14 @@ export default function QuickMatchLobbyPage() {
               .select('overall_3dart_avg')
               .eq('user_id', fullLobby.player1_id)
               .maybeSingle();
-              
-            if (hostStats && fullLobby.player1) {
-              fullLobby.player1.overall_3dart_avg = hostStats.overall_3dart_avg;
+
+            if (hostStats && fullLobby.player1 && !Array.isArray(fullLobby.player1)) {
+              (fullLobby.player1 as any).overall_3dart_avg = hostStats.overall_3dart_avg;
             }
           }
             
           if (fullLobby) {
-            setMyLobby(fullLobby as QuickMatchLobby);
+            setMyLobby(fullLobby as unknown as QuickMatchLobby);
             toast.success('Join request accepted! You are in the lobby.');
           }
         } else {
@@ -1547,8 +1546,8 @@ export default function QuickMatchLobbyPage() {
                         ))}
                       </div>
                     )}
-                    
-                    {/* Join Request Status -->
+
+                    {/* Join Request Status */}
                     {currentJoinRequest ? (
                       <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                         <div className="flex items-center gap-2">
