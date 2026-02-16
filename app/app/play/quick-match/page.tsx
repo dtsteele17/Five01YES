@@ -41,6 +41,7 @@ import { toast } from 'sonner';
 import { validateMatchRoom, hasAttemptedResume, markResumeAttempted } from '@/lib/utils/match-resume';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 import { SafetyRatingBadge, SafetyRatingMini } from '@/components/safety/SafetyRatingBadge';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 // ============================================
 // TYPES
@@ -586,11 +587,19 @@ export default function QuickMatchLobbyPage() {
   const [pendingLobbyId, setPendingLobbyId] = useState<string | null>(null);
   
   const [showATCLobbyModal, setShowATCLobbyModal] = useState(false);
+  const [cleanupDone, setCleanupDone] = useState(false);
   
   const [inProgressMatches, setInProgressMatches] = useState<number>(0);
   const [last5Record, setLast5Record] = useState<string>('-----');
 
   const resumeAttemptedRef = useRef(false);
+
+  // ============================================
+  // CLEANUP STALE LOBBIES ON MOUNT
+  // ============================================
+  useEffect(() => {
+    cleanupUserLobbies();
+  }, []);
 
   // ============================================
   // INITIALIZATION & SUBSCRIPTIONS
@@ -620,7 +629,7 @@ export default function QuickMatchLobbyPage() {
     if (myLobby && myLobby.game_type === 'atc') {
       setShowATCLobbyModal(true);
     }
-  }, [myLobby?.id, myLobby?.game_type]);
+  }, [myLobby?.id, myLobby?.game_type, myLobby?.status]);
 
   // ============================================
   // INITIALIZE
@@ -673,18 +682,28 @@ export default function QuickMatchLobbyPage() {
     }
 
     if (event === 'UPDATE') {
-      // Handle my lobby updates
-      if (updatedLobby.created_by === currentUserId) {
+      // Check if user is a player in this lobby (for ATC)
+      const isPlayerInLobby = updatedLobby.players?.some((p: ATCPlayer) => p.id === currentUserId);
+      
+      // Handle my lobby updates (host or player)
+      if (updatedLobby.created_by === currentUserId || isPlayerInLobby) {
         if (updatedLobby.status === 'in_progress' && updatedLobby.match_id && updatedLobby.game_type !== 'atc') {
           router.push(`/app/play/quick-match/match/${updatedLobby.match_id}`);
+        } else if (updatedLobby.status === 'in_progress' && updatedLobby.game_type === 'atc') {
+          // ATC match starting, redirect to match
+          router.push(`/app/play/quick-match/atc-match?matchId=${updatedLobby.match_id}`);
         } else if (updatedLobby.status !== 'cancelled') {
           setMyLobby(updatedLobby);
+        } else {
+          // Lobby was cancelled
+          setMyLobby(null);
+          setShowATCLobbyModal(false);
         }
       }
 
       // Update lobbies list
       setLobbies(prev => {
-        if (updatedLobby.status !== 'open' && updatedLobby.created_by !== currentUserId) {
+        if (updatedLobby.status !== 'open' && updatedLobby.created_by !== currentUserId && !isPlayerInLobby) {
           return prev.filter(l => l.id !== updatedLobby.id);
         }
         const exists = prev.some(l => l.id === updatedLobby.id);
@@ -703,6 +722,82 @@ export default function QuickMatchLobbyPage() {
   }
 
   // ============================================
+  // CLEANUP USER LOBBIES
+  // ============================================
+  async function cleanupUserLobbies() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Cancel any open/waiting lobbies created by this user
+      const { data: userLobbies } = await supabase
+        .from('quick_match_lobbies')
+        .select('id, status')
+        .eq('created_by', user.id)
+        .in('status', ['open', 'waiting']);
+
+      if (userLobbies && userLobbies.length > 0) {
+        for (const lobby of userLobbies) {
+          await supabase
+            .from('quick_match_lobbies')
+            .update({ status: 'cancelled' })
+            .eq('id', lobby.id);
+          
+          await supabase
+            .from('quick_match_lobbies')
+            .delete()
+            .eq('id', lobby.id);
+        }
+        console.log(`[CLEANUP] Cancelled ${userLobbies.length} stale lobby/lobbies`);
+      }
+
+      // Decline any pending join requests from this user
+      const { data: pendingRequests } = await supabase
+        .from('quick_match_join_requests')
+        .select('id')
+        .eq('requester_id', user.id)
+        .eq('status', 'pending');
+
+      if (pendingRequests && pendingRequests.length > 0) {
+        for (const request of pendingRequests) {
+          await supabase
+            .from('quick_match_join_requests')
+            .update({ status: 'declined' })
+            .eq('id', request.id);
+        }
+        console.log(`[CLEANUP] Declined ${pendingRequests.length} pending join requests`);
+      }
+
+      setCleanupDone(true);
+    } catch (error) {
+      console.error('[CLEANUP] Error:', error);
+    }
+  }
+
+  // ============================================
+  // RESET ALL (Manual cleanup)
+  // ============================================
+  async function handleReset() {
+    try {
+      setLoading(true);
+      setMyLobby(null);
+      setShowATCLobbyModal(false);
+      setPendingLobbyId(null);
+      setJoining(null);
+      
+      await cleanupUserLobbies();
+      await fetchLobbies();
+      
+      toast.success('Reset complete - all stale lobbies cleared');
+    } catch (error: any) {
+      console.error('[RESET] Error:', error);
+      toast.error('Reset failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ============================================
   // FETCH LOBBIES
   // ============================================
   async function fetchLobbies() {
@@ -715,6 +810,7 @@ export default function QuickMatchLobbyPage() {
       const currentUserId = user?.id;
 
       // Fetch open lobbies AND my lobby (regardless of status)
+      // Also fetch lobbies where user is a player (for ATC)
       const { data: lobbiesData, error: lobbiesError } = await supabase
         .from('quick_match_lobbies')
         .select(`
@@ -730,13 +826,42 @@ export default function QuickMatchLobbyPage() {
 
       if (lobbiesError) throw lobbiesError;
 
+      // Also check for lobbies where user is a player but not creator (ATC)
+      let playerLobbies: any[] = [];
+      if (currentUserId) {
+        const { data: allLobbies } = await supabase
+          .from('quick_match_lobbies')
+          .select(`
+            *,
+            player1:profiles!quick_match_lobbies_player1_id_fkey (
+              username, avatar_url, trust_rating_letter, trust_rating_count,
+              safety_rating_letter, safety_rating_count
+            )
+          `)
+          .in('status', ['waiting', 'open', 'full']);
+        
+        if (allLobbies) {
+          playerLobbies = allLobbies.filter(l => 
+            l.players?.some((p: ATCPlayer) => p.id === currentUserId) &&
+            l.created_by !== currentUserId
+          );
+        }
+      }
+
       if (!lobbiesData) {
         setLobbies([]);
         return;
       }
 
+      // Merge player lobbies with main lobbies
+      const allLobbiesData = [...(lobbiesData || []), ...playerLobbies];
+      // Remove duplicates
+      const uniqueLobbies = allLobbiesData.filter((lobby, index, self) => 
+        index === self.findIndex(l => l.id === lobby.id)
+      );
+
       // Fetch host stats
-      const hostIds = lobbiesData.map(l => l.player1_id).filter(Boolean);
+      const hostIds = uniqueLobbies.map(l => l.player1_id).filter(Boolean);
       const { data: statsData } = await supabase
         .from('player_stats')
         .select('user_id, overall_3dart_avg')
@@ -748,7 +873,7 @@ export default function QuickMatchLobbyPage() {
       }, {} as Record<string, number>);
 
       // Transform data
-      const transformedLobbies = lobbiesData.map(lobby => {
+      const transformedLobbies = uniqueLobbies.map(lobby => {
         const storedAvg = lobby.player1_3dart_avg || 0;
         const liveAvg = hostStats[lobby.player1_id] || 0;
         return {
@@ -760,11 +885,19 @@ export default function QuickMatchLobbyPage() {
         };
       });
 
-      setLobbies(transformedLobbies as QuickMatchLobby[]);
+      setLobbies(transformedLobbies.filter(l => l.status === 'open' && l.created_by !== currentUserId) as QuickMatchLobby[]);
 
       // Update myLobby if not cancelling
       if (!isCancelling && currentUserId) {
-        const myCurrentLobby = transformedLobbies.find(l => l.created_by === currentUserId);
+        // Check if user is host of a lobby
+        const myHostedLobby = transformedLobbies.find(l => l.created_by === currentUserId);
+        // Check if user is a player in a lobby
+        const myPlayerLobby = transformedLobbies.find(l => 
+          l.players?.some((p: ATCPlayer) => p.id === currentUserId)
+        );
+        
+        const myCurrentLobby = myHostedLobby || myPlayerLobby;
+        
         if (myCurrentLobby) {
           setMyLobby(myCurrentLobby as QuickMatchLobby);
         } else if (myLobby) {
@@ -1181,7 +1314,7 @@ export default function QuickMatchLobbyPage() {
   }
 
   // ============================================
-  // CANCEL LOBBY
+  // CANCEL LOBBY (HOST)
   // ============================================
   async function cancelLobby() {
     if (!myLobby || !userId || isCancelling) return;
@@ -1215,6 +1348,35 @@ export default function QuickMatchLobbyPage() {
       toast.error(`Failed to cancel: ${error.message}`);
       setIsCancelling(false);
       fetchLobbies();
+    }
+  }
+
+  // ============================================
+  // LEAVE LOBBY (NON-HOST)
+  // ============================================
+  async function leaveLobby() {
+    if (!myLobby || !userId || myLobby.created_by === userId) return;
+
+    try {
+      // Remove user from lobby players
+      const currentPlayers = myLobby.players || [];
+      const updatedPlayers = currentPlayers.filter((p: ATCPlayer) => p.id !== userId);
+      
+      await supabase
+        .from('quick_match_lobbies')
+        .update({ 
+          players: updatedPlayers,
+          status: 'open'
+        })
+        .eq('id', myLobby.id);
+
+      setMyLobby(null);
+      setShowATCLobbyModal(false);
+      toast.info('Left lobby');
+      fetchLobbies();
+    } catch (error: any) {
+      console.error('[LEAVE] Failed:', error);
+      toast.error(`Failed to leave: ${error.message}`);
     }
   }
 
@@ -1271,10 +1433,22 @@ export default function QuickMatchLobbyPage() {
           <p className="text-slate-400 mt-2 text-lg">Create or join an online match with players worldwide</p>
         </div>
 
-        <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 px-4 py-2 text-sm">
-          <Users className="w-4 h-4 mr-2" />
-          {filteredLobbies.length} Games Available
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            disabled={loading}
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Reset
+          </Button>
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 px-4 py-2 text-sm">
+            <Users className="w-4 h-4 mr-2" />
+            {filteredLobbies.length} Games Available
+          </Badge>
+        </div>
       </div>
 
       {/* Stats */}
@@ -1284,6 +1458,28 @@ export default function QuickMatchLobbyPage() {
         <HeroStat value={last5Record} label="Last 5 Matches" icon={Target} color="bg-purple-500" />
         <HeroStat value={realtimeStatus === 'connected' ? 'Live' : 'Connecting'} label="Status" icon={Activity} color="bg-orange-500" />
       </div>
+
+      {/* Stale Lobby Warning */}
+      {myLobby && myLobby.status !== 'open' && myLobby.status !== 'waiting' && myLobby.created_by !== userId && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <div>
+              <p className="text-amber-400 font-medium">You may be stuck in an old lobby</p>
+              <p className="text-slate-400 text-sm">Click Reset to clear and start fresh</p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Reset
+          </Button>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Create Lobby */}
@@ -1581,7 +1777,7 @@ export default function QuickMatchLobbyPage() {
             if (myLobby.created_by === userId) {
               cancelLobby();
             } else {
-              setMyLobby(null);
+              leaveLobby();
             }
           }}
         />
