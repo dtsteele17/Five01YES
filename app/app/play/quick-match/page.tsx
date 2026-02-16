@@ -304,6 +304,8 @@ function ATCLobbyModal({
   const [atcSettings, setAtcSettings] = useState<any>(null);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [processingRequest, setProcessingRequest] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [lobbyFullAt, setLobbyFullAt] = useState<number | null>(null);
   const supabase = createClient();
   const router = useRouter();
   
@@ -374,6 +376,47 @@ function ATCLobbyModal({
       if (joinRequestChannel) joinRequestChannel.unsubscribe();
     };
   }, [lobby.id, userId, router, isHost]);
+
+  // Timer effect for ready-up phase when lobby is full
+  useEffect(() => {
+    const playerSlots = atcSettings?.player_count || 2;
+    const isFull = players.length >= playerSlots;
+    const allReady = players.length > 0 && players.every(p => p.is_ready);
+
+    // If all players are ready, start the match immediately
+    if (allReady && players.length >= 2 && !lobbyFullAt) {
+      console.log('[ATC] All players ready, starting match...');
+      createMatchAndStart();
+      return;
+    }
+
+    // If lobby just became full, start the timer
+    if (isFull && !lobbyFullAt && players.length >= 2) {
+      console.log('[ATC] Lobby full, starting 60s timer...');
+      setLobbyFullAt(Date.now());
+      setTimeRemaining(60);
+    }
+
+    // Countdown timer
+    let interval: NodeJS.Timeout;
+    if (lobbyFullAt && timeRemaining !== null && timeRemaining > 0) {
+      interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - lobbyFullAt) / 1000);
+        const remaining = Math.max(0, 60 - elapsed);
+        setTimeRemaining(remaining);
+
+        if (remaining === 0) {
+          // Time's up - kick unready players or start with ready ones
+          clearInterval(interval);
+          handleTimerExpired();
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [players, atcSettings, lobbyFullAt, timeRemaining]);
   
   const fetchJoinRequests = async () => {
     const { data } = await supabase
@@ -383,6 +426,89 @@ function ATCLobbyModal({
       .eq('status', 'pending');
     
     if (data) setJoinRequests(data);
+  };
+
+  const createMatchAndStart = async () => {
+    try {
+      const settings = atcSettings;
+      
+      const shuffleArray = (array: any[]) => {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+      };
+
+      const targets = settings.order === 'random'
+        ? shuffleArray([...[...Array(20)].map((_, i) => i + 1), 'bull'])
+        : [...[...Array(20)].map((_, i) => i + 1), 'bull'];
+
+      const { data: atcMatch, error: atcError } = await supabase
+        .from('atc_matches')
+        .insert({
+          lobby_id: lobby.id,
+          status: 'in_progress',
+          game_mode: 'atc',
+          atc_settings: settings,
+          players: players.map((p: ATCPlayer) => ({
+            ...p,
+            current_target: targets[0]
+          })),
+          current_player_index: 0,
+          created_by: lobby.created_by,
+          targets: targets
+        })
+        .select()
+        .maybeSingle();
+
+      if (atcError || !atcMatch) {
+        throw new Error('Failed to create ATC match');
+      }
+
+      // Update lobby
+      await supabase
+        .from('quick_match_lobbies')
+        .update({
+          status: 'in_progress',
+          match_id: atcMatch.id
+        })
+        .eq('id', lobby.id);
+
+      toast.success('Match starting!');
+      router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
+    } catch (error: any) {
+      console.error('[ATC START] Failed:', error);
+      toast.error(`Failed to start match: ${error.message}`);
+    }
+  };
+
+  const handleTimerExpired = async () => {
+    const readyPlayers = players.filter(p => p.is_ready);
+    
+    if (readyPlayers.length >= 2) {
+      // Start with ready players
+      toast.info('Starting match with ready players...');
+      await createMatchAndStart();
+    } else {
+      // Not enough ready players - kick unready ones back to lobby
+      toast.info('Not enough ready players, returning to lobby...');
+      
+      // Reset unready players
+      const updatedPlayers = players.filter(p => p.is_ready);
+      
+      await supabase
+        .from('quick_match_lobbies')
+        .update({ 
+          players: updatedPlayers,
+          status: 'waiting'
+        })
+        .eq('id', lobby.id);
+      
+      setLobbyFullAt(null);
+      setTimeRemaining(null);
+    }
   };
 
   const handleAcceptRequest = async (request: JoinRequest) => {
@@ -422,84 +548,25 @@ function ATCLobbyModal({
 
       const updatedPlayers = [...currentPlayers, newPlayer];
 
-      // Check if we have enough players
-      if (updatedPlayers.length >= settings.player_count) {
-        // Create ATC match
-        const shuffleArray = (array: any[]) => {
-          const newArray = [...array];
-          for (let i = newArray.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-          }
-          return newArray;
-        };
+      // Just add player to lobby - don't create match yet
+      await supabase
+        .from('quick_match_lobbies')
+        .update({
+          players: updatedPlayers,
+          status: updatedPlayers.length >= settings.player_count ? 'full' : 'waiting'
+        })
+        .eq('id', lobby.id);
 
-        const targets = settings.order === 'random'
-          ? shuffleArray([...[...Array(20)].map((_, i) => i + 1), 'bull'])
-          : [...[...Array(20)].map((_, i) => i + 1), 'bull'];
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'accepted' })
+        .eq('id', request.id);
 
-        const { data: atcMatch, error: atcError } = await supabase
-          .from('atc_matches')
-          .insert({
-            lobby_id: lobby.id,
-            status: 'waiting',
-            game_mode: 'atc',
-            atc_settings: settings,
-            players: updatedPlayers.map((p: ATCPlayer) => ({
-              ...p,
-              current_target: targets[0]
-            })),
-            current_player_index: 0,
-            created_by: lobby.created_by,
-            targets: targets
-          })
-          .select()
-          .maybeSingle();
-
-        if (atcError || !atcMatch) {
-          throw new Error('Failed to create ATC match');
-        }
-
-        // Update the join request
-        await supabase
-          .from('quick_match_join_requests')
-          .update({ 
-            status: 'accepted',
-            match_id: atcMatch.id
-          })
-          .eq('id', request.id);
-
-        // Update lobby
-        await supabase
-          .from('quick_match_lobbies')
-          .update({
-            players: updatedPlayers,
-            status: 'in_progress',
-            match_id: atcMatch.id
-          })
-          .eq('id', lobby.id);
-
-        toast.success('Match starting!');
-        router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
-      } else {
-        // Just add player to lobby, not enough players yet
-        await supabase
-          .from('quick_match_lobbies')
-          .update({
-            players: updatedPlayers
-          })
-          .eq('id', lobby.id);
-
-        await supabase
-          .from('quick_match_join_requests')
-          .update({ status: 'accepted' })
-          .eq('id', request.id);
-
-        // Update local state
-        setPlayers(updatedPlayers);
-        setJoinRequests(prev => prev.filter(r => r.id !== request.id));
-        toast.success(`${request.requester_username} joined the lobby`);
-      }
+      // Update local state
+      setPlayers(updatedPlayers);
+      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+      toast.success(`${request.requester_username} joined the lobby`);
+      
     } catch (error: any) {
       console.error('[ATC ACCEPT] Failed:', error);
       toast.error(`Failed to accept: ${error.message}`);
@@ -547,8 +614,9 @@ function ATCLobbyModal({
   
   const playerSlots = atcSettings?.player_count || 2;
   const availableSlots = playerSlots - players.length;
-  const allPlayersReady = players.length >= 1 && players.every(p => p.is_ready);
-  const canStart = isHost && allPlayersReady && players.length >= 2;
+  const allPlayersReady = players.length > 0 && players.every(p => p.is_ready);
+  const isLobbyFull = players.length >= playerSlots;
+  const showTimer = isLobbyFull && timeRemaining !== null && timeRemaining > 0;
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -702,11 +770,36 @@ function ATCLobbyModal({
             </div>
           )}
 
-          {/* Ready Count */}
-          <div className="text-center text-sm">
-            <span className="text-slate-400">
-              {players.filter(p => p.is_ready).length} / {players.length} players ready
-            </span>
+          {/* Ready Count & Timer */}
+          <div className="text-center space-y-2">
+            {/* Countdown Timer - Show when lobby is full */}
+            {showTimer && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <p className="text-amber-400 font-bold text-lg">
+                  {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
+                </p>
+                <p className="text-amber-400/80 text-xs">
+                  {allPlayersReady 
+                    ? 'All players ready! Starting...' 
+                    : 'Time remaining to ready up'}
+                </p>
+              </div>
+            )}
+            
+            {/* Lobby Full Message */}
+            {isLobbyFull && !showTimer && (
+              <p className="text-emerald-400 text-sm font-medium">
+                All players ready! Starting match...
+              </p>
+            )}
+            
+            {/* Ready Status */}
+            {!isLobbyFull && (
+              <span className="text-slate-400 text-sm">
+                {players.filter(p => p.is_ready).length} / {players.length} players ready
+              </span>
+            )}
+            
             {players.length < 2 && (
               <p className="text-xs text-amber-400 mt-1">Need at least 2 players to start</p>
             )}
@@ -722,6 +815,7 @@ function ATCLobbyModal({
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
               }`}
               onClick={toggleReady}
+              disabled={showTimer && allPlayersReady} // Disable once auto-starting
             >
               {isReady ? (
                 <>
@@ -736,26 +830,33 @@ function ATCLobbyModal({
               )}
             </Button>
             
-            {/* Play Button - Host only, when all ready */}
-            {isHost && (
-              <Button
-                className="w-full py-4 text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={onStartMatch}
-                disabled={!canStart}
-              >
-                <Play className="w-4 h-4 mr-2" />
-                {!allPlayersReady 
-                  ? `Waiting for players (${players.filter(p => p.is_ready).length}/${players.length} ready)` 
-                  : players.length < 2 
-                    ? 'Need more players'
-                    : 'PLAY NOW!'}
-              </Button>
+            {/* Status Message - Shows when waiting */}
+            {isLobbyFull && !allPlayersReady && (
+              <div className="text-center py-2">
+                <p className="text-amber-400 text-sm">
+                  Waiting for all players to ready up...
+                </p>
+                <p className="text-slate-500 text-xs mt-1">
+                  ({players.filter(p => p.is_ready).length}/{players.length} ready)
+                </p>
+              </div>
+            )}
+            
+            {/* Auto-start Indicator */}
+            {allPlayersReady && players.length >= 2 && (
+              <div className="text-center py-2">
+                <p className="text-emerald-400 text-sm font-medium flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Starting match...
+                </p>
+              </div>
             )}
             
             <Button
               className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
               onClick={onLeave}
               variant="outline"
+              disabled={allPlayersReady && players.length >= 2} // Prevent leaving once starting
             >
               <X className="w-4 h-4 mr-2" />
               {isHost ? 'Cancel Lobby' : 'Leave Lobby'}
