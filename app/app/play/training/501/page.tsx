@@ -705,14 +705,25 @@ export default function DartbotMatchPage() {
     const successfulCheckouts = checkouts.length;
     
     // FIX: Count darts at double properly like dartcounter.net
-    // Only count visits where the player started on a VALID checkout (not just <= 170)
+    // Only count darts that are ACTUALLY thrown at doubles:
+    // - If remaining <= 40: all darts count as "at double" (trying to finish)
+    // - If remaining > 40: only count darts that hit a double
     const dartsAtDouble = playerVisits
       .filter(v => {
         const remainingBefore = v.remainingBefore || 0;
         // Must be a valid checkout score (2-170, not a bogey number)
         return isValidCheckout(remainingBefore);
       })
-      .reduce((sum, v) => sum + (v.dartsAtDouble || v.dartsThrown || 3), 0);
+      .reduce((sum, v) => {
+        const remainingBefore = v.remainingBefore || 0;
+        if (remainingBefore <= 40) {
+          // On 40 or less, every dart is an attempt at double
+          return sum + (v.dartsAtDouble || v.dartsThrown || 3);
+        } else {
+          // Above 40, only count darts that actually hit a double
+          return sum + (v.dartsAtDouble || 0);
+        }
+      }, 0);
     
     // Calculate checkout percentage: (Checkouts Made / Darts at Double) × 100
     const checkoutPercentage = calculateCheckoutPercentage(successfulCheckouts, dartsAtDouble);
@@ -822,14 +833,31 @@ export default function DartbotMatchPage() {
       const opponentVisits = allVisitsFormatted.filter(v => v.player === 'opponent');
       
       // Use proper checkout calculation like dartcounter.net
+      // Only count darts ACTUALLY thrown at doubles:
+      // - If remaining <= 40: all darts count
+      // - If remaining > 40: only count darts that hit a double
       const p1DartsAtDouble = userVisits
         .filter(v => isValidCheckout(v.remainingBefore || 0))
-        .reduce((sum, v) => sum + (v.dartsAtDouble || v.dartsThrown || 3), 0);
+        .reduce((sum, v) => {
+          const remainingBefore = v.remainingBefore || 0;
+          if (remainingBefore <= 40) {
+            return sum + (v.dartsAtDouble || v.dartsThrown || 3);
+          } else {
+            return sum + (v.dartsAtDouble || 0);
+          }
+        }, 0);
       const p1Checkouts = userVisits.filter(v => v.isCheckout).length;
       
       const p2DartsAtDouble = opponentVisits
         .filter(v => isValidCheckout(v.remainingBefore || 0))
-        .reduce((sum, v) => sum + (v.dartsAtDouble || v.dartsThrown || 3), 0);
+        .reduce((sum, v) => {
+          const remainingBefore = v.remainingBefore || 0;
+          if (remainingBefore <= 40) {
+            return sum + (v.dartsAtDouble || v.dartsThrown || 3);
+          } else {
+            return sum + (v.dartsAtDouble || 0);
+          }
+        }, 0);
       const p2Checkouts = opponentVisits.filter(v => v.isCheckout).length;
       
       const userStats = computeMatchStats(userVisits, 'user', normalizedConfig.mode, p1DartsAtDouble, p1Checkouts);
@@ -1033,8 +1061,19 @@ export default function DartbotMatchPage() {
       
       // Track checkout stats for DartBot
       // Calculate darts at double properly like dartcounter.net
+      // Only count darts that are ACTUALLY thrown at a double
       const isOnValidCheckout = config?.doubleOut !== false ? isValidCheckout(currentScore) : currentScore > 0 && currentScore <= 180;
-      const botDartsAtDouble = isOnValidCheckout ? dartsThrown : 0;
+      let botDartsAtDouble = 0;
+      if (isOnValidCheckout) {
+        if (currentScore <= 40) {
+          // When on 40 or less, every dart is an attempt at double
+          botDartsAtDouble = dartsThrown;
+        } else {
+          // When above 40, only count darts that actually hit a double
+          const doublesHit = visualVisit.darts.filter(d => d.isDouble).length;
+          botDartsAtDouble = doublesHit;
+        }
+      }
       
       if (visualVisit.wasCheckoutAttempt) {
         setPlayer2CheckoutAttempts(prev => prev + 1);
@@ -1232,20 +1271,28 @@ export default function DartbotMatchPage() {
     const newScore = currentScore - score;
     
     // Calculate darts at double for this visit
-    // Like dartcounter.net: count ALL darts thrown when on a valid checkout
+    // Like dartcounter.net: only count darts ACTUALLY thrown at doubles
     let dartsAtDouble = 0;
     if (isBust(currentScore, score, doubleOut)) {
       dartsAtDouble = 0; // Busts don't count as darts at double
     } else if (isTypedInput) {
       dartsAtDouble = dartsAtDoubleForInput;
     } else {
-      // For button input: if on a valid checkout, ALL darts count as "at double"
-      // A valid checkout means: score <= 170, > 0, and not a bogey number
-      if (doubleOut && isValidCheckout(currentScore)) {
-        dartsAtDouble = dartsThrown;
-      } else if (!doubleOut && currentScore > 0 && currentScore <= 180) {
-        // Single-out: any score 1-180 is a valid checkout
-        dartsAtDouble = dartsThrown;
+      // For button input: only count darts at double when actually on a checkout
+      // - If remaining <= 40: all darts count (trying to finish)
+      // - If remaining > 40: only count darts that hit a double
+      const onValidCheckout = doubleOut 
+        ? isValidCheckout(currentScore)
+        : currentScore > 0 && currentScore <= 180;
+      
+      if (onValidCheckout) {
+        if (currentScore <= 40) {
+          // On 40 or less, every dart is an attempt at double
+          dartsAtDouble = dartsThrown;
+        } else {
+          // Above 40, only count if last dart was a double (setup that hit double)
+          dartsAtDouble = lastDartType === 'D' ? 1 : 0;
+        }
       }
     }
     
@@ -1538,13 +1585,26 @@ export default function DartbotMatchPage() {
       const dartsThrown = dartsToSubmit.length;
       
       // Calculate darts at double like dartcounter.net:
-      // If starting on a valid checkout, ALL darts in this visit count
+      // Only count darts that are ACTUALLY thrown at a double
+      // - If remaining > 40: only count if a double is actually hit
+      // - If remaining <= 40: all darts count as "at double" (trying to finish)
       let dartsAtDoubleCount = 0;
       if (!isBustParam) {
-        if (config.doubleOut && isValidCheckout(player1Score)) {
-          dartsAtDoubleCount = dartsThrown;
-        } else if (!config.doubleOut && player1Score > 0 && player1Score <= 180) {
-          dartsAtDoubleCount = dartsThrown;
+        const remainingBefore = player1Score;
+        const onValidCheckout = config.doubleOut 
+          ? isValidCheckout(remainingBefore)
+          : remainingBefore > 0 && remainingBefore <= 180;
+        
+        if (onValidCheckout) {
+          if (remainingBefore <= 40) {
+            // When on 40 or less, every dart is an attempt at double
+            dartsAtDoubleCount = dartsThrown;
+          } else {
+            // When above 40, only count darts that actually hit a double
+            // (these are setup shots that hit a double instead of intended target)
+            const doublesHit = dartsToSubmit.filter(d => d.is_double).length;
+            dartsAtDoubleCount = doublesHit;
+          }
         }
       }
       

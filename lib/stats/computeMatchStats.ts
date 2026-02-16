@@ -87,12 +87,21 @@ export function computeMatchStats(
 
   if (checkoutDartsAttemptedOverride === undefined) {
     // Calculate darts at double properly like dartcounter.net
-    // Only count darts from visits where player started on a valid checkout
+    // Only count darts that are ACTUALLY thrown at doubles:
+    // - If remaining <= 40: all darts count as "at double" (trying to finish)
+    // - If remaining > 40: only count darts that hit a double (setup shots that hit double)
     checkoutDartsAttempted = playerVisits.reduce((sum, v) => {
       const remainingBefore = v.remainingScore + v.score;
       // Only count if starting on a valid checkout
       if (isValidCheckout(remainingBefore)) {
-        return sum + (v.dartsAtDouble ?? v.dartsThrown ?? 3);
+        if (remainingBefore <= 40) {
+          // On 40 or less, every dart is an attempt at double
+          return sum + (v.dartsAtDouble ?? v.dartsThrown ?? 3);
+        } else {
+          // Above 40, only count if a double was actually hit
+          // This is tracked in dartsAtDouble field
+          return sum + (v.dartsAtDouble ?? 0);
+        }
       }
       return sum;
     }, 0);
