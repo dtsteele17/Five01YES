@@ -137,6 +137,12 @@ export default function QuickMatchLobbyPage() {
   const [gameMode, setGameMode] = useState('501');
   const [matchFormat, setMatchFormat] = useState('best-of-3');
   const [doubleOut, setDoubleOut] = useState(true);
+  
+  // Around The Clock settings
+  const [atcOrder, setAtcOrder] = useState<'sequential' | 'random'>('sequential');
+  const [atcMode, setAtcMode] = useState<'singles' | 'doubles' | 'trebles' | 'increase'>('singles');
+  const [atcPlayerCount, setAtcPlayerCount] = useState(2);
+  
   const [filterMode, setFilterMode] = useState('all');
   const [filterFormat, setFilterFormat] = useState('all');
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -584,14 +590,23 @@ export default function QuickMatchLobbyPage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      const lobbyData = {
+      const lobbyData: any = {
         game_type: gameMode,
-        starting_score: parseInt(gameMode),
-        match_format: matchFormat,
-        double_out: doubleOut,
+        starting_score: gameMode === 'atc' ? 0 : parseInt(gameMode),
+        match_format: isATCMode ? 'atc' : matchFormat,
+        double_out: isATCMode ? false : doubleOut,
         status: 'open',
         player1_3dart_avg: stats?.overall_3dart_avg || 0,
       };
+      
+      // Add ATC-specific settings
+      if (isATCMode) {
+        lobbyData.atc_settings = {
+          order: atcOrder,
+          mode: atcMode,
+          player_count: atcPlayerCount,
+        };
+      }
 
       console.log('[CREATE] INSERTING_TO_SUPABASE', { table: 'quick_match_lobbies', payload: lobbyData });
 
@@ -759,6 +774,101 @@ export default function QuickMatchLobbyPage() {
     try {
       console.log('[ACCEPT] Accepting join request:', request.id);
 
+      // Handle ATC mode differently
+      if (myLobby.game_type === 'atc') {
+        const atcSettings = (myLobby as any).atc_settings || {
+          order: 'sequential',
+          mode: 'singles',
+          player_count: 2
+        };
+
+        // Get all current players
+        const currentPlayers = myLobby.players || [];
+        const updatedPlayers = [...currentPlayers, {
+          id: request.requester_id,
+          username: request.requester_username,
+          is_ready: false,
+          current_target: 1,
+          completed_targets: [],
+          is_winner: false
+        }];
+
+        // Check if we have enough players
+        if (updatedPlayers.length >= atcSettings.player_count) {
+          // Create ATC match
+          const targets = atcSettings.order === 'random' 
+            ? shuffleArray([...Array(20)].map((_, i) => i + 1).concat(['bull']))
+            : [...Array(20)].map((_, i) => i + 1).concat(['bull']);
+
+          const { data: atcMatch, error: atcError } = await supabase
+            .from('atc_matches')
+            .insert({
+              lobby_id: myLobby.id,
+              status: 'waiting',
+              game_mode: 'atc',
+              atc_settings: atcSettings,
+              players: updatedPlayers.map((p: any) => ({
+                ...p,
+                current_target: targets[0]
+              })),
+              current_player_index: 0,
+              created_by: myLobby.player1_id,
+              targets: targets
+            })
+            .select()
+            .maybeSingle();
+
+          if (atcError || !atcMatch) {
+            throw new Error('Failed to create ATC match');
+          }
+
+          // Update the join request
+          await supabase
+            .from('quick_match_join_requests')
+            .update({ 
+              status: 'accepted',
+              match_id: atcMatch.id
+            })
+            .eq('id', request.id);
+
+          // Update lobby
+          await supabase
+            .from('quick_match_lobbies')
+            .update({
+              players: updatedPlayers,
+              status: 'in_progress',
+              match_id: atcMatch.id
+            })
+            .eq('id', myLobby.id);
+
+          setShowJoinRequestModal(false);
+          setCurrentJoinRequest(null);
+          toast.success('Match starting!');
+          router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
+        } else {
+          // Just add player to lobby, not enough players yet
+          await supabase
+            .from('quick_match_lobbies')
+            .update({
+              players: updatedPlayers
+            })
+            .eq('id', myLobby.id);
+
+          await supabase
+            .from('quick_match_join_requests')
+            .update({ status: 'accepted' })
+            .eq('id', request.id);
+
+          setShowJoinRequestModal(false);
+          setCurrentJoinRequest(null);
+          toast.success(`${request.requester_username} joined the lobby`);
+        }
+        
+        setProcessingRequest(false);
+        return;
+      }
+
+      // Regular 301/501 match flow
       // Parse match_format to calculate legs_to_win
       const bestOfMatch = myLobby.match_format.match(/best-of-(\d+)/i);
       const bestOf = bestOfMatch ? parseInt(bestOfMatch[1]) : 3;
@@ -826,6 +936,16 @@ export default function QuickMatchLobbyPage() {
       toast.error(`Failed to accept: ${error.message}`);
       setProcessingRequest(false);
     }
+  }
+
+  // Helper to shuffle array for random order
+  function shuffleArray<T>(array: T[]): T[] {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
   }
 
   async function handleDeclineJoinRequest(request: JoinRequest) {
@@ -934,8 +1054,11 @@ export default function QuickMatchLobbyPage() {
   const getGameModeClass = (mode: string): string => {
     if (mode === '301') return 'bg-gradient-to-r from-red-500 to-rose-600 text-white border-red-400 shadow-lg shadow-red-500/30';
     if (mode === '501') return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-blue-400 shadow-lg shadow-blue-500/30';
+    if (mode === 'atc') return 'bg-gradient-to-r from-purple-500 to-pink-600 text-white border-purple-400 shadow-lg shadow-purple-500/30';
     return 'bg-slate-600 text-slate-200 border-slate-500';
   };
+  
+  const isATCMode = gameMode === 'atc';
 
   const getMatchFormatClass = (format: string): string => {
     const match = format.match(/best-of-(\d+)/i);
@@ -1115,12 +1238,24 @@ export default function QuickMatchLobbyPage() {
                     <div className="flex items-center gap-2 mb-3">
                       <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
                       <p className="text-sm text-emerald-400 font-medium">
-                        Waiting for opponent...
+                        {myLobby.game_type === 'atc' ? `Waiting for ${((myLobby as any).atc_settings?.player_count || 2) - 1} more players...` : 'Waiting for opponent...'}
                       </p>
                     </div>
                     <div className="text-xs text-slate-400 space-y-1">
-                      <p>Game: <span className="text-white">{myLobby.game_type}</span></p>
-                      <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
+                      <p>Game: <span className="text-white">{myLobby.game_type === 'atc' ? 'Around The Clock' : myLobby.game_type}</span></p>
+                      {myLobby.game_type === 'atc' && (myLobby as any).atc_settings ? (
+                        <>
+                          <p>Mode: <span className="text-white">
+                            {(myLobby as any).atc_settings.mode === 'singles' ? 'Singles Only' :
+                             (myLobby as any).atc_settings.mode === 'doubles' ? 'Doubles Only' :
+                             (myLobby as any).atc_settings.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
+                          </span></p>
+                          <p>Order: <span className="text-white">{(myLobby as any).atc_settings.order === 'sequential' ? '1-20 + Bull' : 'Random'}</span></p>
+                          <p>Players: <span className="text-white">{(myLobby as any).atc_settings.player_count || 2}</span></p>
+                        </>
+                      ) : (
+                        <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
+                      )}
                       {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
                         <div className="flex items-center gap-1 pt-1">
                           <Target className="w-3 h-3 text-blue-400" />
@@ -1179,24 +1314,74 @@ export default function QuickMatchLobbyPage() {
                       <SelectContent className="bg-slate-900 border-slate-700">
                         <SelectItem value="301">301</SelectItem>
                         <SelectItem value="501">501</SelectItem>
+                        <SelectItem value="atc">Around The Clock</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm">Match Format</Label>
-                    <Select value={matchFormat} onValueChange={setMatchFormat}>
-                      <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-700">
-                        <SelectItem value="best-of-1">Best of 1</SelectItem>
-                        <SelectItem value="best-of-3">Best of 3</SelectItem>
-                        <SelectItem value="best-of-5">Best of 5</SelectItem>
-                        <SelectItem value="best-of-7">Best of 7</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Around The Clock Settings */}
+                  {isATCMode && (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm">Target Order</Label>
+                        <Select value={atcOrder} onValueChange={(v) => setAtcOrder(v as 'sequential' | 'random')}>
+                          <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-700">
+                            <SelectItem value="sequential">1-20 + Bull (In Order)</SelectItem>
+                            <SelectItem value="random">Random Order</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm">Game Mode</Label>
+                        <Select value={atcMode} onValueChange={(v) => setAtcMode(v as 'singles' | 'doubles' | 'trebles' | 'increase')}>
+                          <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-700">
+                            <SelectItem value="singles">Singles Only</SelectItem>
+                            <SelectItem value="doubles">Doubles Only</SelectItem>
+                            <SelectItem value="trebles">Trebles Only</SelectItem>
+                            <SelectItem value="increase">Increase by Segment</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm">Number of Players</Label>
+                        <Select value={atcPlayerCount.toString()} onValueChange={(v) => setAtcPlayerCount(parseInt(v))}>
+                          <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-700">
+                            <SelectItem value="2">2 Players</SelectItem>
+                            <SelectItem value="3">3 Players</SelectItem>
+                            <SelectItem value="4">4 Players</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+
+                  {!isATCMode && (
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm">Match Format</Label>
+                      <Select value={matchFormat} onValueChange={setMatchFormat}>
+                        <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="best-of-1">Best of 1</SelectItem>
+                          <SelectItem value="best-of-3">Best of 3</SelectItem>
+                          <SelectItem value="best-of-5">Best of 5</SelectItem>
+                          <SelectItem value="best-of-7">Best of 7</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <Button
                     className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-6"
@@ -1210,8 +1395,7 @@ export default function QuickMatchLobbyPage() {
                     )}
                     Create Lobby
                   </Button>
-                </div>
-              )}
+                </>
             </div>
           </Card>
         </motion.div>
@@ -1241,6 +1425,7 @@ export default function QuickMatchLobbyPage() {
                   <SelectItem value="all">All Modes</SelectItem>
                   <SelectItem value="301">301</SelectItem>
                   <SelectItem value="501">501</SelectItem>
+                  <SelectItem value="atc">Around The Clock</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1340,24 +1525,39 @@ export default function QuickMatchLobbyPage() {
                         {/* Settings Row */}
                         <div className="flex flex-wrap items-center gap-2 mb-4">
                           <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${getGameModeClass(lobby.game_type)}`}>
-                            {lobby.game_type}
+                            {lobby.game_type === 'atc' ? 'Around The Clock' : lobby.game_type}
                           </Badge>
-                          <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${getMatchFormatClass(lobby.match_format)}`}>
-                            {formatMatchFormat(lobby.match_format)}
-                          </Badge>
-                          <Badge
-                            className={`text-xs px-2 py-0.5 rounded-lg border ${
-                              lobby.double_out
-                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                                : 'bg-slate-700 text-slate-400 border-slate-600'
-                            }`}
-                          >
-                            {lobby.double_out ? 'Double Out' : 'Straight Out'}
-                          </Badge>
-                          {!lobby.double_in && (
-                            <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/40 text-xs px-2 py-0.5 rounded-lg border">
-                              Straight In
-                            </Badge>
+                          {lobby.game_type === 'atc' ? (
+                            <>
+                              <Badge className="text-sm font-bold px-3 py-1 rounded-lg border bg-purple-500/20 text-purple-400 border-purple-500/40">
+                                {(lobby as any).atc_settings?.mode === 'singles' ? 'Singles' :
+                                  (lobby as any).atc_settings?.mode === 'doubles' ? 'Doubles' :
+                                  (lobby as any).atc_settings?.mode === 'trebles' ? 'Trebles' : 'Increase'}
+                              </Badge>
+                              <Badge className="text-sm font-bold px-3 py-1 rounded-lg border bg-pink-500/20 text-pink-400 border-pink-500/40">
+                                {(lobby as any).atc_settings?.player_count || 2} Players
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${getMatchFormatClass(lobby.match_format)}`}>
+                                {formatMatchFormat(lobby.match_format)}
+                              </Badge>
+                              <Badge
+                                className={`text-xs px-2 py-0.5 rounded-lg border ${
+                                  lobby.double_out
+                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                                    : 'bg-slate-700 text-slate-400 border-slate-600'
+                                }`}
+                              >
+                                {lobby.double_out ? 'Double Out' : 'Straight Out'}
+                              </Badge>
+                              {!lobby.double_in && (
+                                <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/40 text-xs px-2 py-0.5 rounded-lg border">
+                                  Straight In
+                                </Badge>
+                              )}
+                            </>
                           )}
                         </div>
 
