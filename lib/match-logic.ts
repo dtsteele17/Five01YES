@@ -276,7 +276,7 @@ export function validateEditedVisit(
   };
 }
 
-export function isValidCheckout(currentScore: number, scoreEntered: number, doubleOut: boolean): boolean {
+export function isValidCheckoutAttempt(currentScore: number, scoreEntered: number, doubleOut: boolean): boolean {
   if (currentScore !== scoreEntered) {
     return false;
   }
