@@ -108,6 +108,20 @@ function JoinedATCLobbyView({ lobby, userId, onLeave, onOpenModal }: { lobby: Qu
   const router = useRouter();
   
   useEffect(() => {
+    console.log('[JoinedATCLobbyView] Mounted, onOpenModal available:', !!onOpenModal);
+    
+    // Auto-open modal when component mounts
+    if (onOpenModal) {
+      const timer = setTimeout(() => {
+        console.log('[JoinedATCLobbyView] Auto-opening modal');
+        onOpenModal();
+      }, 500); // Small delay to ensure render is complete
+      
+      return () => clearTimeout(timer);
+    }
+  }, [onOpenModal]);
+  
+  useEffect(() => {
     // Get initial players from lobby
     const lobbyPlayers = (lobby as any).players || [];
     setPlayers(lobbyPlayers);
@@ -288,12 +302,12 @@ function ATCLobbyModal({
   const [players, setPlayers] = useState<ATCPlayer[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [atcSettings, setAtcSettings] = useState<any>(null);
-  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
-  const [processingRequest, setProcessingRequest] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   
   useEffect(() => {
+    console.log('[ATCLobbyModal] Mounted with lobby:', lobby.id, 'isHost:', isHost);
+    
     // Get initial data
     const lobbyPlayers = (lobby as any).players || [];
     setPlayers(lobbyPlayers);
@@ -301,11 +315,6 @@ function ATCLobbyModal({
     
     const currentPlayer = lobbyPlayers.find((p: ATCPlayer) => p.id === userId);
     setIsReady(currentPlayer?.is_ready || false);
-    
-    // Fetch pending join requests if host
-    if (isHost) {
-      fetchJoinRequests();
-    }
     
     // Subscribe to lobby changes
     const channel = supabase
@@ -332,42 +341,11 @@ function ATCLobbyModal({
         }
       )
       .subscribe();
-    
-    // Subscribe to join requests if host
-    let joinRequestChannel: any;
-    if (isHost) {
-      joinRequestChannel = supabase
-        .channel(`join-requests-${lobby.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'quick_match_join_requests',
-            filter: `lobby_id=eq.${lobby.id}`,
-          },
-          () => {
-            fetchJoinRequests();
-          }
-        )
-        .subscribe();
-    }
       
     return () => {
       channel.unsubscribe();
-      if (joinRequestChannel) joinRequestChannel.unsubscribe();
     };
   }, [lobby.id, userId, router, isHost]);
-  
-  const fetchJoinRequests = async () => {
-    const { data } = await supabase
-      .from('quick_match_join_requests')
-      .select('*')
-      .eq('lobby_id', lobby.id)
-      .eq('status', 'pending');
-    
-    if (data) setJoinRequests(data);
-  };
   
   const toggleReady = async () => {
     if (!userId) return;
@@ -383,69 +361,6 @@ function ATCLobbyModal({
       .from('quick_match_lobbies')
       .update({ players: updatedPlayers })
       .eq('id', lobby.id);
-  };
-  
-  const handleAcceptJoin = async (request: JoinRequest) => {
-    if (processingRequest) return;
-    setProcessingRequest(true);
-    
-    try {
-      // Get current players
-      const currentPlayers = [...players];
-      
-      // Add new player
-      const newPlayer: ATCPlayer = {
-        id: request.requester_id,
-        username: request.requester_username,
-        avatar_url: request.requester_avatar_url,
-        is_ready: false,
-        current_target: 1,
-        completed_targets: [],
-        is_winner: false
-      };
-      
-      const updatedPlayers = [...currentPlayers, newPlayer];
-      
-      // Update lobby
-      const { error: updateError } = await supabase
-        .from('quick_match_lobbies')
-        .update({ players: updatedPlayers })
-        .eq('id', lobby.id);
-      
-      if (updateError) throw updateError;
-      
-      // Update request status
-      await supabase
-        .from('quick_match_join_requests')
-        .update({ status: 'accepted' })
-        .eq('id', request.id);
-      
-      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
-      toast.success(`${request.requester_username} joined the lobby!`);
-    } catch (error: any) {
-      toast.error(`Failed to accept: ${error.message}`);
-    } finally {
-      setProcessingRequest(false);
-    }
-  };
-  
-  const handleDeclineJoin = async (request: JoinRequest) => {
-    if (processingRequest) return;
-    setProcessingRequest(true);
-    
-    try {
-      await supabase
-        .from('quick_match_join_requests')
-        .update({ status: 'declined' })
-        .eq('id', request.id);
-      
-      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
-      toast.info(`Declined ${request.requester_username}`);
-    } catch (error: any) {
-      toast.error(`Failed to decline: ${error.message}`);
-    } finally {
-      setProcessingRequest(false);
-    }
   };
   
   const playerSlots = atcSettings?.player_count || 2;
@@ -530,42 +445,7 @@ function ATCLobbyModal({
                 </div>
               ))}
               
-              {/* Join Requests (Host only) */}
-              {isHost && joinRequests.map((request) => (
-                <div 
-                  key={request.id}
-                  className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-sm font-bold">
-                      {request.requester_username.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-white text-sm">{request.requester_username}</span>
-                    <Badge className="bg-amber-500/20 text-amber-400 text-xs">Wants to Join</Badge>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-2 py-1 h-7"
-                      onClick={() => handleAcceptJoin(request)}
-                      disabled={processingRequest || players.length >= playerSlots}
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs px-2 py-1 h-7"
-                      onClick={() => handleDeclineJoin(request)}
-                      disabled={processingRequest}
-                      variant="outline"
-                    >
-                      Decline
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              
-              {/* Empty slots */}
+              {/* Empty slots -- players join directly for ATC */}
               {Array.from({ length: availableSlots }).map((_, i) => (
                 <div 
                   key={`empty-${i}`}
@@ -800,9 +680,12 @@ export default function QuickMatchLobbyPage() {
     if (requests && requests.length > 0) {
       console.log('[JOIN REQUEST] Found pending request:', requests[0]);
       setCurrentJoinRequest(requests[0] as JoinRequest);
-      setShowJoinRequestModal(true);
+      // Skip popup for ATC lobbies - show in lobby modal instead
+      if (myLobby?.game_type !== 'atc') {
+        setShowJoinRequestModal(true);
+      }
     }
-  }, []);
+  }, [myLobby?.game_type]);
 
   // Setup join request subscription when myLobby changes
   useEffect(() => {
@@ -843,7 +726,10 @@ export default function QuickMatchLobbyPage() {
           if (newRequest.status === 'pending') {
             console.log('[REALTIME] Showing join request modal for:', newRequest.requester_username);
             setCurrentJoinRequest(newRequest);
-            setShowJoinRequestModal(true);
+            // Skip popup for ATC lobbies - show in lobby modal instead
+            if (myLobby?.game_type !== 'atc') {
+              setShowJoinRequestModal(true);
+            }
           }
         }
       )
@@ -1252,7 +1138,12 @@ export default function QuickMatchLobbyPage() {
     setJoining(lobbyId);
 
     try {
-      console.log('[JOIN] Sending join request for lobby:', lobbyId, 'as user:', userId);
+      // First, fetch the lobby to check if it's ATC mode
+      const { data: lobby } = await supabase
+        .from('quick_match_lobbies')
+        .select('game_type, atc_settings, players')
+        .eq('id', lobbyId)
+        .maybeSingle();
 
       // Get current user profile
       const { data: userProfile } = await supabase
@@ -1268,6 +1159,97 @@ export default function QuickMatchLobbyPage() {
         .eq('user_id', userId)
         .maybeSingle();
 
+      // For ATC lobbies, join directly without request
+      if (lobby?.game_type === 'atc') {
+        console.log('[JOIN] ATC lobby detected, joining directly');
+        
+        const currentPlayers = lobby.players || [];
+        const maxPlayers = lobby.atc_settings?.player_count || 2;
+        
+        // Check if lobby is full
+        if (currentPlayers.length >= maxPlayers) {
+          toast.error('Lobby is full');
+          setJoining(null);
+          return;
+        }
+        
+        // Add player directly to lobby
+        const newPlayer: ATCPlayer = {
+          id: userId,
+          username: userProfile?.username || 'Player',
+          avatar_url: userProfile?.avatar_url,
+          is_ready: false,
+          current_target: 1,
+          completed_targets: [],
+          is_winner: false
+        };
+        
+        const updatedPlayers = [...currentPlayers, newPlayer];
+        
+        const { error: updateError } = await supabase
+          .from('quick_match_lobbies')
+          .update({ players: updatedPlayers })
+          .eq('id', lobbyId);
+        
+        if (updateError) {
+          console.error('[JOIN] Error joining ATC lobby:', updateError);
+          throw new Error('Failed to join lobby');
+        }
+        
+        // Fetch full lobby data and open popup
+        const { data: fullLobby } = await supabase
+          .from('quick_match_lobbies')
+          .select(`
+            id,
+            created_by,
+            created_at,
+            status,
+            game_type,
+            match_format,
+            starting_score,
+            double_out,
+            double_in,
+            player1_id,
+            player2_id,
+            match_id,
+            player1_3dart_avg,
+            atc_settings,
+            players,
+            player1:profiles!quick_match_lobbies_player1_id_fkey (
+              username,
+              avatar_url,
+              trust_rating_letter,
+              trust_rating_count,
+              safety_rating_letter,
+              safety_rating_count
+            )
+          `)
+          .eq('id', lobbyId)
+          .single();
+        
+        if (fullLobby) {
+          const player1Data = Array.isArray(fullLobby.player1) 
+            ? fullLobby.player1[0] 
+            : fullLobby.player1;
+          
+          const typedLobby: QuickMatchLobby = {
+            ...fullLobby,
+            player1: player1Data as any,
+            game_type: fullLobby.game_type || 'atc',
+          };
+          
+          setMyLobby(typedLobby);
+          setShowATCLobbyModal(true);
+          setJoining(null);
+          toast.success('Joined lobby! Click Ready Up when you\'re ready.');
+        }
+        
+        return;
+      }
+
+      // For non-ATC lobbies, create a join request
+      console.log('[JOIN] Sending join request for lobby:', lobbyId, 'as user:', userId);
+
       // Check if user has camera available (like DartCounter)
       let hasCamera = false;
       try {
@@ -1277,10 +1259,9 @@ export default function QuickMatchLobbyPage() {
         console.log('[JOIN] Camera detection:', { hasCamera, deviceCount: videoDevices.length });
       } catch (e) {
         console.log('[JOIN] Camera detection failed:', e);
-        // Continue without camera - not a blocking error
       }
 
-      // Create a join request instead of directly joining
+      // Create a join request
       const { data: request, error: requestError } = await supabase
         .from('quick_match_join_requests')
         .insert({
@@ -1343,7 +1324,7 @@ export default function QuickMatchLobbyPage() {
           setJoining(null);
           
           // Fetch the full lobby data to show in the joined lobby view
-          const { data: fullLobby } = await supabase
+          const { data: fullLobby, error: lobbyError } = await supabase
             .from('quick_match_lobbies')
             .select(`
               id,
@@ -1371,7 +1352,12 @@ export default function QuickMatchLobbyPage() {
               )
             `)
             .eq('id', request.lobby_id)
-            .maybeSingle();
+            .single();
+            
+          if (lobbyError) {
+            console.error('[POLL] Error fetching lobby:', lobbyError);
+            return;
+          }
             
           // Also fetch host stats for display
           if (fullLobby) {
@@ -1381,14 +1367,25 @@ export default function QuickMatchLobbyPage() {
               .eq('user_id', fullLobby.player1_id)
               .maybeSingle();
 
-            if (hostStats && fullLobby.player1 && !Array.isArray(fullLobby.player1)) {
-              (fullLobby.player1 as any).overall_3dart_avg = hostStats.overall_3dart_avg;
+            // Handle player1 as object or array (Supabase can return either)
+            const player1Data = Array.isArray(fullLobby.player1) 
+              ? fullLobby.player1[0] 
+              : fullLobby.player1;
+
+            if (hostStats && player1Data) {
+              (player1Data as any).overall_3dart_avg = hostStats.overall_3dart_avg;
             }
-          }
             
-          if (fullLobby) {
-            setMyLobby(fullLobby as unknown as QuickMatchLobby);
-            setShowATCLobbyModal(true); // Open the lobby popup
+            // Construct properly typed lobby object
+            const typedLobby: QuickMatchLobby = {
+              ...fullLobby,
+              player1: player1Data as any,
+              game_type: fullLobby.game_type || 'atc',
+            };
+            
+            console.log('[POLL] Join accepted, opening lobby modal:', typedLobby);
+            setMyLobby(typedLobby);
+            setShowATCLobbyModal(true);
             toast.success('Join request accepted! You are in the lobby.');
           }
         } else {
@@ -2463,7 +2460,7 @@ export default function QuickMatchLobbyPage() {
       )}
 
       {/* ATC Lobby Modal */}
-      {showATCLobbyModal && myLobby && myLobby.game_type === 'atc' && (
+      {showATCLobbyModal && myLobby && (
         <ATCLobbyModal
           lobby={myLobby}
           userId={userId}
