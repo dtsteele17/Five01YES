@@ -140,23 +140,24 @@ function ATCLobbyModal({
     
     // Re-fetch fresh lobby data to ensure we have latest players
     const refreshLobby = async () => {
-      const { data: freshLobby } = await supabase
+      console.log('[ATC MODAL] Refreshing lobby data...');
+      const { data: freshLobby, error } = await supabase
         .from('quick_match_lobbies')
-        .select(`
-          *,
-          player1:profiles!quick_match_lobbies_player1_id_fkey (
-            username, avatar_url, trust_rating_letter, trust_rating_count,
-            safety_rating_letter, safety_rating_count
-          )
-        `)
+        .select('*')
         .eq('id', lobby.id)
         .maybeSingle();
+        
+      if (error) {
+        console.error('[ATC MODAL] Error refreshing lobby:', error.message);
+      }
         
       if (freshLobby) {
         console.log('[ATC MODAL] Refreshed lobby data, players:', freshLobby.players?.length);
         setPlayers(freshLobby.players || []);
         const me = freshLobby.players?.find((p: ATCPlayer) => p.id === userId);
         setIsReady(me?.is_ready || false);
+      } else {
+        console.warn('[ATC MODAL] Could not refresh lobby data');
       }
     };
     
@@ -709,6 +710,7 @@ export default function QuickMatchLobbyPage() {
           
           while (!lobby && retries < maxRetries) {
             // Try simple fetch first (without profile join to avoid RLS issues)
+            console.log(`[REALTIME] Fetching lobby ${request.lobby_id} (attempt ${retries + 1}/${maxRetries})`);
             const { data: lobbyData, error: lobbyError } = await supabase
               .from('quick_match_lobbies')
               .select('*')
@@ -716,11 +718,16 @@ export default function QuickMatchLobbyPage() {
               .maybeSingle();
               
             if (lobbyError) {
-              console.log(`[REALTIME] Error fetching lobby (retry ${retries + 1}/${maxRetries}):`, lobbyError.message);
+              console.log(`[REALTIME] Error fetching lobby (retry ${retries + 1}/${maxRetries}):`, lobbyError.message, lobbyError.code);
             }
             
             if (lobbyData) {
-              console.log('[REALTIME] Lobby fetched successfully:', lobbyData.id, 'type:', lobbyData.game_type);
+              console.log('[REALTIME] Lobby fetched successfully:', lobbyData.id, 'type:', lobbyData.game_type, 'players:', lobbyData.players?.length);
+              // Verify user is in players list
+              const currentUserId = userIdRef.current;
+              const isInPlayers = lobbyData.players?.some((p: any) => p.id === currentUserId);
+              console.log('[REALTIME] User in players list:', isInPlayers);
+              
               // Now fetch player1 profile separately
               const { data: profileData } = await supabase
                 .from('profiles')
@@ -2177,6 +2184,33 @@ export default function QuickMatchLobbyPage() {
               className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 ml-2"
             >
               Check
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={async () => {
+                // FORCE JOIN - try to fetch lobby and open modal regardless
+                console.log('[FORCE] Attempting force join...');
+                const { data: lobbyData } = await supabase
+                  .from('quick_match_lobbies')
+                  .select('*')
+                  .eq('id', pendingLobbyId)
+                  .maybeSingle();
+                  
+                if (lobbyData) {
+                  console.log('[FORCE] Lobby found, opening modal');
+                  setPendingLobbyId(null);
+                  setJoining(null);
+                  setMyLobby(lobbyData as QuickMatchLobby);
+                  setShowATCLobbyModal(true);
+                  toast.success('Joined lobby!');
+                } else {
+                  toast.error('Could not find lobby');
+                }
+              }}
+              className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+            >
+              Force
             </Button>
             <Button variant="ghost" size="sm" onClick={() => { setPendingLobbyId(null); setJoining(null); }} className="text-slate-400 hover:text-white">
               Cancel
