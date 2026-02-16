@@ -130,13 +130,37 @@ function ATCLobbyModal({
   const router = useRouter();
   
   useEffect(() => {
-    // Get initial data
+    // Get initial data from prop
     const lobbyPlayers = lobby.players || [];
     setPlayers(lobbyPlayers);
     setAtcSettings(lobby.atc_settings || null);
     
     const currentPlayer = lobbyPlayers.find((p: ATCPlayer) => p.id === userId);
     setIsReady(currentPlayer?.is_ready || false);
+    
+    // Re-fetch fresh lobby data to ensure we have latest players
+    const refreshLobby = async () => {
+      const { data: freshLobby } = await supabase
+        .from('quick_match_lobbies')
+        .select(`
+          *,
+          player1:profiles!quick_match_lobbies_player1_id_fkey (
+            username, avatar_url, trust_rating_letter, trust_rating_count,
+            safety_rating_letter, safety_rating_count
+          )
+        `)
+        .eq('id', lobby.id)
+        .maybeSingle();
+        
+      if (freshLobby) {
+        console.log('[ATC MODAL] Refreshed lobby data, players:', freshLobby.players?.length);
+        setPlayers(freshLobby.players || []);
+        const me = freshLobby.players?.find((p: ATCPlayer) => p.id === userId);
+        setIsReady(me?.is_ready || false);
+      }
+    };
+    
+    refreshLobby();
     
     // Fetch pending join requests if host
     if (isHost) {
@@ -299,6 +323,8 @@ function ATCLobbyModal({
   const playerSlots = atcSettings?.player_count || 2;
   const availableSlots = playerSlots - players.length;
   const allPlayersReady = players.length > 0 && players.every(p => p.is_ready);
+  const isPlayerInLobby = players.some(p => p.id === userId);
+  const currentPlayer = players.find(p => p.id === userId);
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -311,7 +337,9 @@ function ATCLobbyModal({
                 Around The Clock
               </h2>
               <p className="text-white/70 text-sm">
-                {isHost ? 'You are the Host' : 'Waiting for host to start...'}
+                {isHost ? 'You are the Host' : 
+                 isPlayerInLobby ? 'You are in the lobby - Ready up!' : 
+                 'Waiting for host to start...'}
               </p>
             </div>
             <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
@@ -321,6 +349,23 @@ function ATCLobbyModal({
         </div>
         
         <div className="p-6 space-y-6">
+          {/* Not in lobby warning */}
+          {!isPlayerInLobby && (
+            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <p className="text-red-400 text-sm text-center">
+                ⚠️ You are not in this lobby. Please close and try joining again.
+              </p>
+            </div>
+          )}
+          
+          {/* Player in lobby success banner */}
+          {isPlayerInLobby && !isHost && (
+            <div className="p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
+              <p className="text-emerald-400 text-sm text-center">
+                ✓ You have joined! Click "Ready Up!" when ready.
+              </p>
+            </div>
+          )}
           {/* Match Settings */}
           <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
             <div className="flex items-center gap-2 mb-3">
@@ -685,14 +730,23 @@ export default function QuickMatchLobbyPage() {
     if (event === 'UPDATE') {
       // Check if user is a player in this lobby (for ATC)
       const isPlayerInLobby = updatedLobby.players?.some((p: ATCPlayer) => p.id === currentUserId);
+      const isHost = updatedLobby.created_by === currentUserId;
       
-      // Handle my lobby updates (host or player)
       // Skip if this lobby was recently cancelled by the user
       if (cancelledLobbyIdsRef.current.has(updatedLobby.id)) {
         return;
       }
       
-      if (updatedLobby.created_by === currentUserId || isPlayerInLobby) {
+      // Handle user being removed from lobby (left or kicked)
+      if (!isHost && !isPlayerInLobby && myLobby?.id === updatedLobby.id) {
+        console.log('[REALTIME] User removed from lobby, clearing myLobby');
+        setMyLobby(null);
+        setShowATCLobbyModal(false);
+        return;
+      }
+      
+      // Handle my lobby updates (host or player)
+      if (isHost || isPlayerInLobby) {
         if (updatedLobby.status === 'in_progress' && updatedLobby.match_id && updatedLobby.game_type !== 'atc') {
           router.push(`/app/play/quick-match/match/${updatedLobby.match_id}`);
         } else if (updatedLobby.status === 'in_progress' && updatedLobby.game_type === 'atc') {
@@ -1077,68 +1131,148 @@ export default function QuickMatchLobbyPage() {
   // ============================================
   // POLL JOIN REQUEST STATUS
   // ============================================
-  async function pollJoinRequestStatus(requestId: string) {
+  function pollJoinRequestStatus(requestId: string) {
+    console.log('[POLL] Starting to poll for request:', requestId);
+    let pollCount = 0;
+    const maxPolls = 120; // 2 minutes max
+    
     const checkInterval = setInterval(async () => {
-      const { data: request } = await supabase
-        .from('quick_match_join_requests')
-        .select('*')
-        .eq('id', requestId)
-        .maybeSingle();
-
-      if (!request) {
+      pollCount++;
+      console.log(`[POLL] Checking request status (${pollCount}/${maxPolls})...`);
+      
+      if (pollCount > maxPolls) {
+        console.log('[POLL] Max polls reached, stopping');
         clearInterval(checkInterval);
-        setJoining(null);
-        setPendingLobbyId(null);
-        return;
-      }
-
-      if (request.status === 'accepted') {
-        clearInterval(checkInterval);
-        
-        // Fetch the updated lobby
-        const { data: fullLobby } = await supabase
-          .from('quick_match_lobbies')
-          .select(`
-            *,
-            player1:profiles!quick_match_lobbies_player1_id_fkey (
-              username, avatar_url, trust_rating_letter, trust_rating_count,
-              safety_rating_letter, safety_rating_count
-            )
-          `)
-          .eq('id', request.lobby_id)
-          .single();
-          
-        if (fullLobby) {
-          if (fullLobby.game_type === 'atc') {
-            // For ATC, show the lobby modal
-            setPendingLobbyId(null);
-            setJoining(null);
-            setMyLobby(fullLobby as QuickMatchLobby);
-            setShowATCLobbyModal(true);
-            toast.success('Join request accepted! You are in the lobby.');
-          } else if (request.match_id) {
-            // For 301/501, go to match
-            toast.success('Join request accepted! Match starting...');
-            router.push(`/app/play/quick-match/match/${request.match_id}`);
-          }
-        }
-      } else if (request.status === 'declined') {
-        clearInterval(checkInterval);
-        setJoining(null);
-        setPendingLobbyId(null);
-        toast.error('Join request was declined by the host');
-      }
-    }, 1000);
-
-    // Timeout after 60 seconds
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (pendingLobbyId) {
         setJoining(null);
         setPendingLobbyId(null);
         toast.error('Join request timed out');
+        return;
       }
-    }, 60000);
+      
+      try {
+        const { data: request, error: requestError } = await supabase
+          .from('quick_match_join_requests')
+          .select('*')
+          .eq('id', requestId)
+          .maybeSingle();
+
+        if (requestError) {
+          console.error('[POLL] Error fetching request:', requestError);
+          return; // Continue polling on error
+        }
+
+        if (!request) {
+          console.log('[POLL] Request not found (deleted?), stopping poll');
+          clearInterval(checkInterval);
+          setJoining(null);
+          setPendingLobbyId(null);
+          return;
+        }
+
+        console.log('[POLL] Request status:', request.status);
+
+        if (request.status === 'accepted') {
+          console.log('[POLL] Request ACCEPTED! Fetching lobby...');
+          clearInterval(checkInterval);
+          
+          // Retry logic for fetching lobby (handle race condition)
+          let fullLobby = null;
+          let lobbyError = null;
+          let retries = 0;
+          const maxRetries = 5;
+          
+          while (retries < maxRetries && !fullLobby) {
+            const { data, error } = await supabase
+              .from('quick_match_lobbies')
+              .select(`
+                *,
+                player1:profiles!quick_match_lobbies_player1_id_fkey (
+                  username, avatar_url, trust_rating_letter, trust_rating_count,
+                  safety_rating_letter, safety_rating_count
+                )
+              `)
+              .eq('id', request.lobby_id)
+              .maybeSingle();
+              
+            if (error) {
+              lobbyError = error;
+              break;
+            }
+            
+            if (data) {
+              // For ATC, verify we're in the players list
+              if (data.game_type === 'atc') {
+                const isInPlayers = data.players?.some((p: any) => p.id === userId);
+                if (isInPlayers) {
+                  fullLobby = data;
+                  console.log('[POLL] Lobby fetched with player in it');
+                } else {
+                  console.log(`[POLL] Player not in lobby yet, retry ${retries + 1}/${maxRetries}...`);
+                  await new Promise(r => setTimeout(r, 500));
+                  retries++;
+                }
+              } else {
+                fullLobby = data;
+              }
+            } else {
+              break;
+            }
+          }
+            
+          if (lobbyError) {
+            console.error('[POLL] Error fetching lobby:', lobbyError);
+            toast.error('Error joining lobby. Please refresh.');
+            setJoining(null);
+            setPendingLobbyId(null);
+            return;
+          }
+            
+          if (fullLobby) {
+            console.log('[POLL] Lobby fetched:', fullLobby.id, 'game_type:', fullLobby.game_type);
+            
+            if (fullLobby.game_type === 'atc') {
+              // For ATC, show the lobby modal
+              console.log('[POLL] ATC lobby - showing modal');
+              
+              // First clear pending state
+              setPendingLobbyId(null);
+              setJoining(null);
+              
+              // Small delay to ensure state clears, then set lobby
+              setTimeout(() => {
+                setMyLobby(fullLobby as QuickMatchLobby);
+                setShowATCLobbyModal(true);
+                toast.success('Join request accepted! You are in the lobby.');
+              }, 100);
+            } else if (request.match_id) {
+              // For 301/501, go to match
+              console.log('[POLL] Regular match - redirecting to:', request.match_id);
+              toast.success('Join request accepted! Match starting...');
+              router.push(`/app/play/quick-match/match/${request.match_id}`);
+            } else {
+              console.warn('[POLL] No match_id for non-ATC lobby');
+              setJoining(null);
+              setPendingLobbyId(null);
+            }
+          } else {
+            console.error('[POLL] Lobby not found or player not added');
+            toast.error('Error joining lobby. Please try again.');
+            setJoining(null);
+            setPendingLobbyId(null);
+          }
+        } else if (request.status === 'declined') {
+          console.log('[POLL] Request DECLINED');
+          clearInterval(checkInterval);
+          setJoining(null);
+          setPendingLobbyId(null);
+          toast.error('Join request was declined by the host');
+        }
+        // else: still pending, continue polling
+      } catch (error) {
+        console.error('[POLL] Unexpected error:', error);
+        // Continue polling on error
+      }
+    }, 1000);
   }
 
   // ============================================
