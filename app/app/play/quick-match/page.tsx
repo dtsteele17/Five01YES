@@ -1149,6 +1149,14 @@ export default function QuickMatchLobbyPage() {
     handleResume();
   }, [myLobby, userId, router]);
 
+  // Auto-open ATC lobby modal for joined players
+  useEffect(() => {
+    if (myLobby && myLobby.game_type === 'atc' && myLobby.created_by !== userId) {
+      console.log('[ATC] Auto-opening lobby modal for joined player');
+      setShowATCLobbyModal(true);
+    }
+  }, [myLobby?.id, myLobby?.game_type, myLobby?.created_by, userId]);
+
   async function initializeAndSubscribe() {
     try {
       const {
