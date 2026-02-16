@@ -222,13 +222,35 @@ function ATCLobbyModal({
   }, [lobby.id, userId, router, isHost]);
 
   const fetchJoinRequests = async () => {
-    const { data } = await supabase
+    const { data: requests } = await supabase
       .from('quick_match_join_requests')
       .select('*')
       .eq('lobby_id', lobby.id)
       .eq('status', 'pending');
     
-    if (data) setJoinRequests(data);
+    if (!requests) {
+      setJoinRequests([]);
+      return;
+    }
+    
+    // Enhance requests with profile data (safety rating)
+    const enhancedRequests = await Promise.all(
+      requests.map(async (request) => {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('safety_rating_letter, safety_rating_count')
+          .eq('user_id', request.requester_id)
+          .maybeSingle();
+        
+        return {
+          ...request,
+          requester_safety_rating_letter: profile?.safety_rating_letter || request.requester_safety_rating_letter,
+          requester_safety_rating_count: profile?.safety_rating_count || request.requester_safety_rating_count || 0,
+        };
+      })
+    );
+    
+    setJoinRequests(enhancedRequests);
   };
 
   const handleAcceptRequest = async (request: JoinRequest) => {
@@ -452,15 +474,25 @@ function ATCLobbyModal({
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold">
                         {request.requester_username.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-white font-medium">{request.requester_username}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                          {request.requester_3dart_avg && (
-                            <span className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
+                          {/* 3-Dart Average */}
+                          {(request.requester_3dart_avg || 0) > 0 && (
+                            <span className="flex items-center gap-1 text-amber-400">
                               <BarChart3 className="w-3 h-3" />
-                              {request.requester_3dart_avg.toFixed(1)} avg
+                              {request.requester_3dart_avg?.toFixed(1)} avg
                             </span>
                           )}
+                          {/* Safety Rating */}
+                          {request.requester_safety_rating_letter && (
+                            <SafetyRatingBadge 
+                              grade={request.requester_safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
+                              size="sm"
+                              totalRatings={request.requester_safety_rating_count || 0}
+                            />
+                          )}
+                          {/* Camera */}
                           {request.requester_has_camera && (
                             <span className="flex items-center gap-1 text-emerald-400">
                               <Camera className="w-3 h-3" />
@@ -781,6 +813,63 @@ export default function QuickMatchLobbyPage() {
       void channel.unsubscribe();
     };
   }, [userId]);
+
+  // HOST: Subscribe to incoming join requests (only for 301/501 games)
+  useEffect(() => {
+    // Only for hosts of 301/501 lobbies (not ATC)
+    if (!userId || !myLobby || myLobby.created_by !== userId || myLobby.game_type === 'atc') return;
+    
+    console.log('[HOST] Setting up join request listener for 301/501 lobby:', myLobby.id);
+    
+    const channel = supabase
+      .channel(`host-join-requests-${myLobby.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'quick_match_join_requests',
+        filter: `lobby_id=eq.${myLobby.id}`
+      }, async (payload) => {
+        const request = payload.new as JoinRequest;
+        console.log('[HOST] New join request received for 301/501:', request);
+        
+        // Fetch requester's profile and stats
+        const [{ data: profile }, { data: stats }] = await Promise.all([
+          supabase.from('profiles')
+            .select('safety_rating_letter, safety_rating_count')
+            .eq('user_id', request.requester_id)
+            .maybeSingle(),
+          supabase.from('player_stats')
+            .select('overall_3dart_avg')
+            .eq('user_id', request.requester_id)
+            .maybeSingle()
+        ]);
+        
+        // Enhance the request with additional data
+        const enhancedRequest: JoinRequest = {
+          ...request,
+          requester_3dart_avg: stats?.overall_3dart_avg || request.requester_3dart_avg || 0,
+          requester_safety_rating_letter: profile?.safety_rating_letter || request.requester_safety_rating_letter,
+          requester_safety_rating_count: profile?.safety_rating_count || request.requester_safety_rating_count || 0,
+        };
+        
+        setCurrentJoinRequest(enhancedRequest);
+        setShowJoinRequestModal(true);
+      })
+      .subscribe();
+    
+    return () => {
+      void channel.unsubscribe();
+    };
+  }, [userId, myLobby?.id, myLobby?.created_by, myLobby?.game_type]);
+
+  // HOST: For ATC lobbies - Auto-open lobby modal immediately when lobby is created
+  useEffect(() => {
+    // Only for hosts of ATC lobbies - auto open the lobby modal
+    if (myLobby && myLobby.created_by === userId && myLobby.game_type === 'atc' && myLobby.status !== 'cancelled') {
+      console.log('[ATC HOST] Auto-opening lobby modal');
+      setShowATCLobbyModal(true);
+    }
+  }, [myLobby?.id, myLobby?.game_type, myLobby?.created_by, userId]);
 
   // ============================================
   // INITIALIZE
@@ -2056,13 +2145,24 @@ export default function QuickMatchLobbyPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {filteredLobbies.map((lobby) => (
                     <div key={lobby.id} className="p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl hover:bg-slate-800/50 transition-all">
-                      <div className="flex items-center justify-between gap-2 mb-4">
+                      {/* Host Info Row */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
                             {lobby.player1?.username?.charAt(0).toUpperCase() || 'P'}
                           </div>
                           <div>
                             <h3 className="text-white font-bold">{lobby.player1?.username ?? 'Player'}</h3>
+                            {/* Trust Rating */}
+                            {lobby.player1?.trust_rating_letter && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <TrustRatingBadge 
+                                  grade={lobby.player1.trust_rating_letter} 
+                                  size="sm" 
+                                  totalRatings={lobby.player1.trust_rating_count || 0}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Badge className={(lobby.player1?.overall_3dart_avg || 0) > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}>
@@ -2071,10 +2171,18 @@ export default function QuickMatchLobbyPage() {
                         </Badge>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 mb-4">
+                      {/* Game Mode & Format Row */}
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        {/* Game Mode */}
                         <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${getGameModeClass(lobby.game_type)}`}>
                           {lobby.game_type === 'atc' ? 'Around The Clock' : lobby.game_type}
                         </Badge>
+                        {/* Match Format */}
+                        {lobby.game_type !== 'atc' && (
+                          <Badge className="text-sm font-bold px-3 py-1 rounded-lg border bg-slate-600 text-slate-200 border-slate-500">
+                            {formatMatchFormat(lobby.match_format)}
+                          </Badge>
+                        )}
                         {lobby.game_type === 'atc' && (
                           <Badge className="text-sm font-bold px-3 py-1 rounded-lg border bg-purple-500/20 text-purple-400 border-purple-500/40">
                             {lobby.atc_settings?.player_count || 2} Players
@@ -2116,6 +2224,99 @@ export default function QuickMatchLobbyPage() {
             }
           }}
         />
+      )}
+
+      {/* Join Request Modal - Shows when host receives a request */}
+      {showJoinRequestModal && currentJoinRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    Join Request
+                  </h2>
+                  <p className="text-white/70 text-sm">
+                    {currentJoinRequest.requester_username} wants to join your match
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <UserPlus className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Player Info Card */}
+              <div className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl">
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                  {currentJoinRequest.requester_username?.charAt(0).toUpperCase() || '?'}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">{currentJoinRequest.requester_username}</h3>
+                  
+                  {/* 3-Dart Average */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <BarChart3 className="w-4 h-4 text-amber-400" />
+                    <span className="text-slate-300 text-sm">
+                      3-Dart Average: 
+                      <span className="text-amber-400 font-bold ml-1">
+                        {(currentJoinRequest.requester_3dart_avg || 0) > 0 
+                          ? currentJoinRequest.requester_3dart_avg?.toFixed(1) 
+                          : 'New Player'}
+                      </span>
+                    </span>
+                  </div>
+                  
+                  {/* Safety Rating */}
+                  {currentJoinRequest.requester_safety_rating_letter && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <SafetyRatingBadge 
+                        grade={currentJoinRequest.requester_safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
+                        size="sm"
+                        totalRatings={currentJoinRequest.requester_safety_rating_count || 0}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Camera indicator */}
+                  {currentJoinRequest.requester_has_camera && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Camera className="w-4 h-4 text-emerald-400" />
+                      <span className="text-emerald-400 text-sm">Has Camera</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-6 text-lg font-bold"
+                  onClick={() => handleAcceptJoinRequest(currentJoinRequest)}
+                  disabled={processingRequest}
+                >
+                  {processingRequest ? (
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                  )}
+                  Accept
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20 py-6 text-lg font-bold"
+                  onClick={() => handleDeclineJoinRequest(currentJoinRequest)}
+                  disabled={processingRequest}
+                >
+                  <X className="w-5 h-5 mr-2" />
+                  Decline
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Pending Join Request Indicator */}
@@ -2167,10 +2368,10 @@ export default function QuickMatchLobbyPage() {
                     setPendingLobbyId(null);
                     setJoining(null);
                     setMyLobby(lobby as QuickMatchLobby);
-                    setShowATCLobbyModal(true);
+                    // Auto-open effect will handle showing the modal
                     toast.success('Join request accepted! You are in the lobby.');
                   } else if (lobby) {
-                    // Regular match
+                    // Regular match - redirect to match page
                     setPendingLobbyId(null);
                     setJoining(null);
                     router.push(`/app/play/quick-match/match/${requests[0].match_id}`);
@@ -2202,7 +2403,7 @@ export default function QuickMatchLobbyPage() {
                   setPendingLobbyId(null);
                   setJoining(null);
                   setMyLobby(lobbyData as QuickMatchLobby);
-                  setShowATCLobbyModal(true);
+                  // Auto-open effect will handle showing the modal for ATC
                   toast.success('Joined lobby!');
                 } else {
                   toast.error('Could not find lobby');
