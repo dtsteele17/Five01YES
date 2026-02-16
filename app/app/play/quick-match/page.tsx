@@ -1242,7 +1242,7 @@ export default function QuickMatchLobbyPage() {
           clearInterval(checkInterval);
           
           // Retry logic for fetching lobby (handle race condition)
-          let fullLobby = null;
+          let fullLobby: QuickMatchLobby | null = null;
           let lobbyError = null;
           let retries = 0;
           const maxRetries = 5;
