@@ -1309,7 +1309,7 @@ export default function QuickMatchLobbyPage() {
               const typedLobby: QuickMatchLobby = {
                 ...fullLobby,
                 players: fullLobby.players || [],
-                atc_settings: fullLobby.atc_settings || null,
+                atc_settings: fullLobby.atc_settings || undefined,
               };
               
               console.log('[POLL] Setting myLobby and opening modal...');
