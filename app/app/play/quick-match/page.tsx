@@ -1109,7 +1109,8 @@ export default function QuickMatchLobbyPage() {
             if (updatedLobby.created_by === user.id) {
               console.log('[REALTIME] Creator realtime lobby update received', updatedLobby);
 
-              if (updatedLobby.status === 'in_progress' && updatedLobby.match_id) {
+              if (updatedLobby.status === 'in_progress' && updatedLobby.match_id && updatedLobby.game_type !== 'atc') {
+                // Only auto-redirect for 301/501, not ATC
                 console.log('[REALTIME] Redirecting creator to match', updatedLobby.match_id);
                 toast.success('Match starting!');
                 router.push(`/app/play/quick-match/match/${updatedLobby.match_id}`);
@@ -1610,76 +1611,24 @@ export default function QuickMatchLobbyPage() {
           is_winner: false
         }];
 
-        // Check if we have enough players
-        if (updatedPlayers.length >= atcSettings.player_count) {
-          // Create ATC match
-          const targets = atcSettings.order === 'random'
-            ? shuffleArray([...[...Array(20)].map((_, i) => i + 1), 'bull'])
-            : [...[...Array(20)].map((_, i) => i + 1), 'bull'];
+        // For ATC mode, just add player to lobby - DON'T create match or redirect
+        // The match will be created when host clicks PLAY button
+        await supabase
+          .from('quick_match_lobbies')
+          .update({
+            players: updatedPlayers,
+            status: updatedPlayers.length >= atcSettings.player_count ? 'full' : 'waiting'
+          })
+          .eq('id', myLobby.id);
 
-          const { data: atcMatch, error: atcError } = await supabase
-            .from('atc_matches')
-            .insert({
-              lobby_id: myLobby.id,
-              status: 'waiting',
-              game_mode: 'atc',
-              atc_settings: atcSettings,
-              players: updatedPlayers.map((p: any) => ({
-                ...p,
-                current_target: targets[0]
-              })),
-              current_player_index: 0,
-              created_by: myLobby.player1_id,
-              targets: targets
-            })
-            .select()
-            .maybeSingle();
+        await supabase
+          .from('quick_match_join_requests')
+          .update({ status: 'accepted' })
+          .eq('id', request.id);
 
-          if (atcError || !atcMatch) {
-            throw new Error('Failed to create ATC match');
-          }
-
-          // Update the join request
-          await supabase
-            .from('quick_match_join_requests')
-            .update({ 
-              status: 'accepted',
-              match_id: atcMatch.id
-            })
-            .eq('id', request.id);
-
-          // Update lobby
-          await supabase
-            .from('quick_match_lobbies')
-            .update({
-              players: updatedPlayers,
-              status: 'in_progress',
-              match_id: atcMatch.id
-            })
-            .eq('id', myLobby.id);
-
-          setShowJoinRequestModal(false);
-          setCurrentJoinRequest(null);
-          toast.success('Match starting!');
-          router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
-        } else {
-          // Just add player to lobby, not enough players yet
-          await supabase
-            .from('quick_match_lobbies')
-            .update({
-              players: updatedPlayers
-            })
-            .eq('id', myLobby.id);
-
-          await supabase
-            .from('quick_match_join_requests')
-            .update({ status: 'accepted' })
-            .eq('id', request.id);
-
-          setShowJoinRequestModal(false);
-          setCurrentJoinRequest(null);
-          toast.success(`${request.requester_username} joined the lobby`);
-        }
+        setShowJoinRequestModal(false);
+        setCurrentJoinRequest(null);
+        toast.success(`${request.requester_username} joined the lobby`);
         
         setProcessingRequest(false);
         return;
