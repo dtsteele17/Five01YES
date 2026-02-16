@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Camera, Trash2, Activity, Loader2, ArrowLeft, Star } from 'lucide-react';
 import { PoseLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision';
 import { toast } from 'sonner';
+import { awardXP } from '@/lib/training/xpTracker';
 
 interface HandTrail {
   points: { x: number; y: number; phase: 'setup' | 'drawback' | 'release' }[];
@@ -65,6 +66,20 @@ export default function ThrowingFormAnalysis() {
   const hasReachedPeakRef = useRef(false);
   const hasExtendedRef = useRef(false);
   const peakDistanceRef = useRef(0);
+
+  const awardSessionXP = async () => {
+    if (sessionXP <= 0) return;
+
+    const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
+    await awardXP('form-analysis', throwCount, {
+      completed: true,
+      sessionData: {
+        throwsDetected: throwCount,
+        sessionDuration,
+        xpEarned: sessionXP,
+      },
+    });
+  };
 
   useEffect(() => {
     initializePoseLandmarker();
