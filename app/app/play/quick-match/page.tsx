@@ -702,27 +702,55 @@ export default function QuickMatchLobbyPage() {
         if (request.status === 'accepted') {
           console.log('[REALTIME] Request accepted! Opening lobby...');
           
-          // Fetch the lobby
-          const { data: lobby } = await supabase
-            .from('quick_match_lobbies')
-            .select(`
-              *,
-              player1:profiles!quick_match_lobbies_player1_id_fkey (
-                username, avatar_url, trust_rating_letter, trust_rating_count,
-                safety_rating_letter, safety_rating_count
-              )
-            `)
-            .eq('id', request.lobby_id)
-            .maybeSingle();
+          // Retry logic for fetching lobby
+          let lobby = null;
+          let retries = 0;
+          const maxRetries = 10;
+          
+          while (!lobby && retries < maxRetries) {
+            // Try fetching with profile join first
+            const { data: lobbyData, error: lobbyError } = await supabase
+              .from('quick_match_lobbies')
+              .select(`
+                *,
+                player1:profiles!quick_match_lobbies_player1_id_fkey (
+                  username, avatar_url, trust_rating_letter, trust_rating_count,
+                  safety_rating_letter, safety_rating_count
+                )
+              `)
+              .eq('id', request.lobby_id)
+              .maybeSingle();
+              
+            if (lobbyError) {
+              console.log(`[REALTIME] Error fetching lobby (retry ${retries + 1}/${maxRetries}):`, lobbyError.message);
+            }
             
-          if (lobby && lobby.game_type === 'atc') {
+            if (lobbyData) {
+              lobby = lobbyData;
+              console.log('[REALTIME] Lobby fetched successfully');
+            } else {
+              retries++;
+              if (retries < maxRetries) {
+                console.log(`[REALTIME] Lobby not found, retrying in 500ms... (${retries}/${maxRetries})`);
+                await new Promise(r => setTimeout(r, 500));
+              }
+            }
+          }
+          
+          if (!lobby) {
+            console.error('[REALTIME] Failed to fetch lobby after all retries');
+            toast.error('Failed to join lobby. Please try refreshing the page.');
+            return;
+          }
+            
+          if (lobby.game_type === 'atc') {
             console.log('[REALTIME] ATC lobby found, opening modal');
             setPendingLobbyId(null);
             setJoining(null);
             setMyLobby(lobby as QuickMatchLobby);
             setShowATCLobbyModal(true);
             toast.success('Join request accepted! You are in the lobby.');
-          } else if (lobby && request.match_id) {
+          } else if (request.match_id) {
             // Regular match
             console.log('[REALTIME] Regular match, redirecting');
             setPendingLobbyId(null);
@@ -800,6 +828,19 @@ export default function QuickMatchLobbyPage() {
       
       // Skip if this lobby was recently cancelled by the user
       if (cancelledLobbyIdsRef.current.has(updatedLobby.id)) {
+        return;
+      }
+      
+      // Handle user being added to a lobby (join request accepted)
+      if (isPlayerInLobby && !isHost && pendingLobbyId === updatedLobby.id) {
+        console.log('[REALTIME] User added to lobby via join request');
+        setPendingLobbyId(null);
+        setJoining(null);
+        setMyLobby(updatedLobby);
+        if (updatedLobby.game_type === 'atc') {
+          setShowATCLobbyModal(true);
+          toast.success('Join request accepted! You are in the lobby.');
+        }
         return;
       }
       
@@ -1282,7 +1323,9 @@ export default function QuickMatchLobbyPage() {
                 fullLobby = data;
               }
             } else {
-              break;
+              console.log(`[POLL] Lobby data null, retry ${retries + 1}/${maxRetries}...`);
+              await new Promise(r => setTimeout(r, 500));
+              retries++;
             }
           }
             
@@ -1309,7 +1352,7 @@ export default function QuickMatchLobbyPage() {
               const typedLobby: QuickMatchLobby = {
                 ...fullLobby,
                 players: fullLobby.players || [],
-                atc_settings: fullLobby.atc_settings || null,
+                atc_settings: fullLobby.atc_settings || undefined,
               };
               
               console.log('[POLL] Setting myLobby and opening modal...');
@@ -1883,6 +1926,7 @@ export default function QuickMatchLobbyPage() {
                             <SelectItem value="singles">Singles Only</SelectItem>
                             <SelectItem value="doubles">Doubles Only</SelectItem>
                             <SelectItem value="trebles">Trebles Only</SelectItem>
+                            <SelectItem value="increase">Increase by Segment</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2071,18 +2115,35 @@ export default function QuickMatchLobbyPage() {
                   .limit(1);
                   
                 if (requests && requests.length > 0) {
-                  // Found accepted request! Fetch lobby and open modal
-                  const { data: lobby } = await supabase
-                    .from('quick_match_lobbies')
-                    .select(`
-                      *,
-                      player1:profiles!quick_match_lobbies_player1_id_fkey (
-                        username, avatar_url, trust_rating_letter, trust_rating_count,
-                        safety_rating_letter, safety_rating_count
-                      )
-                    `)
-                    .eq('id', pendingLobbyId)
-                    .maybeSingle();
+                  console.log('[CHECK] Found accepted request, fetching lobby...');
+                  
+                  // Retry logic for fetching lobby
+                  let lobby = null;
+                  let retries = 0;
+                  const maxRetries = 5;
+                  
+                  while (!lobby && retries < maxRetries) {
+                    const { data: lobbyData } = await supabase
+                      .from('quick_match_lobbies')
+                      .select(`
+                        *,
+                        player1:profiles!quick_match_lobbies_player1_id_fkey (
+                          username, avatar_url, trust_rating_letter, trust_rating_count,
+                          safety_rating_letter, safety_rating_count
+                        )
+                      `)
+                      .eq('id', pendingLobbyId)
+                      .maybeSingle();
+                      
+                    if (lobbyData) {
+                      lobby = lobbyData;
+                      console.log('[CHECK] Lobby fetched');
+                    } else {
+                      retries++;
+                      console.log(`[CHECK] Lobby not found, retry ${retries}/${maxRetries}...`);
+                      await new Promise(r => setTimeout(r, 300));
+                    }
+                  }
                     
                   if (lobby && lobby.game_type === 'atc') {
                     setPendingLobbyId(null);
@@ -2090,6 +2151,13 @@ export default function QuickMatchLobbyPage() {
                     setMyLobby(lobby as QuickMatchLobby);
                     setShowATCLobbyModal(true);
                     toast.success('Join request accepted! You are in the lobby.');
+                  } else if (lobby) {
+                    // Regular match
+                    setPendingLobbyId(null);
+                    setJoining(null);
+                    router.push(`/app/play/quick-match/match/${requests[0].match_id}`);
+                  } else {
+                    toast.error('Could not fetch lobby. Please refresh the page.');
                   }
                 } else {
                   toast.info('Still waiting for host approval...');
