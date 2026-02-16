@@ -607,7 +607,7 @@ function ATCLobbyModal({
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  {isHost ? 'Host Ready Up!' : 'Ready Up!'}
+                  Ready Up!
                 </>
               )}
             </Button>
