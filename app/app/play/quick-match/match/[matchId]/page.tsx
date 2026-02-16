@@ -1986,7 +1986,7 @@ export default function QuickMatchRoomPage() {
       // Track match end achievements
       trackMatchEnd(currentUserId, {
         won: isWinner,
-        matchType: 'quick',
+        matchType: 'private',
         legsWon: isWinner ? (isPlayer1Winner ? p1Legs : p2Legs) : (isPlayer1Winner ? p2Legs : p1Legs),
         legsLost: isWinner ? (isPlayer1Winner ? p2Legs : p1Legs) : (isPlayer1Winner ? p1Legs : p2Legs),
         average: userStats.threeDartAverage,
