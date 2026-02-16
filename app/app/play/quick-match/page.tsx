@@ -306,6 +306,7 @@ function ATCLobbyModal({
   const [processingRequest, setProcessingRequest] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [lobbyFullAt, setLobbyFullAt] = useState<number | null>(null);
+  const [timerActive, setTimerActive] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   
@@ -377,36 +378,41 @@ function ATCLobbyModal({
     };
   }, [lobby.id, userId, router, isHost]);
 
-  // Timer effect for ready-up phase when lobby is full
+  // Timer effect for ready-up phase
   useEffect(() => {
     const playerSlots = atcSettings?.player_count || 2;
     const isFull = players.length >= playerSlots;
+    const minPlayers = 2; // Minimum to start a match
+    const readyCount = players.filter(p => p.is_ready).length;
     const allReady = players.length > 0 && players.every(p => p.is_ready);
 
-    // If all players are ready, start the match immediately
-    if (allReady && players.length >= 2 && !lobbyFullAt) {
+    // Check if we should start the match
+    // Case 1: All players are ready (regardless of max)
+    if (allReady && players.length >= minPlayers && !timerActive) {
       console.log('[ATC] All players ready, starting match...');
       createMatchAndStart();
       return;
     }
 
-    // If lobby just became full, start the timer
-    if (isFull && !lobbyFullAt && players.length >= 2) {
+    // Case 2: Lobby is full AND timer hasn't started yet
+    if (isFull && !lobbyFullAt && !timerActive && players.length >= minPlayers) {
       console.log('[ATC] Lobby full, starting 60s timer...');
       setLobbyFullAt(Date.now());
       setTimeRemaining(60);
+      setTimerActive(true);
+      toast.info('Lobby full! 60 seconds to ready up');
     }
 
     // Countdown timer
     let interval: NodeJS.Timeout;
-    if (lobbyFullAt && timeRemaining !== null && timeRemaining > 0) {
+    if (lobbyFullAt && timerActive && timeRemaining !== null && timeRemaining > 0) {
       interval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - lobbyFullAt) / 1000);
         const remaining = Math.max(0, 60 - elapsed);
         setTimeRemaining(remaining);
 
         if (remaining === 0) {
-          // Time's up - kick unready players or start with ready ones
+          // Time's up - handle timer expiration
           clearInterval(interval);
           handleTimerExpired();
         }
@@ -416,7 +422,7 @@ function ATCLobbyModal({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [players, atcSettings, lobbyFullAt, timeRemaining]);
+  }, [players, atcSettings, lobbyFullAt, timeRemaining, timerActive]);
   
   const fetchJoinRequests = async () => {
     const { data } = await supabase
@@ -488,26 +494,43 @@ function ATCLobbyModal({
     const readyPlayers = players.filter(p => p.is_ready);
     
     if (readyPlayers.length >= 2) {
-      // Start with ready players
-      toast.info('Starting match with ready players...');
+      // Start with ready players only
+      toast.info('Timer expired - starting match with ready players...');
+      
+      // Update lobby to only include ready players
+      await supabase
+        .from('quick_match_lobbies')
+        .update({ 
+          players: readyPlayers,
+          status: 'starting'
+        })
+        .eq('id', lobby.id);
+      
+      // Small delay to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       await createMatchAndStart();
     } else {
-      // Not enough ready players - kick unready ones back to lobby
-      toast.info('Not enough ready players, returning to lobby...');
+      // Not enough ready players - reset lobby
+      toast.info('Not enough ready players. Resetting lobby...');
       
-      // Reset unready players
+      // Keep only ready players (which could be 0 or 1)
       const updatedPlayers = players.filter(p => p.is_ready);
+      
+      // Reset all players' ready status for a fresh start
+      const resetPlayers = updatedPlayers.map(p => ({ ...p, is_ready: false }));
       
       await supabase
         .from('quick_match_lobbies')
         .update({ 
-          players: updatedPlayers,
+          players: resetPlayers,
           status: 'waiting'
         })
         .eq('id', lobby.id);
       
       setLobbyFullAt(null);
       setTimeRemaining(null);
+      setTimerActive(false);
     }
   };
 
