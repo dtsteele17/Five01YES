@@ -796,13 +796,14 @@ export default function QuickMatchLobbyPage() {
     if (event === 'UPDATE') {
       // Check if user is a player in this lobby (for ATC)
       const isPlayerInLobby = updatedLobby.players?.some((p: ATCPlayer) => p.id === currentUserId);
+      const wasPlayerInLobby = oldLobby.players?.some((p: ATCPlayer) => p.id === currentUserId);
       const isHost = updatedLobby.created_by === currentUserId;
-      
+
       // Skip if this lobby was recently cancelled by the user
       if (cancelledLobbyIdsRef.current.has(updatedLobby.id)) {
         return;
       }
-      
+
       // Handle user being removed from lobby (left or kicked)
       if (!isHost && !isPlayerInLobby && myLobby?.id === updatedLobby.id) {
         console.log('[REALTIME] User removed from lobby, clearing myLobby');
@@ -810,9 +811,18 @@ export default function QuickMatchLobbyPage() {
         setShowATCLobbyModal(false);
         return;
       }
-      
+
+      // Handle user being newly added to ATC lobby (join request accepted)
+      if (!isHost && isPlayerInLobby && !wasPlayerInLobby && updatedLobby.game_type === 'atc') {
+        console.log('[REALTIME] User newly added to ATC lobby, opening modal');
+        setMyLobby(updatedLobby);
+        setShowATCLobbyModal(true);
+        toast.success('Join request accepted! You are in the lobby.');
+        setPendingLobbyId(null);
+        setJoining(null);
+      }
       // Handle my lobby updates (host or player)
-      if (isHost || isPlayerInLobby) {
+      else if (isHost || isPlayerInLobby) {
         if (updatedLobby.status === 'in_progress' && updatedLobby.match_id && updatedLobby.game_type !== 'atc') {
           router.push(`/app/play/quick-match/match/${updatedLobby.match_id}`);
         } else if (updatedLobby.status === 'in_progress' && updatedLobby.game_type === 'atc') {
