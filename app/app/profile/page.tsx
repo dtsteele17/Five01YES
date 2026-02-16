@@ -258,7 +258,7 @@ export default function ProfilePage() {
 
             {/* Actions */}
             <div className="flex flex-col gap-3">
-              <Link href="/app/profile/edit">
+              <Link href="/app/settings">
                 <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white w-full lg:w-auto">
                   <Edit3 className="w-4 h-4 mr-2" />
                   Edit Profile
