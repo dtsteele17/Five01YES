@@ -100,7 +100,7 @@ interface ATCPlayer {
 }
 
 // Joined Player View for ATC Lobbies
-function JoinedATCLobbyView({ lobby, userId, onLeave }: { lobby: QuickMatchLobby; userId: string | null; onLeave: () => void }) {
+function JoinedATCLobbyView({ lobby, userId, onLeave, onOpenModal }: { lobby: QuickMatchLobby; userId: string | null; onLeave: () => void; onOpenModal?: () => void }) {
   const supabase = createClient();
   const [players, setPlayers] = useState<ATCPlayer[]>([]);
   const [isReady, setIsReady] = useState(false);
@@ -224,6 +224,17 @@ function JoinedATCLobbyView({ lobby, userId, onLeave }: { lobby: QuickMatchLobby
         ))}
       </div>
       
+      {/* Open Lobby Button */}
+      {onOpenModal && (
+        <Button
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 text-lg font-bold"
+          onClick={onOpenModal}
+        >
+          <Users className="w-5 h-5 mr-2" />
+          Open Lobby
+        </Button>
+      )}
+      
       {/* Ready Button */}
       <Button
         className={`w-full py-4 text-base font-bold ${
@@ -254,6 +265,249 @@ function JoinedATCLobbyView({ lobby, userId, onLeave }: { lobby: QuickMatchLobby
         <X className="w-4 h-4 mr-2" />
         Leave Lobby
       </Button>
+    </div>
+  );
+}
+
+// ATC Lobby Modal - Popup for both host and joined players
+function ATCLobbyModal({ 
+  lobby, 
+  userId, 
+  isHost, 
+  onClose, 
+  onStartMatch, 
+  onLeave 
+}: { 
+  lobby: QuickMatchLobby; 
+  userId: string | null; 
+  isHost: boolean; 
+  onClose: () => void;
+  onStartMatch: () => void;
+  onLeave: () => void;
+}) {
+  const [players, setPlayers] = useState<ATCPlayer[]>([]);
+  const [isReady, setIsReady] = useState(false);
+  const [atcSettings, setAtcSettings] = useState<any>(null);
+  const supabase = createClient();
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Get initial data
+    const lobbyPlayers = (lobby as any).players || [];
+    setPlayers(lobbyPlayers);
+    setAtcSettings((lobby as any).atc_settings);
+    
+    const currentPlayer = lobbyPlayers.find((p: ATCPlayer) => p.id === userId);
+    setIsReady(currentPlayer?.is_ready || false);
+    
+    // Subscribe to lobby changes
+    const channel = supabase
+      .channel(`atc-lobby-modal-${lobby.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'quick_match_lobbies',
+          filter: `id=eq.${lobby.id}`,
+        },
+        (payload) => {
+          const updatedLobby = payload.new as any;
+          setPlayers(updatedLobby.players || []);
+          
+          const currentPlayer = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
+          setIsReady(currentPlayer?.is_ready || false);
+          
+          // If match_id is set, close modal and redirect
+          if (updatedLobby.match_id && updatedLobby.status === 'in_progress') {
+            router.push(`/app/play/quick-match/atc-match?matchId=${updatedLobby.match_id}`);
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [lobby.id, userId, router]);
+  
+  const toggleReady = async () => {
+    if (!userId || isHost) return;
+    
+    const newReadyState = !isReady;
+    setIsReady(newReadyState);
+    
+    const updatedPlayers = players.map(p => 
+      p.id === userId ? { ...p, is_ready: newReadyState } : p
+    );
+    
+    await supabase
+      .from('quick_match_lobbies')
+      .update({ players: updatedPlayers })
+      .eq('id', lobby.id);
+  };
+  
+  const playerSlots = atcSettings?.player_count || 2;
+  const emptySlots = playerSlots - players.length;
+  const allPlayersReady = players.length > 1 && players.every(p => p.is_ready);
+  const canStart = isHost && allPlayersReady;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">
+                Around The Clock
+              </h2>
+              <p className="text-white/70 text-sm">
+                {isHost ? 'You are the Host' : 'Waiting for host to start...'}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+              <Target className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          {/* Match Settings */}
+          <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="w-4 h-4 text-purple-400" />
+              <p className="text-sm text-purple-400 font-medium">Match Settings</p>
+            </div>
+            <div className="text-xs text-slate-400 space-y-2">
+              <div className="flex justify-between">
+                <span>Target Order:</span>
+                <span className="text-white">{atcSettings?.order === 'random' ? 'Random' : '1-20 + Bull'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Mode:</span>
+                <span className="text-white capitalize">
+                  {atcSettings?.mode === 'singles' ? 'Singles Only' :
+                   atcSettings?.mode === 'doubles' ? 'Doubles Only' :
+                   atcSettings?.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Players:</span>
+                <span className="text-white">{players.length} / {playerSlots}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Player List */}
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500 uppercase tracking-wider">Players</p>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {players.map((player) => (
+                <div 
+                  key={player.id}
+                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                      {player.username.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-white text-sm">{player.username}</span>
+                    {player.id === lobby.created_by && (
+                      <Badge className="bg-amber-500/20 text-amber-400 text-xs">Host</Badge>
+                    )}
+                  </div>
+                  {player.is_ready ? (
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Ready
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-slate-700 text-slate-400 text-xs">Not Ready</Badge>
+                  )}
+                </div>
+              ))}
+              
+              {/* Empty slots */}
+              {Array.from({ length: emptySlots }).map((_, i) => (
+                <div 
+                  key={`empty-${i}`}
+                  className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700"
+                >
+                  <span className="text-slate-500 text-sm">Waiting for player...</span>
+                  <Badge className="bg-slate-700 text-slate-500 text-xs">Empty</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Ready Count */}
+          <div className="text-center text-sm">
+            <span className="text-slate-400">
+              {players.filter(p => p.is_ready).length} / {players.length} players ready
+            </span>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            {isHost ? (
+              // Host buttons
+              <>
+                <Button
+                  className="w-full py-4 text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={onStartMatch}
+                  disabled={!canStart}
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  {!allPlayersReady 
+                    ? `Waiting for players (${players.filter(p => p.is_ready).length}/${players.length} ready)` 
+                    : 'Start Match!'}
+                </Button>
+                <Button
+                  className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                  onClick={onLeave}
+                  variant="outline"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel Lobby
+                </Button>
+              </>
+            ) : (
+              // Joined player buttons
+              <>
+                <Button
+                  className={`w-full py-4 text-base font-bold ${
+                    isReady 
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+                      : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                  }`}
+                  onClick={toggleReady}
+                >
+                  {isReady ? (
+                    <>
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel Ready
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Ready Up!
+                    </>
+                  )}
+                </Button>
+                <Button
+                  className="w-full bg-slate-700 text-slate-300 hover:bg-slate-600"
+                  onClick={onLeave}
+                  variant="outline"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Leave Lobby
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -342,6 +596,9 @@ export default function QuickMatchLobbyPage() {
   const [currentJoinRequest, setCurrentJoinRequest] = useState<JoinRequest | null>(null);
   const [processingRequest, setProcessingRequest] = useState(false);
   const [pendingLobbyId, setPendingLobbyId] = useState<string | null>(null);
+  
+  // ATC Lobby Modal state
+  const [showATCLobbyModal, setShowATCLobbyModal] = useState(false);
   
   // User stats for displaying in own lobby
   const [userStats, setUserStats] = useState<{ overall_3dart_avg?: number } | null>(null);
@@ -841,10 +1098,15 @@ export default function QuickMatchLobbyPage() {
       setUserStats(stats || { overall_3dart_avg: 0 });
       setMyLobby(lobbyWithHost);
       
+      // For ATC lobbies, open the lobby modal immediately
+      if (isATCMode) {
+        setShowATCLobbyModal(true);
+      }
+      
       // Immediately refresh lobbies to show the new one
       await fetchLobbies();
       
-      toast.success('Lobby created! Waiting for opponent...');
+      toast.success(isATCMode ? 'Lobby created! Open the lobby to manage players.' : 'Lobby created! Waiting for opponent...');
     } catch (error: any) {
       console.error('[CREATE] Failed:', error);
       toast.error(`Failed to create lobby: ${error.message}`);
@@ -995,6 +1257,7 @@ export default function QuickMatchLobbyPage() {
             
           if (fullLobby) {
             setMyLobby(fullLobby as unknown as QuickMatchLobby);
+            setShowATCLobbyModal(true); // Open the lobby popup
             toast.success('Join request accepted! You are in the lobby.');
           }
         } else {
@@ -1226,6 +1489,68 @@ export default function QuickMatchLobbyPage() {
       toast.error(`Failed to decline: ${error.message}`);
     } finally {
       setProcessingRequest(false);
+    }
+  }
+
+  async function startATCMatch() {
+    if (!myLobby || myLobby.game_type !== 'atc') return;
+    
+    try {
+      const atcSettings = (myLobby as any).atc_settings || {
+        order: 'sequential',
+        mode: 'singles',
+        player_count: 2
+      };
+      
+      const currentPlayers = (myLobby as any).players || [];
+      
+      // Generate targets based on order
+      const numbers: number[] = [...Array(20)].map((_, i) => i + 1);
+      const baseTargets: (number | string)[] = [...numbers, 'bull'];
+      const targets = atcSettings.order === 'random' 
+        ? shuffleArray([...baseTargets])
+        : baseTargets;
+      
+      // Create ATC match with current players
+      const { data: atcMatch, error: atcError } = await supabase
+        .from('atc_matches')
+        .insert({
+          lobby_id: myLobby.id,
+          status: 'waiting',
+          game_mode: 'atc',
+          atc_settings: atcSettings,
+          players: currentPlayers.map((p: any) => ({
+            ...p,
+            current_target: targets[0],
+            completed_targets: [],
+            is_winner: false
+          })),
+          current_player_index: 0,
+          created_by: myLobby.created_by,
+          targets: targets
+        })
+        .select()
+        .maybeSingle();
+      
+      if (atcError || !atcMatch) {
+        throw new Error('Failed to create ATC match');
+      }
+      
+      // Update lobby
+      await supabase
+        .from('quick_match_lobbies')
+        .update({
+          status: 'in_progress',
+          match_id: atcMatch.id
+        })
+        .eq('id', myLobby.id);
+      
+      setShowATCLobbyModal(false);
+      toast.success('Match starting!');
+      router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
+    } catch (error: any) {
+      console.error('[START MATCH] Failed:', error);
+      toast.error(`Failed to start match: ${error.message}`);
     }
   }
 
@@ -1470,119 +1795,106 @@ export default function QuickMatchLobbyPage() {
                 // Check if user is host or joined player
                 myLobby.created_by === userId ? (
                   // HOST VIEW
-                  <div className="space-y-4">
-                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        <p className="text-sm text-emerald-400 font-medium">
-                          {myLobby.game_type === 'atc' 
-                            ? `Waiting for ${((myLobby as any).atc_settings?.player_count || 2) - ((myLobby as any).players?.length || 1)} more players...` 
-                            : 'Waiting for opponent...'}
-                        </p>
-                      </div>
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <p>Game: <span className="text-white">{myLobby.game_type === 'atc' ? 'Around The Clock' : myLobby.game_type}</span></p>
-                        {myLobby.game_type === 'atc' && (myLobby as any).atc_settings ? (
-                          <>
-                            <p>Mode: <span className="text-white">
-                              {(myLobby as any).atc_settings.mode === 'singles' ? 'Singles Only' :
-                               (myLobby as any).atc_settings.mode === 'doubles' ? 'Doubles Only' :
-                               (myLobby as any).atc_settings.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
-                            </span></p>
-                            <p>Order: <span className="text-white">{(myLobby as any).atc_settings.order === 'sequential' ? '1-20 + Bull' : 'Random'}</span></p>
-                            <p>Players: <span className="text-white">{((myLobby as any).players?.length || 1)} / {(myLobby as any).atc_settings.player_count || 2}</span></p>
-                          </>
-                        ) : (
-                          <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
-                        )}
-                        {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
-                          <div className="flex items-center gap-1 pt-1">
-                            <Target className="w-3 h-3 text-blue-400" />
-                            <span className="text-blue-400">
-                              Your 3-Dart Avg: {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg || 0).toFixed(1)}
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                    
-                    {/* Player List for ATC */}
-                    {myLobby.game_type === 'atc' && (myLobby as any).players && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider">Players</p>
-                        {(myLobby as any).players.map((player: ATCPlayer) => (
-                          <div 
-                            key={player.id}
-                            className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                                {player.username.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="text-white text-sm">{player.username}</span>
-                              {player.id === myLobby.created_by && (
-                                <Badge className="bg-amber-500/20 text-amber-400 text-xs">Host</Badge>
-                              )}
-                            </div>
-                            {player.is_ready ? (
-                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Ready
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-slate-700 text-slate-400 text-xs">Not Ready</Badge>
-                            )}
-                          </div>
-                        ))}
-                        {/* Empty slots */}
-                        {Array.from({ length: ((myLobby as any).atc_settings?.player_count || 2) - ((myLobby as any).players?.length || 1) }).map((_, i) => (
-                          <div 
-                            key={`empty-${i}`}
-                            className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700"
-                          >
-                            <span className="text-slate-500 text-sm">Waiting for player...</span>
-                            <Badge className="bg-slate-700 text-slate-500 text-xs">Empty</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Join Request Status */}
-                    {currentJoinRequest ? (
-                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                          <span className="text-sm text-amber-400">
-                            {currentJoinRequest.requester_username} wants to join
-                          </span>
+                  myLobby.game_type === 'atc' ? (
+                    // ATC Host - Simplified view with Open Lobby button
+                    <div className="space-y-4">
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
+                          <p className="text-sm text-emerald-400 font-medium">
+                            Lobby Created!
+                          </p>
+                        </div>
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p>Game: <span className="text-white">Around The Clock</span></p>
+                          <p>Mode: <span className="text-white">
+                            {(myLobby as any).atc_settings?.mode === 'singles' ? 'Singles Only' :
+                             (myLobby as any).atc_settings?.mode === 'doubles' ? 'Doubles Only' :
+                             (myLobby as any).atc_settings?.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
+                          </span></p>
+                          <p>Players: <span className="text-white">{((myLobby as any).players?.length || 1)} / {(myLobby as any).atc_settings?.player_count || 2}</span></p>
                         </div>
                       </div>
-                    ) : (
-                      <div className="p-3 bg-slate-800/50 rounded-lg">
-                        <p className="text-xs text-slate-500 text-center">
-                          No join requests yet. Waiting for players...
-                        </p>
+                      
+                      <Button
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-6 text-lg font-bold"
+                        onClick={() => setShowATCLobbyModal(true)}
+                      >
+                        <Users className="w-5 h-5 mr-2" />
+                        Open Lobby
+                      </Button>
+                      
+                      <Button
+                        className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                        onClick={cancelLobby}
+                        disabled={isCancelling}
+                      >
+                        {isCancelling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Cancelling...
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4 mr-2" />
+                            Cancel Lobby
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    // Regular 301/501 Host View
+                    <div className="space-y-4">
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
+                          <p className="text-sm text-emerald-400 font-medium">
+                            Waiting for opponent...
+                          </p>
+                        </div>
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p>Game: <span className="text-white">{myLobby.game_type}</span></p>
+                          <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
+                        </div>
                       </div>
-                    )}
-                    
-                    <Button
-                      className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
-                      onClick={cancelLobby}
-                      disabled={isCancelling}
-                    >
-                      {isCancelling ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Cancelling...
-                        </>
+                      
+                      {/* Join Request Status */}
+                      {currentJoinRequest ? (
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                            <span className="text-sm text-amber-400">
+                              {currentJoinRequest.requester_username} wants to join
+                            </span>
+                          </div>
+                        </div>
                       ) : (
-                        <>
-                          <X className="w-4 h-4 mr-2" />
-                          Stop Searching
-                        </>
+                        <div className="p-3 bg-slate-800/50 rounded-lg">
+                          <p className="text-xs text-slate-500 text-center">
+                            No join requests yet. Waiting for players...
+                          </p>
+                        </div>
                       )}
-                    </Button>
-                  </div>
+                      
+                      <Button
+                        className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                        onClick={cancelLobby}
+                        disabled={isCancelling}
+                      >
+                        {isCancelling ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Cancelling...
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4 mr-2" />
+                            Stop Searching
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )
                 ) : (
                   // JOINED PLAYER VIEW (for ATC mode)
                   myLobby.game_type === 'atc' ? (
@@ -1590,6 +1902,7 @@ export default function QuickMatchLobbyPage() {
                       lobby={myLobby} 
                       userId={userId}
                       onLeave={() => setMyLobby(null)}
+                      onOpenModal={() => setShowATCLobbyModal(true)}
                     />
                   ) : (
                     // Regular joined view for 301/501
@@ -2016,6 +2329,25 @@ export default function QuickMatchLobbyPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* ATC Lobby Modal */}
+      {showATCLobbyModal && myLobby && myLobby.game_type === 'atc' && (
+        <ATCLobbyModal
+          lobby={myLobby}
+          userId={userId}
+          isHost={myLobby.created_by === userId}
+          onClose={() => setShowATCLobbyModal(false)}
+          onStartMatch={startATCMatch}
+          onLeave={() => {
+            setShowATCLobbyModal(false);
+            if (myLobby.created_by === userId) {
+              cancelLobby();
+            } else {
+              setMyLobby(null);
+            }
+          }}
+        />
       )}
     </div>
   );
