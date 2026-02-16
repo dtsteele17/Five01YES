@@ -1962,8 +1962,15 @@ export default function QuickMatchRoomPage() {
       winnerId: winnerId,
     });
     
-    // Save stats to database
-    await saveMatchStats(matchId, winnerId, loserId, isPlayer1Winner ? p1Legs : p2Legs, isPlayer1Winner ? p2Legs : p1Legs, roomData.game_mode);
+    // Save stats to database (function calculates stats from visits)
+    await saveMatchStats(
+      matchId, 
+      winnerId, 
+      loserId, 
+      isPlayer1Winner ? p1Legs : p2Legs, 
+      isPlayer1Winner ? p2Legs : p1Legs, 
+      roomData.game_mode
+    );
     
     // Track achievements for the winner
     const winnerStats = isPlayer1Winner ? wStats : lStats;
@@ -3579,7 +3586,7 @@ export default function QuickMatchRoomPage() {
     console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs, gameMode });
     
     try {
-      // Save winner stats
+      // Save winner stats - the database function calculates stats from quick_match_visits
       const { data: winnerResult, error: winnerError } = await supabase.rpc('fn_update_player_match_stats', {
         p_room_id: roomId,
         p_user_id: winnerId,
@@ -3596,7 +3603,7 @@ export default function QuickMatchRoomPage() {
       }
       console.log('[STATS] Winner stats saved:', winnerResult);
       
-      // Save loser stats
+      // Save loser stats - the database function calculates stats from quick_match_visits
       const { data: loserResult, error: loserError } = await supabase.rpc('fn_update_player_match_stats', {
         p_room_id: roomId,
         p_user_id: loserId,
@@ -3613,7 +3620,6 @@ export default function QuickMatchRoomPage() {
       }
       console.log('[STATS] Loser stats saved:', loserResult);
       
-      toast.success('Match stats saved!');
       console.log('[STATS] Match stats saved successfully');
     } catch (error: any) {
       console.error('[STATS] Failed to save match stats:', error);
