@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { motion, Variants } from 'framer-motion';
+// import { motion, Variants } from 'framer-motion';
 import {
   Select,
   SelectContent,
@@ -58,6 +58,7 @@ interface QuickMatchLobby {
   match_id: string | null;
   created_at: string;
   player1_3dart_avg?: number;
+  players?: any[];
   player1?: {
     username: string;
     avatar_url?: string;
@@ -259,29 +260,29 @@ function JoinedATCLobbyView({ lobby, userId, onLeave }: { lobby: QuickMatchLobby
 }
 
 // Animation variants
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
-  },
-};
+// const containerVariants: Variants = {
+//   hidden: { opacity: 0 },
+//   visible: {
+//     opacity: 1,
+//     transition: {
+//       staggerChildren: 0.1,
+//       delayChildren: 0.2,
+//     },
+//   },
+// };
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 100,
-      damping: 15,
-    },
-  },
-};
+// const itemVariants: Variants = {
+//   hidden: { opacity: 0, y: 20 },
+//   visible: {
+//     opacity: 1,
+//     y: 0,
+//     transition: {
+//       type: 'spring' as const,
+//       stiffness: 100,
+//       damping: 15,
+//     },
+//   },
+// };
 
 // F1/FIFA Style Stat Card
 function HeroStat({ value, label, icon: Icon, color }: { 
@@ -1053,9 +1054,9 @@ export default function QuickMatchLobbyPage() {
         // Check if we have enough players
         if (updatedPlayers.length >= atcSettings.player_count) {
           // Create ATC match
-          const targets = atcSettings.order === 'random' 
-            ? shuffleArray([...Array(20)].map((_, i) => i + 1).concat(['bull']))
-            : [...Array(20)].map((_, i) => i + 1).concat(['bull']);
+          const targets = atcSettings.order === 'random'
+            ? shuffleArray([...[...Array(20)].map((_, i) => i + 1), 'bull'])
+            : [...[...Array(20)].map((_, i) => i + 1), 'bull'];
 
           const { data: atcMatch, error: atcError } = await supabase
             .from('atc_matches')
@@ -1338,21 +1339,12 @@ export default function QuickMatchLobbyPage() {
   }
 
   return (
-    <motion.div 
-      className="max-w-7xl mx-auto space-y-8"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div className="max-w-7xl mx-auto space-y-8">
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <motion.div 
-            className="flex items-center gap-3 mb-2"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-          >
+          <div className="flex items-center gap-3 mb-2">
             <Link href="/app/play">
               <Button
                 variant="ghost"
@@ -1365,30 +1357,16 @@ export default function QuickMatchLobbyPage() {
             <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">
               Online Play
             </p>
-          </motion.div>
-          <motion.h1 
-            className="text-4xl md:text-5xl font-black text-white tracking-tight"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
             Quick Match
-          </motion.h1>
-          <motion.p 
-            className="text-slate-400 mt-2 text-lg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
+          </h1>
+          <p className="text-slate-400 mt-2 text-lg">
             Create or join an online match with players worldwide
-          </motion.p>
+          </p>
         </div>
-        
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+
+        <div>
           <Badge
             variant="outline"
             className="border-emerald-500/30 text-emerald-400 px-4 py-2 text-sm"
@@ -1399,11 +1377,11 @@ export default function QuickMatchLobbyPage() {
               <span className="ml-1 text-slate-400 text-xs">(Filters active)</span>
             )}
           </Badge>
-        </motion.div>
+        </div>
       </div>
 
       {/* Stats Dashboard */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <HeroStat 
           value={totalOpenLobbies} 
           label="Available Matches" 
@@ -1428,10 +1406,10 @@ export default function QuickMatchLobbyPage() {
           icon={Activity} 
           color="bg-orange-500"
         />
-      </motion.div>
+      </div>
 
       {process.env.NODE_ENV === 'development' && (
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="bg-slate-900/50 backdrop-blur-sm border-yellow-500/30 p-4">
             <h3 className="text-sm font-bold text-yellow-400 mb-3">Online Debug</h3>
             <div className="grid grid-cols-2 gap-4 text-xs">
@@ -1467,12 +1445,12 @@ export default function QuickMatchLobbyPage() {
               )}
             </div>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Create Lobby Card */}
-        <motion.div variants={itemVariants}>
+        <div>
           <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 h-full">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
             
@@ -1731,13 +1709,14 @@ export default function QuickMatchLobbyPage() {
                     )}
                     Create Lobby
                   </Button>
-                </>
+                </div>
+              )}
             </div>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Open Lobbies Card */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
+        <div className="lg:col-span-2">
           <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 h-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -1919,17 +1898,14 @@ export default function QuickMatchLobbyPage() {
               )}
             </ScrollArea>
           </Card>
-        </motion.div>
+        </div>
       </div>
 
       {/* Join Request Modal */}
       {showJoinRequestModal && currentJoinRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
-          >
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+
             <div className="flex justify-end mb-2">
               <Button
                 variant="ghost"
@@ -2017,17 +1993,14 @@ export default function QuickMatchLobbyPage() {
                 Accept
               </Button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* Pending Join Request Indicator */}
       {pendingLobbyId && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-6 py-4 shadow-2xl z-40"
-        >
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-6 py-4 shadow-2xl z-40">
+
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
             <span className="text-white font-medium">Waiting for host approval...</span>
@@ -2043,8 +2016,8 @@ export default function QuickMatchLobbyPage() {
               Cancel
             </Button>
           </div>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }
