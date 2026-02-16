@@ -29,6 +29,7 @@ import {
   Activity,
   Cpu,
   Crown,
+  Loader2,
 } from 'lucide-react';
 
 // Animation variants
@@ -348,7 +349,7 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
 
 // Recent Matches Section
 function RecentMatchesSection() {
-  const { matches, loading } = useRecentMatches(5);
+  const { matches, loading, refresh } = useRecentMatches(5);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
 
   return (
@@ -359,12 +360,23 @@ function RecentMatchesSection() {
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
             <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
           </div>
-          <Link href="/app/stats">
-            <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-              View All
-              <ArrowRight className="w-4 h-4 ml-2" />
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              onClick={refresh}
+              disabled={loading}
+            >
+              <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
-          </Link>
+            <Link href="/app/stats">
+              <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                View All
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
         </div>
         
         {loading ? (
