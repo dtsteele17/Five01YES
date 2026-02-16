@@ -41,7 +41,7 @@ import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
 import type { SafetyGrade } from '@/lib/safety/safetyService';
-import { submitRating, subscribeToRatings, getUserSafetyRating } from '@/lib/safety/safetyService';
+import { submitRating, subscribeToRatings, getUserSafetyRating, hasRatedOpponent } from '@/lib/safety/safetyService';
 import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 import { useQuickMatchRematch } from '@/lib/hooks/useQuickMatchRematch';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
@@ -1974,17 +1974,46 @@ export default function QuickMatchRoomPage() {
       lStats
     );
     
-    // Track achievements for the winner
+    // Track achievements for both players
     const winnerStats = isPlayer1Winner ? wStats : lStats;
-    if (currentUserId === winnerId) {
+    const loserStats = isPlayer1Winner ? lStats : wStats;
+    
+    // Track achievements for current user (whether winner or loser)
+    if (currentUserId) {
+      const isWinner = currentUserId === winnerId;
+      const userStats = isWinner ? winnerStats : loserStats;
+      
+      // Track match end achievements
       trackMatchEnd(currentUserId, {
-        won: true,
-        matchType: 'ranked',
-        legsWon: isPlayer1Winner ? p1Legs : p2Legs,
-        legsLost: isPlayer1Winner ? p2Legs : p1Legs,
-        average: winnerStats.threeDartAverage,
+        won: isWinner,
+        matchType: 'quick',
+        legsWon: isWinner ? (isPlayer1Winner ? p1Legs : p2Legs) : (isPlayer1Winner ? p2Legs : p1Legs),
+        legsLost: isWinner ? (isPlayer1Winner ? p2Legs : p1Legs) : (isPlayer1Winner ? p1Legs : p2Legs),
+        average: userStats.threeDartAverage,
         durationMinutes: 15, // Approximate - would need actual tracking
+        opponentAverage: isWinner ? loserStats.threeDartAverage : winnerStats.threeDartAverage,
       }).catch(console.error);
+      
+      // Track visit-based achievements from completeVisits
+      const userVisits = completeVisits.filter(v => v.player_id === currentUserId);
+      for (const visit of userVisits) {
+        if (visit.score > 0) {
+          trackScoreAchievement(visit.score, currentUserId, {
+            isCheckout: visit.is_checkout,
+            checkoutValue: visit.is_checkout ? visit.score : undefined,
+          }).catch(console.error);
+        }
+      }
+    }
+    
+    // Check if user has already rated opponent
+    if (currentUserId && matchId) {
+      const opponentId = currentUserId === roomData.player1_id ? roomData.player2_id : roomData.player1_id;
+      if (opponentId) {
+        hasRatedOpponent(matchId, opponentId).then(hasRated => {
+          setHasSubmittedRating(hasRated);
+        }).catch(console.error);
+      }
     }
   }
 
@@ -3562,6 +3591,7 @@ export default function QuickMatchRoomPage() {
     try {
       const result = await submitRating(matchId, opponentId, grade);
       if (result.success) {
+        setHasSubmittedRating(true);
         toast.success(`Rated opponent ${grade}`);
       } else {
         toast.error(result.error || 'Failed to submit rating');
@@ -4210,6 +4240,7 @@ export default function QuickMatchRoomPage() {
           readyCount={readyCount}
           matchId={matchId}
           onRateOpponent={handleSafetyRating}
+          hasRated={hasSubmittedRating}
           isQuickMatch={true}
         />
       )}
