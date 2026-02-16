@@ -593,6 +593,7 @@ export default function QuickMatchLobbyPage() {
   const [last5Record, setLast5Record] = useState<string>('-----');
 
   const resumeAttemptedRef = useRef(false);
+  const cancelledLobbyIdsRef = useRef<Set<string>>(new Set());
 
   // ============================================
   // CLEANUP STALE LOBBIES ON MOUNT
@@ -624,9 +625,9 @@ export default function QuickMatchLobbyPage() {
     };
   }, []);
 
-  // Auto-open ATC lobby modal
+  // Auto-open ATC lobby modal - but NOT if cancelled
   useEffect(() => {
-    if (myLobby && myLobby.game_type === 'atc') {
+    if (myLobby && myLobby.game_type === 'atc' && myLobby.status !== 'cancelled') {
       setShowATCLobbyModal(true);
     }
   }, [myLobby?.id, myLobby?.game_type, myLobby?.status]);
@@ -686,6 +687,11 @@ export default function QuickMatchLobbyPage() {
       const isPlayerInLobby = updatedLobby.players?.some((p: ATCPlayer) => p.id === currentUserId);
       
       // Handle my lobby updates (host or player)
+      // Skip if this lobby was recently cancelled by the user
+      if (cancelledLobbyIdsRef.current.has(updatedLobby.id)) {
+        return;
+      }
+      
       if (updatedLobby.created_by === currentUserId || isPlayerInLobby) {
         if (updatedLobby.status === 'in_progress' && updatedLobby.match_id && updatedLobby.game_type !== 'atc') {
           router.push(`/app/play/quick-match/match/${updatedLobby.match_id}`);
@@ -715,6 +721,10 @@ export default function QuickMatchLobbyPage() {
     }
 
     if (event === 'INSERT') {
+      // Skip if this lobby was recently cancelled
+      if (cancelledLobbyIdsRef.current.has(updatedLobby.id)) {
+        return;
+      }
       if (updatedLobby.status === 'open' && updatedLobby.created_by !== currentUserId) {
         setLobbies(prev => [updatedLobby, ...prev]);
       }
@@ -729,12 +739,12 @@ export default function QuickMatchLobbyPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Cancel any open/waiting lobbies created by this user
+      // Cancel ANY lobbies created by this user (all statuses)
       const { data: userLobbies } = await supabase
         .from('quick_match_lobbies')
         .select('id, status')
         .eq('created_by', user.id)
-        .in('status', ['open', 'waiting']);
+        .not('status', 'in', '(cancelled)');
 
       if (userLobbies && userLobbies.length > 0) {
         for (const lobby of userLobbies) {
@@ -780,10 +790,18 @@ export default function QuickMatchLobbyPage() {
   async function handleReset() {
     try {
       setLoading(true);
+      
+      // Clear ALL UI state immediately
       setMyLobby(null);
       setShowATCLobbyModal(false);
       setPendingLobbyId(null);
       setJoining(null);
+      setIsCancelling(false);
+      setShowJoinRequestModal(false);
+      setCurrentJoinRequest(null);
+      
+      // Clear cancelled lobby tracking
+      cancelledLobbyIdsRef.current.clear();
       
       await cleanupUserLobbies();
       await fetchLobbies();
@@ -859,9 +877,18 @@ export default function QuickMatchLobbyPage() {
       const uniqueLobbies = allLobbiesData.filter((lobby, index, self) => 
         index === self.findIndex(l => l.id === lobby.id)
       );
+      
+      // Filter out cancelled lobbies and recently cancelled ones
+      const filteredLobbies = uniqueLobbies.filter(lobby => {
+        // Skip if in our cancelled list
+        if (cancelledLobbyIdsRef.current.has(lobby.id)) return false;
+        // Skip if status is cancelled
+        if (lobby.status === 'cancelled') return false;
+        return true;
+      });
 
       // Fetch host stats
-      const hostIds = uniqueLobbies.map(l => l.player1_id).filter(Boolean);
+      const hostIds = filteredLobbies.map(l => l.player1_id).filter(Boolean);
       const { data: statsData } = await supabase
         .from('player_stats')
         .select('user_id, overall_3dart_avg')
@@ -873,7 +900,7 @@ export default function QuickMatchLobbyPage() {
       }, {} as Record<string, number>);
 
       // Transform data
-      const transformedLobbies = uniqueLobbies.map(lobby => {
+      const transformedLobbies = filteredLobbies.map(lobby => {
         const storedAvg = lobby.player1_3dart_avg || 0;
         const liveAvg = hostStats[lobby.player1_id] || 0;
         return {
@@ -1314,40 +1341,63 @@ export default function QuickMatchLobbyPage() {
   }
 
   // ============================================
-  // CANCEL LOBBY (HOST)
+  // CANCEL LOBBY (HOST) - FORCE CANCEL
   // ============================================
   async function cancelLobby() {
     if (!myLobby || !userId || isCancelling) return;
 
     const lobbyIdToCancel = myLobby.id;
-    setIsCancelling(true);
+    
+    // IMMEDIATELY block this lobby from reappearing
+    cancelledLobbyIdsRef.current.add(lobbyIdToCancel);
+    
+    // IMMEDIATELY clear all UI state
+    setShowATCLobbyModal(false);
     setMyLobby(null);
     setLobbies(prev => prev.filter(l => l.id !== lobbyIdToCancel));
+    setPendingLobbyId(null);
+    setJoining(null);
+    setIsCancelling(true);
 
     try {
+      // Decline all pending join requests first
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'declined' })
+        .eq('lobby_id', lobbyIdToCancel)
+        .eq('status', 'pending');
+
+      // Update status to cancelled
       await supabase
         .from('quick_match_lobbies')
         .update({ status: 'cancelled' })
         .eq('id', lobbyIdToCancel)
         .eq('created_by', userId);
 
+      // Then delete it
       await supabase
         .from('quick_match_lobbies')
         .delete()
         .eq('id', lobbyIdToCancel)
         .eq('created_by', userId);
 
-      toast.info('Lobby cancelled');
+      toast.info('Lobby cancelled successfully');
       
+      // Wait a bit then allow fetches again and refresh
       setTimeout(() => {
         setIsCancelling(false);
+        cancelledLobbyIdsRef.current.delete(lobbyIdToCancel);
         fetchLobbies();
-      }, 2000);
+      }, 3000);
     } catch (error: any) {
       console.error('[CANCEL] Failed:', error);
       toast.error(`Failed to cancel: ${error.message}`);
-      setIsCancelling(false);
-      fetchLobbies();
+      // Keep the lobby in cancelled list to prevent it from reappearing
+      setTimeout(() => {
+        setIsCancelling(false);
+        cancelledLobbyIdsRef.current.delete(lobbyIdToCancel);
+        fetchLobbies();
+      }, 3000);
     }
   }
 
@@ -1356,6 +1406,12 @@ export default function QuickMatchLobbyPage() {
   // ============================================
   async function leaveLobby() {
     if (!myLobby || !userId || myLobby.created_by === userId) return;
+
+    const lobbyIdToLeave = myLobby.id;
+    
+    // IMMEDIATELY clear UI state
+    setShowATCLobbyModal(false);
+    setMyLobby(null);
 
     try {
       // Remove user from lobby players
@@ -1368,10 +1424,8 @@ export default function QuickMatchLobbyPage() {
           players: updatedPlayers,
           status: 'open'
         })
-        .eq('id', myLobby.id);
+        .eq('id', lobbyIdToLeave);
 
-      setMyLobby(null);
-      setShowATCLobbyModal(false);
       toast.info('Left lobby');
       fetchLobbies();
     } catch (error: any) {
