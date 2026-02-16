@@ -166,8 +166,12 @@ export default function DashboardPage() {
       const supabase = createClient();
 
       try {
-        const [{ data: dashboardStats }, { data: rankedData }, { data: friendsData }] = await Promise.all([
-          supabase.rpc('get_dashboard_stats', { p_user_id: profile.id }),
+        // Fetch from player_stats directly (same as stats page) for consistency
+        const [{ data: playerStats }, { data: rankedData }, { data: friendsData }] = await Promise.all([
+          supabase.from('player_stats')
+            .select('*')
+            .eq('user_id', profile.id)
+            .maybeSingle(),
           supabase.rpc('rpc_ranked_get_my_state'),
           supabase.rpc('rpc_get_friends_overview'),
         ]);
@@ -177,33 +181,29 @@ export default function DashboardPage() {
           setRankedState(rankedData.player_state);
         }
 
-        if (dashboardStats) {
+        if (playerStats) {
+          // Calculate win rate
+          const winRate = playerStats.total_matches > 0 
+            ? Math.round((playerStats.wins / playerStats.total_matches) * 100)
+            : 0;
+          
           setStats({
-            totalMatches: dashboardStats.total_matches || 0,
-            wins: dashboardStats.wins || 0,
-            losses: dashboardStats.losses || 0,
-            winRate: dashboardStats.win_rate || 0,
-            currentStreak: dashboardStats.current_streak || 0,
-            bestStreak: dashboardStats.best_streak || 0,
-            avg: dashboardStats.avg || 0,
+            totalMatches: playerStats.total_matches || 0,
+            wins: playerStats.wins || 0,
+            losses: playerStats.losses || 0,
+            winRate: winRate,
+            currentStreak: playerStats.current_win_streak || 0,
+            bestStreak: playerStats.best_win_streak || 0,
+            avg: playerStats.overall_3dart_avg || 0,
             ranked3DartAvg: 0,
           });
+          setOverall3DartAvg(playerStats.overall_3dart_avg || 0);
         } else {
           setStats({
             totalMatches: 0, wins: 0, losses: 0, winRate: 0,
             currentStreak: 0, bestStreak: 0, avg: 0, ranked3DartAvg: 0,
           });
-        }
-
-        // Fetch all-time 3-dart average from player_stats (same as stats page)
-        const { data: playerStats } = await supabase
-          .from('player_stats')
-          .select('overall_3dart_avg')
-          .eq('user_id', profile.id)
-          .maybeSingle();
-
-        if (playerStats) {
-          setOverall3DartAvg(playerStats.overall_3dart_avg || 0);
+          setOverall3DartAvg(0);
         }
 
         // Fetch ranked 3-dart average from match_history

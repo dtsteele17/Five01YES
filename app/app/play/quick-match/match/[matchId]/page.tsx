@@ -3620,38 +3620,18 @@ export default function QuickMatchRoomPage() {
     console.log('[STATS] Saving match stats:', { roomId, winnerId, loserId, winnerLegs, loserLegs, gameMode });
     
     try {
-      // Build winner stats for direct insert
-      const winnerStatsData = {
-        p_three_dart_avg: winnerStats?.threeDartAverage || 0,
-        p_first9_avg: winnerStats?.first9Average || 0,
-        p_highest_checkout: winnerStats?.highestCheckout || 0,
-        p_darts_thrown: winnerStats?.totalDarts || 0,
-        p_total_score: winnerStats?.totalScored || 0
-      };
-
-      // Build loser stats for direct insert
-      const loserStatsData = {
-        p_three_dart_avg: loserStats?.threeDartAverage || 0,
-        p_first9_avg: loserStats?.first9Average || 0,
-        p_highest_checkout: loserStats?.highestCheckout || 0,
-        p_darts_thrown: loserStats?.totalDarts || 0,
-        p_total_score: loserStats?.totalScored || 0
-      };
-
+      // Use the comprehensive function that updates both match_history AND player_stats
+      // This function calculates stats from quick_match_visits automatically
+      
       // Save winner stats
-      const { data: winnerResult, error: winnerError } = await supabase.rpc('record_quick_match_to_history', {
+      const { data: winnerResult, error: winnerError } = await supabase.rpc('fn_update_player_match_stats', {
         p_room_id: roomId,
         p_user_id: winnerId,
         p_opponent_id: loserId,
-        p_game_mode: gameMode,
         p_result: 'win',
         p_legs_won: winnerLegs,
         p_legs_lost: loserLegs,
-        p_three_dart_avg: winnerStatsData.p_three_dart_avg,
-        p_first9_avg: winnerStatsData.p_first9_avg,
-        p_highest_checkout: winnerStatsData.p_highest_checkout,
-        p_darts_thrown: winnerStatsData.p_darts_thrown,
-        p_total_score: winnerStatsData.p_total_score
+        p_game_mode: gameMode
       });
       
       if (winnerError) {
@@ -3661,19 +3641,14 @@ export default function QuickMatchRoomPage() {
       }
       
       // Save loser stats
-      const { data: loserResult, error: loserError } = await supabase.rpc('record_quick_match_to_history', {
+      const { data: loserResult, error: loserError } = await supabase.rpc('fn_update_player_match_stats', {
         p_room_id: roomId,
         p_user_id: loserId,
         p_opponent_id: winnerId,
-        p_game_mode: gameMode,
         p_result: 'loss',
         p_legs_won: loserLegs,
         p_legs_lost: winnerLegs,
-        p_three_dart_avg: loserStatsData.p_three_dart_avg,
-        p_first9_avg: loserStatsData.p_first9_avg,
-        p_highest_checkout: loserStatsData.p_highest_checkout,
-        p_darts_thrown: loserStatsData.p_darts_thrown,
-        p_total_score: loserStatsData.p_total_score
+        p_game_mode: gameMode
       });
       
       if (loserError) {

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion, Variants } from 'framer-motion';
-import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
+import { useRecentQuickMatches } from '@/lib/hooks/useRecentQuickMatches';
 import { useTodayStats } from '@/lib/hooks/useTodayStats';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
@@ -302,46 +302,55 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
     }
   };
 
-  const getModeLabel = (match: any) => {
-    if (match.match_format === 'dartbot') return 'vs DartBot';
-    if (match.match_format === 'quick') return 'Quick Match';
-    if (match.match_format === 'ranked') return 'Ranked';
-    if (match.match_format === 'private') return 'Private';
-    return match.match_format || 'Match';
-  };
-
   const timeAgo = formatDistanceToNow(new Date(match.played_at), { addSuffix: true });
-
-  // Format opponent name
-  const opponentName = match.match_format === 'dartbot' 
-    ? `DartBot (${match.bot_level || '?'})`
-    : match.opponent_username || 'Unknown';
 
   return (
     <div 
       onClick={onClick}
-      className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600/50"
+      className="p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600/50"
     >
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${getResultBgColor(match.result)}`}>
-          {getResultIcon(match.result)}
+      {/* Header Row */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border-2 ${getResultBgColor(match.result)}`}>
+            {getResultIcon(match.result)}
+          </div>
+          <div>
+            <p className="text-white font-bold">vs {match.opponent_username || 'Unknown'}</p>
+            <p className="text-slate-400 text-xs">{match.game_mode} • {timeAgo}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-white font-bold">vs {opponentName}</p>
-          <p className="text-slate-400 text-sm">{getModeLabel(match)} • {match.game_mode || 501}</p>
+        <div className="text-right">
+          <div className="flex items-center gap-1">
+            <span className={`text-xl font-black ${match.result === 'win' ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {match.legs_won}
+            </span>
+            <span className="text-slate-500">-</span>
+            <span className="text-xl font-black text-white">
+              {match.legs_lost}
+            </span>
+          </div>
         </div>
       </div>
-      <div className="text-right">
-        <div className="flex items-center gap-2 justify-end">
-          <span className={`text-2xl font-black ${match.result === 'win' ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {match.legs_won}
-          </span>
-          <span className="text-slate-500">-</span>
-          <span className="text-2xl font-black text-white">
-            {match.legs_lost}
-          </span>
+      
+      {/* Stats Grid */}
+      <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="bg-slate-900/50 rounded-lg p-2">
+          <p className="text-xs text-slate-500">Avg</p>
+          <p className="text-sm font-bold text-white">{match.three_dart_avg?.toFixed(1) || '-'}</p>
         </div>
-        <p className="text-slate-500 text-xs">{timeAgo} • {match.three_dart_avg?.toFixed(1) || '-'} avg</p>
+        <div className="bg-slate-900/50 rounded-lg p-2">
+          <p className="text-xs text-slate-500">First 9</p>
+          <p className="text-sm font-bold text-white">{match.first9_avg?.toFixed(1) || '-'}</p>
+        </div>
+        <div className="bg-slate-900/50 rounded-lg p-2">
+          <p className="text-xs text-slate-500">Checkout</p>
+          <p className="text-sm font-bold text-amber-400">{match.highest_checkout || '-'}</p>
+        </div>
+        <div className="bg-slate-900/50 rounded-lg p-2">
+          <p className="text-xs text-slate-500">180s</p>
+          <p className="text-sm font-bold text-emerald-400">{match.visits_180 || 0}</p>
+        </div>
       </div>
     </div>
   );
@@ -349,7 +358,7 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
 
 // Recent Matches Section
 function RecentMatchesSection() {
-  const { matches, loading, refresh } = useRecentMatches(5);
+  const { matches, loading, refresh } = useRecentQuickMatches(5);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
 
   return (
@@ -358,7 +367,7 @@ function RecentMatchesSection() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
-            <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
+            <h2 className="text-2xl font-bold text-white">Recent 301/501 Games</h2>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -382,17 +391,21 @@ function RecentMatchesSection() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-800/60 animate-pulse">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-slate-700" />
-                  <div>
-                    <div className="w-24 h-4 bg-slate-700 rounded mb-2" />
-                    <div className="w-16 h-3 bg-slate-700 rounded" />
+              <div key={i} className="p-4 rounded-xl bg-slate-800/60 animate-pulse">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-700" />
+                    <div>
+                      <div className="w-24 h-4 bg-slate-700 rounded mb-2" />
+                      <div className="w-16 h-3 bg-slate-700 rounded" />
+                    </div>
                   </div>
+                  <div className="w-12 h-6 bg-slate-700 rounded" />
                 </div>
-                <div className="text-right">
-                  <div className="w-12 h-4 bg-slate-700 rounded mb-2" />
-                  <div className="w-20 h-3 bg-slate-700 rounded" />
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map(j => (
+                    <div key={j} className="h-12 bg-slate-700 rounded-lg" />
+                  ))}
                 </div>
               </div>
             ))}
@@ -402,12 +415,12 @@ function RecentMatchesSection() {
             <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
               <Trophy className="w-8 h-8 text-slate-500" />
             </div>
-            <h3 className="text-white font-bold mb-2">No Matches Yet</h3>
-            <p className="text-slate-400 text-sm mb-4">Start playing to see your match history here</p>
-            <Link href="/app/play/training">
+            <h3 className="text-white font-bold mb-2">No 301/501 Games Yet</h3>
+            <p className="text-slate-400 text-sm mb-4">Play quick matches to see your game history here</p>
+            <Link href="/app/play/quick-match">
               <Button className="bg-emerald-500 hover:bg-emerald-600">
                 <Play className="w-4 h-4 mr-2" />
-                Start Playing
+                Play Quick Match
               </Button>
             </Link>
           </div>
