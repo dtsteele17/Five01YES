@@ -34,6 +34,7 @@ import {
   Gamepad2,
   Activity,
   ChevronRight,
+  CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -66,6 +67,12 @@ interface QuickMatchLobby {
     safety_rating_count?: number;
     overall_3dart_avg?: number;
   };
+  atc_settings?: {
+    order: 'sequential' | 'random';
+    mode: 'singles' | 'doubles' | 'trebles' | 'increase';
+    player_count: number;
+  };
+  players?: ATCPlayer[];
 }
 
 interface JoinRequest {
@@ -80,6 +87,175 @@ interface JoinRequest {
   requester_has_camera?: boolean;
   status: 'pending' | 'accepted' | 'declined';
   created_at: string;
+}
+
+interface ATCPlayer {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  is_ready: boolean;
+  current_target?: number | 'bull';
+  completed_targets?: (number | 'bull')[];
+  is_winner?: boolean;
+}
+
+// Joined Player View for ATC Lobbies
+function JoinedATCLobbyView({ lobby, userId, onLeave }: { lobby: QuickMatchLobby; userId: string | null; onLeave: () => void }) {
+  const supabase = createClient();
+  const [players, setPlayers] = useState<ATCPlayer[]>([]);
+  const [isReady, setIsReady] = useState(false);
+  const [atcSettings, setAtcSettings] = useState<any>(null);
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Get initial players from lobby
+    const lobbyPlayers = (lobby as any).players || [];
+    setPlayers(lobbyPlayers);
+    
+    const settings = (lobby as any).atc_settings;
+    setAtcSettings(settings);
+    
+    // Check if current user is ready
+    const currentPlayer = lobbyPlayers.find((p: ATCPlayer) => p.id === userId);
+    setIsReady(currentPlayer?.is_ready || false);
+    
+    // Subscribe to lobby changes
+    const channel = supabase
+      .channel(`lobby_${lobby.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'quick_match_lobbies',
+          filter: `id=eq.${lobby.id}`,
+        },
+        (payload) => {
+          const updatedLobby = payload.new as any;
+          setPlayers(updatedLobby.players || []);
+          
+          const currentPlayer = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
+          setIsReady(currentPlayer?.is_ready || false);
+          
+          // If match_id is set, redirect to match
+          if (updatedLobby.match_id && updatedLobby.status === 'in_progress') {
+            router.push(`/app/play/quick-match/atc-match?matchId=${updatedLobby.match_id}`);
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [lobby.id, userId]);
+  
+  const toggleReady = async () => {
+    if (!userId) return;
+    
+    const newReadyState = !isReady;
+    setIsReady(newReadyState);
+    
+    const updatedPlayers = players.map(p => 
+      p.id === userId ? { ...p, is_ready: newReadyState } : p
+    );
+    
+    await supabase
+      .from('quick_match_lobbies')
+      .update({ players: updatedPlayers })
+      .eq('id', lobby.id);
+  };
+  
+  const playerSlots = atcSettings?.player_count || 2;
+  const emptySlots = playerSlots - players.length;
+  
+  return (
+    <div className="space-y-4">
+      {/* Match Settings */}
+      <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+        <div className="flex items-center gap-2 mb-3">
+          <Target className="w-4 h-4 text-purple-400" />
+          <p className="text-sm text-purple-400 font-medium">Around The Clock</p>
+        </div>
+        <div className="text-xs text-slate-400 space-y-1">
+          <p>Order: <span className="text-white">{atcSettings?.order === 'sequential' ? '1-20 + Bull' : 'Random'}</span></p>
+          <p>Mode: <span className="text-white capitalize">{atcSettings?.mode?.replace('_', ' ') || 'Singles'}</span></p>
+          <p>Players: <span className="text-white">{players.length} / {playerSlots}</span></p>
+        </div>
+      </div>
+      
+      {/* Player List */}
+      <div className="space-y-2">
+        <p className="text-xs text-slate-500 uppercase tracking-wider">Players</p>
+        {players.map((player) => (
+          <div 
+            key={player.id}
+            className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                {player.username.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-white text-sm">{player.username}</span>
+              {player.id === lobby.created_by && (
+                <Badge className="bg-amber-500/20 text-amber-400 text-xs">Host</Badge>
+              )}
+            </div>
+            {player.is_ready ? (
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Ready
+              </Badge>
+            ) : (
+              <Badge className="bg-slate-700 text-slate-400 text-xs">Not Ready</Badge>
+            )}
+          </div>
+        ))}
+        
+        {/* Empty slots */}
+        {Array.from({ length: emptySlots }).map((_, i) => (
+          <div 
+            key={`empty-${i}`}
+            className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700"
+          >
+            <span className="text-slate-500 text-sm">Waiting for player...</span>
+            <Badge className="bg-slate-700 text-slate-500 text-xs">Empty</Badge>
+          </div>
+        ))}
+      </div>
+      
+      {/* Ready Button */}
+      <Button
+        className={`w-full py-4 text-base font-bold ${
+          isReady 
+            ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+            : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+        }`}
+        onClick={toggleReady}
+      >
+        {isReady ? (
+          <>
+            <X className="w-4 h-4 mr-2" />
+            Cancel Ready
+          </>
+        ) : (
+          <>
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Ready Up!
+          </>
+        )}
+      </Button>
+      
+      <Button
+        className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+        onClick={onLeave}
+        variant="outline"
+      >
+        <X className="w-4 h-4 mr-2" />
+        Leave Lobby
+      </Button>
+    </div>
+  );
 }
 
 // Animation variants
@@ -480,6 +656,8 @@ export default function QuickMatchLobbyPage() {
           player2_id,
           match_id,
           player1_3dart_avg,
+          atc_settings,
+          players,
           player1:profiles!quick_match_lobbies_player1_id_fkey (
             username,
             avatar_url,
@@ -590,6 +768,13 @@ export default function QuickMatchLobbyPage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      // Get user profile for the host
+      const { data: hostProfile } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
       const lobbyData: any = {
         game_type: gameMode,
         starting_score: gameMode === 'atc' ? 0 : parseInt(gameMode),
@@ -599,13 +784,22 @@ export default function QuickMatchLobbyPage() {
         player1_3dart_avg: stats?.overall_3dart_avg || 0,
       };
       
-      // Add ATC-specific settings
+      // Add ATC-specific settings and initialize players array with host
       if (isATCMode) {
         lobbyData.atc_settings = {
           order: atcOrder,
           mode: atcMode,
           player_count: atcPlayerCount,
         };
+        lobbyData.players = [{
+          id: user.id,
+          username: hostProfile?.username || 'You',
+          avatar_url: hostProfile?.avatar_url,
+          is_ready: false,
+          current_target: 1,
+          completed_targets: [],
+          is_winner: false
+        }];
       }
 
       console.log('[CREATE] INSERTING_TO_SUPABASE', { table: 'quick_match_lobbies', payload: lobbyData });
@@ -742,10 +936,73 @@ export default function QuickMatchLobbyPage() {
 
       if (request.status === 'accepted') {
         clearInterval(checkInterval);
-        // Request accepted - proceed to match
-        if (request.match_id) {
-          toast.success('Join request accepted! Match starting...');
-          router.push(`/app/play/quick-match/match/${request.match_id}`);
+        
+        // Check if this is an ATC lobby
+        const { data: lobby } = await supabase
+          .from('quick_match_lobbies')
+          .select('game_type, match_id, atc_settings, players')
+          .eq('id', request.lobby_id)
+          .maybeSingle();
+        
+        if (lobby?.game_type === 'atc') {
+          // For ATC, show the lobby popup/overlay instead of redirecting immediately
+          setPendingLobbyId(null);
+          setJoining(null);
+          
+          // Fetch the full lobby data to show in the joined lobby view
+          const { data: fullLobby } = await supabase
+            .from('quick_match_lobbies')
+            .select(`
+              id,
+              created_by,
+              created_at,
+              status,
+              game_type,
+              match_format,
+              starting_score,
+              double_out,
+              double_in,
+              player1_id,
+              player2_id,
+              match_id,
+              player1_3dart_avg,
+              atc_settings,
+              players,
+              player1:profiles!quick_match_lobbies_player1_id_fkey (
+                username,
+                avatar_url,
+                trust_rating_letter,
+                trust_rating_count,
+                safety_rating_letter,
+                safety_rating_count
+              )
+            `)
+            .eq('id', request.lobby_id)
+            .maybeSingle();
+            
+          // Also fetch host stats for display
+          if (fullLobby) {
+            const { data: hostStats } = await supabase
+              .from('player_stats')
+              .select('overall_3dart_avg')
+              .eq('user_id', fullLobby.player1_id)
+              .maybeSingle();
+              
+            if (hostStats && fullLobby.player1) {
+              fullLobby.player1.overall_3dart_avg = hostStats.overall_3dart_avg;
+            }
+          }
+            
+          if (fullLobby) {
+            setMyLobby(fullLobby as QuickMatchLobby);
+            toast.success('Join request accepted! You are in the lobby.');
+          }
+        } else {
+          // Regular 301/501 - proceed to match
+          if (request.match_id) {
+            toast.success('Join request accepted! Match starting...');
+            router.push(`/app/play/quick-match/match/${request.match_id}`);
+          }
         }
       } else if (request.status === 'declined') {
         clearInterval(checkInterval);
@@ -1233,76 +1490,155 @@ export default function QuickMatchLobbyPage() {
               </div>
 
               {myLobby ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      <p className="text-sm text-emerald-400 font-medium">
-                        {myLobby.game_type === 'atc' ? `Waiting for ${((myLobby as any).atc_settings?.player_count || 2) - 1} more players...` : 'Waiting for opponent...'}
-                      </p>
-                    </div>
-                    <div className="text-xs text-slate-400 space-y-1">
-                      <p>Game: <span className="text-white">{myLobby.game_type === 'atc' ? 'Around The Clock' : myLobby.game_type}</span></p>
-                      {myLobby.game_type === 'atc' && (myLobby as any).atc_settings ? (
-                        <>
-                          <p>Mode: <span className="text-white">
-                            {(myLobby as any).atc_settings.mode === 'singles' ? 'Singles Only' :
-                             (myLobby as any).atc_settings.mode === 'doubles' ? 'Doubles Only' :
-                             (myLobby as any).atc_settings.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
-                          </span></p>
-                          <p>Order: <span className="text-white">{(myLobby as any).atc_settings.order === 'sequential' ? '1-20 + Bull' : 'Random'}</span></p>
-                          <p>Players: <span className="text-white">{(myLobby as any).atc_settings.player_count || 2}</span></p>
-                        </>
-                      ) : (
-                        <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
-                      )}
-                      {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
-                        <div className="flex items-center gap-1 pt-1">
-                          <Target className="w-3 h-3 text-blue-400" />
-                          <span className="text-blue-400">
-                            Your 3-Dart Avg: {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg || 0).toFixed(1)}
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  
-                  {/* Join Request Status */}
-                  {currentJoinRequest ? (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                        <span className="text-sm text-amber-400">
-                          {currentJoinRequest.requester_username} wants to join
-                        </span>
+                // Check if user is host or joined player
+                myLobby.created_by === userId ? (
+                  // HOST VIEW
+                  <div className="space-y-4">
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        <p className="text-sm text-emerald-400 font-medium">
+                          {myLobby.game_type === 'atc' 
+                            ? `Waiting for ${((myLobby as any).atc_settings?.player_count || 2) - ((myLobby as any).players?.length || 1)} more players...` 
+                            : 'Waiting for opponent...'}
+                        </p>
+                      </div>
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <p>Game: <span className="text-white">{myLobby.game_type === 'atc' ? 'Around The Clock' : myLobby.game_type}</span></p>
+                        {myLobby.game_type === 'atc' && (myLobby as any).atc_settings ? (
+                          <>
+                            <p>Mode: <span className="text-white">
+                              {(myLobby as any).atc_settings.mode === 'singles' ? 'Singles Only' :
+                               (myLobby as any).atc_settings.mode === 'doubles' ? 'Doubles Only' :
+                               (myLobby as any).atc_settings.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
+                            </span></p>
+                            <p>Order: <span className="text-white">{(myLobby as any).atc_settings.order === 'sequential' ? '1-20 + Bull' : 'Random'}</span></p>
+                            <p>Players: <span className="text-white">{((myLobby as any).players?.length || 1)} / {(myLobby as any).atc_settings.player_count || 2}</span></p>
+                          </>
+                        ) : (
+                          <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
+                        )}
+                        {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg) ? (
+                          <div className="flex items-center gap-1 pt-1">
+                            <Target className="w-3 h-3 text-blue-400" />
+                            <span className="text-blue-400">
+                              Your 3-Dart Avg: {(userStats?.overall_3dart_avg || myLobby.player1?.overall_3dart_avg || 0).toFixed(1)}
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
-                  ) : (
-                    <div className="p-3 bg-slate-800/50 rounded-lg">
-                      <p className="text-xs text-slate-500 text-center">
-                        No join requests yet. Waiting for players...
-                      </p>
-                    </div>
-                  )}
-                  
-                  <Button
-                    className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
-                    onClick={cancelLobby}
-                    disabled={isCancelling}
-                  >
-                    {isCancelling ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Cancelling...
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-4 h-4 mr-2" />
-                        Stop Searching
-                      </>
+                    
+                    {/* Player List for ATC */}
+                    {myLobby.game_type === 'atc' && (myLobby as any).players && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">Players</p>
+                        {(myLobby as any).players.map((player: ATCPlayer) => (
+                          <div 
+                            key={player.id}
+                            className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                                {player.username.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-white text-sm">{player.username}</span>
+                              {player.id === myLobby.created_by && (
+                                <Badge className="bg-amber-500/20 text-amber-400 text-xs">Host</Badge>
+                              )}
+                            </div>
+                            {player.is_ready ? (
+                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Ready
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-slate-700 text-slate-400 text-xs">Not Ready</Badge>
+                            )}
+                          </div>
+                        ))}
+                        {/* Empty slots */}
+                        {Array.from({ length: ((myLobby as any).atc_settings?.player_count || 2) - ((myLobby as any).players?.length || 1) }).map((_, i) => (
+                          <div 
+                            key={`empty-${i}`}
+                            className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700"
+                          >
+                            <span className="text-slate-500 text-sm">Waiting for player...</span>
+                            <Badge className="bg-slate-700 text-slate-500 text-xs">Empty</Badge>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  </Button>
-                </div>
+                    
+                    {/* Join Request Status -->
+                    {currentJoinRequest ? (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                          <span className="text-sm text-amber-400">
+                            {currentJoinRequest.requester_username} wants to join
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-slate-800/50 rounded-lg">
+                        <p className="text-xs text-slate-500 text-center">
+                          No join requests yet. Waiting for players...
+                        </p>
+                      </div>
+                    )}
+                    
+                    <Button
+                      className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                      onClick={cancelLobby}
+                      disabled={isCancelling}
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Cancelling...
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-4 h-4 mr-2" />
+                          Stop Searching
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  // JOINED PLAYER VIEW (for ATC mode)
+                  myLobby.game_type === 'atc' ? (
+                    <JoinedATCLobbyView 
+                      lobby={myLobby} 
+                      userId={userId}
+                      onLeave={() => setMyLobby(null)}
+                    />
+                  ) : (
+                    // Regular joined view for 301/501
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock className="w-4 h-4 text-blue-400 animate-pulse" />
+                          <p className="text-sm text-blue-400 font-medium">
+                            Waiting for host to start...
+                          </p>
+                        </div>
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p>Game: <span className="text-white">{myLobby.game_type}</span></p>
+                          <p>Format: <span className="text-white">{formatMatchFormat(myLobby.match_format)}</span></p>
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                        onClick={() => setMyLobby(null)}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Leave Lobby
+                      </Button>
+                    </div>
+                  )
+                )
               ) : (
                 <div className="space-y-6">
                   <div className="space-y-2">
