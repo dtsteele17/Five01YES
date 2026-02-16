@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Camera, Trash2, Activity, Loader2, ArrowLeft } from 'lucide-react';
+import { Camera, Trash2, Activity, Loader2, ArrowLeft, Star } from 'lucide-react';
 import { PoseLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision';
+import { toast } from 'sonner';
 
 interface HandTrail {
   points: { x: number; y: number; phase: 'setup' | 'drawback' | 'release' }[];
@@ -40,6 +41,8 @@ export default function ThrowingFormAnalysis() {
   const [cameraActive, setCameraActive] = useState(false);
   const [throwCount, setThrowCount] = useState(0);
   const [handTrails, setHandTrails] = useState<HandTrail[]>([]);
+  const [sessionXP, setSessionXP] = useState(0);
+  const [sessionStartTime] = useState(Date.now());
   const [currentTrail, setCurrentTrail] = useState<{ x: number; y: number; phase: 'setup' | 'drawback' | 'release' }[]>([]);
   const [isTracking, setIsTracking] = useState(false);
   const [throwState, setThrowState] = useState<'idle' | 'ready' | 'throwing'>('idle');
@@ -70,8 +73,12 @@ export default function ThrowingFormAnalysis() {
         cancelAnimationFrame(animationFrameRef.current);
       }
       stopCamera();
+      // Award XP when leaving (if any was earned)
+      if (sessionXP > 0) {
+        awardSessionXP();
+      }
     };
-  }, []);
+  }, [sessionXP]);
 
   const initializePoseLandmarker = async () => {
     try {
@@ -302,6 +309,9 @@ export default function ThrowingFormAnalysis() {
                   setHandTrails([...handTrailsRef.current]);
                   throwCountRef.current += 1;
                   setThrowCount(throwCountRef.current);
+                  
+                  // Award XP for completed throw (5 XP per throw)
+                  setSessionXP(prev => prev + 5);
                 }
 
                 currentTrailRef.current = [];
@@ -454,6 +464,10 @@ export default function ThrowingFormAnalysis() {
     }
   };
 
+  const handleReturn = () => {
+    router.push('/app/play');
+  };
+
   const handleWipeTrails = () => {
     handTrailsRef.current = [];
     currentTrailRef.current = [];
@@ -490,7 +504,7 @@ export default function ThrowingFormAnalysis() {
       <div className="flex items-start justify-between">
         <div className="space-y-4">
           <Button
-            onClick={() => router.push('/app/play')}
+            onClick={handleReturn}
             variant="outline"
             size="sm"
             className="border-white/10 text-gray-300 hover:bg-white/5"
@@ -616,6 +630,20 @@ export default function ThrowingFormAnalysis() {
               </div>
             </div>
           </Card>
+
+          {sessionXP > 0 && (
+            <Card className="bg-slate-800/50 border-emerald-500/30 p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                  <Star className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">XP Earned</p>
+                  <p className="text-lg font-bold text-white">{sessionXP} XP</p>
+                </div>
+              </div>
+            </Card>
+          )}
 
           <Card className="bg-slate-800/50 border-amber-500/30 p-4">
             <div className="flex items-center space-x-3">
