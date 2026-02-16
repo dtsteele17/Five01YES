@@ -63,6 +63,7 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
   const allPlayersReady = players.length >= 2 && players.every(p => p.is_ready);
 
   useEffect(() => {
+    console.log('[ATC MODAL] Mounted, userId:', userId, 'isHost:', isHost);
     setIsReady(currentPlayer?.is_ready || false);
 
     const lobbyChannel = supabase
@@ -74,16 +75,20 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
         filter: `id=eq.${lobby.id}`
       }, (payload) => {
         const updated = payload.new as ATCLobby;
+        console.log('[ATC MODAL] Lobby updated, players:', updated.players?.length);
         setPlayers(updated.players || []);
         
         const me = updated.players?.find((p: ATCPlayer) => p.id === userId);
         setIsReady(me?.is_ready || false);
 
         if (updated.match_id && updated.status === 'in_progress') {
+          console.log('[ATC MODAL] Match started, redirecting...');
           router.push(`/app/play/quick-match/atc-match?matchId=${updated.match_id}`);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ATC MODAL] Subscription status:', status);
+      });
 
     let requestsChannel: any;
     if (isHost) {
@@ -120,6 +125,7 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
 
   const handleAccept = async (request: JoinRequest) => {
     setLoading(true);
+    console.log('[ATC MODAL] Accepting request from:', request.requester_username);
     try {
       const newPlayer: ATCPlayer = {
         id: request.requester_id,
@@ -129,24 +135,36 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
       };
 
       const updatedPlayers = [...players, newPlayer];
+      console.log('[ATC MODAL] Adding player, new count:', updatedPlayers.length);
 
-      await supabase
+      const { error: lobbyError } = await supabase
         .from('quick_match_lobbies')
         .update({
           players: updatedPlayers,
           status: updatedPlayers.length >= maxPlayers ? 'full' : 'waiting'
         })
         .eq('id', lobby.id);
+        
+      if (lobbyError) {
+        console.error('[ATC MODAL] Error updating lobby:', lobbyError);
+        throw lobbyError;
+      }
 
-      await supabase
+      const { error: requestError } = await supabase
         .from('quick_match_join_requests')
         .update({ status: 'accepted' })
         .eq('id', request.id);
+        
+      if (requestError) {
+        console.error('[ATC MODAL] Error updating request:', requestError);
+        throw requestError;
+      }
 
       setPlayers(updatedPlayers);
       setJoinRequests(prev => prev.filter(r => r.id !== request.id));
       toast.success(`${request.requester_username} joined!`);
     } catch (err: any) {
+      console.error('[ATC MODAL] Error accepting request:', err);
       toast.error('Failed to accept: ' + err.message);
     } finally {
       setLoading(false);
@@ -164,16 +182,24 @@ export function ATCLobbyModal({ lobby, userId, isHost, onClose, onStart, onLeave
 
   const toggleReady = async () => {
     const newReady = !isReady;
+    console.log('[ATC MODAL] Toggling ready:', newReady);
     setIsReady(newReady);
 
     const updated = players.map(p =>
       p.id === userId ? { ...p, is_ready: newReady } : p
     );
 
-    await supabase
+    const { error } = await supabase
       .from('quick_match_lobbies')
       .update({ players: updated })
       .eq('id', lobby.id);
+      
+    if (error) {
+      console.error('[ATC MODAL] Error updating ready status:', error);
+      toast.error('Failed to update ready status');
+    } else {
+      console.log('[ATC MODAL] Ready status updated successfully');
+    }
   };
 
   const getModeLabel = (mode?: string) => {

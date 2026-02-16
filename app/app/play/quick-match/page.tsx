@@ -162,6 +162,8 @@ export default function QuickMatchLobbyPage() {
   useEffect(() => {
     if (!userId || !pendingLobbyId) return;
     
+    console.log('[PENDING] Subscribing to lobby updates for:', pendingLobbyId);
+    
     // Subscribe to lobby updates while waiting
     const lobbyChannel = supabase
       .channel(`pending-lobby-${pendingLobbyId}`)
@@ -172,12 +174,14 @@ export default function QuickMatchLobbyPage() {
         filter: `id=eq.${pendingLobbyId}`
       }, async (payload) => {
         const updated = payload.new as QuickMatchLobby;
+        console.log('[PENDING] Lobby updated:', updated.id, 'players:', updated.players?.length);
         
         // Check if I was added to the lobby
         const isInLobby = updated.players?.some(p => p.id === userId);
+        console.log('[PENDING] Am I in lobby?', isInLobby);
         
         if (isInLobby) {
-          console.log('[PENDING] I was added to the lobby!');
+          console.log('[PENDING] I was added to the lobby! Opening modal...');
           setPendingLobbyId(null);
           setMyLobby(updated);
           if (updated.game_type === 'atc') {
@@ -186,9 +190,14 @@ export default function QuickMatchLobbyPage() {
           }
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[PENDING] Subscription status:', status);
+      });
       
-    return () => void lobbyChannel.unsubscribe();
+    return () => {
+      console.log('[PENDING] Unsubscribing from lobby updates');
+      void lobbyChannel.unsubscribe();
+    };
   }, [userId, pendingLobbyId]);
 
   async function initialize() {
@@ -648,13 +657,11 @@ export default function QuickMatchLobbyPage() {
                           </div>
                           <div>
                             <p className="font-bold text-white">{lobby.player1?.username || 'Unknown'}</p>
-                            <p className="text-xs text-slate-400">
-                              {lobby.game_type === 'atc' ? 'Around The Clock' : lobby.game_type}
-                            </p>
+                            <p className="text-xs text-slate-400">{lobby.game_type}</p>
                           </div>
                         </div>
-                        <Badge className={lobby.game_type === 'atc' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}>
-                          {lobby.game_type === 'atc' ? `ATC (${lobby.atc_settings?.player_count || 2}P)` : lobby.match_format}
+                        <Badge className="bg-blue-500/20 text-blue-400">
+                          {lobby.match_format}
                         </Badge>
                       </div>
 
