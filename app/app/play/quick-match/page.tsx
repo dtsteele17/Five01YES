@@ -302,6 +302,8 @@ function ATCLobbyModal({
   const [players, setPlayers] = useState<ATCPlayer[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [atcSettings, setAtcSettings] = useState<any>(null);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [processingRequest, setProcessingRequest] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   
@@ -315,6 +317,11 @@ function ATCLobbyModal({
     
     const currentPlayer = lobbyPlayers.find((p: ATCPlayer) => p.id === userId);
     setIsReady(currentPlayer?.is_ready || false);
+    
+    // Fetch pending join requests if host
+    if (isHost) {
+      fetchJoinRequests();
+    }
     
     // Subscribe to lobby changes
     const channel = supabase
@@ -341,11 +348,42 @@ function ATCLobbyModal({
         }
       )
       .subscribe();
+    
+    // Subscribe to join requests if host
+    let joinRequestChannel: any;
+    if (isHost) {
+      joinRequestChannel = supabase
+        .channel(`join-requests-${lobby.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'quick_match_join_requests',
+            filter: `lobby_id=eq.${lobby.id}`,
+          },
+          () => {
+            fetchJoinRequests();
+          }
+        )
+        .subscribe();
+    }
       
     return () => {
       channel.unsubscribe();
+      if (joinRequestChannel) joinRequestChannel.unsubscribe();
     };
   }, [lobby.id, userId, router, isHost]);
+  
+  const fetchJoinRequests = async () => {
+    const { data } = await supabase
+      .from('quick_match_join_requests')
+      .select('*')
+      .eq('lobby_id', lobby.id)
+      .eq('status', 'pending');
+    
+    if (data) setJoinRequests(data);
+  };
   
   const toggleReady = async () => {
     if (!userId) return;
@@ -445,7 +483,7 @@ function ATCLobbyModal({
                 </div>
               ))}
               
-              {/* Empty slots -- players join directly for ATC */}
+              {/* Empty slots */}
               {Array.from({ length: availableSlots }).map((_, i) => (
                 <div 
                   key={`empty-${i}`}
@@ -1138,12 +1176,7 @@ export default function QuickMatchLobbyPage() {
     setJoining(lobbyId);
 
     try {
-      // First, fetch the lobby to check if it's ATC mode
-      const { data: lobby } = await supabase
-        .from('quick_match_lobbies')
-        .select('game_type, atc_settings, players')
-        .eq('id', lobbyId)
-        .maybeSingle();
+      console.log('[JOIN] Sending join request for lobby:', lobbyId, 'as user:', userId);
 
       // Get current user profile
       const { data: userProfile } = await supabase
@@ -1159,98 +1192,7 @@ export default function QuickMatchLobbyPage() {
         .eq('user_id', userId)
         .maybeSingle();
 
-      // For ATC lobbies, join directly without request
-      if (lobby?.game_type === 'atc') {
-        console.log('[JOIN] ATC lobby detected, joining directly');
-        
-        const currentPlayers = lobby.players || [];
-        const maxPlayers = lobby.atc_settings?.player_count || 2;
-        
-        // Check if lobby is full
-        if (currentPlayers.length >= maxPlayers) {
-          toast.error('Lobby is full');
-          setJoining(null);
-          return;
-        }
-        
-        // Add player directly to lobby
-        const newPlayer: ATCPlayer = {
-          id: userId,
-          username: userProfile?.username || 'Player',
-          avatar_url: userProfile?.avatar_url,
-          is_ready: false,
-          current_target: 1,
-          completed_targets: [],
-          is_winner: false
-        };
-        
-        const updatedPlayers = [...currentPlayers, newPlayer];
-        
-        const { error: updateError } = await supabase
-          .from('quick_match_lobbies')
-          .update({ players: updatedPlayers })
-          .eq('id', lobbyId);
-        
-        if (updateError) {
-          console.error('[JOIN] Error joining ATC lobby:', updateError);
-          throw new Error('Failed to join lobby');
-        }
-        
-        // Fetch full lobby data and open popup
-        const { data: fullLobby } = await supabase
-          .from('quick_match_lobbies')
-          .select(`
-            id,
-            created_by,
-            created_at,
-            status,
-            game_type,
-            match_format,
-            starting_score,
-            double_out,
-            double_in,
-            player1_id,
-            player2_id,
-            match_id,
-            player1_3dart_avg,
-            atc_settings,
-            players,
-            player1:profiles!quick_match_lobbies_player1_id_fkey (
-              username,
-              avatar_url,
-              trust_rating_letter,
-              trust_rating_count,
-              safety_rating_letter,
-              safety_rating_count
-            )
-          `)
-          .eq('id', lobbyId)
-          .single();
-        
-        if (fullLobby) {
-          const player1Data = Array.isArray(fullLobby.player1) 
-            ? fullLobby.player1[0] 
-            : fullLobby.player1;
-          
-          const typedLobby: QuickMatchLobby = {
-            ...fullLobby,
-            player1: player1Data as any,
-            game_type: fullLobby.game_type || 'atc',
-          };
-          
-          setMyLobby(typedLobby);
-          setShowATCLobbyModal(true);
-          setJoining(null);
-          toast.success('Joined lobby! Click Ready Up when you\'re ready.');
-        }
-        
-        return;
-      }
-
-      // For non-ATC lobbies, create a join request
-      console.log('[JOIN] Sending join request for lobby:', lobbyId, 'as user:', userId);
-
-      // Check if user has camera available (like DartCounter)
+      // Check if user has camera available
       let hasCamera = false;
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -1261,7 +1203,7 @@ export default function QuickMatchLobbyPage() {
         console.log('[JOIN] Camera detection failed:', e);
       }
 
-      // Create a join request
+      // Create a join request (works for both ATC and regular lobbies)
       const { data: request, error: requestError } = await supabase
         .from('quick_match_join_requests')
         .insert({
