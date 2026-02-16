@@ -705,19 +705,13 @@ export default function QuickMatchLobbyPage() {
           // Retry logic for fetching lobby
           let lobby = null;
           let retries = 0;
-          const maxRetries = 10;
+          const maxRetries = 15;
           
           while (!lobby && retries < maxRetries) {
-            // Try fetching with profile join first
+            // Try simple fetch first (without profile join to avoid RLS issues)
             const { data: lobbyData, error: lobbyError } = await supabase
               .from('quick_match_lobbies')
-              .select(`
-                *,
-                player1:profiles!quick_match_lobbies_player1_id_fkey (
-                  username, avatar_url, trust_rating_letter, trust_rating_count,
-                  safety_rating_letter, safety_rating_count
-                )
-              `)
+              .select('*')
               .eq('id', request.lobby_id)
               .maybeSingle();
               
@@ -726,13 +720,23 @@ export default function QuickMatchLobbyPage() {
             }
             
             if (lobbyData) {
-              lobby = lobbyData;
-              console.log('[REALTIME] Lobby fetched successfully');
+              console.log('[REALTIME] Lobby fetched successfully:', lobbyData.id, 'type:', lobbyData.game_type);
+              // Now fetch player1 profile separately
+              const { data: profileData } = await supabase
+                .from('profiles')
+                .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
+                .eq('user_id', lobbyData.player1_id)
+                .maybeSingle();
+                
+              lobby = {
+                ...lobbyData,
+                player1: profileData || { username: 'Host' }
+              };
             } else {
               retries++;
               if (retries < maxRetries) {
-                console.log(`[REALTIME] Lobby not found, retrying in 500ms... (${retries}/${maxRetries})`);
-                await new Promise(r => setTimeout(r, 500));
+                console.log(`[REALTIME] Lobby not found, retrying in 400ms... (${retries}/${maxRetries})`);
+                await new Promise(r => setTimeout(r, 400));
               }
             }
           }
@@ -1284,26 +1288,19 @@ export default function QuickMatchLobbyPage() {
           
           // Retry logic for fetching lobby (handle race condition)
           let fullLobby: QuickMatchLobby | null = null;
-          let lobbyError = null;
           let retries = 0;
-          const maxRetries = 5;
+          const maxRetries = 10;
           
           while (retries < maxRetries && !fullLobby) {
+            // Simple fetch without profile join to avoid RLS issues
             const { data, error } = await supabase
               .from('quick_match_lobbies')
-              .select(`
-                *,
-                player1:profiles!quick_match_lobbies_player1_id_fkey (
-                  username, avatar_url, trust_rating_letter, trust_rating_count,
-                  safety_rating_letter, safety_rating_count
-                )
-              `)
+              .select('*')
               .eq('id', request.lobby_id)
               .maybeSingle();
               
             if (error) {
-              lobbyError = error;
-              break;
+              console.log(`[POLL] Error fetching lobby (retry ${retries + 1}/${maxRetries}):`, error.message);
             }
             
             if (data) {
@@ -1312,26 +1309,46 @@ export default function QuickMatchLobbyPage() {
                 const currentUserId = userIdRef.current;
                 const isInPlayers = data.players?.some((p: any) => p.id === currentUserId);
                 if (isInPlayers) {
-                  fullLobby = data;
+                  // Fetch player1 profile separately
+                  const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
+                    .eq('user_id', data.player1_id)
+                    .maybeSingle();
+                    
+                  fullLobby = {
+                    ...data,
+                    player1: profileData || { username: 'Host' }
+                  } as QuickMatchLobby;
                   console.log('[POLL] Lobby fetched with player in it');
                 } else {
                   console.log(`[POLL] Player not in lobby yet, retry ${retries + 1}/${maxRetries}...`);
-                  await new Promise(r => setTimeout(r, 500));
+                  await new Promise(r => setTimeout(r, 400));
                   retries++;
                 }
               } else {
-                fullLobby = data;
+                // Fetch player1 profile separately
+                const { data: profileData } = await supabase
+                  .from('profiles')
+                  .select('username, avatar_url, trust_rating_letter, trust_rating_count, safety_rating_letter, safety_rating_count')
+                  .eq('user_id', data.player1_id)
+                  .maybeSingle();
+                  
+                fullLobby = {
+                  ...data,
+                  player1: profileData || { username: 'Host' }
+                } as QuickMatchLobby;
               }
             } else {
               console.log(`[POLL] Lobby data null, retry ${retries + 1}/${maxRetries}...`);
-              await new Promise(r => setTimeout(r, 500));
+              await new Promise(r => setTimeout(r, 400));
               retries++;
             }
           }
             
-          if (lobbyError) {
-            console.error('[POLL] Error fetching lobby:', lobbyError);
-            toast.error('Error joining lobby. Please refresh.');
+          if (!fullLobby) {
+            console.error('[POLL] Failed to fetch lobby after all retries');
+            toast.error('Failed to join lobby. Please try refreshing the page.');
             setJoining(null);
             setPendingLobbyId(null);
             return;
@@ -1917,7 +1934,7 @@ export default function QuickMatchLobbyPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-slate-300 text-sm">Game Mode</Label>
+                        <Label className="text-slate-300 text-sm">Target Type (Singles/Doubles/Trebles)</Label>
                         <Select value={atcMode} onValueChange={(v) => setAtcMode(v as any)}>
                           <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
                             <SelectValue />
@@ -1926,7 +1943,7 @@ export default function QuickMatchLobbyPage() {
                             <SelectItem value="singles">Singles Only</SelectItem>
                             <SelectItem value="doubles">Doubles Only</SelectItem>
                             <SelectItem value="trebles">Trebles Only</SelectItem>
-                            <SelectItem value="increase">Increase by Segment</SelectItem>
+                            <SelectItem value="increase">Increase by Segment (1,2,3...)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2125,13 +2142,7 @@ export default function QuickMatchLobbyPage() {
                   while (!lobby && retries < maxRetries) {
                     const { data: lobbyData } = await supabase
                       .from('quick_match_lobbies')
-                      .select(`
-                        *,
-                        player1:profiles!quick_match_lobbies_player1_id_fkey (
-                          username, avatar_url, trust_rating_letter, trust_rating_count,
-                          safety_rating_letter, safety_rating_count
-                        )
-                      `)
+                      .select('*')
                       .eq('id', pendingLobbyId)
                       .maybeSingle();
                       
