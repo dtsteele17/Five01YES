@@ -384,6 +384,150 @@ function ATCLobbyModal({
     
     if (data) setJoinRequests(data);
   };
+
+  const handleAcceptRequest = async (request: JoinRequest) => {
+    if (processingRequest) return;
+    setProcessingRequest(true);
+
+    try {
+      // Get current lobby state
+      const { data: currentLobby } = await supabase
+        .from('quick_match_lobbies')
+        .select('*')
+        .eq('id', lobby.id)
+        .maybeSingle();
+
+      if (!currentLobby) {
+        throw new Error('Lobby not found');
+      }
+
+      const currentPlayers = (currentLobby as any).players || [];
+      const settings = (currentLobby as any).atc_settings;
+      
+      // Check if lobby is full
+      if (currentPlayers.length >= settings.player_count) {
+        toast.error('Lobby is full');
+        setProcessingRequest(false);
+        return;
+      }
+
+      // Add player to lobby
+      const newPlayer: ATCPlayer = {
+        id: request.requester_id,
+        username: request.requester_username,
+        is_ready: false,
+        current_target: settings.order === 'random' ? undefined : 1,
+        completed_targets: [],
+      };
+
+      const updatedPlayers = [...currentPlayers, newPlayer];
+
+      // Check if we have enough players
+      if (updatedPlayers.length >= settings.player_count) {
+        // Create ATC match
+        const shuffleArray = (array: any[]) => {
+          const newArray = [...array];
+          for (let i = newArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+          }
+          return newArray;
+        };
+
+        const targets = settings.order === 'random'
+          ? shuffleArray([...[...Array(20)].map((_, i) => i + 1), 'bull'])
+          : [...[...Array(20)].map((_, i) => i + 1), 'bull'];
+
+        const { data: atcMatch, error: atcError } = await supabase
+          .from('atc_matches')
+          .insert({
+            lobby_id: lobby.id,
+            status: 'waiting',
+            game_mode: 'atc',
+            atc_settings: settings,
+            players: updatedPlayers.map((p: ATCPlayer) => ({
+              ...p,
+              current_target: targets[0]
+            })),
+            current_player_index: 0,
+            created_by: lobby.created_by,
+            targets: targets
+          })
+          .select()
+          .maybeSingle();
+
+        if (atcError || !atcMatch) {
+          throw new Error('Failed to create ATC match');
+        }
+
+        // Update the join request
+        await supabase
+          .from('quick_match_join_requests')
+          .update({ 
+            status: 'accepted',
+            match_id: atcMatch.id
+          })
+          .eq('id', request.id);
+
+        // Update lobby
+        await supabase
+          .from('quick_match_lobbies')
+          .update({
+            players: updatedPlayers,
+            status: 'in_progress',
+            match_id: atcMatch.id
+          })
+          .eq('id', lobby.id);
+
+        toast.success('Match starting!');
+        router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
+      } else {
+        // Just add player to lobby, not enough players yet
+        await supabase
+          .from('quick_match_lobbies')
+          .update({
+            players: updatedPlayers
+          })
+          .eq('id', lobby.id);
+
+        await supabase
+          .from('quick_match_join_requests')
+          .update({ status: 'accepted' })
+          .eq('id', request.id);
+
+        // Update local state
+        setPlayers(updatedPlayers);
+        setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+        toast.success(`${request.requester_username} joined the lobby`);
+      }
+    } catch (error: any) {
+      console.error('[ATC ACCEPT] Failed:', error);
+      toast.error(`Failed to accept: ${error.message}`);
+    } finally {
+      setProcessingRequest(false);
+    }
+  };
+
+  const handleDeclineRequest = async (request: JoinRequest) => {
+    if (processingRequest) return;
+    setProcessingRequest(true);
+
+    try {
+      await supabase
+        .from('quick_match_join_requests')
+        .update({ status: 'declined' })
+        .eq('id', request.id);
+
+      // Remove from local state
+      setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+      toast.info('Join request declined');
+    } catch (error: any) {
+      console.error('[ATC DECLINE] Failed:', error);
+      toast.error(`Failed to decline: ${error.message}`);
+    } finally {
+      setProcessingRequest(false);
+    }
+  };
   
   const toggleReady = async () => {
     if (!userId) return;
@@ -496,6 +640,68 @@ function ATCLobbyModal({
             </div>
           </div>
           
+          {/* Join Requests - Host Only */}
+          {isHost && joinRequests.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs text-amber-500 uppercase tracking-wider flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Join Requests ({joinRequests.length})
+              </p>
+              <div className="space-y-2">
+                {joinRequests.map((request) => (
+                  <div 
+                    key={request.id}
+                    className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold">
+                        {request.requester_username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">{request.requester_username}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          {request.requester_3dart_avg && (
+                            <span className="flex items-center gap-1">
+                              <BarChart3 className="w-3 h-3" />
+                              {request.requester_3dart_avg.toFixed(1)} avg
+                            </span>
+                          )}
+                          {request.requester_has_camera && (
+                            <span className="flex items-center gap-1 text-emerald-400">
+                              <Camera className="w-3 h-3" />
+                              Camera
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                        onClick={() => handleAcceptRequest(request)}
+                        disabled={processingRequest || players.length >= (atcSettings?.player_count || 2)}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20"
+                        onClick={() => handleDeclineRequest(request)}
+                        disabled={processingRequest}
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Ready Count */}
           <div className="text-center text-sm">
             <span className="text-slate-400">
