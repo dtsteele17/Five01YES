@@ -3591,36 +3591,24 @@ export default function QuickMatchRoomPage() {
     
     try {
       // Build winner stats for direct insert
-      const winnerStatsData = winnerStats ? {
-        p_three_dart_avg: winnerStats.threeDartAverage || 0,
-        p_first9_avg: winnerStats.first9Average || 0,
-        p_highest_checkout: winnerStats.highestCheckout || 0,
-        p_darts_thrown: winnerStats.totalDarts || 0,
-        p_total_score: winnerStats.totalScored || 0
-      } : {
-        p_three_dart_avg: 0,
-        p_first9_avg: 0,
-        p_highest_checkout: 0,
-        p_darts_thrown: 0,
-        p_total_score: 0
+      const winnerStatsData = {
+        p_three_dart_avg: winnerStats?.threeDartAverage || 0,
+        p_first9_avg: winnerStats?.first9Average || 0,
+        p_highest_checkout: winnerStats?.highestCheckout || 0,
+        p_darts_thrown: winnerStats?.totalDarts || 0,
+        p_total_score: winnerStats?.totalScored || 0
       };
 
       // Build loser stats for direct insert
-      const loserStatsData = loserStats ? {
-        p_three_dart_avg: loserStats.threeDartAverage || 0,
-        p_first9_avg: loserStats.first9Average || 0,
-        p_highest_checkout: loserStats.highestCheckout || 0,
-        p_darts_thrown: loserStats.totalDarts || 0,
-        p_total_score: loserStats.totalScored || 0
-      } : {
-        p_three_dart_avg: 0,
-        p_first9_avg: 0,
-        p_highest_checkout: 0,
-        p_darts_thrown: 0,
-        p_total_score: 0
+      const loserStatsData = {
+        p_three_dart_avg: loserStats?.threeDartAverage || 0,
+        p_first9_avg: loserStats?.first9Average || 0,
+        p_highest_checkout: loserStats?.highestCheckout || 0,
+        p_darts_thrown: loserStats?.totalDarts || 0,
+        p_total_score: loserStats?.totalScored || 0
       };
 
-      // Use the simpler direct insert function for winner
+      // Save winner stats
       const { data: winnerResult, error: winnerError } = await supabase.rpc('record_quick_match_to_history', {
         p_room_id: roomId,
         p_user_id: winnerId,
@@ -3629,29 +3617,20 @@ export default function QuickMatchRoomPage() {
         p_result: 'win',
         p_legs_won: winnerLegs,
         p_legs_lost: loserLegs,
-        ...winnerStatsData
+        p_three_dart_avg: winnerStatsData.p_three_dart_avg,
+        p_first9_avg: winnerStatsData.p_first9_avg,
+        p_highest_checkout: winnerStatsData.p_highest_checkout,
+        p_darts_thrown: winnerStatsData.p_darts_thrown,
+        p_total_score: winnerStatsData.p_total_score
       });
       
       if (winnerError) {
         console.error('[STATS] Error saving winner stats:', winnerError);
-        // Fallback to the old function
-        const { error: fallbackError } = await supabase.rpc('fn_update_player_match_stats', {
-          p_room_id: roomId,
-          p_user_id: winnerId,
-          p_opponent_id: loserId,
-          p_result: 'win',
-          p_legs_won: winnerLegs,
-          p_legs_lost: loserLegs,
-          p_game_mode: gameMode
-        });
-        if (fallbackError) {
-          console.error('[STATS] Fallback also failed:', fallbackError);
-        }
       } else {
         console.log('[STATS] Winner stats saved:', winnerResult);
       }
       
-      // Use the simpler direct insert function for loser
+      // Save loser stats
       const { data: loserResult, error: loserError } = await supabase.rpc('record_quick_match_to_history', {
         p_room_id: roomId,
         p_user_id: loserId,
@@ -3660,30 +3639,24 @@ export default function QuickMatchRoomPage() {
         p_result: 'loss',
         p_legs_won: loserLegs,
         p_legs_lost: winnerLegs,
-        ...loserStatsData
+        p_three_dart_avg: loserStatsData.p_three_dart_avg,
+        p_first9_avg: loserStatsData.p_first9_avg,
+        p_highest_checkout: loserStatsData.p_highest_checkout,
+        p_darts_thrown: loserStatsData.p_darts_thrown,
+        p_total_score: loserStatsData.p_total_score
       });
       
       if (loserError) {
         console.error('[STATS] Error saving loser stats:', loserError);
-        // Fallback to the old function
-        const { error: fallbackError } = await supabase.rpc('fn_update_player_match_stats', {
-          p_room_id: roomId,
-          p_user_id: loserId,
-          p_opponent_id: winnerId,
-          p_result: 'loss',
-          p_legs_won: loserLegs,
-          p_legs_lost: winnerLegs,
-          p_game_mode: gameMode
-        });
-        if (fallbackError) {
-          console.error('[STATS] Fallback also failed:', fallbackError);
-        }
       } else {
         console.log('[STATS] Loser stats saved:', loserResult);
       }
       
-      toast.success('Match stats saved!');
-      console.log('[STATS] Match stats saved successfully');
+      if (!winnerError && !loserError) {
+        toast.success('Match stats saved!');
+      }
+      
+      console.log('[STATS] Match stats save attempt completed');
     } catch (error: any) {
       console.error('[STATS] Failed to save match stats:', error);
       toast.error('Failed to save match stats');
