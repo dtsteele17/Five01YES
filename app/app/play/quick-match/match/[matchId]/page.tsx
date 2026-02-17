@@ -39,6 +39,7 @@ import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { RematchPopup } from '@/components/game/RematchPopup';
 import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
 import type { SafetyGrade } from '@/lib/safety/safetyService';
 import { submitRating, subscribeToRatings, getUserSafetyRating, hasRatedOpponent } from '@/lib/safety/safetyService';
@@ -1134,6 +1135,9 @@ export default function QuickMatchRoomPage() {
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [pendingCheckoutScore, setPendingCheckoutScore] = useState(0);
   const [pendingRemainingBefore, setPendingRemainingBefore] = useState(501);
+
+  // Rematch popup state
+  const [showRematchPopup, setShowRematchPopup] = useState(false);
 
   const cleanupMatchRef = useRef<() => void>();
   
@@ -3629,10 +3633,24 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Simple rematch handler - uses the new hook
-  const handleRematch = async () => {
+  // Open rematch popup
+  const handleRematch = () => {
+    setShowRematchPopup(true);
+  };
+
+  // Handle actual rematch request from popup
+  const handleRequestRematch = async () => {
     if (rematchLoading) return;
     await requestRematch();
+  };
+
+  // Handle cancel rematch
+  const handleCancelRematch = async () => {
+    // Cancel the rematch request
+    const supabase = createClient();
+    await supabase.rpc('cancel_rematch_request', {
+      p_request_id: rematchStatus === 'pending' || rematchStatus === 'ready' ? 'current' : null
+    });
   };
 
   async function saveMatchStats(
@@ -4227,6 +4245,23 @@ export default function QuickMatchRoomPage() {
           onRateOpponent={handleTrustRating}
           hasRated={hasSubmittedRating}
           isQuickMatch={true}
+        />
+      )}
+
+      {/* Rematch Popup */}
+      {room?.status === 'finished' && matchEndStats && (
+        <RematchPopup
+          isOpen={showRematchPopup}
+          onClose={() => setShowRematchPopup(false)}
+          player1={{ id: room.player1_id, name: matchEndStats.player1.name }}
+          player2={{ id: room.player2_id || '', name: matchEndStats.player2.name }}
+          currentUserId={currentUserId || ''}
+          readyCount={readyCount}
+          iAmReady={iAmReadyForRematch}
+          opponentReady={opponentRematchReady}
+          onRequestRematch={handleRequestRematch}
+          onCancelRematch={handleCancelRematch}
+          isLoading={rematchLoading}
         />
       )}
 
