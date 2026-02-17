@@ -56,8 +56,10 @@ export async function submitRating(
   matchId: string,
   ratedId: string,
   grade: SafetyGrade
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; data?: any }> {
   try {
+    console.log('[SafetyRating] Submitting rating:', { matchId, ratedId, grade });
+    
     const supabase = createClient();
     const { data, error } = await supabase
       .rpc('submit_safety_rating', {
@@ -66,18 +68,26 @@ export async function submitRating(
         p_rating: grade
       });
 
+    console.log('[SafetyRating] RPC response:', { data, error });
+
     if (error) {
-      console.error('Error submitting safety rating:', error);
+      console.error('[SafetyRating] RPC error:', error);
       return { success: false, error: error.message };
+    }
+
+    // Check if the RPC returned an error in the JSONB result
+    if (data && !data.success) {
+      console.error('[SafetyRating] RPC returned error:', data.error);
+      return { success: false, error: data.error };
     }
 
     // Notify all listeners that the rating has been updated
     notifySafetyRatingUpdated(ratedId);
 
-    return { success: true };
-  } catch (err) {
-    console.error('Error in submitRating:', err);
-    return { success: false, error: 'Failed to submit rating' };
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('[SafetyRating] Exception in submitRating:', err);
+    return { success: false, error: err.message || 'Failed to submit rating' };
   }
 }
 

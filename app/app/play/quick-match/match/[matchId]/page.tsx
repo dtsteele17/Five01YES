@@ -3583,21 +3583,49 @@ export default function QuickMatchRoomPage() {
 
   // Handle safety rating submission from WinnerPopup
   const handleSafetyRating = async (grade: SafetyGrade) => {
-    if (!matchId || !room || !currentUserId) return;
+    console.log('[SafetyRating] Starting rating submission:', { matchId, room, currentUserId, grade });
+    
+    if (!matchId || !room || !currentUserId) {
+      console.error('[SafetyRating] Missing required data:', { matchId, room, currentUserId });
+      toast.error('Cannot submit rating: Missing match data');
+      return;
+    }
     
     const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
-    if (!opponentId) return;
+    console.log('[SafetyRating] Opponent ID:', opponentId);
+    
+    if (!opponentId) {
+      console.error('[SafetyRating] Could not determine opponent ID');
+      toast.error('Cannot submit rating: Opponent not found');
+      return;
+    }
 
     try {
+      setRatingLoading(true);
       const result = await submitRating(matchId, opponentId, grade);
+      console.log('[SafetyRating] Submission result:', result);
+      
       if (result.success) {
         setHasSubmittedRating(true);
         toast.success(`Rated opponent ${grade}`);
+        
+        // Refresh the rated user's profile to show updated rating
+        const { data: updatedProfile } = await supabase
+          .from('profiles')
+          .select('safety_rating_letter, safety_rating_avg, safety_rating_count')
+          .eq('user_id', opponentId)
+          .single();
+        
+        console.log('[SafetyRating] Opponent updated profile:', updatedProfile);
       } else {
+        console.error('[SafetyRating] Submission failed:', result.error);
         toast.error(result.error || 'Failed to submit rating');
       }
     } catch (error: any) {
+      console.error('[SafetyRating] Exception:', error);
       toast.error(`Failed to submit rating: ${error.message}`);
+    } finally {
+      setRatingLoading(false);
     }
   };
 

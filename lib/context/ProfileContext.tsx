@@ -49,7 +49,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          safety_rating_letter,
+          safety_rating_avg,
+          safety_rating_count,
+          trust_rating_letter,
+          trust_rating_avg,
+          trust_rating_count
+        `)
         .eq('id', user.id)
         .single();
 

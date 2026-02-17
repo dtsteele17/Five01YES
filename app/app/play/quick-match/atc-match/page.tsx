@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Users, ArrowLeft, CheckCircle2, 
   Camera, CameraOff, Loader2, Trophy, X, RefreshCw,
-  Zap, Crosshair, Wifi, WifiOff, RotateCcw, UserPlus
+  Zap, Crosshair, Wifi, WifiOff, RotateCcw, UserPlus,
+  Crown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -1340,64 +1341,164 @@ export default function ATCMatchPage() {
         </div>
       </div>
       
-      {/* Game End Popup */}
+      {/* Game End Popup - Premium Design */}
       <Dialog open={showGameEndPopup} onOpenChange={setShowGameEndPopup}>
-        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black text-center flex items-center justify-center gap-2">
-              <Trophy className="w-8 h-8 text-amber-400" />
-              Game Over!
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-slate-700 max-w-lg p-0 overflow-hidden">
+          {/* Header with animated gradient */}
+          <div className="relative bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-emerald-500/20 p-6 border-b border-slate-700/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-emerald-500/10 animate-pulse" />
+            <DialogHeader className="relative z-10">
+              <DialogTitle className="text-3xl font-black text-center flex flex-col items-center gap-3">
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                  className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-2xl shadow-amber-500/30"
+                >
+                  <Trophy className="w-10 h-10 text-white" />
+                </motion.div>
+                <span className="bg-gradient-to-r from-amber-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
+                  Game Over!
+                </span>
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           
-          <div className="space-y-4 py-4">
+          <div className="p-6 space-y-6">
+            {/* Winner Section */}
             {match.players.find(p => p.is_winner) && (
-              <div className="text-center">
-                <p className="text-slate-400 mb-2">Winner</p>
-                <p className="text-4xl font-black text-emerald-400">
-                  {match.players.find(p => p.is_winner)?.username}
-                </p>
-              </div>
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-center"
+              >
+                <p className="text-slate-400 mb-2 uppercase tracking-wider text-sm font-medium">Champion</p>
+                <div className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-2xl px-6 py-3">
+                  <Crown className="w-6 h-6 text-amber-400" />
+                  <p className="text-3xl font-black text-white">
+                    {match.players.find(p => p.is_winner)?.username}
+                  </p>
+                </div>
+              </motion.div>
             )}
             
-            <div className="bg-slate-800/50 rounded-xl p-4">
-              <h4 className="text-sm font-semibold text-slate-400 mb-3">Final Stats</h4>
-              <div className="space-y-2">
-                {match.players.map((player) => (
-                  <div 
-                    key={player.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      player.is_winner ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-slate-800/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-medium">{player.username}</span>
-                      {player.is_winner && (
-                        <Badge className="bg-amber-500/20 text-amber-400">
-                          <Trophy className="w-3 h-3 mr-1" />
-                          Winner
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-purple-400">
-                        {player.completed_targets?.length || 0} targets
-                      </span>
-                      <span className="text-slate-500">
-                        {player.total_darts_thrown || 0} darts
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Player Stats Cards */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Final Standings</h4>
+              {match.players
+                .sort((a, b) => (b.completed_targets?.length || 0) - (a.completed_targets?.length || 0))
+                .map((player, index) => {
+                  const accuracy = player.total_darts_thrown > 0 
+                    ? Math.round(((player.completed_targets?.length || 0) / player.total_darts_thrown) * 100)
+                    : 0;
+                  const position = index + 1;
+                  
+                  return (
+                    <motion.div 
+                      key={player.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                      className={`relative overflow-hidden rounded-xl p-4 ${
+                        player.is_winner 
+                          ? 'bg-gradient-to-r from-emerald-500/20 via-emerald-600/10 to-transparent border border-emerald-500/40' 
+                          : 'bg-slate-800/50 border border-slate-700/50'
+                      }`}
+                    >
+                      {/* Position Badge */}
+                      <div className={`absolute -right-2 -top-2 w-10 h-10 rounded-full flex items-center justify-center text-lg font-black ${
+                        position === 1 ? 'bg-amber-500 text-white' :
+                        position === 2 ? 'bg-slate-400 text-slate-900' :
+                        position === 3 ? 'bg-amber-700 text-white' :
+                        'bg-slate-700 text-slate-400'
+                      }`}>
+                        #{position}
+                      </div>
+                      
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+                          player.is_winner 
+                            ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-500/30' 
+                            : 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300'
+                        }`}>
+                          {player.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-bold text-lg">{player.username}</span>
+                            {player.is_winner && (
+                              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                                <Trophy className="w-3 h-3 mr-1" />
+                                Winner
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className={`text-center p-2 rounded-lg ${player.is_winner ? 'bg-emerald-500/10' : 'bg-slate-900/50'}`}>
+                          <p className="text-xs text-slate-400 mb-1">Targets</p>
+                          <p className={`text-xl font-black ${player.is_winner ? 'text-emerald-400' : 'text-white'}`}>
+                            {player.completed_targets?.length || 0}
+                          </p>
+                        </div>
+                        <div className={`text-center p-2 rounded-lg ${player.is_winner ? 'bg-blue-500/10' : 'bg-slate-900/50'}`}>
+                          <p className="text-xs text-slate-400 mb-1">Darts</p>
+                          <p className={`text-xl font-black ${player.is_winner ? 'text-blue-400' : 'text-white'}`}>
+                            {player.total_darts_thrown || 0}
+                          </p>
+                        </div>
+                        <div className={`text-center p-2 rounded-lg ${player.is_winner ? 'bg-purple-500/10' : 'bg-slate-900/50'}`}>
+                          <p className="text-xs text-slate-400 mb-1">Accuracy</p>
+                          <p className={`text-xl font-black ${player.is_winner ? 'text-purple-400' : 'text-white'}`}>
+                            {accuracy}%
+                          </p>
+                        </div>
+                        <div className={`text-center p-2 rounded-lg ${player.is_winner ? 'bg-amber-500/10' : 'bg-slate-900/50'}`}>
+                          <p className="text-xs text-slate-400 mb-1">Progress</p>
+                          <p className={`text-xl font-black ${player.is_winner ? 'text-amber-400' : 'text-white'}`}>
+                            {Math.round(((player.completed_targets?.length || 0) / 21) * 100)}%
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="mt-3">
+                        <div className="h-2 bg-slate-900/50 rounded-full overflow-hidden">
+                          <motion.div 
+                            className={`h-full rounded-full ${
+                              player.is_winner 
+                                ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' 
+                                : 'bg-gradient-to-r from-slate-600 to-slate-500'
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${((player.completed_targets?.length || 0) / 21) * 100}%` }}
+                            transition={{ duration: 0.8, delay: 0.5 + index * 0.1 }}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
             </div>
             
-            <Button
-              onClick={handleEndGame}
-              className="w-full py-6 text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+            {/* Action Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
             >
-              End Game
-            </Button>
+              <Button
+                onClick={handleEndGame}
+                className="w-full py-6 text-lg font-bold bg-gradient-to-r from-purple-500 via-pink-500 to-amber-500 hover:from-purple-600 hover:via-pink-600 hover:to-amber-600 shadow-lg shadow-purple-500/25"
+              >
+                <Trophy className="w-5 h-5 mr-2" />
+                Back to Lobby
+              </Button>
+            </motion.div>
           </div>
         </DialogContent>
       </Dialog>

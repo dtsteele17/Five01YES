@@ -455,19 +455,42 @@ export default function DashboardPage() {
               color="bg-purple-500"
             />
             
-            {/* Win Streak with Best Streak */}
+            {/* Safety Rating */}
             <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
-              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500" />
+              <div className={`absolute top-0 left-0 w-1 h-full ${
+                profile?.safety_rating_letter === 'A' ? 'bg-emerald-500' :
+                profile?.safety_rating_letter === 'B' ? 'bg-emerald-400' :
+                profile?.safety_rating_letter === 'C' ? 'bg-yellow-400' :
+                profile?.safety_rating_letter === 'D' ? 'bg-orange-400' :
+                profile?.safety_rating_letter === 'E' ? 'bg-red-500' :
+                'bg-slate-500'
+              }`} />
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-4xl font-black text-white tracking-tight">{stats?.currentStreak || 0}</p>
-                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Win Streak</p>
-                  <p className="text-xs text-orange-400 mt-2">
-                    Best: {stats?.bestStreak || 0}
+                  <p className="text-4xl font-black text-white tracking-tight">
+                    {profile?.safety_rating_letter || 'C'}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Safety Rating</p>
+                  <p className="text-xs text-slate-400 mt-2">
+                    {profile?.safety_rating_count || 0} ratings
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-orange-500 bg-opacity-20 flex items-center justify-center">
-                  <Flame className="w-6 h-6 text-white" />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  profile?.safety_rating_letter === 'A' ? 'bg-emerald-500/20' :
+                  profile?.safety_rating_letter === 'B' ? 'bg-emerald-400/20' :
+                  profile?.safety_rating_letter === 'C' ? 'bg-yellow-400/20' :
+                  profile?.safety_rating_letter === 'D' ? 'bg-orange-400/20' :
+                  profile?.safety_rating_letter === 'E' ? 'bg-red-500/20' :
+                  'bg-slate-500/20'
+                }`}>
+                  <Shield className={`w-6 h-6 ${
+                    profile?.safety_rating_letter === 'A' ? 'text-emerald-500' :
+                    profile?.safety_rating_letter === 'B' ? 'text-emerald-400' :
+                    profile?.safety_rating_letter === 'C' ? 'text-yellow-400' :
+                    profile?.safety_rating_letter === 'D' ? 'text-orange-400' :
+                    profile?.safety_rating_letter === 'E' ? 'text-red-500' :
+                    'text-slate-400'
+                  }`} />
                 </div>
               </div>
             </div>
