@@ -276,7 +276,7 @@ function QuickActionsBar() {
   );
 }
 
-// Recent Match Item Component - Dashboard Themed
+// Recent Match Item Component - User Friendly with Result in Middle
 function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }) {
   const getResultColor = (result: string) => {
     switch (result) {
@@ -305,16 +305,12 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
     }
   };
 
-  const getResultIcon = (result: string) => {
-    switch (result) {
-      case 'win': return <ArrowUpRight className="w-4 h-4" />;
-      case 'loss': return <ArrowDownRight className="w-4 h-4" />;
-      case 'draw': return <Minus className="w-4 h-4" />;
-      default: return <Minus className="w-4 h-4" />;
-    }
-  };
-
   const timeAgo = formatDistanceToNow(new Date(match.played_at), { addSuffix: true });
+
+  // Format game mode display
+  const gameModeDisplay = typeof match.game_mode === 'number' 
+    ? `${match.game_mode}` 
+    : match.game_mode;
 
   return (
     <motion.div 
@@ -324,86 +320,89 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
       className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${getResultGradient(match.result)} border border-slate-700/50 hover:border-slate-500/50 cursor-pointer transition-all group`}
     >
       {/* Result indicator strip */}
-      <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
         match.result === 'win' ? 'bg-emerald-500' : 
         match.result === 'loss' ? 'bg-rose-500' : 'bg-amber-500'
       }`} />
       
-      <div className="p-4 pl-5">
-        {/* Header Row */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            {/* Result Badge */}
-            <div className={`px-2 py-1 rounded-lg ${getResultBgColor(match.result)} flex items-center gap-1`}>
-              {getResultIcon(match.result)}
-              <span className={`text-xs font-bold uppercase ${getResultColor(match.result)}`}>
-                {match.result}
-              </span>
+      <div className="p-3 pl-4">
+        {/* Top Row: Game Info */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Badge className={`text-xs ${getResultBgColor(match.result)} ${getResultColor(match.result)}`}>
+              {match.result === 'win' ? 'W' : match.result === 'loss' ? 'L' : 'D'}
+            </Badge>
+            <span className="text-slate-400 text-xs">{gameModeDisplay} • {timeAgo}</span>
+          </div>
+        </div>
+        
+        {/* Main Row: You | Score | Opponent */}
+        <div className="flex items-center justify-between">
+          {/* Left: You */}
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <span className="text-emerald-400 font-bold text-sm">You</span>
+              </div>
+              <div>
+                <p className="text-emerald-400 font-bold text-lg">{match.legs_won}</p>
+                <p className="text-slate-500 text-xs">legs</p>
+              </div>
             </div>
-            
-            {/* Opponent */}
-            <div>
-              <p className="text-white font-semibold">vs {match.opponent_username || 'Unknown'}</p>
-              <p className="text-slate-500 text-xs">{match.game_mode} • {timeAgo}</p>
+            {/* Your Stats */}
+            <div className="flex flex-wrap gap-1 mt-1">
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                Avg: {match.three_dart_avg?.toFixed(1) || '-'}
+              </span>
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                180s: {match.visits_180 || 0}
+              </span>
             </div>
           </div>
           
-          {/* Score */}
-          <div className="flex items-center gap-2">
-            <div className={`text-2xl font-black ${match.result === 'win' ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {match.legs_won}
+          {/* Center: VS / Score Display */}
+          <div className="px-4 flex flex-col items-center">
+            <span className="text-slate-500 text-xs mb-1">vs</span>
+            <div className={`text-3xl font-black ${getResultColor(match.result)}`}>
+              {match.legs_won} - {match.legs_lost}
             </div>
-            <span className="text-slate-600 font-bold">-</span>
-            <div className="text-2xl font-black text-slate-400">
-              {match.legs_lost}
+            <span className="text-slate-500 text-[10px] mt-1">
+              {match.opponent_username || 'Unknown'}
+            </span>
+          </div>
+          
+          {/* Right: Opponent */}
+          <div className="flex-1 text-right">
+            <div className="flex items-center justify-end gap-2 mb-1">
+              <div>
+                <p className="text-orange-400 font-bold text-lg">{match.legs_lost}</p>
+                <p className="text-slate-500 text-xs">legs</p>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <span className="text-orange-400 font-bold text-xs">Opp</span>
+              </div>
+            </div>
+            {/* Opponent Stats */}
+            <div className="flex flex-wrap gap-1 mt-1 justify-end">
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                Avg: {match.opponent_three_dart_avg?.toFixed(1) || '-'}
+              </span>
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                180s: {match.opponent_visits_180 || 0}
+              </span>
             </div>
           </div>
         </div>
         
-        {/* Stats Comparison Row */}
-        <div className="grid grid-cols-4 gap-3">
-          {/* User Stats */}
-          <div className="col-span-2 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500">You</span>
-              <span className="text-emerald-400 font-bold">{match.three_dart_avg?.toFixed(1) || '-'} avg</span>
-            </div>
-            <div className="flex gap-1">
-              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
-                <Target className="w-3 h-3 mr-1" />
-                {match.first9_avg?.toFixed(1) || '-'}
-              </Badge>
-              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
-                <Trophy className="w-3 h-3 mr-1" />
-                {match.highest_checkout || '-'}
-              </Badge>
-              <Badge className="bg-slate-800 text-emerald-500 text-xs border-0">
-                <Flame className="w-3 h-3 mr-1" />
-                {match.visits_180 || 0}
-              </Badge>
-            </div>
+        {/* Bottom Row: Additional Stats */}
+        <div className="mt-2 pt-2 border-t border-slate-700/30 flex items-center justify-between text-[10px] text-slate-400">
+          <div className="flex gap-3">
+            <span>First 9: {match.first9_avg?.toFixed(1) || '-'}</span>
+            <span>Checkout: {match.highest_checkout || '-'}</span>
           </div>
-          
-          {/* Opponent Stats */}
-          <div className="col-span-2 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500">Opponent</span>
-              <span className="text-orange-400 font-bold">{match.opponent_three_dart_avg?.toFixed(1) || '-'} avg</span>
-            </div>
-            <div className="flex gap-1 justify-end">
-              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
-                {match.opponent_first9_avg?.toFixed(1) || '-'}
-                <Target className="w-3 h-3 ml-1" />
-              </Badge>
-              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
-                {match.opponent_highest_checkout || '-'}
-                <Trophy className="w-3 h-3 ml-1" />
-              </Badge>
-              <Badge className="bg-slate-800 text-orange-500 text-xs border-0">
-                {match.opponent_visits_180 || 0}
-                <Flame className="w-3 h-3 ml-1" />
-              </Badge>
-            </div>
+          <div className="flex gap-3">
+            <span>First 9: {match.opponent_first9_avg?.toFixed(1) || '-'}</span>
+            <span>Checkout: {match.opponent_highest_checkout || '-'}</span>
           </div>
         </div>
       </div>

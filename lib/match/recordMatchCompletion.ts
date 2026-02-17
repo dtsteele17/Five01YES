@@ -246,6 +246,18 @@ export async function recordMatchCompletion(input: RecordMatchInput): Promise<Re
       visits_140_plus: input.userStats.count140Plus,
       visits_180: input.userStats.count180,
       played_at: input.endedAt,
+      // Opponent stats
+      opponent_three_dart_avg: input.opponentStats.threeDartAvg,
+      opponent_first9_avg: input.opponentStats.first9Avg,
+      opponent_highest_checkout: input.opponentStats.highestCheckout,
+      opponent_checkout_percentage: input.opponentStats.checkoutPercent ||
+        (input.opponentStats.checkoutDartsAttempted > 0
+          ? (input.opponentStats.checkoutsMade / input.opponentStats.checkoutDartsAttempted) * 100
+          : 0),
+      opponent_darts_thrown: input.opponentStats.dartsThrown || 0,
+      opponent_visits_100_plus: input.opponentStats.count100Plus,
+      opponent_visits_140_plus: input.opponentStats.count140Plus,
+      opponent_visits_180: input.opponentStats.count180,
     };
 
     const { error: matchHistoryError } = await supabase

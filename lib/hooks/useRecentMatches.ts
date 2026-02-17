@@ -114,15 +114,15 @@ export function useRecentMatches(limit: number = 5) {
         visits_180: match.visits_180 || 0,
         played_at: match.played_at,
         bot_level: match.bot_level,
-        // Opponent stats
-        opponent_three_dart_avg: match.opponent_three_dart_avg,
-        opponent_first9_avg: match.opponent_first9_avg,
-        opponent_highest_checkout: match.opponent_highest_checkout,
-        opponent_checkout_percentage: match.opponent_checkout_percentage,
-        opponent_darts_thrown: match.opponent_darts_thrown,
-        opponent_visits_100_plus: match.opponent_visits_100_plus,
-        opponent_visits_140_plus: match.opponent_visits_140_plus,
-        opponent_visits_180: match.opponent_visits_180,
+        // Opponent stats - provide defaults if missing
+        opponent_three_dart_avg: match.opponent_three_dart_avg || 0,
+        opponent_first9_avg: match.opponent_first9_avg || 0,
+        opponent_highest_checkout: match.opponent_highest_checkout || 0,
+        opponent_checkout_percentage: match.opponent_checkout_percentage || 0,
+        opponent_darts_thrown: match.opponent_darts_thrown || 0,
+        opponent_visits_100_plus: match.opponent_visits_100_plus || 0,
+        opponent_visits_140_plus: match.opponent_visits_140_plus || 0,
+        opponent_visits_180: match.opponent_visits_180 || 0,
       }));
 
       setMatches(transformedData);
