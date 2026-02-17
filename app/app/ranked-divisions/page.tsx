@@ -598,8 +598,8 @@ function TierNavigator({
                     
                     <div className="relative">
                       {/* Icon container */}
-                      <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 ${isCurrent ? 'bg-white/25 shadow-lg' : isGrandChampion ? 'bg-gradient-to-br from-amber-500/40 to-purple-500/40 shadow-lg shadow-purple-500/20' : 'bg-slate-800/80 border border-slate-700'} transition-transform group-hover:scale-110`}>
-                        {getTierIcon(tier.tier_name, 100)}
+                      <div className={`w-36 h-36 rounded-2xl flex items-center justify-center mb-4 ${isCurrent ? 'bg-white/25 shadow-lg' : isGrandChampion ? 'bg-gradient-to-br from-amber-500/40 to-purple-500/40 shadow-lg shadow-purple-500/20' : 'bg-slate-800/80 border border-slate-700'} transition-transform group-hover:scale-110`}>
+                        {getTierIcon(tier.tier_name, 130)}
                       </div>
                       
                       <p className={`text-xs uppercase tracking-[0.15em] mb-1 font-bold ${

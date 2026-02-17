@@ -495,7 +495,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-5">
                   <div className="relative">
                     <div className="absolute inset-0 bg-amber-500/30 rounded-2xl blur-lg" />
-                    <div className="relative w-28 h-28 flex items-center justify-center">
+                    <div className="relative w-40 h-40 flex items-center justify-center">
                       {rankedState?.division_name ? (
                         <img 
                           src={getRankImageUrl(rankedState.division_name)} 
@@ -506,7 +506,7 @@ export default function DashboardPage() {
                           }}
                         />
                       ) : (
-                        <Crown className="w-14 h-14 text-white drop-shadow-lg" />
+                        <Crown className="w-20 h-20 text-white drop-shadow-lg" />
                       )}
                     </div>
                   </div>
