@@ -102,6 +102,7 @@ interface ATCPlayer {
   current_target?: number | 'bull';
   completed_targets?: (number | 'bull')[];
   is_winner?: boolean;
+  total_darts_thrown?: number;
 }
 
 // ============================================
@@ -284,6 +285,7 @@ function ATCLobbyModal({
         is_ready: false,
         current_target: settings.order === 'random' ? undefined : 1,
         completed_targets: [],
+        total_darts_thrown: 0,
       };
 
       const updatedPlayers = [...currentPlayers, newPlayer];
@@ -1279,7 +1281,8 @@ export default function QuickMatchLobbyPage() {
           is_ready: false,
           current_target: 1,
           completed_targets: [],
-          is_winner: false
+          is_winner: false,
+          total_darts_thrown: 0
         }];
       }
 
@@ -1493,7 +1496,8 @@ export default function QuickMatchLobbyPage() {
           is_ready: false,
           current_target: 1,
           completed_targets: [],
-          is_winner: false
+          is_winner: false,
+          total_darts_thrown: 0
         };
 
         const updatedPlayers = [...currentPlayers, newPlayer];
@@ -1654,7 +1658,8 @@ export default function QuickMatchLobbyPage() {
             is_ready: false, // Reset ready for match
             current_target: targets[0],
             completed_targets: [],
-            is_winner: false
+            is_winner: false,
+            total_darts_thrown: 0
           })),
           current_player_index: 0,
           created_by: myLobby.created_by,
