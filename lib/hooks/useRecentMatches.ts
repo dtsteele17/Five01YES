@@ -73,13 +73,27 @@ export function useRecentMatches(limit: number = 5) {
 
       console.log('[useRecentMatches] Fetched matches:', historyData?.length || 0);
       
-      // Debug: Log dartbot matches and their opponent stats
+      // Debug: Log matches with opponent stats
+      const quickMatches = (historyData || []).filter((m: any) => m.match_format === 'quick');
       const dartbotMatches = (historyData || []).filter((m: any) => m.match_format === 'dartbot');
+      
+      if (quickMatches.length > 0) {
+        console.log('[useRecentMatches] Quick matches found:', quickMatches.length);
+        quickMatches.slice(0, 3).forEach((m: any, i: number) => {
+          console.log(`  [Quick ${i + 1}]`, {
+            user_avg: m.three_dart_avg?.toFixed?.(1) || m.three_dart_avg,
+            opponent_avg: m.opponent_three_dart_avg?.toFixed?.(1) || m.opponent_three_dart_avg,
+            opponent_180s: m.opponent_visits_180,
+            has_opponent: !!m.opponent_id,
+          });
+        });
+      }
+      
       if (dartbotMatches.length > 0) {
         console.log('[useRecentMatches] Dartbot matches found:', dartbotMatches.length);
-        dartbotMatches.forEach((m: any, i: number) => {
+        dartbotMatches.slice(0, 3).forEach((m: any, i: number) => {
           console.log(`  [Dartbot ${i + 1}]`, {
-            opponent_avg: m.opponent_three_dart_avg,
+            opponent_avg: m.opponent_three_dart_avg?.toFixed?.(1) || m.opponent_three_dart_avg,
             opponent_180s: m.opponent_visits_180,
             bot_level: m.bot_level,
           });
