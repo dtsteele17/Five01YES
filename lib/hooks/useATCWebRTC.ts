@@ -31,6 +31,8 @@ export interface UseATCWebRTCReturn {
 /**
  * WebRTC Hook for ATC Quick Matches with Multi-Player Support
  * Creates a mesh network where each player connects to every other player
+ * 
+ * NOTE: Uses atc_match_signals table (NOT match_signals) - separate from 301/501
  */
 export function useATCWebRTC({
   matchId,
@@ -70,20 +72,24 @@ export function useATCWebRTC({
   });
 
   // ========== SEND SIGNAL TO SPECIFIC PLAYER ==========
+  // Uses atc_match_signals table (separate from 301/501 match_signals)
   const sendSignal = useCallback(async (recipientId: string, type: 'offer' | 'answer' | 'ice', data: any) => {
     if (!matchId || !myUserId) return;
     
-    const { error } = await supabase.from('match_signals').insert({
-      match_id: matchId,
-      sender_id: myUserId,
-      recipient_id: recipientId,
-      signal_type: type,
-      signal_data: data,
-      created_at: new Date().toISOString(),
+    console.log('[ATC WebRTC] Sending signal to', recipientId, 'type:', type);
+    
+    // Use RPC for reliable signal delivery
+    const { data: rpcResult, error } = await supabase.rpc('rpc_send_atc_signal', {
+      p_match_id: matchId,
+      p_recipient_id: recipientId,
+      p_signal_type: type,
+      p_signal_data: data
     });
     
     if (error) {
       console.error('[ATC WebRTC] Error sending signal to', recipientId, error);
+    } else if (rpcResult && !rpcResult.ok) {
+      console.error('[ATC WebRTC] RPC returned error:', rpcResult.error);
     }
   }, [matchId, myUserId, supabase]);
 
@@ -217,7 +223,7 @@ export function useATCWebRTC({
     }
 
     try {
-      if (signal.signal_type === 'offer') {
+      if (signal.signal_type === 'offer' || signal.type === 'offer') {
         console.log('[ATC WebRTC] Received offer from', senderId);
         
         // Add our stream before creating answer
@@ -231,7 +237,8 @@ export function useATCWebRTC({
           }
         }
 
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.signal_data.offer));
+        const offerData = signal.signal_data?.offer || signal.offer;
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offerData));
         
         // Process pending ICE candidates
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
@@ -249,9 +256,10 @@ export function useATCWebRTC({
         await sendSignal(senderId, 'answer', { answer: peerConnection.localDescription?.toJSON() });
         console.log('[ATC WebRTC] Answer sent to', senderId);
 
-      } else if (signal.signal_type === 'answer') {
+      } else if (signal.signal_type === 'answer' || signal.type === 'answer') {
         console.log('[ATC WebRTC] Received answer from', senderId);
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.signal_data.answer));
+        const answerData = signal.signal_data?.answer || signal.answer;
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answerData));
         
         // Process pending ICE candidates
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
@@ -264,14 +272,15 @@ export function useATCWebRTC({
         }
         pendingIceCandidatesRef.current.set(senderId, []);
 
-      } else if (signal.signal_type === 'ice') {
+      } else if (signal.signal_type === 'ice' || signal.type === 'ice') {
         console.log('[ATC WebRTC] Received ICE from', senderId);
+        const candidateData = signal.signal_data?.candidate || signal.candidate;
         if (peerConnection.remoteDescription) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(signal.signal_data.candidate));
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
         } else {
           // Queue ICE candidate
           const pending = pendingIceCandidatesRef.current.get(senderId) || [];
-          pending.push(signal.signal_data.candidate);
+          pending.push(candidateData);
           pendingIceCandidatesRef.current.set(senderId, pending);
         }
       }
@@ -281,10 +290,11 @@ export function useATCWebRTC({
   }, [createPeerConnection, sendSignal]);
 
   // ========== SETUP SIGNALING SUBSCRIPTION ==========
+  // Uses atc_match_signals table (separate from 301/501)
   useEffect(() => {
     if (!matchId || !myUserId) return;
 
-    console.log('[ATC WebRTC] Setting up signal subscription');
+    console.log('[ATC WebRTC] Setting up signal subscription for atc_match_signals');
 
     const subscription = supabase
       .channel(`atc_signals_${matchId}_${myUserId}`)
@@ -293,12 +303,12 @@ export function useATCWebRTC({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'match_signals',
+          table: 'atc_match_signals',
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
-          const signal = payload.new;
-          if (signal.recipient_id !== myUserId) return;
+          const signal = payload.new as any;
+          if (signal.recipient_id && signal.recipient_id !== myUserId) return;
           if (signal.sender_id === myUserId) return; // Ignore our own signals
           
           console.log('[ATC WebRTC] Received signal from:', signal.sender_id, 'type:', signal.signal_type);
