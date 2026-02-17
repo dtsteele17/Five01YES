@@ -90,7 +90,6 @@ const calculateNextTarget = (
     return null;
   }
   
-  // Increase by segment: S=+1, D=+2, T=+3
   let advance = 1;
   if (segment === 'D') advance = 2;
   else if (segment === 'T') advance = 3;
@@ -320,7 +319,6 @@ export default function ATCMatchPage() {
     const target = currentPlayer.current_target;
     const mode = match.atc_settings.mode;
     
-    // Add dart to current visit
     setCurrentVisit(prev => {
       const newVisit: Partial<Visit> = { ...prev, timestamp: new Date().toISOString() };
       if (!prev.dart1) newVisit.dart1 = dart;
@@ -329,11 +327,9 @@ export default function ATCMatchPage() {
       return newVisit;
     });
     
-    // ALWAYS increment dart count and total darts thrown
     const newDartCount = dartCount + 1;
     setDartCount(newDartCount);
     
-    // Check if hit target
     let hit = false;
     if (target === 'bull') {
       if (mode === 'singles' && segment === 'SB') hit = true;
@@ -350,10 +346,8 @@ export default function ATCMatchPage() {
     const updatedPlayers = [...match.players];
     const playerIndex = match.current_player_index;
     
-    // ALWAYS increment total darts thrown for this player
     updatedPlayers[playerIndex].total_darts_thrown = (updatedPlayers[playerIndex].total_darts_thrown || 0) + 1;
     
-    // If hit, update target
     if (hit) {
       updatedPlayers[playerIndex].completed_targets.push(target);
       
@@ -367,7 +361,6 @@ export default function ATCMatchPage() {
       }
       
       if (nextTarget === null) {
-        // Player wins!
         updatedPlayers[playerIndex].is_winner = true;
         
         const completedVisit: Visit = {
@@ -397,12 +390,10 @@ export default function ATCMatchPage() {
         setShowGameEndPopup(true);
         return;
       } else {
-        // Update to next target
         updatedPlayers[playerIndex].current_target = nextTarget;
       }
     }
     
-    // After 3 darts, end turn (regardless of hits)
     if (newDartCount >= 3) {
       const completedVisit: Visit = {
         ...currentVisit,
@@ -420,7 +411,6 @@ export default function ATCMatchPage() {
       
       await endTurn(updatedPlayers);
     } else {
-      // Less than 3 darts - just update the player data (for target update if hit)
       await supabase
         .from('atc_matches')
         .update({ players: updatedPlayers })
@@ -473,7 +463,7 @@ export default function ATCMatchPage() {
   
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-emerald-400" />
       </div>
     );
@@ -481,7 +471,7 @@ export default function ATCMatchPage() {
   
   if (!match) {
     return (
-      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
         <Card className="p-8 bg-slate-900 border-slate-700 text-center">
           <p className="text-white text-lg">Match not found</p>
           <Link href="/app/play/quick-match">
@@ -495,67 +485,67 @@ export default function ATCMatchPage() {
   // Waiting room
   if (match.status === 'waiting') {
     return (
-      <div className="h-screen w-screen bg-slate-950 p-3 overflow-hidden flex flex-col">
-        <div className="max-w-3xl mx-auto w-full space-y-3 flex-1 flex flex-col">
+      <div className="fixed inset-0 bg-slate-950 p-2 overflow-hidden flex flex-col">
+        <div className="max-w-3xl mx-auto w-full space-y-2 flex-1 flex flex-col">
           <div className="flex items-center justify-between">
             <Link href="/app/play/quick-match">
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white h-7 px-2">
                 <ArrowLeft className="w-4 h-4 mr-1" />
-                Leave
+                Exit
               </Button>
             </Link>
-            <h1 className="text-xl font-bold text-white">Around The Clock</h1>
-            <div className="w-16" />
+            <h1 className="text-lg font-bold text-white">Around The Clock</h1>
+            <div className="w-14" />
           </div>
           
-          <Card className="bg-slate-900/50 border-slate-700 p-3">
-            <div className="flex items-center gap-2 mb-2">
+          <Card className="bg-slate-900/50 border-slate-700 p-2">
+            <div className="flex items-center gap-2 mb-1">
               <Target className="w-4 h-4 text-purple-400" />
-              <h2 className="text-sm font-bold text-white">Settings</h2>
+              <h2 className="text-xs font-bold text-white">Settings</h2>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-slate-800/50 rounded p-2">
-                <p className="text-slate-400 text-[10px]">Order</p>
+            <div className="grid grid-cols-3 gap-1 text-center">
+              <div className="bg-slate-800/50 rounded p-1">
+                <p className="text-slate-400 text-[9px]">Order</p>
                 <p className="text-white font-bold text-xs">{match.atc_settings.order === 'sequential' ? 'In Order' : 'Random'}</p>
               </div>
-              <div className="bg-slate-800/50 rounded p-2">
-                <p className="text-slate-400 text-[10px]">Mode</p>
+              <div className="bg-slate-800/50 rounded p-1">
+                <p className="text-slate-400 text-[9px]">Mode</p>
                 <p className="text-white font-bold text-xs capitalize">{match.atc_settings.mode}</p>
               </div>
-              <div className="bg-slate-800/50 rounded p-2">
-                <p className="text-slate-400 text-[10px]">Players</p>
+              <div className="bg-slate-800/50 rounded p-1">
+                <p className="text-slate-400 text-[9px]">Players</p>
                 <p className="text-white font-bold text-xs">{match.atc_settings.player_count}</p>
               </div>
             </div>
           </Card>
           
-          <Card className="bg-slate-900/50 border-slate-700 p-3 flex-1">
-            <div className="flex items-center gap-2 mb-2">
+          <Card className="bg-slate-900/50 border-slate-700 p-2 flex-1">
+            <div className="flex items-center gap-2 mb-1">
               <Users className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white">Players</h2>
+              <h2 className="text-xs font-bold text-white">Players</h2>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {match.players?.map((player) => (
                 <div 
                   key={player.id}
-                  className="flex items-center justify-between p-2 bg-slate-800/50 rounded"
+                  className="flex items-center justify-between p-1.5 bg-slate-800/50 rounded"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
                       {player.username.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-white text-sm">{player.username}</span>
                     {player.id === match.created_by && (
-                      <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">Host</Badge>
+                      <Badge className="bg-amber-500/20 text-amber-400 text-[9px] h-4">Host</Badge>
                     )}
                   </div>
                   {player.is_ready ? (
-                    <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">
+                    <Badge className="bg-emerald-500/20 text-emerald-400 text-[9px] h-5">
                       <CheckCircle2 className="w-3 h-3 mr-1" />
                       Ready
                     </Badge>
                   ) : (
-                    <Badge className="bg-slate-700 text-slate-400 text-[10px]">Not Ready</Badge>
+                    <Badge className="bg-slate-700 text-slate-400 text-[9px] h-5">Not Ready</Badge>
                   )}
                 </div>
               ))}
@@ -563,17 +553,17 @@ export default function ATCMatchPage() {
               {Array.from({ length: (match.atc_settings.player_count - (match.players?.length || 0)) }).map((_, i) => (
                 <div 
                   key={`empty-${i}`}
-                  className="flex items-center justify-between p-2 bg-slate-800/30 rounded border border-dashed border-slate-700"
+                  className="flex items-center justify-between p-1.5 bg-slate-800/30 rounded border border-dashed border-slate-700"
                 >
-                  <span className="text-slate-500 text-sm">Waiting...</span>
-                  <Badge className="bg-slate-700 text-slate-500 text-[10px]">Empty</Badge>
+                  <span className="text-slate-500 text-xs">Waiting...</span>
+                  <Badge className="bg-slate-700 text-slate-500 text-[9px] h-5">Empty</Badge>
                 </div>
               ))}
             </div>
           </Card>
           
           <Button
-            className={`w-full py-3 text-base font-bold ${
+            className={`w-full py-2 text-sm font-bold ${
               isReady 
                 ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
                 : 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -590,11 +580,11 @@ export default function ATCMatchPage() {
   // Spinning wheel
   if (showWheel) {
     return (
-      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-6">Choosing Starting Player...</h2>
+          <h2 className="text-2xl font-bold text-white mb-4">Choosing Starting Player...</h2>
           
-          <div className="relative w-64 h-64 mx-auto">
+          <div className="relative w-56 h-56 mx-auto">
             <motion.div
               className="w-full h-full rounded-full border-8 border-slate-700 bg-slate-800 relative overflow-hidden"
               animate={wheelSpinning ? { rotate: 360 * 5 } : {}}
@@ -616,7 +606,7 @@ export default function ATCMatchPage() {
                       index % 2 === 0 ? 'bg-purple-500/30' : 'bg-pink-500/30'
                     }`}>
                       <span 
-                        className="text-white font-bold text-base"
+                        className="text-white font-bold text-sm"
                         style={{ transform: `rotate(${angle / 2}deg)` }}
                       >
                         {player.username}
@@ -636,10 +626,10 @@ export default function ATCMatchPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="mt-6"
+              className="mt-4"
             >
               <p className="text-slate-400 mb-1">Starting Player</p>
-              <p className="text-3xl font-bold text-emerald-400">{selectedPlayer.username}</p>
+              <p className="text-2xl font-bold text-emerald-400">{selectedPlayer.username}</p>
             </motion.div>
           )}
         </div>
@@ -647,7 +637,7 @@ export default function ATCMatchPage() {
     );
   }
   
-  // In Progress - COMPACT LAYOUT
+  // In Progress - ULTRA COMPACT APP SCREEN
   const currentPlayer = getCurrentPlayer();
   const target = currentPlayer?.current_target;
   const mode = match.atc_settings.mode;
@@ -655,83 +645,82 @@ export default function ATCMatchPage() {
   const opponent = match.players.find(p => p.id !== currentUser);
   
   return (
-    <div className="h-screen w-screen bg-slate-950 flex flex-col overflow-hidden">
-      {/* Top Bar - BIGGER PLAYER INFO */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex-shrink-0">
+    <div className="fixed inset-0 bg-slate-950 flex flex-col">
+      {/* Compact Header - No Menu Bar */}
+      <div className="bg-slate-900 border-b border-slate-800 px-2 py-1 flex-shrink-0">
         <div className="flex items-center justify-between">
           <Link href="/app/play/quick-match">
-            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white h-8">
-              <ArrowLeft className="w-4 h-4 mr-1" />
+            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white h-7 px-2 text-xs">
+              <ArrowLeft className="w-3 h-3 mr-1" />
               Exit
             </Button>
           </Link>
           
-          {/* BIG Player Info Cards */}
-          <div className="flex items-center gap-4">
+          {/* Player Info - Compact */}
+          <div className="flex items-center gap-2">
             {match.players?.map((player) => (
               <div 
                 key={player.id}
-                className={`flex flex-col items-center px-4 py-2 rounded-lg min-w-[110px] ${
+                className={`flex flex-col items-center px-2 py-0.5 rounded ${
                   player.id === currentPlayer?.id 
-                    ? 'bg-emerald-500/20 border-2 border-emerald-500/50' 
-                    : 'bg-slate-800/70 border-2 border-slate-700'
+                    ? 'bg-emerald-500/20 border border-emerald-500/50' 
+                    : 'bg-slate-800/70 border border-slate-700'
                 }`}
               >
-                <span className={`font-bold text-base ${
+                <span className={`font-bold text-xs ${
                   player.id === currentPlayer?.id ? 'text-emerald-300' : 'text-slate-300'
                 }`}>
                   {player.username}
                 </span>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className={`text-sm px-2 py-0.5 font-bold ${
+                <div className="flex items-center gap-1">
+                  <Badge className={`text-xs px-1 py-0 h-4 ${
                     player.id === currentPlayer?.id 
                       ? 'bg-purple-500 text-white' 
                       : 'bg-slate-600 text-slate-200'
                   }`}>
                     {getPlayerTarget(player)}
                   </Badge>
-                  <span className={`text-sm font-bold ${
+                  <span className={`text-xs ${
                     player.id === currentPlayer?.id ? 'text-emerald-400' : 'text-slate-500'
                   }`}>
                     ({player.completed_targets?.length || 0}/21)
                   </span>
-                </div>
-                <div className="mt-1 text-[10px] text-slate-400">
-                  🎯 {player.total_darts_thrown || 0} darts
+                  <span className="text-[9px] text-slate-400">
+                    🎯{player.total_darts_thrown || 0}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={refreshCamera}
               disabled={isRefreshingCamera}
-              className="text-slate-400 hover:text-emerald-400 h-8 w-8 p-0"
-              title="Refresh Camera"
+              className="text-slate-400 hover:text-emerald-400 h-7 w-7 p-0"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshingCamera ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3 h-3 ${isRefreshingCamera ? 'animate-spin' : ''}`} />
             </Button>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={toggleCamera}
-              className={cameraEnabled ? 'text-emerald-400 h-8 w-8 p-0' : 'text-slate-400 h-8 w-8 p-0'}
+              className={cameraEnabled ? 'text-emerald-400 h-7 w-7 p-0' : 'text-slate-400 h-7 w-7 p-0'}
             >
-              {cameraEnabled ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+              {cameraEnabled ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3" />}
             </Button>
           </div>
         </div>
       </div>
       
-      {/* Main Game Area - COMPACT */}
-      <div className="flex-1 flex p-2 gap-2 min-h-0">
-        {/* LEFT SIDE - Camera (SAME SIZE) */}
-        <div className="w-1/2 flex flex-col gap-2">
-          {/* Camera Container */}
-          <div className="flex-1 bg-slate-900 rounded-xl overflow-hidden relative min-h-0">
+      {/* Main Game Area - FULL HEIGHT, NO PADDING WASTE */}
+      <div className="flex-1 flex gap-1 min-h-0 overflow-hidden">
+        {/* LEFT SIDE - Camera & Target - NO WASTED SPACE */}
+        <div className="w-1/2 flex flex-col gap-1">
+          {/* Camera - Full width, no margins */}
+          <div className="flex-1 bg-black relative min-h-0 overflow-hidden">
             {cameraEnabled ? (
               <video
                 ref={videoRef}
@@ -741,64 +730,64 @@ export default function ATCMatchPage() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center bg-slate-900">
                 <div className="text-center">
-                  <CameraOff className="w-10 h-10 text-slate-600 mx-auto mb-1" />
+                  <CameraOff className="w-8 h-8 text-slate-600 mx-auto mb-1" />
                   <p className="text-slate-500 text-xs">Camera Off</p>
-                  <Button onClick={startCamera} className="mt-1 bg-emerald-500 hover:bg-emerald-600 text-xs h-7 px-2">
+                  <Button onClick={startCamera} className="mt-1 bg-emerald-500 hover:bg-emerald-600 text-xs h-6 px-2 py-0">
                     Enable
                   </Button>
                 </div>
               </div>
             )}
             
-            {/* Turn Indicator */}
-            <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm px-3 py-1 rounded-full">
-              <span className="text-white font-bold text-sm">
+            {/* Turn Indicator Overlay */}
+            <div className="absolute top-1 left-1 bg-black/70 px-2 py-0.5 rounded">
+              <span className="text-white font-bold text-xs">
                 {isMyTurn() ? '🎯 Your Turn' : `👀 ${currentPlayer?.username}'s Turn`}
               </span>
             </div>
             
             {/* Opponent Cam Refresh */}
             {!isMyTurn() && opponent && (
-              <div className="absolute top-2 right-2">
+              <div className="absolute top-1 right-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => toast.info('Ask opponent to refresh their camera')}
-                  className="bg-black/50 hover:bg-black/70 text-white text-xs h-7 px-2"
+                  className="bg-black/50 hover:bg-black/70 text-white text-[10px] h-5 px-1 py-0"
                 >
                   <RefreshCw className="w-3 h-3 mr-1" />
-                  Opp Cam
+                  Opp
                 </Button>
               </div>
             )}
           </div>
           
-          {/* Target Display */}
-          <div className="bg-gradient-to-r from-purple-900/60 to-pink-900/60 rounded-xl p-2 text-center border border-purple-500/40 shrink-0">
-            <p className="text-purple-200 text-xs uppercase tracking-wider">
+          {/* Target Display - Compact */}
+          <div className="bg-gradient-to-r from-purple-900/60 to-pink-900/60 p-1 text-center border-t border-purple-500/40">
+            <p className="text-purple-200 text-[10px] uppercase">
               {isMyTurn() ? 'Hit' : `${currentPlayer?.username} hits`}
             </p>
-            <p className="text-4xl font-black text-white drop-shadow-lg">
+            <p className="text-3xl font-black text-white leading-none">
               {getCurrentTarget()}
             </p>
           </div>
         </div>
         
-        {/* RIGHT SIDE - Scoring */}
-        <div className="w-1/2 flex flex-col min-h-0">
+        {/* RIGHT SIDE - Scoring - COMPACT */}
+        <div className="w-1/2 flex flex-col min-h-0 bg-slate-900">
           {isMyTurn() ? (
             /* USER'S TURN */
-            <div className="flex-1 flex flex-col gap-1 min-h-0">
-              {/* Dart Display */}
-              <div className="flex justify-center gap-2 shrink-0">
+            <div className="flex-1 flex flex-col gap-0.5 min-h-0 p-0.5">
+              {/* Dart Display - Tiny */}
+              <div className="flex justify-center gap-1 shrink-0">
                 {[currentVisit.dart1, currentVisit.dart2, currentVisit.dart3].map((dart, i) => (
                   <motion.div 
                     key={i}
                     initial={dart ? { scale: 0.8, opacity: 0 } : {}}
                     animate={dart ? { scale: 1, opacity: 1 } : {}}
-                    className={`w-12 h-12 rounded-lg flex items-center justify-center text-base font-bold ${
+                    className={`w-10 h-10 rounded flex items-center justify-center text-sm font-bold ${
                       dart ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-800/50 text-slate-600 border border-slate-700'
                     }`}
                   >
@@ -807,16 +796,16 @@ export default function ATCMatchPage() {
                 ))}
               </div>
               
-              {/* Scoring Buttons - SMALLER */}
-              <div className="flex-1 flex flex-col gap-1 min-h-0">
+              {/* SMALL Scoring Buttons */}
+              <div className="flex-1 flex flex-col gap-0.5 min-h-0">
                 {target === 'bull' ? (
                   /* Bull Mode */
                   <>
-                    <div className="flex-1 flex gap-1">
+                    <div className="flex-1 flex gap-0.5">
                       {(mode === 'singles' || mode === 'increase') && (
                         <Button
                           onClick={() => handleDartThrow('SB')}
-                          className="flex-1 text-lg font-bold bg-gradient-to-br from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 h-full"
+                          className="flex-1 text-sm font-bold bg-gradient-to-br from-green-500 to-green-600 h-full py-0"
                         >
                           Single Bull
                         </Button>
@@ -824,7 +813,7 @@ export default function ATCMatchPage() {
                       {(mode === 'doubles' || mode === 'increase') && (
                         <Button
                           onClick={() => handleDartThrow('DB')}
-                          className="flex-1 text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 h-full"
+                          className="flex-1 text-sm font-bold bg-gradient-to-br from-red-500 to-red-600 h-full py-0"
                         >
                           Double Bull
                         </Button>
@@ -832,48 +821,48 @@ export default function ATCMatchPage() {
                     </div>
                     <Button
                       onClick={() => handleDartThrow('MISS')}
-                      className="h-12 text-base font-bold bg-slate-700 hover:bg-slate-600"
+                      className="h-8 text-sm font-bold bg-slate-700 hover:bg-slate-600 py-0"
                     >
                       Miss
                     </Button>
                   </>
                 ) : isIncreaseMode ? (
-                  /* Increase Mode - 2x2 Grid */
-                  <div className="flex-1 grid grid-cols-2 gap-1">
+                  /* Increase Mode - Small 2x2 */>
+                  <div className="flex-1 grid grid-cols-2 gap-0.5">
                     <Button
                       onClick={() => handleDartThrow('S', target as number)}
-                      className="h-full text-2xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600"
+                      className="h-full text-xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 py-0"
                     >
                       S{target}
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('D', target as number)}
-                      className="h-full text-2xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600"
+                      className="h-full text-xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 py-0"
                     >
                       D{target}
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('T', target as number)}
-                      className="h-full text-2xl font-black bg-gradient-to-br from-amber-500 to-amber-600"
+                      className="h-full text-xl font-black bg-gradient-to-br from-amber-500 to-amber-600 py-0"
                     >
                       T{target}
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('MISS')}
-                      className="h-full text-xl font-bold bg-slate-700 hover:bg-slate-600"
+                      className="h-full text-lg font-bold bg-slate-700 hover:bg-slate-600 py-0"
                     >
                       Miss
                     </Button>
                   </div>
                 ) : (
-                  /* Singles/Doubles/Trebles */
+                  /* Singles/Doubles/Trebles - Small */
                   <>
                     <Button
                       onClick={() => handleDartThrow(
                         mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', 
                         target as number
                       )}
-                      className={`flex-1 text-4xl font-black ${
+                      className={`flex-1 text-3xl font-black py-0 ${
                         mode === 'singles' ? 'bg-gradient-to-br from-cyan-500 to-cyan-600' :
                         mode === 'doubles' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
                         'bg-gradient-to-br from-amber-500 to-amber-600'
@@ -883,7 +872,7 @@ export default function ATCMatchPage() {
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('MISS')}
-                      className="h-12 text-lg font-bold bg-slate-700 hover:bg-slate-600"
+                      className="h-10 text-base font-bold bg-slate-700 hover:bg-slate-600 py-0"
                     >
                       Miss
                     </Button>
@@ -893,39 +882,39 @@ export default function ATCMatchPage() {
             </div>
           ) : (
             /* OPPONENT'S TURN */
-            <div className="flex-1 flex flex-col gap-1 min-h-0">
+            <div className="flex-1 flex flex-col gap-0.5 min-h-0 p-0.5">
               {/* Waiting */}
-              <div className="flex items-center gap-2 text-white bg-slate-900/50 p-2 rounded shrink-0">
-                <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-                <span className="text-sm">Waiting for {currentPlayer?.username}...</span>
+              <div className="flex items-center gap-1 text-white bg-slate-800/50 p-1 rounded shrink-0">
+                <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
+                <span className="text-xs">Waiting for {currentPlayer?.username}...</span>
               </div>
               
-              {/* Player Cards */}
-              <div className="space-y-1 shrink-0">
+              {/* Player Status */}
+              <div className="space-y-0.5 shrink-0">
                 {match.players.map((player) => (
                   <div 
                     key={player.id}
-                    className={`flex items-center justify-between p-2 rounded ${
+                    className={`flex items-center justify-between p-1 rounded ${
                       player.id === currentPlayer?.id 
                         ? 'bg-emerald-500/10 border border-emerald-500/30' 
-                        : 'bg-slate-900/50 border border-slate-800'
+                        : 'bg-slate-800/50 border border-slate-800'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${
+                    <div className="flex items-center gap-1">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
                         player.id === currentPlayer?.id ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'
                       }`} />
-                      <span className="text-white text-sm font-medium">{player.username}</span>
+                      <span className="text-white text-xs">{player.username}</span>
                       {player.id === currentUser && (
-                        <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1 rounded">You</span>
+                        <span className="text-[9px] bg-blue-500/20 text-blue-400 px-0.5 rounded">You</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-purple-400 text-sm font-bold">{getPlayerTarget(player)}</span>
-                      <span className="text-slate-500 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span className="text-purple-400 text-xs font-bold">{getPlayerTarget(player)}</span>
+                      <span className="text-slate-500 text-[10px]">
                         {player.completed_targets?.length || 0}/21
                       </span>
-                      <span className="text-cyan-400 text-xs">
+                      <span className="text-cyan-400 text-[10px]">
                         🎯{player.total_darts_thrown || 0}
                       </span>
                     </div>
@@ -933,17 +922,17 @@ export default function ATCMatchPage() {
                 ))}
               </div>
               
-              {/* Visit History */}
-              <div className="flex-1 bg-slate-900/50 rounded p-2 overflow-hidden flex flex-col min-h-0">
-                <h4 className="text-xs font-semibold text-slate-400 mb-1 shrink-0">History</h4>
-                <div className="flex-1 overflow-auto space-y-1">
+              {/* Visit History - Compact */}
+              <div className="flex-1 bg-slate-800/30 rounded p-1 overflow-hidden flex flex-col min-h-0">
+                <h4 className="text-[10px] font-semibold text-slate-400 mb-0.5 shrink-0">History</h4>
+                <div className="flex-1 overflow-auto space-y-0.5">
                   {match.players.map((player) => (
-                    <div key={player.id} className="text-xs">
-                      <p className="text-slate-500 text-[10px]">{player.username}</p>
+                    <div key={player.id} className="text-[10px]">
+                      <p className="text-slate-500 text-[9px]">{player.username}</p>
                       {player.visit_history && player.visit_history.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {[...player.visit_history].reverse().slice(0, 4).map((visit, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1 bg-slate-800/50 px-1.5 py-0.5 rounded">
+                        <div className="flex flex-wrap gap-0.5">
+                          {[...player.visit_history].reverse().slice(0, 3).map((visit, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-0.5 bg-slate-800/50 px-1 rounded text-[9px]">
                               <span className="text-slate-400">
                                 {visit.dart1?.label}
                                 {visit.dart2?.label ? `,${visit.dart2.label}` : ''}
@@ -956,7 +945,7 @@ export default function ATCMatchPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-slate-600 text-[10px]">No visits</p>
+                        <p className="text-slate-600 text-[9px]">No visits</p>
                       )}
                     </div>
                   ))}
@@ -969,50 +958,50 @@ export default function ATCMatchPage() {
       
       {/* Game End Popup */}
       <Dialog open={showGameEndPopup} onOpenChange={setShowGameEndPopup}>
-        <DialogContent className="bg-slate-900 border-purple-500/30 text-white max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-center flex items-center justify-center gap-2">
+        <DialogContent className="bg-slate-900 border-purple-500/30 text-white max-w-xs p-4">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-base font-bold text-center flex items-center justify-center gap-2">
               <Trophy className="w-5 h-5 text-amber-400" />
               Game Over!
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-3 py-3">
+          <div className="space-y-2">
             {match.players.find(p => p.is_winner) && (
               <div className="text-center">
-                <p className="text-slate-400 text-xs mb-1">Winner</p>
-                <p className="text-2xl font-black text-emerald-400">
+                <p className="text-slate-400 text-xs mb-0.5">Winner</p>
+                <p className="text-xl font-black text-emerald-400">
                   {match.players.find(p => p.is_winner)?.username}
                 </p>
               </div>
             )}
             
-            <div className="bg-slate-800/50 rounded-lg p-2">
-              <h4 className="text-xs font-semibold text-slate-400 mb-2">Final Stats</h4>
+            <div className="bg-slate-800/50 rounded p-2">
+              <h4 className="text-xs font-semibold text-slate-400 mb-1">Final Stats</h4>
               <div className="space-y-1">
                 {match.players.map((player) => (
                   <div 
                     key={player.id}
-                    className={`flex items-center justify-between p-2 rounded ${
+                    className={`flex items-center justify-between p-1.5 rounded ${
                       player.is_winner ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-slate-800/50'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-white text-sm">{player.username}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-white text-xs">{player.username}</span>
                       {player.is_winner && (
-                        <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">
-                          <Trophy className="w-3 h-3 mr-1" />
-                          Winner
+                        <Badge className="bg-amber-500/20 text-amber-400 text-[9px] h-4 px-1">
+                          <Trophy className="w-2 h-2 mr-0.5" />
+                          Win
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-purple-400">
-                        {player.completed_targets?.length || 0} targets
+                    <div className="flex items-center gap-1 text-xs">
+                      <span className="text-purple-400 text-xs">
+                        {player.completed_targets?.length || 0}t
                       </span>
                       <span className="text-slate-500">|</span>
-                      <span className="text-cyan-400">
-                        {player.total_darts_thrown || 0} darts
+                      <span className="text-cyan-400 text-xs">
+                        {player.total_darts_thrown || 0}d
                       </span>
                     </div>
                   </div>
@@ -1022,7 +1011,7 @@ export default function ATCMatchPage() {
             
             <Button
               onClick={handleEndGame}
-              className="w-full py-3 text-sm font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+              className="w-full py-2 text-sm font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
             >
               End Game
             </Button>
