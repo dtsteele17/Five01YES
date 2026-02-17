@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
-import { CompactMatchCard } from '@/components/match/CompactMatchCard';
+import { ModernMatchCard } from '@/components/match/ModernMatchCard';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
 import { useFilteredPlayerStats } from '@/lib/hooks/useFilteredPlayerStats';
 import { useMatchHistory } from '@/lib/hooks/useMatchHistory';
@@ -459,11 +459,12 @@ function RecentMatchesSection() {
         ) : (
           <div className="space-y-3">
             {matches.map((match) => (
-              <CompactMatchCard 
+              <ModernMatchCard 
                 key={match.id} 
                 match={match} 
                 onClick={() => setSelectedMatch(match)}
                 showOpponentStats={true}
+                compact={true}
               />
             ))}
           </div>

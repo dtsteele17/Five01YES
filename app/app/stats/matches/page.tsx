@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CompactMatchCard } from '@/components/match/CompactMatchCard';
+import { ModernMatchCard } from '@/components/match/ModernMatchCard';
 import { useMatchHistory } from '@/lib/hooks/useMatchHistory';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import { 
@@ -275,11 +275,12 @@ export default function AllMatchesPage() {
             ) : (
               <>
                 {matches.map((match, index) => (
-                  <CompactMatchCard
+                  <ModernMatchCard
                     key={match.id}
                     match={match}
                     onClick={() => setSelectedMatch(match)}
-                    showOpponentStats={index < 10} // Only show opponent stats for first 10
+                    showOpponentStats={index < 10}
+                    compact={false}
                   />
                 ))}
                 
