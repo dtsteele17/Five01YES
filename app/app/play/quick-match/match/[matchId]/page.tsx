@@ -2417,6 +2417,11 @@ export default function QuickMatchRoomPage() {
   const handleClearVisit = () => setCurrentVisit([]);
   const handleUndoDart = () => setCurrentVisit((prev) => prev.slice(0, -1));
 
+  const handleMiss = () => {
+    if (currentVisit.length >= 3) return;
+    setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
+  };
+
   // Handle autoscoring detected score
   const handleAutoscoringScore = useCallback((score: { segment: number; multiplier: number; points: number }) => {
     if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer) {
@@ -2466,11 +2471,6 @@ export default function QuickMatchRoomPage() {
       icon: <Crosshair className="w-4 h-4" />
     });
   }, [matchState, currentVisit.length, handleDartClick, handleMiss]);
-  
-  const handleMiss = () => {
-    if (currentVisit.length >= 3) return;
-    setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
-  };
 
   const validateCheckout = (score: number, darts: Dart[], isTypedScore: boolean = false): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
     if (!room) return { valid: false, error: 'No room', isCheckout: false, isBust: false };
