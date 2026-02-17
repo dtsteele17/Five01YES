@@ -293,6 +293,9 @@ export function RematchPopup({
         isOpen={showCoinToss}
         player1Name={player1.name}
         player2Name={player2.name}
+        player1Id={player1.id}
+        player2Id={player2.id}
+        currentUserId={currentUserId}
         onComplete={(winner) => {
           setShowCoinToss(false);
           onClose();
