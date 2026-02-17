@@ -1005,6 +1005,19 @@ export default function ATCMatchPage() {
                 Around The Clock
               </span>
             </h1>
+            {match?.atc_settings && (
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-300 px-1.5 py-0">
+                  {match.atc_settings.order === 'random' ? 'Random' : 'In Order'}
+                </Badge>
+                <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-300 px-1.5 py-0">
+                  {match.atc_settings.mode === 'singles' && 'Singles'}
+                  {match.atc_settings.mode === 'doubles' && 'Doubles'}
+                  {match.atc_settings.mode === 'trebles' && 'Trebles'}
+                  {match.atc_settings.mode === 'increase' && 'Increase'}
+                </Badge>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center gap-1">

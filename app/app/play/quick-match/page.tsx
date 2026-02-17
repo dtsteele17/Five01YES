@@ -2214,6 +2214,22 @@ export default function QuickMatchLobbyPage() {
                           </Badge>
                         )}
                       </div>
+                      
+                      {/* ATC Settings - Show for ATC lobbies */}
+                      {lobby.game_type === 'atc' && lobby.atc_settings && (
+                        <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+                          <Badge variant="outline" className="border-slate-600 text-slate-300">
+                            <Target className="w-3 h-3 mr-1" />
+                            {lobby.atc_settings.order === 'random' ? 'Random Order' : '1-20 + Bull'}
+                          </Badge>
+                          <Badge variant="outline" className="border-slate-600 text-slate-300">
+                            {lobby.atc_settings.mode === 'singles' && 'Singles Only'}
+                            {lobby.atc_settings.mode === 'doubles' && 'Doubles Only'}
+                            {lobby.atc_settings.mode === 'trebles' && 'Trebles Only'}
+                            {lobby.atc_settings.mode === 'increase' && 'Increase by Segment'}
+                          </Badge>
+                        </div>
+                      )}
 
                       <Button
                         onClick={() => joinLobby(lobby.id)}
