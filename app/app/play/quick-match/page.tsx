@@ -239,19 +239,19 @@ function ATCLobbyModal({
       return;
     }
     
-    // Enhance requests with profile data (safety rating)
+    // Enhance requests with profile data (trust rating)
     const enhancedRequests = await Promise.all(
       requests.map(async (request) => {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('safety_rating_letter, safety_rating_count')
+          .select('trust_rating_letter, trust_rating_count')
           .eq('user_id', request.requester_id)
           .maybeSingle();
         
         return {
           ...request,
-          requester_safety_rating_letter: profile?.safety_rating_letter || request.requester_safety_rating_letter,
-          requester_safety_rating_count: profile?.safety_rating_count || request.requester_safety_rating_count || 0,
+          requester_safety_rating_letter: profile?.trust_rating_letter || request.requester_safety_rating_letter,
+          requester_safety_rating_count: profile?.trust_rating_count || request.requester_safety_rating_count || 0,
         };
       })
     );
@@ -519,7 +519,7 @@ function ATCLobbyModal({
                               {request.requester_3dart_avg?.toFixed(1)} avg
                             </span>
                           )}
-                          {/* Safety Rating */}
+                          {/* Trust Rating */}
                           {request.requester_safety_rating_letter && (
                             <SafetyRatingBadge 
                               grade={request.requester_safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
@@ -877,8 +877,8 @@ export default function QuickMatchLobbyPage() {
         const enhancedRequest: JoinRequest = {
           ...request,
           requester_3dart_avg: stats?.overall_3dart_avg || request.requester_3dart_avg || 0,
-          requester_safety_rating_letter: profile?.safety_rating_letter || request.requester_safety_rating_letter,
-          requester_safety_rating_count: profile?.safety_rating_count || request.requester_safety_rating_count || 0,
+          requester_safety_rating_letter: profile?.trust_rating_letter || request.requester_safety_rating_letter,
+          requester_safety_rating_count: profile?.trust_rating_count || request.requester_safety_rating_count || 0,
         };
         
         setCurrentJoinRequest(enhancedRequest);
@@ -1122,8 +1122,8 @@ export default function QuickMatchLobbyPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id;
 
-      // Fetch open lobbies AND my lobby (regardless of status)
-      // Also fetch lobbies where user is a player (for ATC)
+      // Fetch open lobbies AND waiting/full ATC lobbies AND my lobby
+      // ATC lobbies stay visible until full or in-progress so more players can join
       const { data: lobbiesData, error: lobbiesError } = await supabase
         .from('quick_match_lobbies')
         .select(`
@@ -1133,7 +1133,7 @@ export default function QuickMatchLobbyPage() {
             safety_rating_letter, safety_rating_count
           )
         `)
-        .or(`status.eq.open${currentUserId ? `,created_by.eq.${currentUserId}` : ''}`)
+        .or(`status.eq.open${currentUserId ? `,created_by.eq.${currentUserId}` : ''},and(status.in.(waiting,full),game_type.eq.atc)`)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -2319,7 +2319,7 @@ export default function QuickMatchLobbyPage() {
                     </span>
                   </div>
                   
-                  {/* Safety Rating */}
+                  {/* Trust Rating */}
                   {currentJoinRequest.requester_safety_rating_letter && (
                     <div className="flex items-center gap-2 mt-1">
                       <SafetyRatingBadge 

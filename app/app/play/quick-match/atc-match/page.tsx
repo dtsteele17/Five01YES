@@ -392,12 +392,20 @@ export default function ATCMatchPage() {
     };
   }, [matchId, currentUser]);
   
-  // Callback refs for video elements - EXACTLY like 501/301 matches
+  // Callback refs for video elements - FIXED to handle AbortError when element removed
   const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
     if (el && localStream) {
       console.log('[CAMERA] Attaching local stream to video element');
       el.srcObject = localStream;
-      el.play().catch(err => console.error('[CAMERA] Error playing local:', err));
+      // Only play if element is still in document and ready
+      if (el.isConnected) {
+        el.play().catch(err => {
+          // Ignore AbortError - happens when element is removed during play
+          if (err.name !== 'AbortError') {
+            console.error('[CAMERA] Error playing local:', err);
+          }
+        });
+      }
     }
     localVideoRef.current = el;
   }, [localStream]);
@@ -406,35 +414,92 @@ export default function ATCMatchPage() {
     if (el && remoteStream) {
       console.log('[CAMERA] Attaching remote stream to video element');
       el.srcObject = remoteStream;
-      el.play().catch(err => console.error('[CAMERA] Error playing remote:', err));
+      // Only play if element is still in document and ready
+      if (el.isConnected) {
+        el.play().catch(err => {
+          // Ignore AbortError - happens when element is removed during play
+          if (err.name !== 'AbortError') {
+            console.error('[CAMERA] Error playing remote:', err);
+          }
+        });
+      }
     }
     remoteVideoRef.current = el;
   }, [remoteStream]);
   
-  // Auto-start camera when game starts - EXACTLY like 501/301 matches
+  // Auto-start camera when game starts - FIXED with debounce
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const initCamera = async () => {
-      if (match?.status === 'in_progress' && !isCameraOn && !cameraInitAttempted.current) {
-        console.log('[CAMERA] Auto-starting camera for ATC match');
-        cameraInitAttempted.current = true;
-        try {
-          await toggleCamera();
-          console.log('[CAMERA] Auto-start successful');
-        } catch (err) {
-          console.error('[CAMERA] Auto-start failed:', err);
-          cameraInitAttempted.current = false;
+      // Debounce: wait for component to stabilize
+      timeoutId = setTimeout(async () => {
+        if (match?.status === 'in_progress' && !isCameraOn && !cameraInitAttempted.current) {
+          console.log('[CAMERA] Auto-starting camera for ATC match');
+          cameraInitAttempted.current = true;
+          try {
+            await toggleCamera();
+            console.log('[CAMERA] Auto-start successful');
+          } catch (err) {
+            console.error('[CAMERA] Auto-start failed:', err);
+            cameraInitAttempted.current = false;
+          }
         }
-      }
+      }, 500); // 500ms debounce
     };
+    
     initCamera();
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [match?.status, isCameraOn, toggleCamera]);
   
-  // Cleanup camera on unmount
+  // Cleanup camera on unmount - FIXED to not trigger during re-renders
   useEffect(() => {
     return () => {
+      // Only stop camera if we're actually unmounting (navigating away)
+      // This is handled by the component unmount, not by effect cleanup
+      console.log('[CAMERA] Component unmounting, stopping camera');
       stopCamera();
     };
-  }, [stopCamera]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on mount/unmount
+  
+  // Re-attach streams when refs are available (handles remounting)
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      const el = localVideoRef.current;
+      if (el.srcObject !== localStream) {
+        console.log('[CAMERA] Re-attaching local stream');
+        el.srcObject = localStream;
+        if (el.isConnected) {
+          el.play().catch((err: Error) => {
+            if (err.name !== 'AbortError') {
+              console.error('[CAMERA] Error re-playing local:', err);
+            }
+          });
+        }
+      }
+    }
+  }, [localStream]);
+  
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      const el = remoteVideoRef.current;
+      if (el.srcObject !== remoteStream) {
+        console.log('[CAMERA] Re-attaching remote stream');
+        el.srcObject = remoteStream;
+        if (el.isConnected) {
+          el.play().catch((err: Error) => {
+            if (err.name !== 'AbortError') {
+              console.error('[CAMERA] Error re-playing remote:', err);
+            }
+          });
+        }
+      }
+    }
+  }, [remoteStream]);
   
   // Ready up
   const toggleReady = async () => {
@@ -1043,8 +1108,9 @@ export default function ATCMatchPage() {
               {/* MY TURN: Show MY local camera */}
               {isMyTurn() ? (
                 localStream ? (
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full" key="local-video-container">
                     <video 
+                      key="local-video"
                       ref={setLocalVideoRef}
                       autoPlay 
                       playsInline 
@@ -1123,6 +1189,7 @@ export default function ATCMatchPage() {
                 ) : remoteStream ? (
                   // For 2 players, show remote camera
                   <video 
+                    key="remote-video"
                     ref={setRemoteVideoRef}
                     autoPlay 
                     playsInline 

@@ -223,7 +223,7 @@ export async function getUserSafetyStats(userId: string): Promise<{
     const supabase = createClient();
     // Get the basic rating info
     const { data: ratingData, error: ratingError } = await supabase
-      .rpc('get_user_safety_rating', {
+      .rpc('get_user_trust_rating', {
         p_user_id: userId
       });
 
@@ -277,8 +277,8 @@ export async function getSafetyGrade(userId: string): Promise<SafetyGrade | null
   try {
     const supabase = createClient();
     const { data, error } = await supabase
-      .from('user_safety_rating_view')
-      .select('safety_rating_letter')
+      .from('user_trust_rating_view')
+      .select('rating_letter')
       .eq('user_id', userId)
       .single();
 
@@ -286,7 +286,7 @@ export async function getSafetyGrade(userId: string): Promise<SafetyGrade | null
       return null;
     }
 
-    return data.safety_rating_letter as SafetyGrade;
+    return data.rating_letter as SafetyGrade;
   } catch {
     return null;
   }

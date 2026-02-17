@@ -51,9 +51,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .select(`
           *,
-          safety_rating_letter,
-          safety_rating_avg,
-          safety_rating_count,
           trust_rating_letter,
           trust_rating_avg,
           trust_rating_count

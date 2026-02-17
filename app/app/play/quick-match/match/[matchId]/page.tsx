@@ -1069,8 +1069,8 @@ export default function QuickMatchRoomPage() {
   const [selectedRating, setSelectedRating] = useState<string | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
 
-  // Safety rating notification toast
-  const [safetyRatingNotification, setSafetyRatingNotification] = useState<{
+  // Trust rating notification toast
+  const [trustRatingNotification, setTrustRatingNotification] = useState<{
     show: boolean;
     grade: SafetyGrade | null;
     raterName: string | null;
@@ -1226,12 +1226,12 @@ export default function QuickMatchRoomPage() {
     }
   }, [localStream, remoteStream]);
 
-  // Subscribe to safety rating notifications
+  // Subscribe to trust rating notifications
   useEffect(() => {
     if (!currentUserId) return;
 
     const unsubscribe = subscribeToRatings(currentUserId, (grade, raterName) => {
-      setSafetyRatingNotification({
+      setTrustRatingNotification({
         show: true,
         grade,
         raterName: raterName || null
@@ -1243,14 +1243,14 @@ export default function QuickMatchRoomPage() {
     };
   }, [currentUserId]);
 
-  // Subscribe to safety rating updates to refresh opponent's trust rating display
+  // Subscribe to trust rating updates to refresh opponent's trust rating display
   useEffect(() => {
     if (!room || !currentUserId) return;
 
     const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
     if (!opponentId) return;
 
-    // Subscribe to updates for the opponent's safety rating
+    // Subscribe to updates for the opponent's trust rating
     const unsubscribe = onSafetyRatingUpdated((updatedUserId) => {
       if (updatedUserId === opponentId || updatedUserId === 'all') {
         // Refresh opponent's profile to get updated trust rating
@@ -3581,21 +3581,21 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Handle safety rating submission from WinnerPopup
-  const handleSafetyRating = async (grade: SafetyGrade) => {
-    console.log('[SafetyRating] Starting rating submission:', { matchId, room, currentUserId, grade });
+  // Handle trust rating submission from WinnerPopup
+  const handleTrustRating = async (grade: SafetyGrade) => {
+    console.log('[TrustRating] Starting rating submission:', { matchId, room, currentUserId, grade });
     
     if (!matchId || !room || !currentUserId) {
-      console.error('[SafetyRating] Missing required data:', { matchId, room, currentUserId });
+      console.error('[TrustRating] Missing required data:', { matchId, room, currentUserId });
       toast.error('Cannot submit rating: Missing match data');
       return;
     }
     
     const opponentId = currentUserId === room.player1_id ? room.player2_id : room.player1_id;
-    console.log('[SafetyRating] Opponent ID:', opponentId);
+    console.log('[TrustRating] Opponent ID:', opponentId);
     
     if (!opponentId) {
-      console.error('[SafetyRating] Could not determine opponent ID');
+      console.error('[TrustRating] Could not determine opponent ID');
       toast.error('Cannot submit rating: Opponent not found');
       return;
     }
@@ -3603,7 +3603,7 @@ export default function QuickMatchRoomPage() {
     try {
       setRatingLoading(true);
       const result = await submitRating(matchId, opponentId, grade);
-      console.log('[SafetyRating] Submission result:', result);
+      console.log('[TrustRating] Submission result:', result);
       
       if (result.success) {
         setHasSubmittedRating(true);
@@ -3612,17 +3612,17 @@ export default function QuickMatchRoomPage() {
         // Refresh the rated user's profile to show updated rating
         const { data: updatedProfile } = await supabase
           .from('profiles')
-          .select('safety_rating_letter, safety_rating_avg, safety_rating_count')
+          .select('trust_rating_letter, trust_rating_avg, trust_rating_count')
           .eq('user_id', opponentId)
           .single();
         
-        console.log('[SafetyRating] Opponent updated profile:', updatedProfile);
+        console.log('[TrustRating] Opponent updated profile:', updatedProfile);
       } else {
-        console.error('[SafetyRating] Submission failed:', result.error);
+        console.error('[TrustRating] Submission failed:', result.error);
         toast.error(result.error || 'Failed to submit rating');
       }
     } catch (error: any) {
-      console.error('[SafetyRating] Exception:', error);
+      console.error('[TrustRating] Exception:', error);
       toast.error(`Failed to submit rating: ${error.message}`);
     } finally {
       setRatingLoading(false);
@@ -4224,18 +4224,18 @@ export default function QuickMatchRoomPage() {
           currentUserId={currentUserId || ''}
           readyCount={readyCount}
           matchId={matchId}
-          onRateOpponent={handleSafetyRating}
+          onRateOpponent={handleTrustRating}
           hasRated={hasSubmittedRating}
           isQuickMatch={true}
         />
       )}
 
-      {/* Safety Rating Toast Notification */}
-      {safetyRatingNotification.show && safetyRatingNotification.grade && (
+      {/* Trust Rating Toast Notification */}
+      {trustRatingNotification.show && trustRatingNotification.grade && (
         <SafetyRatingToast
-          grade={safetyRatingNotification.grade}
-          raterName={safetyRatingNotification.raterName || undefined}
-          onClose={() => setSafetyRatingNotification({ show: false, grade: null, raterName: null })}
+          grade={trustRatingNotification.grade}
+          raterName={trustRatingNotification.raterName || undefined}
+          onClose={() => setTrustRatingNotification({ show: false, grade: null, raterName: null })}
           duration={2000}
         />
       )}

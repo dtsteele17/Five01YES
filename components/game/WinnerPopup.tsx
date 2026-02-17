@@ -333,13 +333,13 @@ export function WinnerPopup({
           </div>
         </div>
 
-        {/* Safety Rating Section - Only for QuickMatch */}
+        {/* Trust Rating Section - Only for QuickMatch */}
         {isQuickMatch && !submitted && (
           <div className="px-4 pb-3">
             <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-white">Rate Your Opponent</h3>
+                <h3 className="font-bold text-white">Trust Rating</h3>
               </div>
               <p className="text-slate-400 text-sm mb-3">
                 How was your experience with <span className="text-white font-medium">{opponentName}</span>?

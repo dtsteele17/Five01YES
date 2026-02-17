@@ -146,10 +146,10 @@ export default function DashboardPage() {
 
   usePresence();
 
-  // Subscribe to safety rating updates and refresh profile when rating changes
+  // Subscribe to trust rating updates and refresh profile when rating changes
   useEffect(() => {
     const unsubscribe = onSafetyRatingUpdated(() => {
-      // Refresh profile to get updated safety rating
+      // Refresh profile to get updated trust rating
       refreshProfile();
     });
 
@@ -408,11 +408,11 @@ export default function DashboardPage() {
                       {rankedState.division_name}
                     </Badge>
                   )}
-                  {profile?.safety_rating_letter && (
+                  {profile?.trust_rating_letter && (
                     <SafetyRatingBadge 
-                      grade={profile.safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'} 
+                      grade={profile.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'} 
                       size="sm"
-                      totalRatings={profile.safety_rating_count || 0}
+                      totalRatings={profile.trust_rating_count || 0}
                     />
                   )}
                 </div>
@@ -455,40 +455,40 @@ export default function DashboardPage() {
               color="bg-purple-500"
             />
             
-            {/* Safety Rating */}
+            {/* Trust Rating */}
             <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
               <div className={`absolute top-0 left-0 w-1 h-full ${
-                profile?.safety_rating_letter === 'A' ? 'bg-emerald-500' :
-                profile?.safety_rating_letter === 'B' ? 'bg-emerald-400' :
-                profile?.safety_rating_letter === 'C' ? 'bg-yellow-400' :
-                profile?.safety_rating_letter === 'D' ? 'bg-orange-400' :
-                profile?.safety_rating_letter === 'E' ? 'bg-red-500' :
+                profile?.trust_rating_letter === 'A' ? 'bg-emerald-500' :
+                profile?.trust_rating_letter === 'B' ? 'bg-emerald-400' :
+                profile?.trust_rating_letter === 'C' ? 'bg-yellow-400' :
+                profile?.trust_rating_letter === 'D' ? 'bg-orange-400' :
+                profile?.trust_rating_letter === 'E' ? 'bg-red-500' :
                 'bg-slate-500'
               }`} />
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-4xl font-black text-white tracking-tight">
-                    {profile?.safety_rating_letter || 'C'}
+                    {profile?.trust_rating_letter || 'C'}
                   </p>
-                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Safety Rating</p>
+                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Trust Rating</p>
                   <p className="text-xs text-slate-400 mt-2">
-                    {profile?.safety_rating_count || 0} ratings
+                    {profile?.trust_rating_count || 0} ratings
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  profile?.safety_rating_letter === 'A' ? 'bg-emerald-500/20' :
-                  profile?.safety_rating_letter === 'B' ? 'bg-emerald-400/20' :
-                  profile?.safety_rating_letter === 'C' ? 'bg-yellow-400/20' :
-                  profile?.safety_rating_letter === 'D' ? 'bg-orange-400/20' :
-                  profile?.safety_rating_letter === 'E' ? 'bg-red-500/20' :
+                  profile?.trust_rating_letter === 'A' ? 'bg-emerald-500/20' :
+                  profile?.trust_rating_letter === 'B' ? 'bg-emerald-400/20' :
+                  profile?.trust_rating_letter === 'C' ? 'bg-yellow-400/20' :
+                  profile?.trust_rating_letter === 'D' ? 'bg-orange-400/20' :
+                  profile?.trust_rating_letter === 'E' ? 'bg-red-500/20' :
                   'bg-slate-500/20'
                 }`}>
                   <Shield className={`w-6 h-6 ${
-                    profile?.safety_rating_letter === 'A' ? 'text-emerald-500' :
-                    profile?.safety_rating_letter === 'B' ? 'text-emerald-400' :
-                    profile?.safety_rating_letter === 'C' ? 'text-yellow-400' :
-                    profile?.safety_rating_letter === 'D' ? 'text-orange-400' :
-                    profile?.safety_rating_letter === 'E' ? 'text-red-500' :
+                    profile?.trust_rating_letter === 'A' ? 'text-emerald-500' :
+                    profile?.trust_rating_letter === 'B' ? 'text-emerald-400' :
+                    profile?.trust_rating_letter === 'C' ? 'text-yellow-400' :
+                    profile?.trust_rating_letter === 'D' ? 'text-orange-400' :
+                    profile?.trust_rating_letter === 'E' ? 'text-red-500' :
                     'text-slate-400'
                   }`} />
                 </div>

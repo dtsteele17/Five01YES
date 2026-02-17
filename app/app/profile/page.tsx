@@ -43,9 +43,9 @@ interface Profile {
   website?: string;
   avatar_url?: string;
   created_at?: string;
-  safety_rating_letter?: string;
-  safety_rating_avg?: number;
-  safety_rating_count?: number;
+  trust_rating_letter?: string;
+  trust_rating_avg?: number;
+  trust_rating_count?: number;
 }
 
 interface RankedInfo {
@@ -105,17 +105,17 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  // Subscribe to safety rating updates
+  // Subscribe to trust rating updates
   useEffect(() => {
     const unsubscribe = onSafetyRatingUpdated(() => {
-      // Reload profile to get updated safety rating
+      // Reload profile to get updated trust rating
       loadProfile();
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Subscribe to real-time profile updates (for safety rating changes)
+  // Subscribe to real-time profile updates (for trust rating changes)
   useEffect(() => {
     const setupSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -355,11 +355,11 @@ export default function ProfilePage() {
 
         {/* Right Column - Ranked & Quick Info */}
         <div className="space-y-6">
-          {/* Safety Rating */}
+          {/* Trust Rating */}
           <SafetyRatingDetailed 
-            grade={(profile?.safety_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E') || null}
-            average={profile?.safety_rating_avg || null}
-            totalRatings={profile?.safety_rating_count || 0}
+            grade={(profile?.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E') || null}
+            average={profile?.trust_rating_avg || null}
+            totalRatings={profile?.trust_rating_count || 0}
           />
 
           {/* Ranked Status */}

@@ -39,7 +39,7 @@ export function SafetyRatingBadge({
           rounded-full flex items-center justify-center font-bold
           shadow-lg
         `}
-        title={`Safety Rating: ${GRADE_LABELS[grade]}`}
+        title={`Trust Rating: ${GRADE_LABELS[grade]}`}
       >
         {grade}
       </div>
@@ -103,7 +103,7 @@ export function SafetyRatingDetailed({
             <span className="text-slate-500 text-lg">-</span>
           </div>
           <div>
-            <h3 className="font-bold text-slate-400">Safety Rating</h3>
+            <h3 className="font-bold text-slate-400">Trust Rating</h3>
             <p className="text-slate-500 text-sm">No Trust Rating yet</p>
           </div>
         </div>
