@@ -513,31 +513,51 @@ export function DartboardAutoscorer({
     const current = ctx.getImageData(0, 0, 640, 480);
     const reference = refCtx.getImageData(0, 0, 640, 480);
     
-    const threshold = 30;
+    // Define center region where dartboard should be (ignore corners)
+    // Board should be roughly in center 70% of frame
+    const marginX = Math.floor(640 * 0.15); // 15% margin each side
+    const marginY = Math.floor(480 * 0.15);
+    const startX = marginX;
+    const endX = 640 - marginX;
+    const startY = marginY;
+    const endY = 480 - marginY;
+    
+    const threshold = 35; // Slightly higher threshold to reduce noise
     let dartPixels: Point[] = [];
     
-    for (let i = 0; i < current.data.length; i += 4) {
-      const diff = Math.abs(current.data[i] - reference.data[i]) +
-                   Math.abs(current.data[i + 1] - reference.data[i + 1]) +
-                   Math.abs(current.data[i + 2] - reference.data[i + 2]);
-      
-      if (diff > threshold * 3) {
-        const pixelIndex = i / 4;
-        dartPixels.push({
-          x: pixelIndex % 640,
-          y: Math.floor(pixelIndex / 640)
-        });
+    // Only scan center region
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const i = (y * 640 + x) * 4;
+        const diff = Math.abs(current.data[i] - reference.data[i]) +
+                     Math.abs(current.data[i + 1] - reference.data[i + 1]) +
+                     Math.abs(current.data[i + 2] - reference.data[i + 2]);
+        
+        if (diff > threshold * 3) {
+          dartPixels.push({ x, y });
+        }
       }
     }
     
-    if (dartPixels.length < 100) return;
+    // Require more pixels for a valid dart detection
+    if (dartPixels.length < 200 || dartPixels.length > 5000) return;
     
+    // Check that pixels form a compact cluster (dart-shaped, not scattered noise)
     const centroid = {
       x: dartPixels.reduce((s, p) => s + p.x, 0) / dartPixels.length,
       y: dartPixels.reduce((s, p) => s + p.y, 0) / dartPixels.length
     };
     
-    // Find tip as farthest point from centroid
+    // Calculate standard deviation of pixel positions
+    const variance = dartPixels.reduce((sum, p) => {
+      return sum + Math.pow(p.x - centroid.x, 2) + Math.pow(p.y - centroid.y, 2);
+    }, 0) / dartPixels.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // Reject if pixels are too scattered (stdDev > 100 means very spread out)
+    if (stdDev > 80) return;
+    
+    // Find tip as farthest point from centroid (the dart tip)
     let tip = dartPixels[0];
     let maxDist = 0;
     for (const p of dartPixels) {
@@ -548,11 +568,21 @@ export function DartboardAutoscorer({
       }
     }
     
+    // Verify tip is within reasonable bounds
+    if (tip.x < 50 || tip.x > 590 || tip.y < 50 || tip.y > 430) return;
+    
     const boardTip = applyHomography(tip, homography);
+    
+    // Validate homography result
+    if (!boardTip || typeof boardTip.x !== 'number' || typeof boardTip.y !== 'number' ||
+        isNaN(boardTip.x) || isNaN(boardTip.y)) {
+      return;
+    }
+    
     const newScore = calculateScoreFromBoardCoords(boardTip);
     
-    // Debounce detection (1 second cooldown)
-    if (Date.now() - lastDetection > 1000) {
+    // Debounce detection (1.5 second cooldown)
+    if (Date.now() - lastDetection > 1500) {
       setScore(newScore);
       setLastDetection(Date.now());
       onScore?.(newScore);
@@ -680,17 +710,13 @@ export function DartboardAutoscorer({
           }`}
         />
         
-        {/* Clicked points overlay */}
+        {/* Clicked points overlay - REMOVED to not block the board */}
+        {/* Progress indicator at bottom instead */}
         {clickedPoints.length > 0 && internalMode === 'calibrating' && (
-          <div className="absolute top-2 left-2 flex flex-wrap gap-1 max-w-[200px]">
-            {clickedPoints.map((_, i) => (
-              <Badge 
-                key={i} 
-                className="bg-slate-900/80 text-amber-400 border-amber-500/30 text-xs"
-              >
-                {CALIBRATION_POINTS[i]?.seg1}-{CALIBRATION_POINTS[i]?.seg2} ✓
-              </Badge>
-            ))}
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-slate-900/90 px-3 py-1 rounded-full">
+            <span className="text-amber-400 text-sm font-medium">
+              {clickedPoints.length}/20 points
+            </span>
           </div>
         )}
       </div>
