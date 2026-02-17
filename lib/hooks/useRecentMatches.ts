@@ -54,13 +54,13 @@ export function useRecentMatches(limit: number = 5) {
 
       console.log('[useRecentMatches] Fetching matches for user:', user.id);
 
-      // Fetch from match_history - 301/501 quick matches for play menu
+      // Fetch from match_history - 301/501 quick matches AND dartbot matches for play menu
       // Simple query without joins to avoid 400 errors
       const { data: historyData, error: fetchError } = await supabase
         .from('match_history')
         .select('*')
         .eq('user_id', user.id)
-        .eq('match_format', 'quick')
+        .in('match_format', ['quick', 'dartbot'])
         .in('game_mode', [301, 501])
         .order('played_at', { ascending: false })
         .limit(limit);
@@ -72,6 +72,19 @@ export function useRecentMatches(limit: number = 5) {
       }
 
       console.log('[useRecentMatches] Fetched matches:', historyData?.length || 0);
+      
+      // Debug: Log dartbot matches and their opponent stats
+      const dartbotMatches = (historyData || []).filter((m: any) => m.match_format === 'dartbot');
+      if (dartbotMatches.length > 0) {
+        console.log('[useRecentMatches] Dartbot matches found:', dartbotMatches.length);
+        dartbotMatches.forEach((m: any, i: number) => {
+          console.log(`  [Dartbot ${i + 1}]`, {
+            opponent_avg: m.opponent_three_dart_avg,
+            opponent_180s: m.opponent_visits_180,
+            bot_level: m.bot_level,
+          });
+        });
+      }
 
       // Get unique opponent IDs
       const opponentIds = [...new Set((historyData || []).map(m => m.opponent_id).filter(Boolean))];
