@@ -789,15 +789,36 @@ export default function QuickMatchLobbyPage() {
         console.log('[REALTIME] Join request update:', request.status, 'for lobby:', request.lobby_id);
         
         if (request.status === 'accepted') {
-          console.log('[REALTIME] Request accepted! Lobby:', request.lobby_id);
+          console.log('[REALTIME] Request accepted! Lobby:', request.lobby_id, 'Match:', request.match_id);
           
           // Clear joining state immediately
           setPendingLobbyId(null);
           setJoining(null);
           
-          // For ATC lobbies, always show the popup
-          // The popup will handle fetching the lobby data
-          // But only show it if not already showing (use ref to avoid stale closure)
+          // For 301/501 games, redirect directly to match room
+          if (request.match_id) {
+            console.log('[REALTIME] Redirecting to match room:', request.match_id);
+            toast.success('Join request accepted! Match starting...');
+            router.push(`/app/play/quick-match/match/${request.match_id}`);
+            return;
+          }
+          
+          // For 301/501, match_id might not be in the initial realtime payload - fetch it
+          console.log('[REALTIME] No match_id in realtime payload, fetching...');
+          const { data: freshRequest } = await supabase
+            .from('quick_match_join_requests')
+            .select('*')
+            .eq('id', request.id)
+            .single();
+            
+          if (freshRequest?.match_id) {
+            console.log('[REALTIME] Got match_id:', freshRequest.match_id);
+            toast.success('Join request accepted! Match starting...');
+            router.push(`/app/play/quick-match/match/${freshRequest.match_id}`);
+            return;
+          }
+          
+          // For ATC lobbies, show the popup (no match_id means it's an ATC lobby)
           if (!showJoinAcceptedPopupRef.current) {
             console.log('[REALTIME] Showing join accepted popup for lobby:', request.lobby_id);
             setAcceptedLobbyId(request.lobby_id);
@@ -1390,17 +1411,39 @@ export default function QuickMatchLobbyPage() {
         console.log('[POLL] Request status:', request.status);
 
         if (request.status === 'accepted') {
-          console.log('[POLL] Request ACCEPTED! Lobby:', request.lobby_id);
+          console.log('[POLL] Request ACCEPTED! Lobby:', request.lobby_id, 'Match:', request.match_id);
           clearInterval(checkInterval);
           
           // Clear joining state
           setPendingLobbyId(null);
           setJoining(null);
           
-          // Only show popup if not already showing (prevent duplicates from realtime)
-          // Use ref to avoid stale closure issues
+          // For 301/501 games, redirect directly to match room
+          if (request.match_id) {
+            console.log('[POLL] Redirecting to match room:', request.match_id);
+            toast.success('Join request accepted! Match starting...');
+            router.push(`/app/play/quick-match/match/${request.match_id}`);
+            return;
+          }
+          
+          // For 301/501, match_id might not be in the initial response - fetch it
+          console.log('[POLL] No match_id in initial response, fetching...');
+          const { data: freshRequest } = await supabase
+            .from('quick_match_join_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+            
+          if (freshRequest?.match_id) {
+            console.log('[POLL] Got match_id:', freshRequest.match_id);
+            toast.success('Join request accepted! Match starting...');
+            router.push(`/app/play/quick-match/match/${freshRequest.match_id}`);
+            return;
+          }
+          
+          // For ATC lobbies, show the popup (no match_id yet)
           if (!showJoinAcceptedPopupRef.current) {
-            console.log('[POLL] Showing join accepted popup');
+            console.log('[POLL] Showing join accepted popup for ATC');
             setAcceptedLobbyId(request.lobby_id);
             setShowJoinAcceptedPopup(true);
             toast.success('Join request accepted! You are in the lobby.');
