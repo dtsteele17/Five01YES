@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
+import { useATCWebRTC } from '@/lib/hooks/useATCWebRTC';
 
 // Types
 interface Player {
@@ -107,18 +107,20 @@ function PlayerTile({
   player, 
   isCurrentPlayer, 
   isCurrentUser,
-  progress 
+  progress,
+  compact = false
 }: { 
   player: Player; 
   isCurrentPlayer: boolean;
   isCurrentUser: boolean;
   progress: number;
+  compact?: boolean;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative overflow-hidden rounded-2xl p-4 ${
+      className={`relative overflow-hidden rounded-2xl ${compact ? 'p-2' : 'p-4'} ${
         isCurrentPlayer 
           ? 'bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-emerald-500/5 border-2 border-emerald-500/50' 
           : 'bg-gradient-to-br from-slate-800/80 via-slate-800/50 to-slate-900/80 border-2 border-slate-700/50'
@@ -131,55 +133,57 @@ function PlayerTile({
       
       <div className="relative z-10">
         {/* Header with avatar and name */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+        <div className={`flex items-center gap-2 ${compact ? 'mb-2' : 'mb-3'}`}>
+          <div className={`${compact ? 'w-8 h-8 text-sm' : 'w-12 h-12 text-lg'} rounded-full flex items-center justify-center font-bold ${
             isCurrentPlayer 
               ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
               : 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300'
           }`}>
             {player.username.charAt(0).toUpperCase()}
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className={`font-bold text-lg ${isCurrentPlayer ? 'text-white' : 'text-slate-300'}`}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1">
+              <h3 className={`font-bold truncate ${compact ? 'text-sm' : 'text-lg'} ${isCurrentPlayer ? 'text-white' : 'text-slate-300'}`}>
                 {player.username}
               </h3>
-              {isCurrentUser && (
+              {isCurrentUser && !compact && (
                 <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
                   You
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-slate-400">
-              {isCurrentPlayer ? 'Currently Throwing' : 'Waiting'}
-            </p>
+            {!compact && (
+              <p className="text-xs text-slate-400">
+                {isCurrentPlayer ? 'Currently Throwing' : 'Waiting'}
+              </p>
+            )}
           </div>
           {isCurrentPlayer && (
-            <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50" />
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50" />
           )}
         </div>
         
         {/* Current Target - Big Display */}
-        <div className={`text-center py-3 rounded-xl mb-3 ${
+        <div className={`text-center rounded-xl mb-2 ${compact ? 'py-1' : 'py-3'} ${
           isCurrentPlayer 
             ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30' 
             : 'bg-slate-900/50 border border-slate-700/30'
         }`}>
-          <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Current Target</p>
-          <p className={`text-4xl font-black ${isCurrentPlayer ? 'text-white' : 'text-slate-400'}`}>
+          <p className={`text-slate-400 uppercase tracking-wider mb-0.5 ${compact ? 'text-[10px]' : 'text-xs'}`}>Target</p>
+          <p className={`font-black ${compact ? 'text-2xl' : 'text-4xl'} ${isCurrentPlayer ? 'text-white' : 'text-slate-400'}`}>
             {getTargetLabel(player.current_target || 1)}
           </p>
         </div>
         
         {/* Progress */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-400">Progress</span>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400">{compact ? 'Prog' : 'Progress'}</span>
             <span className={`font-bold ${isCurrentPlayer ? 'text-emerald-400' : 'text-slate-400'}`}>
               {player.completed_targets?.length || 0}/21
             </span>
           </div>
-          <div className="h-3 bg-slate-900/50 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-900/50 rounded-full overflow-hidden">
             <motion.div 
               className={`h-full rounded-full ${
                 isCurrentPlayer 
@@ -193,21 +197,23 @@ function PlayerTile({
           </div>
         </div>
         
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className={`text-center p-2 rounded-lg ${isCurrentPlayer ? 'bg-emerald-500/10' : 'bg-slate-900/30'}`}>
-            <p className="text-xs text-slate-400">Darts Thrown</p>
-            <p className={`text-lg font-bold ${isCurrentPlayer ? 'text-emerald-400' : 'text-slate-300'}`}>
-              {player.total_darts_thrown || 0}
-            </p>
+        {/* Stats Row - Hidden in compact mode */}
+        {!compact && (
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className={`text-center p-2 rounded-lg ${isCurrentPlayer ? 'bg-emerald-500/10' : 'bg-slate-900/30'}`}>
+              <p className="text-xs text-slate-400">Darts</p>
+              <p className={`text-lg font-bold ${isCurrentPlayer ? 'text-emerald-400' : 'text-slate-300'}`}>
+                {player.total_darts_thrown || 0}
+              </p>
+            </div>
+            <div className={`text-center p-2 rounded-lg ${isCurrentPlayer ? 'bg-purple-500/10' : 'bg-slate-900/30'}`}>
+              <p className="text-xs text-slate-400">Done</p>
+              <p className={`text-lg font-bold ${isCurrentPlayer ? 'text-purple-400' : 'text-slate-300'}`}>
+                {player.completed_targets?.length || 0}
+              </p>
+            </div>
           </div>
-          <div className={`text-center p-2 rounded-lg ${isCurrentPlayer ? 'bg-purple-500/10' : 'bg-slate-900/30'}`}>
-            <p className="text-xs text-slate-400">Completed</p>
-            <p className={`text-lg font-bold ${isCurrentPlayer ? 'text-purple-400' : 'text-slate-300'}`}>
-              {player.completed_targets?.length || 0}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
     </motion.div>
   );
@@ -295,11 +301,11 @@ export default function ATCMatchPage() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   
-  // WebRTC Camera Hook - EXACTLY like 501/301 matches
-  const webrtc = useMatchWebRTC({
-    roomId: matchId,
+  // WebRTC Camera Hook - Custom hook for ATC matches
+  const webrtc = useATCWebRTC({
+    matchId: matchId,
     myUserId: currentUser,
-    coinTossComplete: match?.status === 'in_progress' || match?.status === 'completed',
+    isMatchActive: match?.status === 'in_progress',
   });
   
   const {
@@ -1066,7 +1072,7 @@ export default function ATCMatchPage() {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side="left">
-                            <p>Restart camera if opponent can't see you</p>
+                            <p>Restart camera if others can't see you</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -1077,7 +1083,7 @@ export default function ATCMatchPage() {
                     <CameraOff className="w-16 h-16 mb-4 opacity-50" />
                     <span className="text-lg font-medium mb-2">Your camera is off</span>
                     <span className="text-sm text-slate-500 mb-4 text-center">
-                      It's your turn! Enable your camera so your opponent can see you.
+                      It's your turn! Enable your camera so other players can see you.
                     </span>
                     <Button 
                       onClick={toggleCamera}
@@ -1089,8 +1095,32 @@ export default function ATCMatchPage() {
                   </div>
                 )
               ) : (
-                /* OPPONENT'S TURN: Show THEIR remote camera */
-                remoteStream ? (
+                /* OTHER PLAYER'S TURN */ 
+                match.players.length > 2 ? (
+                  // For 3-4 players, show a waiting screen (WebRTC mesh is complex)
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                    <UserPlus className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium mb-2">
+                      {currentPlayer?.username}'s Turn
+                    </span>
+                    <span className="text-sm text-slate-500 text-center mb-4">
+                      Waiting for {currentPlayer?.username} to throw...
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {match.players.map((p, i) => (
+                        <div 
+                          key={p.id}
+                          className={`w-3 h-3 rounded-full ${
+                            p.id === currentPlayer?.id 
+                              ? 'bg-emerald-400 animate-pulse' 
+                              : 'bg-slate-700'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : remoteStream ? (
+                  // For 2 players, show remote camera
                   <video 
                     ref={setRemoteVideoRef}
                     autoPlay 
@@ -1165,8 +1195,12 @@ export default function ATCMatchPage() {
         
         {/* RIGHT: Player Tiles + Scoring */}
         <div className="flex flex-col gap-4 overflow-hidden">
-          {/* Player Tiles - NEW ENGAGING DESIGN */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Player Tiles - NEW ENGAGING DESIGN - Dynamic grid based on player count */}
+          <div className={`grid gap-3 ${
+            match.players.length <= 2 ? 'grid-cols-2' : 
+            match.players.length === 3 ? 'grid-cols-3' : 
+            'grid-cols-2'
+          }`}>
             {match.players.map((player, idx) => (
               <PlayerTile
                 key={player.id}
@@ -1174,6 +1208,7 @@ export default function ATCMatchPage() {
                 isCurrentPlayer={player.id === currentPlayer?.id}
                 isCurrentUser={player.id === currentUser}
                 progress={getPlayerProgress(player)}
+                compact={match.players.length > 2}
               />
             ))}
           </div>

@@ -1207,7 +1207,20 @@ export default function QuickMatchLobbyPage() {
         };
       });
 
-      setLobbies(transformedLobbies.filter(l => l.status === 'open' && l.created_by !== currentUserId) as QuickMatchLobby[]);
+      // Show open lobbies and waiting ATC lobbies that aren't full
+      setLobbies(transformedLobbies.filter(l => {
+        // Don't show own lobbies
+        if (l.created_by === currentUserId) return false;
+        // Show open lobbies
+        if (l.status === 'open') return true;
+        // Show ATC lobbies that are waiting but not full
+        if (l.status === 'waiting' && l.game_type === 'atc') {
+          const currentPlayers = l.players?.length || 1;
+          const maxPlayers = l.atc_settings?.player_count || 2;
+          return currentPlayers < maxPlayers;
+        }
+        return false;
+      }) as QuickMatchLobby[]);
 
       // Update myLobby if not cancelling
       if (!isCancelling && currentUserId) {
@@ -2192,7 +2205,7 @@ export default function QuickMatchLobbyPage() {
                         )}
                         {lobby.game_type === 'atc' && (
                           <Badge className="text-sm font-bold px-3 py-1 rounded-lg border bg-purple-500/20 text-purple-400 border-purple-500/40">
-                            {lobby.atc_settings?.player_count || 2} Players
+                            {lobby.players?.length || 1} / {lobby.atc_settings?.player_count || 2} Players
                           </Badge>
                         )}
                       </div>
