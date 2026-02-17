@@ -302,11 +302,23 @@ export default function ATCMatchPage() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   
-  // WebRTC Camera Hook - Custom hook for ATC matches
+  // Helper function to get current turn info for WebRTC
+  const getCurrentTurnInfo = useCallback(() => {
+    if (!match || !currentUser) return { currentPlayerId: null, isMyTurn: false };
+    const currentPlayer = match.players[match.current_player_index];
+    return {
+      currentPlayerId: currentPlayer?.id || null,
+      isMyTurn: currentPlayer?.id === currentUser
+    };
+  }, [match, currentUser]);
+  
+  // WebRTC Camera Hook - Custom hook for ATC matches with turn awareness
   const webrtc = useATCWebRTC({
     matchId: matchId,
     myUserId: currentUser,
     isMatchActive: match?.status === 'in_progress',
+    currentPlayerId: getCurrentTurnInfo().currentPlayerId,
+    isMyTurn: getCurrentTurnInfo().isMyTurn,
   });
   
   const {
@@ -427,33 +439,7 @@ export default function ATCMatchPage() {
     remoteVideoRef.current = el;
   }, [remoteStream]);
   
-  // Auto-start camera when game starts - FIXED with debounce
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    const initCamera = async () => {
-      // Debounce: wait for component to stabilize
-      timeoutId = setTimeout(async () => {
-        if (match?.status === 'in_progress' && !isCameraOn && !cameraInitAttempted.current) {
-          console.log('[CAMERA] Auto-starting camera for ATC match');
-          cameraInitAttempted.current = true;
-          try {
-            await toggleCamera();
-            console.log('[CAMERA] Auto-start successful');
-          } catch (err) {
-            console.error('[CAMERA] Auto-start failed:', err);
-            cameraInitAttempted.current = false;
-          }
-        }
-      }, 500); // 500ms debounce
-    };
-    
-    initCamera();
-    
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [match?.status, isCameraOn, toggleCamera]);
+  // Note: Camera auto-start is now handled by the useATCWebRTC hook based on isMyTurn
   
   // Cleanup camera on unmount - FIXED to not trigger during re-renders
   useEffect(() => {

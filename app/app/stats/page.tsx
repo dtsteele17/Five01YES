@@ -1,15 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
+import { CompactMatchCard } from '@/components/match/CompactMatchCard';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
 import { useFilteredPlayerStats } from '@/lib/hooks/useFilteredPlayerStats';
+import { useMatchHistory } from '@/lib/hooks/useMatchHistory';
+import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import {
   Trophy,
   BarChart3,
@@ -25,6 +30,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  ArrowRight,
 } from 'lucide-react';
 import {
   Select,
@@ -111,7 +117,6 @@ export default function StatsPage() {
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [showAllMatches, setShowAllMatches] = useState(false);
   const [totalMatchesFromHistory, setTotalMatchesFromHistory] = useState<number>(0);
   
   const { overallStats, loading: overallLoading, error: overallError, refetch: refetchOverall } = usePlayerStats();
@@ -382,35 +387,8 @@ export default function StatsPage() {
         </Card>
       )}
 
-      {/* Match History */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Match History</h2>
-              <p className="text-slate-400 text-sm">
-                {showAllMatches ? 'All matches from last 3 months' : 'Last 5 matches'}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowAllMatches(!showAllMatches)}
-            className="border-slate-600 text-slate-300 hover:text-white"
-          >
-            {showAllMatches ? 'Show Last 5' : 'View All'}
-          </Button>
-        </div>
-        <MatchHistoryList 
-          limit={showAllMatches ? 100 : 5}
-          days={showAllMatches ? 90 : undefined}
-          gameMode={isFiltered ? gameModeParam : null}
-          matchType={isFiltered ? matchTypeParam : null}
-        />
-      </div>
+      {/* Match History - Quick Matches & DartBot Games */}
+      <RecentMatchesSection />
 
       {/* Debug Info */}
       {process.env.NODE_ENV === 'development' && (
@@ -421,5 +399,83 @@ export default function StatsPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+// Recent Matches Section Component
+function RecentMatchesSection() {
+  const { matches, loading, refresh } = useMatchHistory({ limit: 5 });
+  const [selectedMatch, setSelectedMatch] = useState<any>(null);
+
+  return (
+    <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
+      <div className="p-6 border-b border-slate-700/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Match History</h2>
+              <p className="text-slate-400 text-sm">Recent Quick Matches & Training Games</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={refresh}
+              disabled={loading}
+              className="border-slate-600 text-slate-300 hover:text-white"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Link href="/app/stats/matches">
+              <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white">
+                View All
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        {loading && matches.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 text-slate-500" />
+            </div>
+            <h3 className="text-white font-bold mb-2">Loading...</h3>
+          </div>
+        ) : matches.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="w-8 h-8 text-slate-500" />
+            </div>
+            <h3 className="text-white font-bold mb-2">No Matches Yet</h3>
+            <p className="text-slate-400 text-sm mb-4">Play some games to see your match history here</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {matches.map((match) => (
+              <CompactMatchCard 
+                key={match.id} 
+                match={match} 
+                onClick={() => setSelectedMatch(match)}
+                showOpponentStats={true}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Match Stats Modal */}
+      <MatchStatsModal
+        isOpen={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        matchId={selectedMatch?.room_id || ''}
+      />
+    </Card>
   );
 }

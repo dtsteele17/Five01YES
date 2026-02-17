@@ -7,6 +7,8 @@ export interface UseATCWebRTCProps {
   matchId: string | null;
   myUserId: string | null;
   isMatchActive?: boolean;
+  currentPlayerId?: string | null;  // The player whose turn it is
+  isMyTurn?: boolean;               // Whether it's the current user's turn
 }
 
 export interface UseATCWebRTCReturn {
@@ -30,6 +32,8 @@ export function useATCWebRTC({
   matchId,
   myUserId,
   isMatchActive = true,
+  currentPlayerId,
+  isMyTurn = false,
 }: UseATCWebRTCProps): UseATCWebRTCReturn {
   const supabase = createClient();
 
@@ -41,6 +45,9 @@ export function useATCWebRTC({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
+  
+  // Track if we should be streaming (it's our turn)
+  const shouldStream = isMyTurn && isMatchActive;
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -416,12 +423,33 @@ export function useATCWebRTC({
       setIsCameraOn(true);
       setCameraError(null);
       console.log('[ATC WebRTC] Camera stream obtained');
+      
+      // If it's my turn and we have a peer connection, add the track immediately
+      const pc = peerConnectionRef.current;
+      if (pc && isMyTurn) {
+        const senders = pc.getSenders();
+        const hasVideo = senders.some(s => s.track?.kind === 'video');
+        if (!hasVideo) {
+          console.log('[ATC WebRTC] Adding track to peer connection');
+          stream.getTracks().forEach(track => {
+            pc.addTrack(track, stream);
+          });
+        }
+      }
     } catch (err) {
       console.error('[ATC WebRTC] Could not access camera:', err);
       setCameraError('Could not access camera');
       toast.error('Could not access camera');
     }
   };
+  
+  // Auto-start camera when it's my turn
+  useEffect(() => {
+    if (isMyTurn && isMatchActive && !isCameraOn && !cameraError) {
+      console.log('[ATC WebRTC] Auto-starting camera - it\'s my turn');
+      startCamera();
+    }
+  }, [isMyTurn, isMatchActive]);
 
   const stopCamera = () => {
     console.log('[ATC WebRTC] Stopping camera');
