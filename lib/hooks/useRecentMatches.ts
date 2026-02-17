@@ -55,12 +55,10 @@ export function useRecentMatches(limit: number = 5) {
       console.log('[useRecentMatches] Fetching matches for user:', user.id);
 
       // Fetch from match_history - 301/501 quick matches for play menu
+      // Simple query without joins to avoid 400 errors
       const { data: historyData, error: fetchError } = await supabase
         .from('match_history')
-        .select(`
-          *,
-          opponent:opponent_id (username)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .eq('match_format', 'quick')
         .in('game_mode', [301, 501])
@@ -75,6 +73,23 @@ export function useRecentMatches(limit: number = 5) {
 
       console.log('[useRecentMatches] Fetched matches:', historyData?.length || 0);
 
+      // Get unique opponent IDs
+      const opponentIds = [...new Set((historyData || []).map(m => m.opponent_id).filter(Boolean))];
+      
+      // Fetch opponent usernames separately
+      let opponentMap: Record<string, string> = {};
+      if (opponentIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, username')
+          .in('user_id', opponentIds);
+        
+        opponentMap = (profilesData || []).reduce((acc, profile) => {
+          acc[profile.user_id] = profile.username;
+          return acc;
+        }, {} as Record<string, string>);
+      }
+
       // Transform data to include opponent username and all stats
       const transformedData: RecentMatch[] = (historyData || []).map((match: any) => ({
         id: match.id,
@@ -82,7 +97,7 @@ export function useRecentMatches(limit: number = 5) {
         opponent_id: match.opponent_id,
         opponent_username: match.match_format === 'dartbot' 
           ? `DartBot (${match.bot_level || '?'})`
-          : match.opponent?.username || 'Unknown',
+          : opponentMap[match.opponent_id] || 'Unknown',
         game_mode: match.game_mode,
         match_format: match.match_format,
         result: match.result,
@@ -186,10 +201,7 @@ export function useAllMatches(days: number = 90) {
 
         const { data: historyData, error: fetchError } = await supabase
           .from('match_history')
-          .select(`
-            *,
-            opponent:opponent_id (username)
-          `)
+          .select('*')
           .eq('user_id', user.id)
           .gte('played_at', since.toISOString())
           .order('played_at', { ascending: false });
@@ -200,13 +212,30 @@ export function useAllMatches(days: number = 90) {
           return;
         }
 
+        // Get unique opponent IDs
+        const opponentIds = [...new Set((historyData || []).map(m => m.opponent_id).filter(Boolean))];
+        
+        // Fetch opponent usernames separately
+        let opponentMap: Record<string, string> = {};
+        if (opponentIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('user_id, username')
+            .in('user_id', opponentIds);
+          
+          opponentMap = (profilesData || []).reduce((acc, profile) => {
+            acc[profile.user_id] = profile.username;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+
         const transformedData: RecentMatch[] = (historyData || []).map((match: any) => ({
           id: match.id,
           room_id: match.room_id,
           opponent_id: match.opponent_id,
           opponent_username: match.match_format === 'dartbot' 
             ? `DartBot (${match.bot_level || '?'})`
-            : match.opponent?.username || 'Unknown',
+            : opponentMap[match.opponent_id] || 'Unknown',
           game_mode: match.game_mode,
           match_format: match.match_format,
           result: match.result,

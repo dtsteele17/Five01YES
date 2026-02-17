@@ -81,19 +81,57 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
 
   const fetchLobbyData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('quick_match_lobbies')
-        .select('*')
-        .eq('id', lobbyId)
-        .maybeSingle();
+      console.log('[POPUP] Fetching lobby data for:', lobbyId);
+      
+      // Retry logic - wait for host to add us to the lobby
+      let data = null;
+      let retries = 0;
+      const maxRetries = 10;
+      
+      while (!data && retries < maxRetries) {
+        const { data: lobbyData, error } = await supabase
+          .from('quick_match_lobbies')
+          .select('*')
+          .eq('id', lobbyId)
+          .maybeSingle();
 
-      if (error) throw error;
+        if (error) {
+          console.error('[POPUP] Error fetching lobby:', error);
+          throw error;
+        }
+
+        if (lobbyData) {
+          // Check if user is in the players list
+          const isInLobby = lobbyData.players?.some((p: ATCPlayer) => p.id === userId);
+          
+          if (isInLobby) {
+            console.log('[POPUP] Found lobby and user is in players list');
+            data = lobbyData;
+          } else {
+            console.log(`[POPUP] Lobby found but user not in players yet, retry ${retries + 1}/${maxRetries}`);
+            retries++;
+            if (retries < maxRetries) {
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        } else {
+          console.log(`[POPUP] Lobby not found, retry ${retries + 1}/${maxRetries}`);
+          retries++;
+          if (retries < maxRetries) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+      }
 
       if (data) {
         setLobbyData(data);
         setPlayers(data.players || []);
         const me = data.players?.find((p: ATCPlayer) => p.id === userId);
         setIsReady(me?.is_ready || false);
+        console.log('[POPUP] Lobby data loaded successfully');
+      } else {
+        console.error('[POPUP] Failed to find lobby after retries');
+        toast.error('Could not join lobby. Please try again.');
       }
     } catch (error: any) {
       console.error('[POPUP] Error fetching lobby:', error);

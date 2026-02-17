@@ -154,7 +154,7 @@ export function ProfileRankBadge({ profileId }: ProfileRankBadgeProps) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="w-14 h-14 rounded-lg overflow-hidden shadow-lg bg-slate-800 flex items-center justify-center">
+              <div className="w-28 h-28 rounded-2xl overflow-hidden shadow-lg bg-slate-800 flex items-center justify-center">
                 <img 
                   src={getRankImageUrl(rankedState.division_name)} 
                   alt={rankedState.division_name}

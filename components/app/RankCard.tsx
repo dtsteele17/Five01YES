@@ -79,7 +79,7 @@ export function RankCard({ rankedState, season, loading = false }: RankCardProps
     <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-amber-500/30 p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center">
+          <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-800 flex items-center justify-center">
             <img 
               src={getRankImageUrl(rankedState.division_name)} 
               alt={rankedState.division_name}

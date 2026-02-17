@@ -768,33 +768,18 @@ export default function QuickMatchLobbyPage() {
         console.log('[REALTIME] Join request update:', request.status, 'for lobby:', request.lobby_id);
         
         if (request.status === 'accepted') {
-          console.log('[REALTIME] Request accepted! Lobby:', request.lobby_id, 'Game type:', request.game_type);
+          console.log('[REALTIME] Request accepted! Lobby:', request.lobby_id);
           
-          // Check if this is an ATC lobby or regular 301/501
-          const { data: lobbyData } = await supabase
-            .from('quick_match_lobbies')
-            .select('game_type')
-            .eq('id', request.lobby_id)
-            .maybeSingle();
+          // Clear joining state immediately
+          setPendingLobbyId(null);
+          setJoining(null);
           
-          const isATC = lobbyData?.game_type === 'atc';
-          
-          if (isATC) {
-            // For ATC: Show the lobby popup
-            console.log('[REALTIME] ATC lobby - showing popup');
-            setPendingLobbyId(null);
-            setJoining(null);
-            setAcceptedLobbyId(request.lobby_id);
-            setShowJoinAcceptedPopup(true);
-            toast.success('Join request accepted! You are in the lobby.');
-          } else if (request.match_id) {
-            // For 301/501: Direct to match (old way)
-            console.log('[REALTIME] 301/501 match - redirecting to:', request.match_id);
-            setPendingLobbyId(null);
-            setJoining(null);
-            router.push(`/app/play/quick-match/match/${request.match_id}`);
-            toast.success('Join request accepted! Match starting...');
-          }
+          // For ATC lobbies, always show the popup
+          // The popup will handle fetching the lobby data
+          console.log('[REALTIME] Showing join accepted popup for lobby:', request.lobby_id);
+          setAcceptedLobbyId(request.lobby_id);
+          setShowJoinAcceptedPopup(true);
+          toast.success('Join request accepted! You are in the lobby.');
         } else if (request.status === 'declined') {
           console.log('[REALTIME] Request declined');
           setPendingLobbyId(null);
@@ -1382,31 +1367,15 @@ export default function QuickMatchLobbyPage() {
           console.log('[POLL] Request ACCEPTED! Lobby:', request.lobby_id);
           clearInterval(checkInterval);
           
-          // Check if this is an ATC lobby or regular 301/501
-          const { data: lobbyData } = await supabase
-            .from('quick_match_lobbies')
-            .select('game_type')
-            .eq('id', request.lobby_id)
-            .maybeSingle();
+          // Clear joining state
+          setPendingLobbyId(null);
+          setJoining(null);
           
-          const isATC = lobbyData?.game_type === 'atc';
-          
-          if (isATC) {
-            // For ATC: Show the lobby popup
-            console.log('[POLL] ATC lobby - showing popup');
-            setPendingLobbyId(null);
-            setJoining(null);
-            setAcceptedLobbyId(request.lobby_id);
-            setShowJoinAcceptedPopup(true);
-            toast.success('Join request accepted! You are in the lobby.');
-          } else if (request.match_id) {
-            // For 301/501: Direct to match (old way)
-            console.log('[POLL] 301/501 match - redirecting to:', request.match_id);
-            setPendingLobbyId(null);
-            setJoining(null);
-            router.push(`/app/play/quick-match/match/${request.match_id}`);
-            toast.success('Join request accepted! Match starting...');
-          }
+          // Always show the popup - it will handle fetching lobby data
+          console.log('[POLL] Showing join accepted popup');
+          setAcceptedLobbyId(request.lobby_id);
+          setShowJoinAcceptedPopup(true);
+          toast.success('Join request accepted! You are in the lobby.');
         } else if (request.status === 'declined') {
           console.log('[POLL] Request DECLINED');
           clearInterval(checkInterval);
@@ -2350,23 +2319,14 @@ export default function QuickMatchLobbyPage() {
               variant="ghost" 
               size="sm" 
               onClick={async () => {
-                // FORCE JOIN - try to fetch lobby and open modal regardless
+                // FORCE JOIN - show popup which will handle fetching
                 console.log('[FORCE] Attempting force join...');
-                const { data: lobbyData } = await supabase
-                  .from('quick_match_lobbies')
-                  .select('*')
-                  .eq('id', pendingLobbyId)
-                  .maybeSingle();
-                  
-                if (lobbyData) {
-                  console.log('[FORCE] Lobby found, opening modal');
+                if (pendingLobbyId) {
                   setPendingLobbyId(null);
                   setJoining(null);
-                  setMyLobby(lobbyData as QuickMatchLobby);
-                  // Auto-open effect will handle showing the modal for ATC
-                  toast.success('Joined lobby!');
-                } else {
-                  toast.error('Could not find lobby');
+                  setAcceptedLobbyId(pendingLobbyId);
+                  setShowJoinAcceptedPopup(true);
+                  toast.success('Joining lobby...');
                 }
               }}
               className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"

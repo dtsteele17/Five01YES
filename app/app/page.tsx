@@ -35,6 +35,7 @@ import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
 import { formatDistanceToNow } from 'date-fns';
 import { SafetyRatingBadge } from '@/components/safety/SafetyRatingBadge';
 import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 
 interface DashboardStats {
   totalMatches: number;
@@ -494,8 +495,19 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-5">
                   <div className="relative">
                     <div className="absolute inset-0 bg-amber-500/30 rounded-2xl blur-lg" />
-                    <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-xl">
-                      <Crown className="w-10 h-10 text-white drop-shadow-lg" />
+                    <div className="relative w-28 h-28 rounded-2xl bg-slate-800 flex items-center justify-center shadow-xl overflow-hidden">
+                      {rankedState?.division_name ? (
+                        <img 
+                          src={getRankImageUrl(rankedState.division_name)} 
+                          alt={rankedState.division_name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <Crown className="w-14 h-14 text-white drop-shadow-lg" />
+                      )}
                     </div>
                   </div>
                   <div>
