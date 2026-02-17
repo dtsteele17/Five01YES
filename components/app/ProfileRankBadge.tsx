@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Shield, Trophy, TrendingUp } from 'lucide-react';
+import { Trophy, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { createClient } from '@/lib/supabase/client';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 
 interface RankedPlayerState {
   season_id: string;
@@ -134,7 +135,9 @@ export function ProfileRankBadge({ profileId }: ProfileRankBadgeProps) {
   if (!rankedState || !season) {
     return (
       <div className="flex items-center space-x-3 py-2 px-4 bg-slate-800/30 rounded-lg border border-white/5">
-        <Shield className="w-5 h-5 text-gray-500" />
+        <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center">
+          <span className="text-gray-500 text-xs">--</span>
+        </div>
         <div>
           <p className="text-sm text-gray-400">Unranked</p>
           <p className="text-xs text-gray-500">No ranked matches played</p>
@@ -151,8 +154,16 @@ export function ProfileRankBadge({ profileId }: ProfileRankBadgeProps) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className={`p-3 rounded-lg bg-gradient-to-br ${getTierColor(rankedState.division_name)} shadow-lg`}>
-                <Shield className="w-6 h-6 text-white" />
+              <div className="w-14 h-14 rounded-lg overflow-hidden shadow-lg bg-slate-800 flex items-center justify-center">
+                <img 
+                  src={getRankImageUrl(rankedState.division_name)} 
+                  alt={rankedState.division_name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback if image fails to load
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
               </div>
             </TooltipTrigger>
             <TooltipContent className="bg-slate-800 border-white/10">

@@ -116,3 +116,31 @@ export function hexToRgba(hex: string, alpha: number): string {
 
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+/**
+ * Returns the Supabase storage URL for a rank image
+ */
+export function getRankImageUrl(rankLabel: string): string {
+  const tier = getRankTier(rankLabel);
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const bucketPath = 'assets';
+  
+  switch (tier) {
+    case 'bronze':
+      return `${supabaseUrl}/storage/v1/object/public/${bucketPath}/BRONZE.png`;
+    case 'silver':
+      return `${supabaseUrl}/storage/v1/object/public/${bucketPath}/SILVER.png`;
+    case 'gold':
+      return `${supabaseUrl}/storage/v1/object/public/${bucketPath}/GOLD.png`;
+    case 'platinum':
+      return `${supabaseUrl}/storage/v1/object/public/${bucketPath}/PLAT.png`;
+    case 'champion':
+      return `${supabaseUrl}/storage/v1/object/public/${bucketPath}/CHAMP.png`;
+    case 'grand-champion':
+      return `${supabaseUrl}/storage/v1/object/public/${bucketPath}/GRAND%20CHAMP.png`;
+    case 'unknown':
+    default:
+      return '';
+  }
+}

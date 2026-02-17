@@ -7,21 +7,20 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { 
-  Shield, 
-  Trophy, 
   TrendingUp, 
-  Target, 
   ChevronLeft, 
-  ChevronRight, 
-  Crown, 
-  Star, 
-  Award,
+  ChevronRight,
   Gamepad2,
   Flame,
-  Activity
+  Activity,
+  Star,
+  Crown,
+  Trophy,
+  Target
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 
 interface RankedTier {
   id: string;
@@ -147,15 +146,20 @@ function getTierKey(tierName: string): keyof typeof TIER_COLORS {
   return 'bronze';
 }
 
-// Get tier icon based on tier name
-function getTierIcon(tierName: string) {
-  const name = tierName.toLowerCase();
-  if (name.includes('grand champion')) return <Crown className="w-8 h-8 text-white" />;
-  if (name.includes('champion')) return <Trophy className="w-8 h-8 text-white" />;
-  if (name.includes('platinum')) return <Award className="w-8 h-8 text-white" />;
-  if (name.includes('gold')) return <Star className="w-8 h-8 text-white" />;
-  if (name.includes('silver')) return <Shield className="w-8 h-8 text-white" />;
-  return <Target className="w-8 h-8 text-white" />;
+// Get tier icon based on tier name - returns rank image
+function getTierIcon(tierName: string, size: number = 32) {
+  return (
+    <img 
+      src={getRankImageUrl(tierName)} 
+      alt={tierName}
+      width={size}
+      height={size}
+      className="object-cover rounded-lg"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+  );
 }
 
 // Current Rank Card - Ultra Premium Edition

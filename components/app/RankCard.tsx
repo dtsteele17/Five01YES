@@ -2,8 +2,9 @@
 
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Trophy, Target, TrendingUp } from 'lucide-react';
+import { Trophy, Target, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 
 interface RankCardProps {
   rankedState: {
@@ -46,8 +47,8 @@ export function RankCard({ rankedState, season, loading = false }: RankCardProps
     return (
       <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
         <div className="flex items-center space-x-4 mb-6">
-          <div className="p-3 bg-slate-800 rounded-xl">
-            <Shield className="w-6 h-6 text-gray-400" />
+          <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center">
+            <span className="text-gray-500 text-xs">--</span>
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Ranked Status</h3>
@@ -78,8 +79,15 @@ export function RankCard({ rankedState, season, loading = false }: RankCardProps
     <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-amber-500/30 p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
-          <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl">
-            <Shield className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center">
+            <img 
+              src={getRankImageUrl(rankedState.division_name)} 
+              alt={rankedState.division_name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Ranked Status</h3>

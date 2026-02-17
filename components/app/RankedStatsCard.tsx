@@ -14,6 +14,7 @@ import {
 import { Shield, TrendingUp, Trophy, ArrowUp, ArrowDown, Minus, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 
 interface RankedMatch {
   id: string;
@@ -311,7 +312,16 @@ export function RankedStatsCard() {
                 {rankedState && rankedState.provisional_games_remaining > 0 && (
                   <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg p-4">
                     <div className="flex items-center space-x-3">
-                      <Shield className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center">
+                        <img 
+                          src={getRankImageUrl(rankedState.division_name)} 
+                          alt={rankedState.division_name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
                       <div>
                         <p className="text-white font-medium text-sm">
                           Placements: {10 - rankedState.provisional_games_remaining}/10 complete
@@ -328,10 +338,19 @@ export function RankedStatsCard() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-slate-800/50 rounded-lg p-4">
                       <div className="flex items-center space-x-2 mb-2">
-                        <Trophy className="w-4 h-4 text-amber-500" />
-                        <p className="text-gray-400 text-xs">Current RP</p>
+                        <div className="w-5 h-5 rounded overflow-hidden bg-slate-700 flex items-center justify-center">
+                          <img 
+                            src={getRankImageUrl(rankedState.division_name)} 
+                            alt={rankedState.division_name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <p className="text-gray-400 text-xs">Current Rank</p>
                       </div>
-                      <p className="text-white font-bold text-2xl">{rankedState.rp}</p>
+                      <p className="text-white font-bold text-xl">{rankedState.rp} <span className="text-sm text-gray-400">RP</span></p>
                       <p className="text-gray-500 text-xs mt-1">{rankedState.division_name}</p>
                     </div>
 
