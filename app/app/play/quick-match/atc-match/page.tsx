@@ -827,7 +827,7 @@ export default function ATCMatchPage() {
                     </Button>
                   </>
                 ) : isIncreaseMode ? (
-                  /* Increase Mode - Small 2x2 */>
+                  /* Increase Mode - Small 2x2 */
                   <div className="flex-1 grid grid-cols-2 gap-0.5">
                     <Button
                       onClick={() => handleDartThrow('S', target as number)}
