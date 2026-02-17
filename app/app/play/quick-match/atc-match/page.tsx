@@ -302,28 +302,24 @@ export default function ATCMatchPage() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   
-  // Helper function to get current turn info for WebRTC
-  const getCurrentTurnInfo = useCallback(() => {
-    if (!match || !currentUser) return { currentPlayerId: null, isMyTurn: false };
-    const currentPlayer = match.players[match.current_player_index];
-    return {
-      currentPlayerId: currentPlayer?.id || null,
-      isMyTurn: currentPlayer?.id === currentUser
-    };
-  }, [match, currentUser]);
+  // Get all player IDs for multi-player WebRTC
+  const allPlayerIds = match?.players?.map((p: Player) => p.id) || [];
+  const currentTurnPlayer = match?.players?.[match?.current_player_index || 0];
+  const isCurrentUserTurn = currentTurnPlayer?.id === currentUser;
   
-  // WebRTC Camera Hook - Custom hook for ATC matches with turn awareness
+  // WebRTC Camera Hook - Multi-player support
   const webrtc = useATCWebRTC({
     matchId: matchId,
     myUserId: currentUser,
     isMatchActive: match?.status === 'in_progress',
-    currentPlayerId: getCurrentTurnInfo().currentPlayerId,
-    isMyTurn: getCurrentTurnInfo().isMyTurn,
+    currentPlayerId: currentTurnPlayer?.id || null,
+    isMyTurn: isCurrentUserTurn,
+    allPlayerIds: allPlayerIds,
   });
   
   const {
     localStream,
-    remoteStream,
+    activeRemoteStream,
     isCameraOn,
     callStatus,
     cameraError,
@@ -423,9 +419,9 @@ export default function ATCMatchPage() {
   }, [localStream]);
 
   const setRemoteVideoRef = useCallback((el: HTMLVideoElement | null) => {
-    if (el && remoteStream) {
+    if (el && activeRemoteStream) {
       console.log('[CAMERA] Attaching remote stream to video element');
-      el.srcObject = remoteStream;
+      el.srcObject = activeRemoteStream;
       // Only play if element is still in document and ready
       if (el.isConnected) {
         el.play().catch(err => {
@@ -437,7 +433,7 @@ export default function ATCMatchPage() {
       }
     }
     remoteVideoRef.current = el;
-  }, [remoteStream]);
+  }, [activeRemoteStream]);
   
   // Note: Camera auto-start is now handled by the useATCWebRTC hook based on isMyTurn
   
@@ -471,11 +467,11 @@ export default function ATCMatchPage() {
   }, [localStream]);
   
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
+    if (remoteVideoRef.current && activeRemoteStream) {
       const el = remoteVideoRef.current;
-      if (el.srcObject !== remoteStream) {
+      if (el.srcObject !== activeRemoteStream) {
         console.log('[CAMERA] Re-attaching remote stream');
-        el.srcObject = remoteStream;
+        el.srcObject = activeRemoteStream;
         if (el.isConnected) {
           el.play().catch((err: Error) => {
             if (err.name !== 'AbortError') {
@@ -485,7 +481,7 @@ export default function ATCMatchPage() {
         }
       }
     }
-  }, [remoteStream]);
+  }, [activeRemoteStream]);
   
   // Ready up
   const toggleReady = async () => {
@@ -1185,8 +1181,8 @@ export default function ATCMatchPage() {
                       ))}
                     </div>
                   </div>
-                ) : remoteStream ? (
-                  // For 2 players, show remote camera
+                ) : activeRemoteStream ? (
+                  // Show the current player's camera stream
                   <video 
                     key="remote-video"
                     ref={setRemoteVideoRef}
@@ -1198,7 +1194,7 @@ export default function ATCMatchPage() {
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
                     <UserPlus className="w-16 h-16 mb-4 opacity-50" />
                     <span className="text-lg font-medium mb-2">
-                      {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${opponent?.username}...`}
+                      {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${currentPlayer?.username}...`}
                     </span>
                     <span className="text-sm text-slate-500 text-center mb-4">
                       {callStatus === 'failed' 

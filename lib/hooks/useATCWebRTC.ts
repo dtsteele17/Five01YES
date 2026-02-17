@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getIceServers } from '@/lib/webrtc/ice';
@@ -9,11 +11,13 @@ export interface UseATCWebRTCProps {
   isMatchActive?: boolean;
   currentPlayerId?: string | null;  // The player whose turn it is
   isMyTurn?: boolean;               // Whether it's the current user's turn
+  allPlayerIds?: string[];          // All player IDs in the match
 }
 
 export interface UseATCWebRTCReturn {
   localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
+  remoteStreams: Map<string, MediaStream>; // playerId -> stream
+  activeRemoteStream: MediaStream | null;  // Stream of current player whose turn it is
   isCameraOn: boolean;
   callStatus: 'idle' | 'connecting' | 'connected' | 'failed';
   cameraError: string | null;
@@ -25,8 +29,8 @@ export interface UseATCWebRTCReturn {
 }
 
 /**
- * WebRTC Hook specifically for ATC Quick Matches
- * Uses atc_matches table instead of match_rooms
+ * WebRTC Hook for ATC Quick Matches with Multi-Player Support
+ * Creates a mesh network where each player connects to every other player
  */
 export function useATCWebRTC({
   matchId,
@@ -34,124 +38,63 @@ export function useATCWebRTC({
   isMatchActive = true,
   currentPlayerId,
   isMyTurn = false,
+  allPlayerIds = [],
 }: UseATCWebRTCProps): UseATCWebRTCReturn {
   const supabase = createClient();
 
   // State
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'failed'>('idle');
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
-  const [isPlayer1, setIsPlayer1] = useState<boolean>(false);
   
-  // Track if we should be streaming (it's our turn)
-  const shouldStream = isMyTurn && isMatchActive;
-
-  // Refs
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-  const makingOfferRef = useRef(false);
-  const ignoreOfferRef = useRef(false);
-  const subscriptionCleanupRef = useRef<(() => void) | null>(null);
+  // Refs - using a Map for multiple peer connections
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const makingOfferRef = useRef<Set<string>>(new Set());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const subscriptionsRef = useRef<(() => void)[]>([]);
 
-  console.log('[ATC WebRTC] State:', { matchId, myUserId, opponentUserId, isPlayer1, callStatus });
+  // Get the active stream (current player's stream)
+  const activeRemoteStream = currentPlayerId ? remoteStreams.get(currentPlayerId) || null : null;
 
-  // ========== FETCH OPPONENT FROM ATC MATCHES ==========
-  useEffect(() => {
+  console.log('[ATC WebRTC] State:', { 
+    matchId, 
+    myUserId, 
+    playerCount: allPlayerIds.length,
+    currentPlayerId,
+    isMyTurn,
+    connectedPeers: Array.from(peerConnectionsRef.current.keys()),
+    remoteStreamOwners: Array.from(remoteStreams.keys())
+  });
+
+  // ========== SEND SIGNAL TO SPECIFIC PLAYER ==========
+  const sendSignal = useCallback(async (recipientId: string, type: 'offer' | 'answer' | 'ice', data: any) => {
     if (!matchId || !myUserId) return;
-
-    const fetchOpponent = async () => {
-      console.log('[ATC WebRTC] Fetching opponent from atc_matches:', matchId);
-      
-      const { data, error } = await supabase
-        .from('atc_matches')
-        .select('players')
-        .eq('id', matchId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('[ATC WebRTC] Error fetching atc_matches:', error);
-        return;
-      }
-
-      if (!data || !data.players || data.players.length < 2) {
-        console.log('[ATC WebRTC] Waiting for players to join...');
-        return;
-      }
-
-      // Find opponent from players array
-      const players = data.players;
-      const myIndex = players.findIndex((p: any) => p.id === myUserId);
-      
-      if (myIndex === -1) {
-        console.error('[ATC WebRTC] Current user not found in players array');
-        return;
-      }
-
-      setIsPlayer1(myIndex === 0);
-      
-      // Opponent is the other player
-      const opponentIndex = myIndex === 0 ? 1 : 0;
-      const opponent = players[opponentIndex];
-      
-      if (opponent) {
-        console.log('[ATC WebRTC] Opponent found:', opponent.id, opponent.username);
-        setOpponentUserId(opponent.id);
-      }
-    };
-
-    fetchOpponent();
-    
-    // Subscribe to changes
-    const channel = supabase
-      .channel(`atc_match_players_${matchId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'atc_matches',
-          filter: `id=eq.${matchId}`,
-        },
-        () => {
-          fetchOpponent();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [matchId, myUserId]);
-
-  // ========== SIGNALING FUNCTIONS ==========
-  const sendSignal = async (type: 'offer' | 'answer' | 'ice', data: any) => {
-    if (!matchId || !myUserId || !opponentUserId) return;
     
     const { error } = await supabase.from('match_signals').insert({
       match_id: matchId,
       sender_id: myUserId,
-      recipient_id: opponentUserId,
+      recipient_id: recipientId,
       signal_type: type,
       signal_data: data,
       created_at: new Date().toISOString(),
     });
     
     if (error) {
-      console.error('[ATC WebRTC] Error sending signal:', error);
+      console.error('[ATC WebRTC] Error sending signal to', recipientId, error);
     }
-  };
+  }, [matchId, myUserId, supabase]);
 
-  // ========== CREATE PEER CONNECTION ==========
-  useEffect(() => {
-    if (!matchId || !myUserId || !opponentUserId) return;
-    if (!isMatchActive) return;
-    if (peerConnectionRef.current) return;
+  // ========== CREATE PEER CONNECTION TO SPECIFIC PLAYER ==========
+  const createPeerConnection = useCallback((otherPlayerId: string, isInitiator: boolean) => {
+    if (peerConnectionsRef.current.has(otherPlayerId)) {
+      console.log('[ATC WebRTC] Already have connection to', otherPlayerId);
+      return;
+    }
 
-    console.log('[ATC WebRTC] Creating peer connection');
+    console.log('[ATC WebRTC] Creating peer connection to:', otherPlayerId, 'isInitiator:', isInitiator);
 
     try {
       const iceServers = getIceServers();
@@ -164,26 +107,24 @@ export function useATCWebRTC({
         rtcpMuxPolicy: 'require'
       });
 
-      peerConnectionRef.current = pc;
+      peerConnectionsRef.current.set(otherPlayerId, pc);
+      pendingIceCandidatesRef.current.set(otherPlayerId, []);
 
       // Connection state handlers
       pc.onconnectionstatechange = () => {
-        console.log('[ATC WebRTC] Connection state:', pc.connectionState);
+        console.log('[ATC WebRTC] Connection state with', otherPlayerId, ':', pc.connectionState);
         if (pc.connectionState === 'connected') {
           setCallStatus('connected');
         } else if (pc.connectionState === 'connecting') {
           setCallStatus('connecting');
-        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        } else if (pc.connectionState === 'failed') {
           setCallStatus('failed');
-          if (pc.connectionState === 'failed') {
-            console.log('[ATC WebRTC] Connection failed, attempting ICE restart...');
-            pc.restartIce();
-          }
+          pc.restartIce();
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log('[ATC WebRTC] ICE state:', pc.iceConnectionState);
+        console.log('[ATC WebRTC] ICE state with', otherPlayerId, ':', pc.iceConnectionState);
         if (pc.iceConnectionState === 'failed') {
           pc.restartIce();
         }
@@ -192,146 +133,159 @@ export function useATCWebRTC({
       // ICE candidate handler
       pc.onicecandidate = async (event) => {
         if (event.candidate) {
-          console.log('[ATC WebRTC] Sending ICE candidate:', event.candidate.type);
-          await sendSignal('ice', { candidate: event.candidate.toJSON() });
+          console.log('[ATC WebRTC] Sending ICE candidate to', otherPlayerId);
+          await sendSignal(otherPlayerId, 'ice', { candidate: event.candidate.toJSON() });
         }
       };
 
       // Remote track handler
       pc.ontrack = (event) => {
-        console.log('[ATC WebRTC] Remote track received:', event.track.kind);
+        console.log('[ATC WebRTC] Remote track received from', otherPlayerId, event.track.kind);
         if (event.streams && event.streams[0]) {
-          setRemoteStream(event.streams[0]);
+          setRemoteStreams(prev => {
+            const newMap = new Map(prev);
+            newMap.set(otherPlayerId, event.streams[0]);
+            return newMap;
+          });
           setCallStatus('connected');
         }
       };
 
-      // Negotiation needed
+      // Negotiation needed - only for initiator
       pc.onnegotiationneeded = async () => {
-        if (!isPlayer1 || makingOfferRef.current) return;
+        if (!isInitiator || makingOfferRef.current.has(otherPlayerId)) return;
         
         try {
-          makingOfferRef.current = true;
-          console.log('[ATC WebRTC] Creating offer...');
+          makingOfferRef.current.add(otherPlayerId);
+          console.log('[ATC WebRTC] Creating offer for', otherPlayerId);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          
-          await sendSignal('offer', { offer: pc.localDescription?.toJSON() });
-          console.log('[ATC WebRTC] Offer sent');
+          await sendSignal(otherPlayerId, 'offer', { offer: pc.localDescription?.toJSON() });
         } catch (error) {
           console.error('[ATC WebRTC] Error creating offer:', error);
         } finally {
-          makingOfferRef.current = false;
+          makingOfferRef.current.delete(otherPlayerId);
         }
       };
+
+      // Add local stream tracks if we have them
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          pc.addTrack(track, localStreamRef.current!);
+        });
+      }
+
+      // If initiator and we have tracks, create offer immediately
+      if (isInitiator && localStreamRef.current) {
+        (async () => {
+          try {
+            makingOfferRef.current.add(otherPlayerId);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await sendSignal(otherPlayerId, 'offer', { offer: pc.localDescription?.toJSON() });
+            console.log('[ATC WebRTC] Initial offer sent to', otherPlayerId);
+          } catch (err) {
+            console.error('[ATC WebRTC] Error sending initial offer:', err);
+          } finally {
+            makingOfferRef.current.delete(otherPlayerId);
+          }
+        })();
+      }
 
     } catch (error) {
       console.error('[ATC WebRTC] Error creating peer connection:', error);
       setCameraError('Failed to initialize connection');
     }
+  }, [sendSignal]);
 
-    return () => {
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
-    };
-  }, [matchId, myUserId, opponentUserId, isPlayer1, isMatchActive]);
+  // ========== HANDLE SIGNALS FROM OTHER PLAYERS ==========
+  const handleSignal = useCallback(async (senderId: string, signal: any) => {
+    const pc = peerConnectionsRef.current.get(senderId);
+    
+    if (!pc) {
+      // Create connection if it doesn't exist (we're not initiator)
+      console.log('[ATC WebRTC] Creating new connection for signal from', senderId);
+      createPeerConnection(senderId, false);
+      // Wait a bit for connection to be created
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
 
-  // ========== SIGNALING SUBSCRIPTION ==========
-  useEffect(() => {
-    if (!matchId || !myUserId || !opponentUserId) return;
+    const peerConnection = peerConnectionsRef.current.get(senderId);
+    if (!peerConnection) {
+      console.error('[ATC WebRTC] No peer connection for', senderId);
+      return;
+    }
 
-    const handleOffer = async (offer: RTCSessionDescriptionInit) => {
-      console.log('[ATC WebRTC] Received offer');
-      const pc = peerConnectionRef.current;
-      if (!pc) return;
-
-      try {
-        const offerCollision = offer.type === 'offer' && 
-          (makingOfferRef.current || pc.signalingState !== 'stable');
-
-        ignoreOfferRef.current = isPlayer1 && offerCollision;
-        if (ignoreOfferRef.current) return;
-
+    try {
+      if (signal.signal_type === 'offer') {
+        console.log('[ATC WebRTC] Received offer from', senderId);
+        
+        // Add our stream before creating answer
         if (localStreamRef.current) {
-          const senders = pc.getSenders();
+          const senders = peerConnection.getSenders();
           const hasVideo = senders.some(s => s.track?.kind === 'video');
           if (!hasVideo) {
             localStreamRef.current.getTracks().forEach(track => {
-              pc.addTrack(track, localStreamRef.current!);
+              peerConnection.addTrack(track, localStreamRef.current!);
             });
           }
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-        // Process pending ICE candidates
-        if (pendingIceCandidatesRef.current.length > 0) {
-          for (const candidate of pendingIceCandidatesRef.current) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (error) {
-              console.error('[ATC WebRTC] Error adding pending ICE:', error);
-            }
-          }
-          pendingIceCandidatesRef.current = [];
-        }
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await sendSignal('answer', { answer: pc.localDescription?.toJSON() });
-        console.log('[ATC WebRTC] Answer sent');
-
-      } catch (error) {
-        console.error('[ATC WebRTC] Error handling offer:', error);
-      }
-    };
-
-    const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
-      const pc = peerConnectionRef.current;
-      if (!pc) return;
-
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.signal_data.offer));
         
-        if (pendingIceCandidatesRef.current.length > 0) {
-          for (const candidate of pendingIceCandidatesRef.current) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (error) {
-              console.error('[ATC WebRTC] Error adding pending ICE:', error);
-            }
+        // Process pending ICE candidates
+        const pending = pendingIceCandidatesRef.current.get(senderId) || [];
+        for (const candidate of pending) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('[ATC WebRTC] Error adding pending ICE:', e);
           }
-          pendingIceCandidatesRef.current = [];
         }
-      } catch (error) {
-        console.error('[ATC WebRTC] Error handling answer:', error);
+        pendingIceCandidatesRef.current.set(senderId, []);
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        await sendSignal(senderId, 'answer', { answer: peerConnection.localDescription?.toJSON() });
+        console.log('[ATC WebRTC] Answer sent to', senderId);
+
+      } else if (signal.signal_type === 'answer') {
+        console.log('[ATC WebRTC] Received answer from', senderId);
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.signal_data.answer));
+        
+        // Process pending ICE candidates
+        const pending = pendingIceCandidatesRef.current.get(senderId) || [];
+        for (const candidate of pending) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('[ATC WebRTC] Error adding pending ICE:', e);
+          }
+        }
+        pendingIceCandidatesRef.current.set(senderId, []);
+
+      } else if (signal.signal_type === 'ice') {
+        console.log('[ATC WebRTC] Received ICE from', senderId);
+        if (peerConnection.remoteDescription) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(signal.signal_data.candidate));
+        } else {
+          // Queue ICE candidate
+          const pending = pendingIceCandidatesRef.current.get(senderId) || [];
+          pending.push(signal.signal_data.candidate);
+          pendingIceCandidatesRef.current.set(senderId, pending);
+        }
       }
-    };
+    } catch (error) {
+      console.error('[ATC WebRTC] Error handling signal:', error);
+    }
+  }, [createPeerConnection, sendSignal]);
 
-    const handleIce = async (candidate: RTCIceCandidateInit) => {
-      const pc = peerConnectionRef.current;
-      if (!pc) {
-        pendingIceCandidatesRef.current.push(candidate);
-        return;
-      }
+  // ========== SETUP SIGNALING SUBSCRIPTION ==========
+  useEffect(() => {
+    if (!matchId || !myUserId) return;
 
-      if (!pc.remoteDescription) {
-        pendingIceCandidatesRef.current.push(candidate);
-        return;
-      }
+    console.log('[ATC WebRTC] Setting up signal subscription');
 
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (error) {
-        console.error('[ATC WebRTC] Error adding ICE candidate:', error);
-      }
-    };
-
-    console.log('[ATC WebRTC] Setting up signal subscription...');
-
-    // Subscribe to signals from match_signals table
     const subscription = supabase
       .channel(`atc_signals_${matchId}_${myUserId}`)
       .on(
@@ -345,57 +299,45 @@ export function useATCWebRTC({
         (payload) => {
           const signal = payload.new;
           if (signal.recipient_id !== myUserId) return;
+          if (signal.sender_id === myUserId) return; // Ignore our own signals
           
-          console.log('[ATC WebRTC] Received signal:', signal.signal_type);
-          
-          if (signal.signal_type === 'offer') {
-            handleOffer(signal.signal_data.offer);
-          } else if (signal.signal_type === 'answer') {
-            handleAnswer(signal.signal_data.answer);
-          } else if (signal.signal_type === 'ice') {
-            handleIce(signal.signal_data.candidate);
-          }
+          console.log('[ATC WebRTC] Received signal from:', signal.sender_id, 'type:', signal.signal_type);
+          handleSignal(signal.sender_id, signal);
         }
       )
       .subscribe();
 
+    subscriptionsRef.current.push(() => subscription.unsubscribe());
+
     return () => {
       subscription.unsubscribe();
     };
-  }, [matchId, myUserId, opponentUserId, isPlayer1]);
+  }, [matchId, myUserId, handleSignal, supabase]);
 
-  // ========== ADD TRACKS AND CREATE OFFER ==========
+  // ========== CREATE CONNECTIONS TO ALL OTHER PLAYERS ==========
   useEffect(() => {
-    if (!localStreamRef.current || !peerConnectionRef.current) return;
+    if (!matchId || !myUserId || !isMatchActive) return;
+    if (allPlayerIds.length < 2) return;
 
-    const pc = peerConnectionRef.current;
-    const senders = pc.getSenders();
-    const hasVideo = senders.some(s => s.track?.kind === 'video');
-    
-    if (!hasVideo) {
-      localStreamRef.current.getTracks().forEach(track => {
-        console.log('[ATC WebRTC] Adding track:', track.kind);
-        pc.addTrack(track, localStreamRef.current!);
-      });
+    console.log('[ATC WebRTC] Setting up connections to all players:', allPlayerIds);
+
+    // Create connections to all other players
+    // We'll be the initiator if our ID is alphabetically first (simple tie-breaker)
+    allPlayerIds.forEach((playerId, index) => {
+      if (playerId === myUserId) return;
       
-      if (isPlayer1) {
-        console.log('[ATC WebRTC] Player 1 creating offer after adding tracks...');
-        (async () => {
-          try {
-            makingOfferRef.current = true;
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await sendSignal('offer', { offer: pc.localDescription?.toJSON() });
-            console.log('[ATC WebRTC] Offer sent to Player 2');
-          } catch (err) {
-            console.error('[ATC WebRTC] Error creating offer:', err);
-          } finally {
-            makingOfferRef.current = false;
-          }
-        })();
-      }
-    }
-  }, [isPlayer1, localStream]);
+      const isInitiator = myUserId < playerId; // Simple tie-breaker
+      createPeerConnection(playerId, isInitiator);
+    });
+
+    return () => {
+      // Cleanup connections
+      peerConnectionsRef.current.forEach((pc) => {
+        pc.close();
+      });
+      peerConnectionsRef.current.clear();
+    };
+  }, [matchId, myUserId, allPlayerIds, isMatchActive, createPeerConnection]);
 
   // ========== CAMERA CONTROLS ==========
   const toggleCamera = async () => {
@@ -424,18 +366,17 @@ export function useATCWebRTC({
       setCameraError(null);
       console.log('[ATC WebRTC] Camera stream obtained');
       
-      // If it's my turn and we have a peer connection, add the track immediately
-      const pc = peerConnectionRef.current;
-      if (pc && isMyTurn) {
+      // Add tracks to all existing peer connections
+      peerConnectionsRef.current.forEach((pc, playerId) => {
         const senders = pc.getSenders();
         const hasVideo = senders.some(s => s.track?.kind === 'video');
         if (!hasVideo) {
-          console.log('[ATC WebRTC] Adding track to peer connection');
+          console.log('[ATC WebRTC] Adding track to peer connection:', playerId);
           stream.getTracks().forEach(track => {
             pc.addTrack(track, stream);
           });
         }
-      }
+      });
     } catch (err) {
       console.error('[ATC WebRTC] Could not access camera:', err);
       setCameraError('Could not access camera');
@@ -469,60 +410,31 @@ export function useATCWebRTC({
   };
 
   const refreshConnection = async () => {
-    console.log('[ATC WebRTC] Refreshing connection...');
+    console.log('[ATC WebRTC] Refreshing all connections...');
     
-    if (!matchId || !myUserId || !opponentUserId) {
-      console.error('[ATC WebRTC] Cannot refresh - missing required IDs');
-      return;
-    }
-
-    // Close existing connection
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-
-    // Clear remote stream
-    setRemoteStream(null);
+    // Close all connections
+    peerConnectionsRef.current.forEach((pc) => {
+      pc.close();
+    });
+    peerConnectionsRef.current.clear();
+    setRemoteStreams(new Map());
     setCallStatus('idle');
 
     // Restart camera if it was on
     if (isCameraOn) {
       await refreshCamera();
     }
-
-    // Trigger reconnection by clearing opponent and fetching again
-    setOpponentUserId(null);
-    
-    // Re-fetch opponent
-    const { data } = await supabase
-      .from('atc_matches')
-      .select('players')
-      .eq('id', matchId)
-      .maybeSingle();
-
-    if (data && data.players) {
-      const players = data.players;
-      const myIndex = players.findIndex((p: any) => p.id === myUserId);
-      if (myIndex !== -1) {
-        setIsPlayer1(myIndex === 0);
-        const opponentIndex = myIndex === 0 ? 1 : 0;
-        const opponent = players[opponentIndex];
-        if (opponent) {
-          setOpponentUserId(opponent.id);
-        }
-      }
-    }
   };
 
   const forceTurnAndRestart = () => {
-    console.log('[ATC WebRTC] Forcing TURN relay and restarting connection');
+    console.log('[ATC WebRTC] Forcing TURN relay and restarting');
     refreshConnection();
   };
 
   return {
     localStream,
-    remoteStream,
+    remoteStreams,
+    activeRemoteStream,
     isCameraOn,
     callStatus,
     cameraError,
