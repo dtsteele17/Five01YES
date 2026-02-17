@@ -18,7 +18,7 @@ export function SafetyRatingBadge({
   if (!grade) {
     return (
       <span className="text-slate-500 text-xs italic">
-        No Trust Rating yet
+        No Rating
       </span>
     );
   }
@@ -104,7 +104,7 @@ export function SafetyRatingDetailed({
           </div>
           <div>
             <h3 className="font-bold text-slate-400">Trust Rating</h3>
-            <p className="text-slate-500 text-sm">No Trust Rating yet</p>
+            <p className="text-slate-500 text-sm">No Rating</p>
           </div>
         </div>
       </div>
