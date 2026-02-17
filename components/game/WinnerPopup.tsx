@@ -421,23 +421,22 @@ export function WinnerPopup({
             </Button>
           </div>
           
-          {(youReady || opponentRematchReady) && (
-            <div className="mt-3 flex items-center justify-center gap-6 text-xs bg-slate-800/50 rounded p-2">
-              <div className={`flex items-center gap-1 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-                <div className={`w-2 h-2 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-                <span>You{youReady ? ' ✓' : ''}</span>
-              </div>
-              <div className="text-slate-600">|</div>
-              <div className={`flex items-center gap-1 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-                <div className={`w-2 h-2 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-                <span>Opponent{opponentRematchReady ? ' ✓' : ''}</span>
-              </div>
-              <div className="text-slate-600">|</div>
-              <div className="text-slate-400">
-                <span className={readyCount >= 1 ? 'text-emerald-400' : ''}>{readyCount}</span>/2 Ready
-              </div>
+          {/* Always show ready status during rematch */}
+          <div className="mt-3 flex items-center justify-center gap-6 text-xs bg-slate-800/50 rounded p-2">
+            <div className={`flex items-center gap-1 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+              <div className={`w-2 h-2 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+              <span>You{youReady ? ' ✓' : ''}</span>
             </div>
-          )}
+            <div className="text-slate-600">|</div>
+            <div className={`flex items-center gap-1 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+              <div className={`w-2 h-2 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+              <span>Opponent{opponentRematchReady ? ' ✓' : ''}</span>
+            </div>
+            <div className="text-slate-600">|</div>
+            <div className="text-slate-400">
+              <span className={readyCount >= 1 ? 'text-emerald-400' : ''}>{readyCount}</span>/2 Ready
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

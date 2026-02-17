@@ -86,6 +86,7 @@ interface MatchRoom {
   player1_rematch?: boolean;
   player2_rematch?: boolean;
   rematch_room_id?: string | null;
+  rematch_of?: string | null;
 }
 
 interface Profile {
@@ -3631,13 +3632,8 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  // Open rematch popup
-  const handleRematch = () => {
-    setShowRematchPopup(true);
-  };
-
-  // Handle actual rematch request from popup
-  const handleRequestRematch = async () => {
+  // Handle rematch button click - directly request rematch
+  const handleRematch = async () => {
     if (rematchLoading) return;
     await requestRematch();
   };
@@ -4246,18 +4242,18 @@ export default function QuickMatchRoomPage() {
         />
       )}
 
-      {/* Rematch Popup */}
-      {room?.status === 'finished' && matchEndStats && (
+      {/* Rematch Popup - Only shows in a rematch room before game starts */}
+      {room?.rematch_of && room?.status === 'waiting' && (
         <RematchPopup
-          isOpen={showRematchPopup}
-          onClose={() => setShowRematchPopup(false)}
-          player1={{ id: room.player1_id, name: matchEndStats.player1.name }}
-          player2={{ id: room.player2_id || '', name: matchEndStats.player2.name }}
+          isOpen={true}
+          onClose={() => {}} // Can't close, must ready up or leave
+          player1={{ id: room.player1_id, name: profiles.find(p => p.user_id === room.player1_id)?.username || 'Player 1' }}
+          player2={{ id: room.player2_id || '', name: profiles.find(p => p.user_id === room.player2_id)?.username || 'Player 2' }}
           currentUserId={currentUserId || ''}
           readyCount={readyCount}
           iAmReady={iAmReadyForRematch}
           opponentReady={opponentRematchReady}
-          onRequestRematch={handleRequestRematch}
+          onRequestRematch={handleRematch}
           onCancelRematch={handleCancelRematch}
           isLoading={rematchLoading}
         />
