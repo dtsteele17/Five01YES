@@ -55,7 +55,7 @@ export function DartboardAutoscorer({
     isCalibrated ? 'ready' : 'calibrating'
   );
   const [clickedPoints, setClickedPoints] = useState<Point[]>([]);
-  const [score, setScore] = useState<{ segment: number; multiplier: number; points: number } | null>(null);
+  const [score, setScore] = useState<{ segment: number; multiplier: number; points: number; isOnBoard: boolean } | null>(null);
   const [homography, setHomography] = useState<number[][] | null>(savedHomography);
   const [lastDetection, setLastDetection] = useState<number>(0);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -458,7 +458,7 @@ export function DartboardAutoscorer({
     if (!tip || typeof tip.x !== 'number' || typeof tip.y !== 'number' || 
         isNaN(tip.x) || isNaN(tip.y)) {
       console.warn('Invalid tip coordinates:', tip);
-      return { segment: 0, multiplier: 0, points: 0 };
+      return { segment: 0, multiplier: 0, points: 0, isOnBoard: false };
     }
 
     const center = { x: 200, y: 200 };
@@ -467,22 +467,33 @@ export function DartboardAutoscorer({
     const distance = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
     
-    // Calculate segment
+    // Calculate segment (each segment is 18 degrees)
     let degrees = (angle * 180 / Math.PI + 360 + 90) % 360;
     const segmentIndex = Math.floor(degrees / 18) % 20;
     const segment = SEGMENTS[segmentIndex] || 20;
     
-    // Scale distance to dartboard coordinates
+    // Scale distance to actual dartboard coordinates
+    // Standard dartboard: double ring outer edge is ~170mm from center
     const scale = 170 / 200;
     const r = distance * scale;
     
-    // Determine multiplier based on distance from center
+    // Determine if on board and multiplier based on distance from center
     let multiplier = 1;
-    if (r < 12.7) multiplier = 50;        // Bullseye
-    else if (r < 31.8) multiplier = 25;   // Outer bull
-    else if (r >= 99 && r <= 107) multiplier = 3;   // Triple ring
-    else if (r >= 162 && r <= 170) multiplier = 2;  // Double ring
-    else if (r > 170) multiplier = 0;     // Outside board
+    let isOnBoard = true;
+    
+    if (r < 12.7) {
+      multiplier = 50;        // Inner bull (bullseye)
+    } else if (r < 31.8) {
+      multiplier = 25;        // Outer bull
+    } else if (r >= 99 && r <= 107) {
+      multiplier = 3;         // Triple ring
+    } else if (r >= 162 && r <= 170) {
+      multiplier = 2;         // Double ring
+    } else if (r > 170) {
+      multiplier = 0;         // Outside board
+      isOnBoard = false;
+    }
+    // Otherwise single (multiplier = 1)
     
     // Calculate points
     let points = 0;
@@ -491,11 +502,13 @@ export function DartboardAutoscorer({
     else if (multiplier === 0) points = 0;
     else points = segment * multiplier;
     
-    // Ensure no NaN values
+    console.log(`[Autoscoring] Board coords: (${tip.x.toFixed(1)}, ${tip.y.toFixed(1)}), distance: ${r.toFixed(1)}, segment: ${segment}, multiplier: ${multiplier}, points: ${points}`);
+    
     return { 
       segment: segment || 0, 
       multiplier: multiplier || 0, 
-      points: points || 0 
+      points: points || 0,
+      isOnBoard
     };
   };
 
@@ -513,19 +526,18 @@ export function DartboardAutoscorer({
     const current = ctx.getImageData(0, 0, 640, 480);
     const reference = refCtx.getImageData(0, 0, 640, 480);
     
-    // Define center region where dartboard should be (ignore corners)
-    // Board should be roughly in center 70% of frame
-    const marginX = Math.floor(640 * 0.15); // 15% margin each side
-    const marginY = Math.floor(480 * 0.15);
+    // Define region to scan - use most of the frame but ignore extreme edges
+    const marginX = Math.floor(640 * 0.05); // 5% margin
+    const marginY = Math.floor(480 * 0.05);
     const startX = marginX;
     const endX = 640 - marginX;
     const startY = marginY;
     const endY = 480 - marginY;
     
-    const threshold = 35; // Slightly higher threshold to reduce noise
+    const threshold = 25; // Lower threshold = more sensitive
     let dartPixels: Point[] = [];
     
-    // Only scan center region
+    // Scan region
     for (let y = startY; y < endY; y++) {
       for (let x = startX; x < endX; x++) {
         const i = (y * 640 + x) * 4;
@@ -539,25 +551,24 @@ export function DartboardAutoscorer({
       }
     }
     
-    // Require more pixels for a valid dart detection
-    if (dartPixels.length < 200 || dartPixels.length > 5000) return;
+    // Debug: log pixel count
+    if (dartPixels.length > 50) {
+      console.log('[Autoscoring] Changed pixels:', dartPixels.length);
+    }
     
-    // Check that pixels form a compact cluster (dart-shaped, not scattered noise)
+    // Require reasonable amount of pixels for a dart (50-8000)
+    if (dartPixels.length < 50 || dartPixels.length > 8000) {
+      if (dartPixels.length > 0) console.log('[Autoscoring] Rejected: pixel count out of range');
+      return;
+    }
+    
+    // Calculate centroid
     const centroid = {
       x: dartPixels.reduce((s, p) => s + p.x, 0) / dartPixels.length,
       y: dartPixels.reduce((s, p) => s + p.y, 0) / dartPixels.length
     };
     
-    // Calculate standard deviation of pixel positions
-    const variance = dartPixels.reduce((sum, p) => {
-      return sum + Math.pow(p.x - centroid.x, 2) + Math.pow(p.y - centroid.y, 2);
-    }, 0) / dartPixels.length;
-    const stdDev = Math.sqrt(variance);
-    
-    // Reject if pixels are too scattered (stdDev > 100 means very spread out)
-    if (stdDev > 80) return;
-    
-    // Find tip as farthest point from centroid (the dart tip)
+    // Find tip as farthest point from centroid
     let tip = dartPixels[0];
     let maxDist = 0;
     for (const p of dartPixels) {
@@ -568,18 +579,37 @@ export function DartboardAutoscorer({
       }
     }
     
-    // Verify tip is within reasonable bounds
-    if (tip.x < 50 || tip.x > 590 || tip.y < 50 || tip.y > 430) return;
-    
+    // Apply homography to get board coordinates
     const boardTip = applyHomography(tip, homography);
     
-    // Validate homography result
+    // Validate result
     if (!boardTip || typeof boardTip.x !== 'number' || typeof boardTip.y !== 'number' ||
         isNaN(boardTip.x) || isNaN(boardTip.y)) {
+      console.log('[Autoscoring] Rejected: invalid homography result');
       return;
     }
     
     const newScore = calculateScoreFromBoardCoords(boardTip);
+    
+    // Only accept darts that are on the board
+    if (!newScore.isOnBoard) {
+      console.log('[Autoscoring] Dart detected outside board, ignoring');
+      
+      // Still draw indicator but in different color
+      ctx.strokeStyle = '#94a3b8'; // slate-400
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, 12, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText('Outside', tip.x + 15, tip.y);
+      
+      return; // Don't trigger score for outside darts
+    }
+    
+    console.log('[Autoscoring] Valid dart on board:', newScore);
     
     // Debounce detection (1.5 second cooldown)
     if (Date.now() - lastDetection > 1500) {
@@ -587,17 +617,46 @@ export function DartboardAutoscorer({
       setLastDetection(Date.now());
       onScore?.(newScore);
       
-      // Draw detection indicator
+      // Draw detection indicator with glow
       ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 15, 0, Math.PI * 2);
+      ctx.arc(tip.x, tip.y, 18, 0, Math.PI * 2);
       ctx.stroke();
       
-      // Draw label
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, 18, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw center dot
       ctx.fillStyle = '#ef4444';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText(`${newScore.points}`, tip.x + 20, tip.y);
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw score label with background
+      const labelText = `${newScore.points}`;
+      ctx.font = 'bold 24px sans-serif';
+      const textWidth = ctx.measureText(labelText).width;
+      
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(tip.x + 15, tip.y - 25, textWidth + 15, 35);
+      
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(labelText, tip.x + 20, tip.y);
+      
+      // Update reference frame after detection to handle remaining dart
+      // This prevents the same dart from being detected multiple times
+      setTimeout(() => {
+        if (referenceCanvasRef.current && videoElement) {
+          const refCtx = referenceCanvasRef.current.getContext('2d');
+          if (refCtx) {
+            refCtx.drawImage(videoElement, 0, 0, 640, 480);
+            console.log('[Autoscoring] Reference frame updated');
+          }
+        }
+      }, 500);
     }
     
   }, [videoElement, homography, lastDetection, onScore]);
@@ -682,6 +741,10 @@ export function DartboardAutoscorer({
             <div className="flex items-center gap-2 text-rose-400 animate-pulse">
               <Camera className="w-5 h-5" />
               <span className="font-medium">🔴 Detecting darts...</span>
+            </div>
+            <div className="text-xs text-slate-400">
+              Throw your darts - the system will automatically detect and score them.
+              Make sure your darts contrast with the board.
             </div>
             <Button 
               onClick={stopDetection}

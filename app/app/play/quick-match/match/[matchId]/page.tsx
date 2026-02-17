@@ -2423,7 +2423,7 @@ export default function QuickMatchRoomPage() {
   };
 
   // Handle autoscoring detected score
-  const handleAutoscoringScore = useCallback((score: { segment: number; multiplier: number; points: number }) => {
+  const handleAutoscoringScore = useCallback((score: { segment: number; multiplier: number; points: number; isOnBoard?: boolean }) => {
     if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer) {
       return; // Not your turn
     }
@@ -2438,10 +2438,10 @@ export default function QuickMatchRoomPage() {
       return;
     }
 
-    // Handle miss (0 points)
-    if (score.points === 0 || score.segment === 0) {
+    // Handle miss (outside board or 0 points)
+    if (!score.isOnBoard || score.points === 0 || score.segment === 0) {
       handleMiss();
-      toast.info('AutoScored: Miss');
+      toast.info('AutoScored: Miss (outside board)');
       return;
     }
 
@@ -2467,7 +2467,14 @@ export default function QuickMatchRoomPage() {
     // Use handleDartClick to add the dart
     handleDartClick(dartType, number);
     
-    toast.success(`🎯 AutoScored: ${score.points} points!`, {
+    // Show appropriate message based on what was hit
+    let message = `🎯 AutoScored: ${score.points} points!`;
+    if (score.multiplier === 50) message = '🎯 BULLSEYE! 50 points!';
+    else if (score.multiplier === 25) message = '🎯 Outer Bull! 25 points!';
+    else if (score.multiplier === 3) message = `🎯 T${score.segment}! ${score.points} points!`;
+    else if (score.multiplier === 2) message = `🎯 D${score.segment}! ${score.points} points!`;
+    
+    toast.success(message, {
       icon: <Crosshair className="w-4 h-4" />
     });
   }, [matchState, currentVisit.length, handleDartClick, handleMiss]);
