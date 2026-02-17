@@ -408,7 +408,7 @@ export default function DashboardPage() {
                       {rankedState.division_name}
                     </Badge>
                   )}
-                  {profile?.trust_rating_letter && (
+                  {(profile?.trust_rating_count || 0) > 0 && profile?.trust_rating_letter && (
                     <SafetyRatingBadge 
                       grade={profile.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'} 
                       size="sm"
@@ -458,6 +458,7 @@ export default function DashboardPage() {
             {/* Trust Rating */}
             <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
               <div className={`absolute top-0 left-0 w-1 h-full ${
+                (profile?.trust_rating_count || 0) === 0 ? 'bg-slate-500' :
                 profile?.trust_rating_letter === 'A' ? 'bg-emerald-500' :
                 profile?.trust_rating_letter === 'B' ? 'bg-emerald-400' :
                 profile?.trust_rating_letter === 'C' ? 'bg-yellow-400' :
@@ -468,14 +469,15 @@ export default function DashboardPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-4xl font-black text-white tracking-tight">
-                    {profile?.trust_rating_letter || 'C'}
+                    {(profile?.trust_rating_count || 0) === 0 ? '-' : profile?.trust_rating_letter}
                   </p>
                   <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Trust Rating</p>
                   <p className="text-xs text-slate-400 mt-2">
-                    {profile?.trust_rating_count || 0} ratings
+                    {(profile?.trust_rating_count || 0) === 0 ? 'No ratings yet' : `${profile?.trust_rating_count} rating${profile?.trust_rating_count !== 1 ? 's' : ''}`}
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  (profile?.trust_rating_count || 0) === 0 ? 'bg-slate-500/20' :
                   profile?.trust_rating_letter === 'A' ? 'bg-emerald-500/20' :
                   profile?.trust_rating_letter === 'B' ? 'bg-emerald-400/20' :
                   profile?.trust_rating_letter === 'C' ? 'bg-yellow-400/20' :
@@ -484,6 +486,7 @@ export default function DashboardPage() {
                   'bg-slate-500/20'
                 }`}>
                   <Shield className={`w-6 h-6 ${
+                    (profile?.trust_rating_count || 0) === 0 ? 'text-slate-400' :
                     profile?.trust_rating_letter === 'A' ? 'text-emerald-500' :
                     profile?.trust_rating_letter === 'B' ? 'text-emerald-400' :
                     profile?.trust_rating_letter === 'C' ? 'text-yellow-400' :

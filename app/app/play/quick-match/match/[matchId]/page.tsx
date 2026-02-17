@@ -1307,10 +1307,19 @@ export default function QuickMatchRoomPage() {
   }, [remoteStream]);
 
   // Auto-start camera when both players are ready AND coin toss is complete
+  // Also retry if camera fails to start
   useEffect(() => {
     const initCamera = async () => {
-      if (bothPlayersReady && coinTossCompleted && room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
-        console.log('[CAMERA] Auto-starting camera after coin toss complete');
+      // Allow camera start if:
+      // 1. Both players ready AND coin toss complete (normal flow)
+      // 2. OR room is active with player2 and camera not on (fallback for reconnects)
+      const shouldStartCamera = (
+        (bothPlayersReady && coinTossCompleted && room?.status === 'active') ||
+        (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current)
+      );
+      
+      if (shouldStartCamera && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
+        console.log('[CAMERA] Auto-starting camera');
         cameraInitAttempted.current = true;
         try {
           await toggleCamera();
@@ -1318,11 +1327,22 @@ export default function QuickMatchRoomPage() {
         } catch (err) {
           console.error('[CAMERA] Auto-start failed:', err);
           cameraInitAttempted.current = false;
+          // Retry after 2 seconds
+          setTimeout(() => {
+            cameraInitAttempted.current = false;
+          }, 2000);
         }
       }
     };
     initCamera();
   }, [bothPlayersReady, coinTossCompleted, room?.status, room?.player2_id, isCameraOn, toggleCamera]);
+  
+  // Reset camera init flag when room becomes active (for rematches)
+  useEffect(() => {
+    if (room?.status === 'active' && !isCameraOn) {
+      cameraInitAttempted.current = false;
+    }
+  }, [room?.status, isCameraOn]);
 
   // Initialize pre-game lobby when both players connect
   useEffect(() => {
