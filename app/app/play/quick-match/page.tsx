@@ -864,7 +864,7 @@ export default function QuickMatchLobbyPage() {
         // Fetch requester's profile and stats
         const [{ data: profile }, { data: stats }] = await Promise.all([
           supabase.from('profiles')
-            .select('safety_rating_letter, safety_rating_count')
+            .select('trust_rating_letter, trust_rating_count')
             .eq('user_id', request.requester_id)
             .maybeSingle(),
           supabase.from('player_stats')
@@ -872,7 +872,7 @@ export default function QuickMatchLobbyPage() {
             .eq('user_id', request.requester_id)
             .maybeSingle()
         ]);
-        
+
         // Enhance the request with additional data
         const enhancedRequest: JoinRequest = {
           ...request,

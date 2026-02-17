@@ -3559,28 +3559,6 @@ export default function QuickMatchRoomPage() {
     }
   };
 
-  const handleTrustRating = async (rating: string) => {
-    if (!matchState || hasSubmittedRating || ratingLoading) return;
-    const opponentId = matchState.youArePlayer === 1 ? room?.player2_id : room?.player1_id;
-    if (!opponentId) return;
-
-    setRatingLoading(true);
-    try {
-      const { error } = await supabase.rpc('rpc_submit_trust_rating', {
-        p_rated_user_id: opponentId,
-        p_rating: rating,
-      });
-      if (error) throw error;
-      setSelectedRating(rating);
-      setHasSubmittedRating(true);
-      toast.success(`Rated ${rating}`);
-    } catch (error: any) {
-      toast.error(`Failed to submit rating: ${error.message}`);
-    } finally {
-      setRatingLoading(false);
-    }
-  };
-
   // Handle trust rating submission from WinnerPopup
   const handleTrustRating = async (grade: SafetyGrade) => {
     console.log('[TrustRating] Starting rating submission:', { matchId, room, currentUserId, grade });
