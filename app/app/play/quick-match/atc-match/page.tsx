@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Users, ArrowLeft, CheckCircle2, 
   Camera, CameraOff, Loader2, Trophy, X, RefreshCw,
-  Zap, Crosshair, Clock, Flame, BarChart3, Activity
+  Zap, Crosshair, Wifi, WifiOff, RotateCcw, UserPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMatchWebRTC } from '@/lib/hooks/useMatchWebRTC';
 
 // Types
@@ -101,6 +102,177 @@ const calculateNextTarget = (
   return allTargets[nextIndex];
 };
 
+// Player Tile Component
+function PlayerTile({ 
+  player, 
+  isCurrentPlayer, 
+  isCurrentUser,
+  progress 
+}: { 
+  player: Player; 
+  isCurrentPlayer: boolean;
+  isCurrentUser: boolean;
+  progress: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`relative overflow-hidden rounded-2xl p-4 ${
+        isCurrentPlayer 
+          ? 'bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-emerald-500/5 border-2 border-emerald-500/50' 
+          : 'bg-gradient-to-br from-slate-800/80 via-slate-800/50 to-slate-900/80 border-2 border-slate-700/50'
+      }`}
+    >
+      {/* Animated background for current player */}
+      {isCurrentPlayer && (
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-transparent to-emerald-500/5 animate-pulse" />
+      )}
+      
+      <div className="relative z-10">
+        {/* Header with avatar and name */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+            isCurrentPlayer 
+              ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
+              : 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300'
+          }`}>
+            {player.username.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className={`font-bold text-lg ${isCurrentPlayer ? 'text-white' : 'text-slate-300'}`}>
+                {player.username}
+              </h3>
+              {isCurrentUser && (
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                  You
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-slate-400">
+              {isCurrentPlayer ? 'Currently Throwing' : 'Waiting'}
+            </p>
+          </div>
+          {isCurrentPlayer && (
+            <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50" />
+          )}
+        </div>
+        
+        {/* Current Target - Big Display */}
+        <div className={`text-center py-3 rounded-xl mb-3 ${
+          isCurrentPlayer 
+            ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30' 
+            : 'bg-slate-900/50 border border-slate-700/30'
+        }`}>
+          <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Current Target</p>
+          <p className={`text-4xl font-black ${isCurrentPlayer ? 'text-white' : 'text-slate-400'}`}>
+            {getTargetLabel(player.current_target || 1)}
+          </p>
+        </div>
+        
+        {/* Progress */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-400">Progress</span>
+            <span className={`font-bold ${isCurrentPlayer ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {player.completed_targets?.length || 0}/21
+            </span>
+          </div>
+          <div className="h-3 bg-slate-900/50 rounded-full overflow-hidden">
+            <motion.div 
+              className={`h-full rounded-full ${
+                isCurrentPlayer 
+                  ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' 
+                  : 'bg-gradient-to-r from-slate-600 to-slate-500'
+              }`}
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        </div>
+        
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className={`text-center p-2 rounded-lg ${isCurrentPlayer ? 'bg-emerald-500/10' : 'bg-slate-900/30'}`}>
+            <p className="text-xs text-slate-400">Darts Thrown</p>
+            <p className={`text-lg font-bold ${isCurrentPlayer ? 'text-emerald-400' : 'text-slate-300'}`}>
+              {player.total_darts_thrown || 0}
+            </p>
+          </div>
+          <div className={`text-center p-2 rounded-lg ${isCurrentPlayer ? 'bg-purple-500/10' : 'bg-slate-900/30'}`}>
+            <p className="text-xs text-slate-400">Completed</p>
+            <p className={`text-lg font-bold ${isCurrentPlayer ? 'text-purple-400' : 'text-slate-300'}`}>
+              {player.completed_targets?.length || 0}
+            </p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// Current Visit Display Component
+function CurrentVisitDisplay({ 
+  visit, 
+  dartCount 
+}: { 
+  visit: Partial<Visit>; 
+  dartCount: number;
+}) {
+  const darts = [visit.dart1, visit.dart2, visit.dart3];
+  
+  return (
+    <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Current Visit</h4>
+        <Badge className="bg-emerald-500/20 text-emerald-400">
+          {dartCount}/3 Darts
+        </Badge>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-3">
+        {darts.map((dart, i) => (
+          <motion.div 
+            key={i}
+            initial={dart ? { scale: 0.8, opacity: 0 } : {}}
+            animate={dart ? { scale: 1, opacity: 1 } : {}}
+            className={`aspect-square rounded-xl flex flex-col items-center justify-center ${
+              dart 
+                ? dart.segment === 'D' 
+                  ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30' 
+                  : dart.segment === 'T' 
+                  ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30'
+                  : dart.segment === 'DB'
+                  ? 'bg-gradient-to-br from-red-600 to-red-700 text-white shadow-lg shadow-red-600/30'
+                  : dart.segment === 'SB'
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                  : dart.segment === 'MISS'
+                  ? 'bg-slate-700 text-slate-400'
+                  : 'bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                : 'bg-slate-800/50 border-2 border-dashed border-slate-700 text-slate-600'
+            }`}
+          >
+            {dart ? (
+              <>
+                <span className="text-2xl font-black">{dart.label}</span>
+                {dart.segment !== 'MISS' && (
+                  <span className="text-xs opacity-80">
+                    {dart.segment === 'D' ? 'Double' : dart.segment === 'T' ? 'Triple' : 'Single'}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-2xl font-bold">{i + 1}</span>
+            )}
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ATCMatchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -118,8 +290,18 @@ export default function ATCMatchPage() {
   const [dartCount, setDartCount] = useState(0);
   const [showGameEndPopup, setShowGameEndPopup] = useState(false);
   const [isRefreshingCamera, setIsRefreshingCamera] = useState(false);
+  const [isRefreshingConnection, setIsRefreshingConnection] = useState(false);
+  const cameraInitAttempted = useRef(false);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   
-  // WebRTC Camera Hook - Same as other quick matches
+  // WebRTC Camera Hook - EXACTLY like 501/301 matches
+  const webrtc = useMatchWebRTC({
+    roomId: matchId,
+    myUserId: currentUser,
+    coinTossComplete: match?.status === 'in_progress' || match?.status === 'completed',
+  });
+  
   const {
     localStream,
     remoteStream,
@@ -129,14 +311,9 @@ export default function ATCMatchPage() {
     toggleCamera,
     stopCamera,
     refreshCamera,
-  } = useMatchWebRTC({
-    roomId: matchId,
-    myUserId: currentUser,
-    coinTossComplete: match?.status === 'in_progress' || match?.status === 'completed',
-  });
-  
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    refreshConnection,
+    forceTurnAndRestart,
+  } = webrtc;
   
   // Load match data
   useEffect(() => {
@@ -208,18 +385,42 @@ export default function ATCMatchPage() {
     };
   }, [matchId, currentUser]);
   
-  // Connect video streams to video elements
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+  // Callback refs for video elements - EXACTLY like 501/301 matches
+  const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    if (el && localStream) {
+      console.log('[CAMERA] Attaching local stream to video element');
+      el.srcObject = localStream;
+      el.play().catch(err => console.error('[CAMERA] Error playing local:', err));
     }
+    localVideoRef.current = el;
   }, [localStream]);
-  
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+
+  const setRemoteVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    if (el && remoteStream) {
+      console.log('[CAMERA] Attaching remote stream to video element');
+      el.srcObject = remoteStream;
+      el.play().catch(err => console.error('[CAMERA] Error playing remote:', err));
     }
+    remoteVideoRef.current = el;
   }, [remoteStream]);
+  
+  // Auto-start camera when game starts - EXACTLY like 501/301 matches
+  useEffect(() => {
+    const initCamera = async () => {
+      if (match?.status === 'in_progress' && !isCameraOn && !cameraInitAttempted.current) {
+        console.log('[CAMERA] Auto-starting camera for ATC match');
+        cameraInitAttempted.current = true;
+        try {
+          await toggleCamera();
+          console.log('[CAMERA] Auto-start successful');
+        } catch (err) {
+          console.error('[CAMERA] Auto-start failed:', err);
+          cameraInitAttempted.current = false;
+        }
+      }
+    };
+    initCamera();
+  }, [match?.status, isCameraOn, toggleCamera]);
   
   // Cleanup camera on unmount
   useEffect(() => {
@@ -288,7 +489,7 @@ export default function ATCMatchPage() {
       .eq('id', matchId);
   };
   
-  // Handle camera refresh
+  // Handle camera refresh - EXACTLY like 501/301 matches
   const handleRefreshCamera = async () => {
     setIsRefreshingCamera(true);
     try {
@@ -298,6 +499,19 @@ export default function ATCMatchPage() {
       toast.error('Failed to refresh camera');
     } finally {
       setIsRefreshingCamera(false);
+    }
+  };
+  
+  // Handle connection refresh - EXACTLY like 501/301 matches
+  const handleRefreshConnection = async () => {
+    setIsRefreshingConnection(true);
+    try {
+      await refreshConnection();
+      toast.success('Connection refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh connection');
+    } finally {
+      setIsRefreshingConnection(false);
     }
   };
   
@@ -690,7 +904,7 @@ export default function ATCMatchPage() {
     );
   }
   
-  // In Progress - PREMIUM DASHBOARD STYLE
+  // In Progress - NEW ENGAGING LAYOUT
   const currentPlayer = getCurrentPlayer();
   const target = currentPlayer?.current_target;
   const mode = match.atc_settings.mode;
@@ -722,15 +936,25 @@ export default function ATCMatchPage() {
           </div>
           
           <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleRefreshCamera}
-              disabled={isRefreshingCamera}
-              className="text-slate-400 hover:text-emerald-400 h-8 w-8 p-0"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshingCamera ? 'animate-spin' : ''}`} />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRefreshCamera}
+                    disabled={isRefreshingCamera}
+                    className="text-slate-400 hover:text-emerald-400 h-8 w-8 p-0"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshingCamera ? 'animate-spin' : ''}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh Camera</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <Button 
               variant="ghost" 
               size="sm" 
@@ -744,477 +968,340 @@ export default function ATCMatchPage() {
       </motion.div>
       
       {/* Main Game Area */}
-      <div className="flex-1 flex gap-2 p-2 min-h-0 overflow-hidden">
-        {/* LEFT SIDE - Camera with WebRTC */}
-        <div className="w-1/2 flex flex-col gap-2">
-          {/* Camera Container */}
-          <div className="flex-1 bg-black rounded-xl overflow-hidden relative min-h-0 shadow-2xl">
-            {isMyTurn() ? (
-              /* MY TURN: Show MY local camera */
-              <>
-                {isCameraOn && localStream ? (
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                    <div className="text-center">
-                      <CameraOff className="w-12 h-12 text-slate-600 mx-auto mb-2" />
-                      <p className="text-slate-500 text-sm mb-3">Your camera is off</p>
-                      <Button onClick={toggleCamera} className="bg-emerald-500 hover:bg-emerald-600 text-sm">
-                        <Camera className="w-4 h-4 mr-2" />
-                        Enable Camera
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Camera refresh overlay button */}
-                {isCameraOn && (
-                  <div className="absolute top-3 right-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRefreshCamera}
-                      disabled={isRefreshingCamera}
-                      className="bg-black/50 hover:bg-black/70 text-white text-xs h-8 px-2"
-                    >
-                      <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshingCamera ? 'animate-spin' : ''}`} />
-                      {isRefreshingCamera ? 'Refreshing...' : 'Refresh'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : (
-              /* OPPONENT'S TURN: Show THEIR remote camera */
-              <>
-                {remoteStream ? (
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                    <div className="text-center">
-                      <Loader2 className="w-12 h-12 text-slate-600 mx-auto mb-2 animate-spin" />
-                      <p className="text-slate-500 text-sm">
-                        {callStatus === 'connecting' 
-                          ? "Connecting to opponent's camera..." 
-                          : callStatus === 'failed'
-                          ? "Connection failed. Waiting for opponent..."
-                          : "Waiting for opponent's camera..."}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* My camera preview (small) when opponent's turn */}
-                {isCameraOn && (
-                  <div className="absolute top-3 right-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRefreshCamera}
-                      disabled={isRefreshingCamera}
-                      className="bg-black/50 hover:bg-black/70 text-white text-xs h-8 px-2"
-                    >
-                      <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshingCamera ? 'animate-spin' : ''}`} />
-                      Refresh My Cam
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Warning if my camera is off during opponent's turn */}
-                {!isCameraOn && (
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <div className="bg-amber-500/20 border border-amber-500/50 rounded-lg p-2 flex items-center justify-between">
-                      <span className="text-amber-400 text-xs">
-                        ⚠️ Enable your camera for your turn
-                      </span>
-                      <Button 
-                        size="sm" 
-                        onClick={toggleCamera}
-                        className="h-6 text-xs bg-amber-500 hover:bg-amber-600"
-                      >
-                        <Camera className="w-3 h-3 mr-1" />
-                        Enable
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            
-            {/* Turn Indicator Overlay */}
-            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-lg">
-              <span className="text-white font-bold text-sm">
-                {isMyTurn() ? '🎯 Your Turn' : `👀 ${currentPlayer?.username}'s Turn`}
+      <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
+        {/* LEFT: Camera - EXACTLY like 501/301 matches */}
+        <div className="flex flex-col">
+          <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn() ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
+            <div className={`flex items-center justify-between p-3 border-b border-white/5 ${isMyTurn() ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
+              <span className={`text-sm font-bold ${isMyTurn() ? 'text-emerald-400' : 'text-blue-400'}`}>
+                {isMyTurn() ? `🎯 ${currentPlayer?.username}'S TURN (You)` : `🎯 ${currentPlayer?.username}'S TURN`}
               </span>
-            </div>
-          </div>
-          
-          {/* Target Display - Premium Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 rounded-xl p-3 text-center border border-blue-500/30 backdrop-blur-sm relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse" />
-            <div className="relative z-10">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Crosshair className="h-4 w-4 text-blue-400" />
-                <span className="text-blue-300 text-xs font-medium uppercase tracking-wider">
-                  {isMyTurn() ? 'Your Target' : `${currentPlayer?.username}'s Target`}
-                </span>
+              <div className="flex gap-2">
+                {isMyTurn() ? (
+                  <>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
+                      {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                    </Button>
+                    {isCameraOn && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                              onClick={handleRefreshCamera}
+                              disabled={isRefreshingCamera}
+                            >
+                              {isRefreshingCamera ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <p>Refresh camera if opponent can't see you</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
+                      <Wifi className="w-3 h-3" /> Live
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {callStatus === 'connected' ? (
+                      <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
+                        <Wifi className="w-3 h-3" /> Connected
+                      </span>
+                    ) : callStatus === 'connecting' ? (
+                      <span className="text-xs text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Connecting...
+                      </span>
+                    ) : callStatus === 'failed' ? (
+                      <span className="text-xs text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-1 rounded">
+                        <WifiOff className="w-3 h-3" /> Failed
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">Not connected</span>
+                    )}
+                  </>
+                )}
               </div>
-              <AnimatePresence mode="wait">
-                <motion.p 
-                  key={getCurrentTarget()}
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="text-5xl font-black text-white drop-shadow-lg"
-                >
-                  {getCurrentTarget()}
-                </motion.p>
-              </AnimatePresence>
             </div>
-          </motion.div>
+            
+            <div className="flex-1 relative bg-slate-900">
+              {/* MY TURN: Show MY local camera */}
+              {isMyTurn() ? (
+                localStream ? (
+                  <div className="relative w-full h-full">
+                    <video 
+                      ref={setLocalVideoRef}
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-4 right-4">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm"
+                              variant="secondary"
+                              className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                              onClick={handleRefreshCamera}
+                              disabled={isRefreshingCamera}
+                            >
+                              {isRefreshingCamera ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <RotateCcw className="w-4 h-4 mr-2" />
+                                  Refresh
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left">
+                            <p>Restart camera if opponent can't see you</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                    <CameraOff className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium mb-2">Your camera is off</span>
+                    <span className="text-sm text-slate-500 mb-4 text-center">
+                      It's your turn! Enable your camera so your opponent can see you.
+                    </span>
+                    <Button 
+                      onClick={toggleCamera}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      Enable Camera
+                    </Button>
+                  </div>
+                )
+              ) : (
+                /* OPPONENT'S TURN: Show THEIR remote camera */
+                remoteStream ? (
+                  <video 
+                    ref={setRemoteVideoRef}
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                    <UserPlus className="w-16 h-16 mb-4 opacity-50" />
+                    <span className="text-lg font-medium mb-2">
+                      {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${opponent?.username}...`}
+                    </span>
+                    <span className="text-sm text-slate-500 text-center mb-4">
+                      {callStatus === 'failed' 
+                        ? 'Video connection failed. This may be due to firewall or network restrictions.'
+                        : "It's their turn. Their camera will appear when they enable it."
+                      }
+                    </span>
+                    {callStatus === 'failed' && (
+                      <Button 
+                        onClick={forceTurnAndRestart}
+                        variant="outline"
+                        className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 mb-2"
+                      >
+                        <Loader2 className="w-4 h-4 mr-2" />
+                        Retry with TURN Relay
+                      </Button>
+                    )}
+                    {isCameraOn && (
+                      <Button 
+                        onClick={handleRefreshCamera}
+                        variant="outline"
+                        size="sm"
+                        className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 mt-2"
+                        disabled={isRefreshingCamera}
+                      >
+                        {isRefreshingCamera ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                        )}
+                        Refresh My Camera
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={handleRefreshConnection}
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10 mt-2"
+                      disabled={isRefreshingConnection}
+                    >
+                      {isRefreshingConnection ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Wifi className="w-4 h-4 mr-2" />
+                      )}
+                      Reconnect to Opponent
+                    </Button>
+                    {!isCameraOn && callStatus !== 'failed' && (
+                      <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <span className="text-sm text-amber-400">
+                          ⚠️ You should also enable your camera for your turn
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </Card>
         </div>
         
-        {/* RIGHT SIDE - PREMIUM DASHBOARD STYLE */}
-        <div className="w-1/2 flex flex-col gap-2 min-h-0 overflow-hidden">
-          {isMyTurn() ? (
-            /* USER'S TURN - PREMIUM LAYOUT */
-            <>
-              {/* Player Progress Cards */}
-              <div className="flex flex-col gap-2">
-                {match.players?.map((player, idx) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                  >
-                    <Card className={`p-3 ${
-                      player.id === currentUser 
-                        ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/10 border-emerald-500/30' 
-                        : 'bg-slate-800/50 border-slate-700/50'
-                    } backdrop-blur-sm`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${
-                            player.id === currentUser 
-                              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' 
-                              : 'bg-gradient-to-br from-slate-500 to-slate-600'
-                          }`}>
-                            {player.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className={`font-bold text-sm ${
-                              player.id === currentUser ? 'text-emerald-300' : 'text-slate-300'
-                            }`}>
-                              {player.username}
-                              {player.id === currentUser && (
-                                <span className="ml-2 text-[10px] bg-emerald-500/30 text-emerald-400 px-1.5 py-0.5 rounded">You</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={`text-sm font-black px-2 py-0.5 ${
-                            player.id === currentUser 
-                              ? 'bg-purple-500 text-white' 
-                              : 'bg-slate-600 text-slate-200'
-                          }`}>
-                            {getPlayerTarget(player)}
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      {/* Progress Bar */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400">Progress</span>
-                          <span className={player.id === currentUser ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
-                            {player.completed_targets?.length || 0}/21
-                          </span>
-                        </div>
-                        <Progress 
-                          value={getPlayerProgress(player)} 
-                          className="h-2 bg-slate-700"
-                        />
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-              
-              {/* Stats Grid */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="grid grid-cols-3 gap-2"
-              >
-                <Card className="bg-slate-800/50 border-slate-700/50 p-2 text-center backdrop-blur-sm">
-                  <Zap className="h-4 w-4 text-yellow-400 mx-auto mb-1" />
-                  <p className="text-lg font-black text-white">{dartCount}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Darts</p>
-                </Card>
-                <Card className="bg-slate-800/50 border-slate-700/50 p-2 text-center backdrop-blur-sm">
-                  <Target className="h-4 w-4 text-blue-400 mx-auto mb-1" />
-                  <p className="text-lg font-black text-white">{currentPlayer?.total_darts_thrown || 0}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Total</p>
-                </Card>
-                <Card className="bg-slate-800/50 border-slate-700/50 p-2 text-center backdrop-blur-sm">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
-                  <p className="text-lg font-black text-white">{currentPlayer?.completed_targets?.length || 0}</p>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">Done</p>
-                </Card>
-              </motion.div>
-              
-              {/* Current Visit Display */}
-              <AnimatePresence>
-                {dartCount > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                  >
-                    <Card className="bg-slate-800/50 border-slate-700/50 p-2 backdrop-blur-sm">
-                      <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">Current Visit</p>
-                      <div className="flex gap-2">
-                        {[currentVisit.dart1, currentVisit.dart2, currentVisit.dart3].map((dart, i) => (
-                          <motion.div 
-                            key={i}
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className={`flex-1 py-2 rounded-lg font-bold text-center text-sm ${
-                              dart?.segment === 'D' ? 'bg-red-500/80 text-white' :
-                              dart?.segment === 'T' ? 'bg-amber-500/80 text-white' :
-                              dart?.segment === 'DB' ? 'bg-red-600/80 text-white' :
-                              dart?.segment === 'SB' ? 'bg-emerald-500/80 text-white' :
-                              dart?.segment === 'MISS' ? 'bg-slate-600/80 text-white' :
-                              dart ? 'bg-blue-500/80 text-white' :
-                              'bg-slate-700/30 text-slate-600'
-                            }`}
-                          >
-                            {dart?.label || '-'}
-                          </motion.div>
-                        ))}
-                      </div>
-                    </Card>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
-              {/* Scoring Buttons - Premium Style */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="flex-1 min-h-0"
-              >
-                <Card className="bg-slate-800/50 border-slate-700/50 p-3 h-full backdrop-blur-sm flex flex-col">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <Crosshair className="h-4 w-4 text-blue-400" />
-                    Enter Your Throw
-                  </p>
-                  
-                  {target === 'bull' ? (
-                    /* Bull Mode */
-                    <div className="flex-1 flex flex-col gap-2">
-                      <div className="flex-1 flex gap-2">
-                        {(mode === 'singles' || mode === 'increase') && (
-                          <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
-                            <Button
-                              onClick={() => handleDartThrow('SB')}
-                              className="h-full w-full text-xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
-                            >
-                              Single Bull
-                            </Button>
-                          </motion.div>
-                        )}
-                        {(mode === 'doubles' || mode === 'increase') && (
-                          <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
-                            <Button
-                              onClick={() => handleDartThrow('DB')}
-                              className="h-full w-full text-xl font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25 border-2 border-red-400/50"
-                            >
-                              Double Bull
-                            </Button>
-                          </motion.div>
-                        )}
-                      </div>
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
-                        <Button
-                          onClick={() => handleDartThrow('MISS')}
-                          className="h-14 w-full text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
-                        >
-                          Miss
-                        </Button>
-                      </motion.div>
-                    </div>
-                  ) : isIncreaseMode ? (
-                    /* Increase Mode - 2x2 Grid */
-                    <div className="flex-1 grid grid-cols-2 gap-2">
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
-                        <Button
-                          onClick={() => handleDartThrow('S', target as number)}
-                          className="h-full w-full text-3xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25 border-2 border-cyan-400/50"
-                        >
-                          S{target}
-                        </Button>
-                      </motion.div>
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
-                        <Button
-                          onClick={() => handleDartThrow('D', target as number)}
-                          className="h-full w-full text-3xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 border-2 border-emerald-400/50"
-                        >
-                          D{target}
-                        </Button>
-                      </motion.div>
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
-                        <Button
-                          onClick={() => handleDartThrow('T', target as number)}
-                          className="h-full w-full text-3xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25 border-2 border-amber-400/50"
-                        >
-                          T{target}
-                        </Button>
-                      </motion.div>
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
-                        <Button
-                          onClick={() => handleDartThrow('MISS')}
-                          className="h-full w-full text-2xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
-                        >
-                          Miss
-                        </Button>
-                      </motion.div>
-                    </div>
-                  ) : (
-                    /* Singles/Doubles/Trebles */
-                    <div className="flex-1 flex flex-col gap-2">
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
-                        <Button
-                          onClick={() => handleDartThrow(
-                            mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', 
-                            target as number
-                          )}
-                          className={`h-full w-full text-5xl font-black shadow-lg border-2 ${
-                            mode === 'singles' 
-                              ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 shadow-cyan-500/25 border-cyan-400/50' :
-                            mode === 'doubles' 
-                              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-emerald-500/25 border-emerald-400/50' :
-                              'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 shadow-amber-500/25 border-amber-400/50'
-                          }`}
-                        >
-                          {mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T'}{target}
-                        </Button>
-                      </motion.div>
-                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
-                        <Button
-                          onClick={() => handleDartThrow('MISS')}
-                          className="h-14 w-full text-xl font-bold bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white border-2 border-slate-500/50"
-                        >
-                          Miss
-                        </Button>
-                      </motion.div>
-                    </div>
-                  )}
-                </Card>
-              </motion.div>
-            </>
-          ) : (
-            /* OPPONENT'S TURN - PREMIUM VIEW */
-            <div className="flex flex-col gap-2 h-full">
-              {/* Waiting Card */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/5 border-emerald-500/30 p-4 backdrop-blur-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-                    </div>
-                    <div>
-                      <p className="text-white font-bold">Waiting for {currentPlayer?.username}</p>
-                      <p className="text-emerald-400 text-sm">Their turn to throw...</p>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-              
-              {/* Player Stats */}
-              <div className="flex-1 overflow-auto space-y-2">
-                {match.players.map((player, idx) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                  >
-                    <Card className={`p-3 ${
-                      player.id === currentPlayer?.id 
-                        ? 'bg-emerald-500/10 border-emerald-500/30' 
-                        : 'bg-slate-800/50 border-slate-700/50'
-                    } backdrop-blur-sm`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            player.id === currentPlayer?.id 
-                              ? 'bg-emerald-500/20' 
-                              : 'bg-slate-700'
-                          }`}>
-                            {player.id === currentPlayer?.id ? (
-                              <Activity className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                              <span className="text-slate-400 font-bold text-sm">
-                                {player.username.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-white font-bold text-sm">{player.username}</p>
-                            {player.id === currentUser && (
-                              <span className="text-[10px] text-blue-400">You</span>
-                            )}
-                          </div>
-                        </div>
-                        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                          {getPlayerTarget(player)}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-slate-900/50 rounded p-1.5">
-                          <p className="text-lg font-bold text-white">{player.completed_targets?.length || 0}</p>
-                          <p className="text-[10px] text-slate-400">Done</p>
-                        </div>
-                        <div className="bg-slate-900/50 rounded p-1.5">
-                          <p className="text-lg font-bold text-emerald-400">{player.total_darts_thrown || 0}</p>
-                          <p className="text-[10px] text-slate-400">Darts</p>
-                        </div>
-                        <div className="bg-slate-900/50 rounded p-1.5">
-                          <p className="text-lg font-bold text-blue-400">
-                            {Math.round(((player.completed_targets?.length || 0) / 21) * 100)}%
-                          </p>
-                          <p className="text-[10px] text-slate-400">Progress</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+        {/* RIGHT: Player Tiles + Scoring */}
+        <div className="flex flex-col gap-4 overflow-hidden">
+          {/* Player Tiles - NEW ENGAGING DESIGN */}
+          <div className="grid grid-cols-2 gap-4">
+            {match.players.map((player, idx) => (
+              <PlayerTile
+                key={player.id}
+                player={player}
+                isCurrentPlayer={player.id === currentPlayer?.id}
+                isCurrentUser={player.id === currentUser}
+                progress={getPlayerProgress(player)}
+              />
+            ))}
+          </div>
+          
+          {/* Current Visit Display - Shows darts as entered */}
+          {isMyTurn() && (
+            <CurrentVisitDisplay visit={currentVisit} dartCount={dartCount} />
           )}
+          
+          {/* Scoring Panel */}
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
+            {isMyTurn() ? (
+              <div className="h-full flex flex-col">
+                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Crosshair className="h-4 w-4 text-emerald-400" />
+                  Enter Your Throw
+                </h4>
+                
+                {target === 'bull' ? (
+                  /* Bull Mode */
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex-1 flex gap-2">
+                      {(mode === 'singles' || mode === 'increase') && (
+                        <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
+                          <Button
+                            onClick={() => handleDartThrow('SB')}
+                            className="h-full w-full text-lg font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                          >
+                            Single Bull
+                          </Button>
+                        </motion.div>
+                      )}
+                      {(mode === 'doubles' || mode === 'increase') && (
+                        <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
+                          <Button
+                            onClick={() => handleDartThrow('DB')}
+                            className="h-full w-full text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25"
+                          >
+                            Double Bull
+                          </Button>
+                        </motion.div>
+                      )}
+                    </div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                      <Button
+                        onClick={() => handleDartThrow('MISS')}
+                        className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        Miss
+                      </Button>
+                    </motion.div>
+                  </div>
+                ) : isIncreaseMode ? (
+                  /* Increase Mode - 2x2 Grid */
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+                      <Button
+                        onClick={() => handleDartThrow('S', target as number)}
+                        className="h-full w-full text-2xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25"
+                      >
+                        S{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
+                      <Button
+                        onClick={() => handleDartThrow('D', target as number)}
+                        className="h-full w-full text-2xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                      >
+                        D{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                      <Button
+                        onClick={() => handleDartThrow('T', target as number)}
+                        className="h-full w-full text-2xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25"
+                      >
+                        T{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
+                      <Button
+                        onClick={() => handleDartThrow('MISS')}
+                        className="h-full w-full text-xl font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        Miss
+                      </Button>
+                    </motion.div>
+                  </div>
+                ) : (
+                  /* Singles/Doubles/Trebles */
+                  <div className="flex-1 flex flex-col gap-2">
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
+                      <Button
+                        onClick={() => handleDartThrow(
+                          mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', 
+                          target as number
+                        )}
+                        className={`h-full w-full text-4xl font-black shadow-lg ${
+                          mode === 'singles' 
+                            ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 shadow-cyan-500/25' :
+                          mode === 'doubles' 
+                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-emerald-500/25' :
+                            'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 shadow-amber-500/25'
+                        }`}
+                      >
+                        {mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T'}{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                      <Button
+                        onClick={() => handleDartThrow('MISS')}
+                        className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        Miss
+                      </Button>
+                    </motion.div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Waiting for opponent */
+              <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                <Loader2 className="w-12 h-12 animate-spin mb-4 text-emerald-400" />
+                <p className="text-lg font-medium">Waiting for {currentPlayer?.username}</p>
+                <p className="text-sm">Their turn to throw...</p>
+              </div>
+            )}
+          </Card>
         </div>
       </div>
       
