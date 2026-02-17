@@ -223,11 +223,15 @@ function CurrentRankCard({
               <div className={`absolute inset-0 ${colors.bg}/40 rounded-3xl blur-xl`} />
               <div className={`absolute -inset-3 ${colors.bg}/30 rounded-[2rem] blur-lg`} />
               
-              {/* Main badge container */}
-              <div className={`relative w-56 h-56 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50`}>
+              {/* Main badge container - bigger for platinum, champion, grand champion */}
+              <div className={`relative ${
+                tierKey === 'platinum' || tierKey === 'champion' || tierKey === 'grandchampion'
+                  ? 'w-64 h-64'
+                  : 'w-56 h-56'
+              } rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50`}>
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/20 to-transparent" />
                 <div className="relative">
-                  {getTierIcon(playerState.division_name, 200)}
+                  {getTierIcon(playerState.division_name, tierKey === 'platinum' || tierKey === 'champion' || tierKey === 'grandchampion' ? 230 : 200)}
                 </div>
               </div>
               
@@ -597,9 +601,13 @@ function TierNavigator({
                     )}
                     
                     <div className="relative">
-                      {/* Icon container */}
-                      <div className={`w-36 h-36 rounded-2xl flex items-center justify-center mb-4 ${isCurrent ? 'bg-white/25 shadow-lg' : isGrandChampion ? 'bg-gradient-to-br from-amber-500/40 to-purple-500/40 shadow-lg shadow-purple-500/20' : 'bg-slate-800/80 border border-slate-700'} transition-transform group-hover:scale-110`}>
-                        {getTierIcon(tier.tier_name, 130)}
+                      {/* Icon container - bigger for platinum, champion, grand champion */}
+                      <div className={`${
+                        tierK === 'platinum' || tierK === 'champion' || tierK === 'grandchampion'
+                          ? 'w-44 h-44' 
+                          : 'w-36 h-36'
+                      } rounded-2xl flex items-center justify-center mb-4 ${isCurrent ? 'bg-white/25 shadow-lg' : isGrandChampion ? 'bg-gradient-to-br from-amber-500/40 to-purple-500/40 shadow-lg shadow-purple-500/20' : 'bg-slate-800/80 border border-slate-700'} transition-transform group-hover:scale-110`}>
+                        {getTierIcon(tier.tier_name, tierK === 'platinum' || tierK === 'champion' || tierK === 'grandchampion' ? 160 : 130)}
                       </div>
                       
                       <p className={`text-xs uppercase tracking-[0.15em] mb-1 font-bold ${

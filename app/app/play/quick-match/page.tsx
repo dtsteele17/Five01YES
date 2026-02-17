@@ -2003,7 +2003,17 @@ export default function QuickMatchLobbyPage() {
                     <>
                       <div className="space-y-2">
                         <Label className="text-slate-300 text-sm">Target Order</Label>
-                        <Select value={atcOrder} onValueChange={(v) => setAtcOrder(v as 'sequential' | 'random')}>
+                        <Select 
+                          value={atcOrder} 
+                          onValueChange={(v) => {
+                            const newOrder = v as 'sequential' | 'random';
+                            setAtcOrder(newOrder);
+                            // Reset mode to singles if switching to random with increase mode
+                            if (newOrder === 'random' && atcMode === 'increase') {
+                              setAtcMode('singles');
+                            }
+                          }}
+                        >
                           <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
                             <SelectValue />
                           </SelectTrigger>
@@ -2024,9 +2034,16 @@ export default function QuickMatchLobbyPage() {
                             <SelectItem value="singles">Singles Only</SelectItem>
                             <SelectItem value="doubles">Doubles Only</SelectItem>
                             <SelectItem value="trebles">Trebles Only</SelectItem>
-                            <SelectItem value="increase">Increase by Segment (1,2,3...)</SelectItem>
+                            {atcOrder === 'sequential' && (
+                              <SelectItem value="increase">Increase by Segment (S=+1, D=+2, T=+3)</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
+                        {atcOrder === 'random' && (
+                          <p className="text-xs text-amber-400/80">
+                            Increase by Segment is only available with In Order
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-2">

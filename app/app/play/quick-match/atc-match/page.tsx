@@ -9,10 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Users, ArrowLeft, CheckCircle2, 
-  Camera, CameraOff, Loader2, Trophy 
+  Camera, CameraOff, Loader2, Trophy, X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // Types
 interface Player {
@@ -23,6 +29,15 @@ interface Player {
   current_target: number | 'bull';
   completed_targets: (number | 'bull')[];
   is_winner: boolean;
+  visit_history?: Visit[];
+}
+
+interface Visit {
+  dart1?: { segment: string; number?: number; label: string };
+  dart2?: { segment: string; number?: number; label: string };
+  dart3?: { segment: string; number?: number; label: string };
+  completed_target?: number | 'bull';
+  timestamp: string;
 }
 
 interface ATCMatch {
@@ -39,12 +54,6 @@ interface ATCMatch {
   current_player_index: number;
   created_by: string;
   winner_id?: string;
-}
-
-interface Visit {
-  dart1?: { segment: string; number?: number; label: string };
-  dart2?: { segment: string; number?: number; label: string };
-  dart3?: { segment: string; number?: number; label: string };
 }
 
 // Utility functions
@@ -67,6 +76,28 @@ const generateTargets = (order: 'sequential' | 'random'): (number | 'bull')[] =>
   return targets;
 };
 
+// Calculate next target based on hit type (for increase mode)
+const calculateNextTarget = (
+  currentTarget: number | 'bull',
+  segment: string,
+  allTargets: (number | 'bull')[]
+): number | 'bull' | null => {
+  if (currentTarget === 'bull') return null; // Game should end
+  
+  const currentIndex = allTargets.indexOf(currentTarget);
+  if (currentIndex === -1 || currentIndex >= allTargets.length - 1) {
+    return null; // Game complete
+  }
+  
+  // Increase by segment: S=+1, D=+2, T=+3
+  let advance = 1;
+  if (segment === 'D') advance = 2;
+  else if (segment === 'T') advance = 3;
+  
+  const nextIndex = Math.min(currentIndex + advance, allTargets.length - 1);
+  return allTargets[nextIndex];
+};
+
 export default function ATCMatchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -80,11 +111,11 @@ export default function ATCMatchPage() {
   const [showWheel, setShowWheel] = useState(false);
   const [wheelSpinning, setWheelSpinning] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [currentVisit, setCurrentVisit] = useState<Visit>({});
+  const [currentVisit, setCurrentVisit] = useState<Partial<Visit>>({});
   const [dartCount, setDartCount] = useState(0);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [showAllNumbers, setShowAllNumbers] = useState(false);
+  const [showGameEndPopup, setShowGameEndPopup] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   
   // Load match data
@@ -107,6 +138,10 @@ export default function ATCMatchPage() {
         setMatch(matchData as ATCMatch);
         const currentPlayer = matchData.players?.find((p: Player) => p.id === user.id);
         setIsReady(currentPlayer?.is_ready || false);
+        
+        if (matchData.status === 'completed') {
+          setShowGameEndPopup(true);
+        }
       }
       
       setLoading(false);
@@ -138,6 +173,10 @@ export default function ATCMatchPage() {
             spinWheel(updatedMatch.players);
           }
           
+          if (updatedMatch.status === 'completed' && !showGameEndPopup) {
+            setShowGameEndPopup(true);
+          }
+          
           const currentPlayer = updatedMatch.players?.find((p: Player) => p.id === currentUser);
           setIsReady(currentPlayer?.is_ready || false);
         }
@@ -149,7 +188,7 @@ export default function ATCMatchPage() {
     };
   }, [matchId, currentUser]);
   
-  // Camera - only show when it's your turn
+  // Camera - always show for both players
   const toggleCamera = async () => {
     if (cameraEnabled) {
       cameraStream?.getTracks().forEach(track => track.stop());
@@ -169,14 +208,12 @@ export default function ATCMatchPage() {
     }
   };
   
-  // Auto-enable camera when it's your turn, disable when not
+  // Auto-enable camera when game starts
   useEffect(() => {
-    if (isMyTurn() && !cameraEnabled) {
-      toggleCamera();
-    } else if (!isMyTurn() && cameraEnabled) {
+    if (match?.status === 'in_progress' && !cameraEnabled) {
       toggleCamera();
     }
-  }, [match?.current_player_index]);
+  }, [match?.status]);
   
   useEffect(() => {
     return () => {
@@ -228,17 +265,24 @@ export default function ATCMatchPage() {
   const startGame = async (startingPlayerId: string) => {
     const startingIndex = match?.players.findIndex(p => p.id === startingPlayerId) || 0;
     
+    // Initialize visit history for each player
+    const playersWithHistory = match?.players.map(p => ({
+      ...p,
+      visit_history: []
+    }));
+    
     await supabase
       .from('atc_matches')
       .update({ 
         status: 'in_progress',
-        current_player_index: startingIndex 
+        current_player_index: startingIndex,
+        players: playersWithHistory
       })
       .eq('id', matchId);
   };
   
   // Handle dart throw
-  const handleDartThrow = (segment: string, number?: number) => {
+  const handleDartThrow = async (segment: string, number?: number) => {
     if (!match || !isMyTurn()) return;
     
     const label = segment === 'MISS' ? 'Miss' : 
@@ -247,19 +291,140 @@ export default function ATCMatchPage() {
                   `${segment}${number}`;
     
     const dart = { segment, number, label };
+    const currentPlayer = match.players[match.current_player_index];
+    const target = currentPlayer.current_target;
+    const mode = match.atc_settings.mode;
     
+    // Update current visit UI
     setCurrentVisit(prev => {
-      const newVisit = { ...prev };
+      const newVisit: Partial<Visit> = { ...prev, timestamp: new Date().toISOString() };
       if (!prev.dart1) newVisit.dart1 = dart;
       else if (!prev.dart2) newVisit.dart2 = dart;
       else newVisit.dart3 = dart;
       return newVisit;
     });
     
-    setDartCount(prev => prev + 1);
+    const newDartCount = dartCount + 1;
+    setDartCount(newDartCount);
     
-    if (dartCount >= 2) {
-      setTimeout(() => endTurn(), 500);
+    // Check if hit target
+    let hit = false;
+    if (target === 'bull') {
+      if (mode === 'singles' && segment === 'SB') hit = true;
+      else if (mode === 'doubles' && segment === 'DB') hit = true;
+      else if (mode === 'increase' && (segment === 'SB' || segment === 'DB')) hit = true;
+    } else {
+      if (mode === 'singles' && segment === 'S' && number === target) hit = true;
+      else if (mode === 'doubles' && segment === 'D' && number === target) hit = true;
+      else if (mode === 'trebles' && segment === 'T' && number === target) hit = true;
+      else if (mode === 'increase' && number === target) hit = true;
+    }
+    
+    const allTargets = generateTargets(match.atc_settings.order);
+    const updatedPlayers = [...match.players];
+    
+    if (hit) {
+      // Update completed targets
+      updatedPlayers[match.current_player_index].completed_targets.push(target);
+      
+      // Calculate next target
+      let nextTarget: number | 'bull' | null;
+      
+      if (mode === 'increase' && match.atc_settings.order === 'sequential') {
+        // Increase by segment mode
+        nextTarget = calculateNextTarget(target, segment, allTargets);
+      } else {
+        // Normal mode - advance by 1
+        const currentIndex = allTargets.indexOf(target);
+        nextTarget = currentIndex < allTargets.length - 1 ? allTargets[currentIndex + 1] : null;
+      }
+      
+      if (nextTarget === null) {
+        // Player wins!
+        updatedPlayers[match.current_player_index].is_winner = true;
+        updatedPlayers[match.current_player_index].current_target = target; // Keep last target
+        
+        // Add visit to history
+        const completedVisit: Visit = {
+          ...currentVisit,
+          dart1: !currentVisit.dart1 ? dart : currentVisit.dart1,
+          dart2: currentVisit.dart1 && !currentVisit.dart2 ? dart : currentVisit.dart2,
+          dart3: currentVisit.dart1 && currentVisit.dart2 ? dart : currentVisit.dart3,
+          completed_target: target,
+          timestamp: new Date().toISOString()
+        };
+        
+        if (!updatedPlayers[match.current_player_index].visit_history) {
+          updatedPlayers[match.current_player_index].visit_history = [];
+        }
+        updatedPlayers[match.current_player_index].visit_history!.push(completedVisit);
+        
+        await supabase
+          .from('atc_matches')
+          .update({ 
+            status: 'completed',
+            winner_id: currentPlayer.id,
+            players: updatedPlayers
+          })
+          .eq('id', matchId);
+        
+        toast.success(`${currentPlayer.username} wins!`);
+        setShowGameEndPopup(true);
+        return;
+      } else {
+        // Update to next target
+        updatedPlayers[match.current_player_index].current_target = nextTarget;
+        
+        // Add visit to history
+        const completedVisit: Visit = {
+          ...currentVisit,
+          dart1: !currentVisit.dart1 ? dart : currentVisit.dart1,
+          dart2: currentVisit.dart1 && !currentVisit.dart2 ? dart : currentVisit.dart2,
+          dart3: currentVisit.dart1 && currentVisit.dart2 ? dart : currentVisit.dart3,
+          completed_target: target,
+          timestamp: new Date().toISOString()
+        };
+        
+        if (!updatedPlayers[match.current_player_index].visit_history) {
+          updatedPlayers[match.current_player_index].visit_history = [];
+        }
+        updatedPlayers[match.current_player_index].visit_history!.push(completedVisit);
+        
+        // Reset current visit for next dart
+        setCurrentVisit({});
+        setDartCount(0);
+        
+        // Update match immediately so other player sees progress
+        await supabase
+          .from('atc_matches')
+          .update({ players: updatedPlayers })
+          .eq('id', matchId);
+        
+        // If this was the third dart, end turn
+        if (newDartCount >= 3) {
+          await endTurn(updatedPlayers);
+        }
+        return;
+      }
+    }
+    
+    // If missed and 3 darts thrown, end turn
+    if (newDartCount >= 3) {
+      // Add visit to history (missed)
+      const completedVisit: Visit = {
+        ...currentVisit,
+        dart1: !currentVisit.dart1 ? dart : currentVisit.dart1,
+        dart2: currentVisit.dart1 && !currentVisit.dart2 ? dart : currentVisit.dart2,
+        dart3: currentVisit.dart1 && currentVisit.dart2 ? dart : currentVisit.dart3,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (!updatedPlayers[match.current_player_index].visit_history) {
+        updatedPlayers[match.current_player_index].visit_history = [];
+      }
+      updatedPlayers[match.current_player_index].visit_history!.push(completedVisit);
+      
+      await endTurn(updatedPlayers);
     }
   };
   
@@ -270,58 +435,23 @@ export default function ATCMatchPage() {
     return currentPlayer?.id === currentUser && match.status === 'in_progress';
   };
   
+  // Get current player
+  const getCurrentPlayer = () => {
+    if (!match) return null;
+    return match.players[match.current_player_index];
+  };
+  
   // End turn
-  const endTurn = async () => {
+  const endTurn = async (updatedPlayers?: Player[]) => {
     if (!match) return;
     
-    const currentPlayer = match.players[match.current_player_index];
-    const target = currentPlayer.current_target;
-    
-    let hit = false;
-    [currentVisit.dart1, currentVisit.dart2, currentVisit.dart3].forEach(dart => {
-      if (!dart) return;
-      
-      if (target === 'bull') {
-        if (match.atc_settings.mode === 'singles' && dart.segment === 'SB') hit = true;
-        else if (match.atc_settings.mode === 'doubles' && dart.segment === 'DB') hit = true;
-        else if (match.atc_settings.mode === 'increase' && (dart.segment === 'SB' || dart.segment === 'DB')) hit = true;
-      } else {
-        if (match.atc_settings.mode === 'singles' && dart.segment === 'S' && dart.number === target) hit = true;
-        else if (match.atc_settings.mode === 'doubles' && dart.segment === 'D' && dart.number === target) hit = true;
-        else if (match.atc_settings.mode === 'trebles' && dart.segment === 'T' && dart.number === target) hit = true;
-        else if (match.atc_settings.mode === 'increase' && dart.number === target) hit = true;
-      }
-    });
-    
-    const updatedPlayers = [...match.players];
-    if (hit) {
-      updatedPlayers[match.current_player_index].completed_targets.push(target);
-      const allTargets = generateTargets(match.atc_settings.order);
-      const nextTargetIndex = updatedPlayers[match.current_player_index].completed_targets.length;
-      
-      if (nextTargetIndex >= allTargets.length) {
-        updatedPlayers[match.current_player_index].is_winner = true;
-        await supabase
-          .from('atc_matches')
-          .update({ 
-            status: 'completed',
-            winner_id: currentPlayer.id,
-            players: updatedPlayers
-          })
-          .eq('id', matchId);
-        toast.success(`${currentPlayer.username} wins!`);
-        return;
-      } else {
-        updatedPlayers[match.current_player_index].current_target = allTargets[nextTargetIndex];
-      }
-    }
-    
-    const nextIndex = (match.current_player_index + 1) % updatedPlayers.length;
+    const players = updatedPlayers || [...match.players];
+    const nextIndex = (match.current_player_index + 1) % players.length;
     
     await supabase
       .from('atc_matches')
       .update({ 
-        players: updatedPlayers,
+        players: players,
         current_player_index: nextIndex 
       })
       .eq('id', matchId);
@@ -336,17 +466,34 @@ export default function ATCMatchPage() {
     return getTargetLabel(currentPlayer?.current_target || 1);
   };
   
+  // End game and return to lobby
+  const handleEndGame = () => {
+    router.push('/app/play/quick-match');
+  };
+  
+  // Get current user's target
+  const getMyTarget = (): string => {
+    if (!match || !currentUser) return '';
+    const me = match.players.find(p => p.id === currentUser);
+    return getTargetLabel(me?.current_target || 1);
+  };
+  
+  // Get player's display target
+  const getPlayerTarget = (player: Player): string => {
+    return getTargetLabel(player.current_target || 1);
+  };
+  
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 animate-spin text-emerald-400" />
       </div>
     );
   }
   
   if (!match) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
         <Card className="p-8 bg-slate-900 border-slate-700 text-center">
           <p className="text-white text-lg">Match not found</p>
           <Link href="/app/play/quick-match">
@@ -360,8 +507,8 @@ export default function ATCMatchPage() {
   // Waiting room
   if (match.status === 'waiting') {
     return (
-      <div className="min-h-screen bg-slate-950 p-4">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="h-screen w-screen bg-slate-950 p-4 overflow-hidden flex flex-col">
+        <div className="max-w-4xl mx-auto w-full space-y-6 flex-1 flex flex-col">
           <div className="flex items-center justify-between">
             <Link href="/app/play/quick-match">
               <Button variant="ghost" className="text-slate-400 hover:text-white">
@@ -394,7 +541,7 @@ export default function ATCMatchPage() {
             </div>
           </Card>
           
-          <Card className="bg-slate-900/50 border-slate-700 p-6">
+          <Card className="bg-slate-900/50 border-slate-700 p-6 flex-1">
             <div className="flex items-center gap-3 mb-4">
               <Users className="w-6 h-6 text-emerald-400" />
               <h2 className="text-xl font-bold text-white">Players</h2>
@@ -457,7 +604,7 @@ export default function ATCMatchPage() {
   // Spinning wheel
   if (showWheel) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white mb-8">Choosing Starting Player...</h2>
           
@@ -515,14 +662,15 @@ export default function ATCMatchPage() {
   }
   
   // In Progress - NEW FULL SCREEN LAYOUT
-  const currentPlayer = match.players[match.current_player_index];
+  const currentPlayer = getCurrentPlayer();
   const target = currentPlayer?.current_target;
   const mode = match.atc_settings.mode;
+  const isIncreaseMode = mode === 'increase' && match.atc_settings.order === 'sequential';
   
   return (
     <div className="h-screen w-screen bg-slate-950 flex flex-col overflow-hidden">
-      {/* Top Bar - Player Progress */}
-      <div className="bg-slate-900/90 border-b border-slate-800 p-3 flex-shrink-0">
+      {/* Top Bar - Compact Player Progress */}
+      <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
           <Link href="/app/play/quick-match">
             <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
@@ -531,11 +679,11 @@ export default function ATCMatchPage() {
             </Button>
           </Link>
           
-          <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-4">
             {match.players?.map((player) => (
               <div 
                 key={player.id}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg whitespace-nowrap ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
                   player.id === currentPlayer?.id 
                     ? 'bg-emerald-500/20 border border-emerald-500/40' 
                     : 'bg-slate-800/50'
@@ -543,7 +691,7 @@ export default function ATCMatchPage() {
               >
                 <span className="text-white text-sm font-medium">{player.username}</span>
                 <Badge className="bg-purple-500/20 text-purple-400 text-xs">
-                  {getTargetLabel(player.current_target || 1)}
+                  {getPlayerTarget(player)}
                 </Badge>
                 <span className="text-slate-400 text-xs">({player.completed_targets?.length || 0}/21)</span>
               </div>
@@ -561,10 +709,10 @@ export default function ATCMatchPage() {
         </div>
       </div>
       
-      {/* Main Game Area - Full Screen */}
+      {/* Main Game Area - Full Screen Split */}
       <div className="flex-1 flex min-h-0">
-        {/* LEFT SIDE - Camera */}
-        <div className="w-1/3 bg-slate-900 border-r border-slate-800 p-4 flex flex-col">
+        {/* LEFT SIDE - Camera (BIG) */}
+        <div className="w-1/2 bg-slate-900 border-r border-slate-800 p-4 flex flex-col">
           <div className="flex-1 bg-slate-800 rounded-2xl overflow-hidden relative">
             {cameraEnabled ? (
               <video
@@ -577,90 +725,65 @@ export default function ATCMatchPage() {
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center">
-                  <CameraOff className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                  <CameraOff className="w-20 h-20 text-slate-600 mx-auto mb-4" />
                   <p className="text-slate-500">Camera Off</p>
-                  {isMyTurn() && (
-                    <Button onClick={toggleCamera} className="mt-4 bg-emerald-500 hover:bg-emerald-600">
-                      <Camera className="w-4 h-4 mr-2" />
-                      Enable Camera
-                    </Button>
-                  )}
+                  <Button onClick={toggleCamera} className="mt-4 bg-emerald-500 hover:bg-emerald-600">
+                    <Camera className="w-4 h-4 mr-2" />
+                    Enable Camera
+                  </Button>
                 </div>
               </div>
             )}
             
-            {/* Camera Label */}
-            <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded-full">
-              <span className="text-white text-sm">
-                {isMyTurn() ? 'Your Turn' : `${currentPlayer?.username}'s Turn`}
+            {/* Turn Indicator Overlay */}
+            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
+              <span className="text-white font-bold text-lg">
+                {isMyTurn() ? '🎯 Your Turn' : `👀 ${currentPlayer?.username}'s Turn`}
               </span>
             </div>
           </div>
           
-          {/* Target Display Below Camera */}
-          <div className="mt-4 bg-slate-800 rounded-2xl p-4 text-center">
-            <p className="text-slate-400 text-sm mb-1">Current Target</p>
-            <p className="text-5xl font-black text-white">{getCurrentTarget()}</p>
+          {/* Current Target Display */}
+          <div className="mt-4 bg-gradient-to-r from-purple-900/50 to-pink-900/50 rounded-2xl p-6 text-center border border-purple-500/30">
+            <p className="text-purple-300 text-sm mb-1 uppercase tracking-wider">
+              {isMyTurn() ? 'You need to hit' : `${currentPlayer?.username} needs to hit`}
+            </p>
+            <p className="text-7xl font-black text-white drop-shadow-lg">
+              {getCurrentTarget()}
+            </p>
           </div>
         </div>
         
-        {/* RIGHT SIDE - Scoring Area */}
-        <div className="w-2/3 bg-slate-950 p-4 flex flex-col">
-          {/* Current Visit Display */}
-          <div className="flex justify-center gap-4 mb-4">
-            {[currentVisit.dart1, currentVisit.dart2, currentVisit.dart3].map((dart, i) => (
-              <div 
-                key={i}
-                className={`w-20 h-20 rounded-xl flex items-center justify-center text-xl font-bold ${
-                  dart ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40' : 'bg-slate-800/50 text-slate-600 border-2 border-slate-700'
-                }`}
-              >
-                {dart?.label || '-'}
+        {/* RIGHT SIDE - Scoring / Waiting View */}
+        <div className="w-1/2 bg-slate-950 p-4 flex flex-col">
+          {isMyTurn() ? (
+            /* USER'S TURN - Show Scoring Buttons */
+            <div className="flex-1 flex flex-col">
+              {/* Current Visit Display */}
+              <div className="flex justify-center gap-4 mb-4">
+                {[currentVisit.dart1, currentVisit.dart2, currentVisit.dart3].map((dart, i) => (
+                  <motion.div 
+                    key={i}
+                    initial={dart ? { scale: 0.8, opacity: 0 } : {}}
+                    animate={dart ? { scale: 1, opacity: 1 } : {}}
+                    className={`w-24 h-24 rounded-xl flex items-center justify-center text-2xl font-bold ${
+                      dart ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40' : 'bg-slate-800/50 text-slate-600 border-2 border-slate-700'
+                    }`}
+                  >
+                    {dart?.label || '-'}
+                  </motion.div>
+                ))}
               </div>
-            ))}
-          </div>
-          
-          {/* Scoring Buttons - Like Training Hub */}
-          <div className="flex-1 flex flex-col">
-            {isMyTurn() ? (
-              <div className="flex-1 flex flex-col gap-2">
-                {/* Target Display for Game Mode */}
-                <div className="text-center mb-2">
-                  <Badge className="bg-purple-500/20 text-purple-400 text-lg px-4 py-2">
-                    Target: {getCurrentTarget()}
-                  </Badge>
-                </div>
-                
-                {/* Number Pad - Similar to Training Hub */}
-                {target !== 'bull' && mode !== 'increase' && (
-                  <div className="flex-1 flex items-center justify-center gap-4">
-                    <Button
-                      onClick={() => handleDartThrow(mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', target as number)}
-                      className={`h-48 w-64 text-6xl font-black ${
-                        mode === 'singles' ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500' :
-                        mode === 'doubles' ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500' :
-                        'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500'
-                      }`}
-                    >
-                      {mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T'}{target}
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleDartThrow('MISS')}
-                      className="h-48 w-48 text-3xl font-bold bg-slate-700 hover:bg-slate-600"
-                    >
-                      Miss
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Bull Mode */}
-                {target === 'bull' && (
-                  <div className="flex-1 grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+              
+              {/* BIG Scoring Buttons */}
+              <div className="flex-1 flex flex-col gap-3">
+                {target === 'bull' ? (
+                  /* Bull Mode */
+                  <div className="flex-1 grid grid-cols-2 gap-4">
                     {(mode === 'singles' || mode === 'increase') && (
                       <Button
                         onClick={() => handleDartThrow('SB')}
-                        className="h-full text-4xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500"
+                        className="h-full text-4xl font-black bg-gradient-to-br from-green-500 to-green-600 hover:from-green-400 hover:to-green-500"
                       >
                         Single Bull
                       </Button>
@@ -673,56 +796,250 @@ export default function ATCMatchPage() {
                         Double Bull
                       </Button>
                     )}
-                    <Button
-                      onClick={() => handleDartThrow('MISS')}
-                      className="h-full text-3xl font-bold bg-slate-700 hover:bg-slate-600 col-span-full"
-                    >
-                      Miss
-                    </Button>
                   </div>
-                )}
-                
-                {/* Increase Mode - Show All Options */}
-                {target !== 'bull' && mode === 'increase' && (
-                  <div className="flex-1 grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+                ) : isIncreaseMode ? (
+                  /* Increase Mode - S1, D1, T1, Miss */
+                  <div className="flex-1 grid grid-cols-2 gap-4">
                     <Button
                       onClick={() => handleDartThrow('S', target as number)}
-                      className="h-full text-3xl font-bold bg-gradient-to-br from-cyan-500 to-cyan-600"
+                      className="h-full text-5xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500"
                     >
-                      Single {target}
+                      S{target}
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('D', target as number)}
-                      className="h-full text-3xl font-bold bg-gradient-to-br from-emerald-500 to-emerald-600"
+                      className="h-full text-5xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500"
                     >
-                      Double {target}
+                      D{target}
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('T', target as number)}
-                      className="h-full text-3xl font-bold bg-gradient-to-br from-teal-500 to-teal-600"
+                      className="h-full text-5xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500"
                     >
-                      Treble {target}
+                      T{target}
                     </Button>
                     <Button
                       onClick={() => handleDartThrow('MISS')}
-                      className="h-full text-3xl font-bold bg-slate-700 hover:bg-slate-600"
+                      className="h-full text-4xl font-bold bg-slate-700 hover:bg-slate-600"
                     >
                       Miss
                     </Button>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <Loader2 className="w-16 h-16 animate-spin text-emerald-400 mx-auto mb-4" />
-                  <p className="text-slate-400 text-xl">Waiting for {currentPlayer?.username}...</p>
+                ) : mode === 'singles' ? (
+                  /* Singles Mode */
+                  <div className="flex-1 flex items-center justify-center gap-6">
+                    <Button
+                      onClick={() => handleDartThrow('S', target as number)}
+                      className="h-64 w-80 text-7xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 shadow-xl shadow-cyan-500/20"
+                    >
+                      S{target}
+                    </Button>
+                    <Button
+                      onClick={() => handleDartThrow('MISS')}
+                      className="h-64 w-56 text-4xl font-bold bg-slate-700 hover:bg-slate-600"
+                    >
+                      Miss
+                    </Button>
+                  </div>
+                ) : mode === 'doubles' ? (
+                  /* Doubles Mode */
+                  <div className="flex-1 flex items-center justify-center gap-6">
+                    <Button
+                      onClick={() => handleDartThrow('D', target as number)}
+                      className="h-64 w-80 text-7xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-xl shadow-emerald-500/20"
+                    >
+                      D{target}
+                    </Button>
+                    <Button
+                      onClick={() => handleDartThrow('MISS')}
+                      className="h-64 w-56 text-4xl font-bold bg-slate-700 hover:bg-slate-600"
+                    >
+                      Miss
+                    </Button>
+                  </div>
+                ) : mode === 'trebles' ? (
+                  /* Trebles Mode */
+                  <div className="flex-1 flex items-center justify-center gap-6">
+                    <Button
+                      onClick={() => handleDartThrow('T', target as number)}
+                      className="h-64 w-80 text-7xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 shadow-xl shadow-amber-500/20"
+                    >
+                      T{target}
+                    </Button>
+                    <Button
+                      onClick={() => handleDartThrow('MISS')}
+                      className="h-64 w-56 text-4xl font-bold bg-slate-700 hover:bg-slate-600"
+                    >
+                      Miss
+                    </Button>
+                  </div>
+                ) : null}
+                
+                {/* Progress Info */}
+                <div className="bg-slate-900/50 rounded-xl p-4 text-center">
+                  <p className="text-slate-400 text-sm">
+                    Completed: {currentPlayer?.completed_targets?.length || 0} / 21
+                  </p>
+                  <div className="w-full h-2 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                      style={{ width: `${((currentPlayer?.completed_targets?.length || 0) / 21) * 100}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* OPPONENT'S TURN - Show Visit History & Status */
+            <div className="flex-1 flex flex-col">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+                Waiting for {currentPlayer?.username}...
+              </h3>
+              
+              {/* All Players Status */}
+              <div className="space-y-3 mb-4">
+                {match.players.map((player) => (
+                  <div 
+                    key={player.id}
+                    className={`p-4 rounded-xl ${
+                      player.id === currentPlayer?.id 
+                        ? 'bg-emerald-500/10 border border-emerald-500/30' 
+                        : 'bg-slate-900/50 border border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          player.id === currentPlayer?.id ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'
+                        }`} />
+                        <span className="text-white font-medium">{player.username}</span>
+                        {player.id === currentUser && (
+                          <Badge className="bg-blue-500/20 text-blue-400 text-xs">You</Badge>
+                        )}
+                      </div>
+                      <Badge className="bg-purple-500/20 text-purple-400">
+                        Aiming: {getPlayerTarget(player)}
+                      </Badge>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                          style={{ width: `${((player.completed_targets?.length || 0) / 21) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-slate-400 text-sm">
+                        {player.completed_targets?.length || 0}/21
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Visit History */}
+              <div className="flex-1 bg-slate-900/50 rounded-xl p-4 overflow-hidden flex flex-col">
+                <h4 className="text-sm font-semibold text-slate-400 mb-3">Visit History</h4>
+                <div className="flex-1 overflow-auto space-y-2">
+                  {match.players.map((player) => (
+                    <div key={player.id}>
+                      <p className="text-xs text-slate-500 mb-1">{player.username}</p>
+                      {player.visit_history && player.visit_history.length > 0 ? (
+                        <div className="space-y-1">
+                          {[...player.visit_history].reverse().slice(0, 5).map((visit, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <span className="text-slate-600">#{player.visit_history!.length - idx}</span>
+                              <span className="text-slate-400">
+                                {visit.dart1?.label || '-'}
+                                {visit.dart2?.label ? `, ${visit.dart2.label}` : ''}
+                                {visit.dart3?.label ? `, ${visit.dart3.label}` : ''}
+                              </span>
+                              {visit.completed_target && (
+                                <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">
+                                  ✓ {getTargetLabel(visit.completed_target)}
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-600 text-sm">No visits yet</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+      
+      {/* Game End Popup */}
+      <Dialog open={showGameEndPopup} onOpenChange={setShowGameEndPopup}>
+        <DialogContent className="bg-slate-900 border-purple-500/30 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center flex items-center justify-center gap-2">
+              <Trophy className="w-8 h-8 text-amber-400" />
+              Game Over!
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Winner */}
+            {match.players.find(p => p.is_winner) && (
+              <div className="text-center">
+                <p className="text-slate-400 mb-2">Winner</p>
+                <p className="text-4xl font-black text-emerald-400">
+                  {match.players.find(p => p.is_winner)?.username}
+                </p>
+              </div>
+            )}
+            
+            {/* Stats Table */}
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <h4 className="text-sm font-semibold text-slate-400 mb-3">Final Stats</h4>
+              <div className="space-y-2">
+                {match.players.map((player) => (
+                  <div 
+                    key={player.id}
+                    className={`flex items-center justify-between p-3 rounded-lg ${
+                      player.is_winner ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium">{player.username}</span>
+                      {player.is_winner && (
+                        <Badge className="bg-amber-500/20 text-amber-400">
+                          <Trophy className="w-3 h-3 mr-1" />
+                          Winner
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-purple-400">
+                        {player.completed_targets?.length || 0} targets
+                      </span>
+                      <span className="text-slate-500">
+                        {player.visit_history?.length || 0} visits
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* End Game Button */}
+            <Button
+              onClick={handleEndGame}
+              className="w-full py-6 text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+            >
+              End Game
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
