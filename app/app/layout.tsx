@@ -16,7 +16,7 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isQuickMatchGame = pathname?.includes('/app/play/quick-match/match/');
+  const isQuickMatchGame = pathname?.includes('/app/play/quick-match/match/') || pathname?.includes('/app/play/quick-match/atc-match');
   const isTrainingMatch = pathname === '/app/play/training/501';
 
   useEffect(() => {
