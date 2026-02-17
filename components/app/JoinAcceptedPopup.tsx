@@ -194,9 +194,6 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
   const playerSlots = atcSettings?.player_count || 2;
   const availableSlots = playerSlots - players.length;
 
-  // Add timeout to show leave option if stuck loading
-  const [showLeaveOption, setShowLeaveOption] = useState(false);
-  
   useEffect(() => {
     if (loading) {
       const timer = setTimeout(() => {
