@@ -30,6 +30,9 @@ import {
   Cpu,
   Crown,
   Loader2,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from 'lucide-react';
 
 // Animation variants
@@ -273,7 +276,7 @@ function QuickActionsBar() {
   );
 }
 
-// Recent Match Item Component
+// Recent Match Item Component - Dashboard Themed
 function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }) {
   const getResultColor = (result: string) => {
     switch (result) {
@@ -293,66 +296,118 @@ function RecentMatchItem({ match, onClick }: { match: any; onClick: () => void }
     }
   };
 
+  const getResultGradient = (result: string) => {
+    switch (result) {
+      case 'win': return 'from-emerald-500/10 to-emerald-600/5';
+      case 'loss': return 'from-rose-500/10 to-rose-600/5';
+      case 'draw': return 'from-amber-500/10 to-amber-600/5';
+      default: return 'from-slate-500/10 to-slate-600/5';
+    }
+  };
+
   const getResultIcon = (result: string) => {
     switch (result) {
-      case 'win': return <Trophy className="w-5 h-5 text-emerald-400" />;
-      case 'loss': return <TrendingUp className="w-5 h-5 text-rose-400 rotate-180" />;
-      case 'draw': return <Activity className="w-5 h-5 text-amber-400" />;
-      default: return <Activity className="w-5 h-5 text-slate-400" />;
+      case 'win': return <ArrowUpRight className="w-4 h-4" />;
+      case 'loss': return <ArrowDownRight className="w-4 h-4" />;
+      case 'draw': return <Minus className="w-4 h-4" />;
+      default: return <Minus className="w-4 h-4" />;
     }
   };
 
   const timeAgo = formatDistanceToNow(new Date(match.played_at), { addSuffix: true });
 
   return (
-    <div 
+    <motion.div 
       onClick={onClick}
-      className="p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800/80 transition-colors cursor-pointer border border-slate-700/50 hover:border-slate-600/50"
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${getResultGradient(match.result)} border border-slate-700/50 hover:border-slate-500/50 cursor-pointer transition-all group`}
     >
-      {/* Header Row */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center border-2 ${getResultBgColor(match.result)}`}>
-            {getResultIcon(match.result)}
-          </div>
-          <div>
-            <p className="text-white font-bold">vs {match.opponent_username || 'Unknown'}</p>
-            <p className="text-slate-400 text-xs">{match.game_mode} • {timeAgo}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="flex items-center gap-1">
-            <span className={`text-xl font-black ${match.result === 'win' ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {match.legs_won}
-            </span>
-            <span className="text-slate-500">-</span>
-            <span className="text-xl font-black text-white">
-              {match.legs_lost}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Result indicator strip */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+        match.result === 'win' ? 'bg-emerald-500' : 
+        match.result === 'loss' ? 'bg-rose-500' : 'bg-amber-500'
+      }`} />
       
-      {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-2 text-center">
-        <div className="bg-slate-900/50 rounded-lg p-2">
-          <p className="text-xs text-slate-500">Avg</p>
-          <p className="text-sm font-bold text-white">{match.three_dart_avg?.toFixed(1) || '-'}</p>
+      <div className="p-4 pl-5">
+        {/* Header Row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            {/* Result Badge */}
+            <div className={`px-2 py-1 rounded-lg ${getResultBgColor(match.result)} flex items-center gap-1`}>
+              {getResultIcon(match.result)}
+              <span className={`text-xs font-bold uppercase ${getResultColor(match.result)}`}>
+                {match.result}
+              </span>
+            </div>
+            
+            {/* Opponent */}
+            <div>
+              <p className="text-white font-semibold">vs {match.opponent_username || 'Unknown'}</p>
+              <p className="text-slate-500 text-xs">{match.game_mode} • {timeAgo}</p>
+            </div>
+          </div>
+          
+          {/* Score */}
+          <div className="flex items-center gap-2">
+            <div className={`text-2xl font-black ${match.result === 'win' ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {match.legs_won}
+            </div>
+            <span className="text-slate-600 font-bold">-</span>
+            <div className="text-2xl font-black text-slate-400">
+              {match.legs_lost}
+            </div>
+          </div>
         </div>
-        <div className="bg-slate-900/50 rounded-lg p-2">
-          <p className="text-xs text-slate-500">First 9</p>
-          <p className="text-sm font-bold text-white">{match.first9_avg?.toFixed(1) || '-'}</p>
-        </div>
-        <div className="bg-slate-900/50 rounded-lg p-2">
-          <p className="text-xs text-slate-500">Checkout</p>
-          <p className="text-sm font-bold text-amber-400">{match.highest_checkout || '-'}</p>
-        </div>
-        <div className="bg-slate-900/50 rounded-lg p-2">
-          <p className="text-xs text-slate-500">180s</p>
-          <p className="text-sm font-bold text-emerald-400">{match.visits_180 || 0}</p>
+        
+        {/* Stats Comparison Row */}
+        <div className="grid grid-cols-4 gap-3">
+          {/* User Stats */}
+          <div className="col-span-2 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">You</span>
+              <span className="text-emerald-400 font-bold">{match.three_dart_avg?.toFixed(1) || '-'} avg</span>
+            </div>
+            <div className="flex gap-1">
+              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
+                <Target className="w-3 h-3 mr-1" />
+                {match.first9_avg?.toFixed(1) || '-'}
+              </Badge>
+              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
+                <Trophy className="w-3 h-3 mr-1" />
+                {match.highest_checkout || '-'}
+              </Badge>
+              <Badge className="bg-slate-800 text-emerald-500 text-xs border-0">
+                <Flame className="w-3 h-3 mr-1" />
+                {match.visits_180 || 0}
+              </Badge>
+            </div>
+          </div>
+          
+          {/* Opponent Stats */}
+          <div className="col-span-2 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Opponent</span>
+              <span className="text-orange-400 font-bold">{match.opponent_three_dart_avg?.toFixed(1) || '-'} avg</span>
+            </div>
+            <div className="flex gap-1 justify-end">
+              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
+                {match.opponent_first9_avg?.toFixed(1) || '-'}
+                <Target className="w-3 h-3 ml-1" />
+              </Badge>
+              <Badge className="bg-slate-800 text-slate-400 text-xs border-0">
+                {match.opponent_highest_checkout || '-'}
+                <Trophy className="w-3 h-3 ml-1" />
+              </Badge>
+              <Badge className="bg-slate-800 text-orange-500 text-xs border-0">
+                {match.opponent_visits_180 || 0}
+                <Flame className="w-3 h-3 ml-1" />
+              </Badge>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -394,7 +449,7 @@ function RecentMatchesSection() {
               <div key={i} className="p-4 rounded-xl bg-slate-800/60 animate-pulse">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-700" />
+                    <div className="w-16 h-6 rounded-lg bg-slate-700" />
                     <div>
                       <div className="w-24 h-4 bg-slate-700 rounded mb-2" />
                       <div className="w-16 h-3 bg-slate-700 rounded" />
@@ -402,10 +457,9 @@ function RecentMatchesSection() {
                   </div>
                   <div className="w-12 h-6 bg-slate-700 rounded" />
                 </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map(j => (
-                    <div key={j} className="h-12 bg-slate-700 rounded-lg" />
-                  ))}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-10 bg-slate-700 rounded-lg" />
+                  <div className="h-10 bg-slate-700 rounded-lg" />
                 </div>
               </div>
             ))}
