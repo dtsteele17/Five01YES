@@ -722,6 +722,21 @@ export default function QuickMatchLobbyPage() {
   }, [userId]);
 
   // ============================================
+  // JOIN ACCEPTED POPUP CALLBACKS
+  // ============================================
+  const handleJoinAcceptedLeave = useCallback(() => {
+    setShowJoinAcceptedPopup(false);
+    setAcceptedLobbyId(null);
+    setMyLobby(null);
+  }, []);
+
+  const handleJoinAcceptedMatchStart = useCallback((matchId: string) => {
+    setShowJoinAcceptedPopup(false);
+    setAcceptedLobbyId(null);
+    router.push(`/app/play/quick-match/atc-match?matchId=${matchId}`);
+  }, [router]);
+
+  // ============================================
   // CLEANUP STALE LOBBIES ON MOUNT
   // ============================================
   useEffect(() => {
@@ -2158,16 +2173,8 @@ export default function QuickMatchLobbyPage() {
         <JoinAcceptedPopup
           lobbyId={acceptedLobbyId}
           userId={userId}
-          onLeave={useCallback(() => {
-            setShowJoinAcceptedPopup(false);
-            setAcceptedLobbyId(null);
-            setMyLobby(null);
-          }, [])}
-          onMatchStart={useCallback((matchId: string) => {
-            setShowJoinAcceptedPopup(false);
-            setAcceptedLobbyId(null);
-            router.push(`/app/play/quick-match/atc-match?matchId=${matchId}`);
-          }, [router])}
+          onLeave={handleJoinAcceptedLeave}
+          onMatchStart={handleJoinAcceptedMatchStart}
         />
       )}
 
