@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home, Shield, Crosshair } from 'lucide-react';
+import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -47,8 +47,6 @@ import { useQuickMatchRematch } from '@/lib/hooks/useQuickMatchRematch';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
 import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
 import { PreGameLobby } from '@/components/match/PreGameLobby';
-import { useAutoscoring } from '@/lib/hooks/useAutoscoring';
-import { DartboardAutoscorer } from '@/components/app/DartboardAutoscorer';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -1044,19 +1042,6 @@ export default function QuickMatchRoomPage() {
   const [scoreInput, setScoreInput] = useState('');
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [submitting, setSubmitting] = useState(false);
-
-  // Autoscoring
-  const {
-    isCalibrated: isAutoscoringCalibrated,
-    isEnabled: isAutoscoringEnabled,
-    isLoading: isAutoscoringLoading,
-    videoRef: autoscoringVideoRef,
-    enableAutoscoring,
-    disableAutoscoring,
-    toggleAutoscoring
-  } = useAutoscoring();
-
-  // Handle autoscoring detected score - will be defined after handleDartClick
 
   // Camera state
   const cameraInitAttempted = useRef(false);
@@ -2416,68 +2401,11 @@ export default function QuickMatchRoomPage() {
 
   const handleClearVisit = () => setCurrentVisit([]);
   const handleUndoDart = () => setCurrentVisit((prev) => prev.slice(0, -1));
-
+  
   const handleMiss = () => {
     if (currentVisit.length >= 3) return;
     setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
   };
-
-  // Handle autoscoring detected score
-  const handleAutoscoringScore = useCallback((score: { segment: number; multiplier: number; points: number; isOnBoard?: boolean }) => {
-    if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer) {
-      return; // Not your turn
-    }
-    
-    if (currentVisit.length >= 3) {
-      return; // Already have 3 darts
-    }
-
-    // Validate score data
-    if (!score || typeof score.points !== 'number' || isNaN(score.points)) {
-      console.warn('Invalid score from autoscoring:', score);
-      return;
-    }
-
-    // Handle miss (outside board or 0 points)
-    if (!score.isOnBoard || score.points === 0 || score.segment === 0) {
-      handleMiss();
-      toast.info('AutoScored: Miss (outside board)');
-      return;
-    }
-
-    // Convert score to dart and add it
-    let dartType: 'single' | 'double' | 'triple' | 'bull' = 'single';
-    let number = score.segment;
-    
-    if (score.multiplier === 50 || score.multiplier === 25) {
-      dartType = 'bull';
-      number = score.multiplier === 50 ? 50 : 25;
-    } else if (score.multiplier === 3) {
-      dartType = 'triple';
-    } else if (score.multiplier === 2) {
-      dartType = 'double';
-    }
-
-    // Validate number before calling handleDartClick
-    if (typeof number !== 'number' || isNaN(number) || number < 0) {
-      console.warn('Invalid dart number:', number);
-      return;
-    }
-
-    // Use handleDartClick to add the dart
-    handleDartClick(dartType, number);
-    
-    // Show appropriate message based on what was hit
-    let message = `🎯 AutoScored: ${score.points} points!`;
-    if (score.multiplier === 50) message = '🎯 BULLSEYE! 50 points!';
-    else if (score.multiplier === 25) message = '🎯 Outer Bull! 25 points!';
-    else if (score.multiplier === 3) message = `🎯 T${score.segment}! ${score.points} points!`;
-    else if (score.multiplier === 2) message = `🎯 D${score.segment}! ${score.points} points!`;
-    
-    toast.success(message, {
-      icon: <Crosshair className="w-4 h-4" />
-    });
-  }, [matchState, currentVisit.length, handleDartClick, handleMiss]);
 
   const validateCheckout = (score: number, darts: Dart[], isTypedScore: boolean = false): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
     if (!room) return { valid: false, error: 'No room', isCheckout: false, isBust: false };
@@ -4079,58 +4007,6 @@ export default function QuickMatchRoomPage() {
 
           {/* CONDITIONAL: Show Scoring Panel when my turn AND game active, Visit History when not */}
           <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
-            {/* Autoscoring Toggle */}
-            {isMyTurn && room.status === 'active' && (
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Crosshair className="w-4 h-4 text-rose-400" />
-                  <span className="text-sm text-slate-300">AutoScoring</span>
-                  {isAutoscoringEnabled && (
-                    <Badge className="bg-emerald-500/20 text-emerald-400 text-xs animate-pulse">
-                      ● Active
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  onClick={toggleAutoscoring}
-                  disabled={isAutoscoringLoading || !isAutoscoringCalibrated}
-                  variant="outline"
-                  size="sm"
-                  className={isAutoscoringEnabled 
-                    ? 'border-rose-500/50 text-rose-400' 
-                    : 'border-emerald-500/50 text-emerald-400'
-                  }
-                >
-                  {isAutoscoringLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : isAutoscoringEnabled ? (
-                    <>
-                      <CameraOff className="w-4 h-4 mr-1" />
-                      Disable
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-4 h-4 mr-1" />
-                      Enable
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Autoscoring Panel */}
-            {isMyTurn && room.status === 'active' && isAutoscoringEnabled && autoscoringVideoRef.current && (
-              <div className="mb-4">
-                <DartboardAutoscorer
-                  videoElement={autoscoringVideoRef.current}
-                  onScore={handleAutoscoringScore}
-                  isCalibrated={isAutoscoringCalibrated}
-                  savedHomography={null}
-                  mode="scoring"
-                />
-              </div>
-            )}
-
             {isMyTurn && room.status === 'active' ? (
               <ScoringPanel
                 scoreInput={scoreInput}

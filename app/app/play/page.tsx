@@ -33,7 +33,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  Camera,
 } from 'lucide-react';
 
 // Animation variants
@@ -593,17 +592,6 @@ export default function PlayPage() {
             badge={{ text: 'Multiplayer', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }}
             stats={{ label: 'Online', value: '432' }}
             color="bg-gradient-to-br from-blue-500 to-indigo-600"
-          />
-
-          {/* Autoscoring Calibration */}
-          <GameModeCard
-            href="/app/play/calibrate"
-            title="AutoScoring"
-            subtitle="Camera"
-            description="Calibrate your camera for automatic dart detection. Set up your dartboard and let the computer track your scores."
-            icon={<Camera className="w-7 h-7 text-white" />}
-            badge={{ text: 'Beta', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' }}
-            color="bg-gradient-to-br from-rose-500 to-pink-600"
           />
 
           {/* Tournament */}
