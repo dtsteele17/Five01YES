@@ -338,13 +338,17 @@ export function DartboardAutoscorer({
     const refCtx = referenceCanvasRef.current.getContext('2d');
     if (!ctx || !refCtx) return;
     
-    // Capture reference frame
+    // Capture current frame to both canvases
     ctx.drawImage(videoElement, 0, 0, 640, 480);
     refCtx.drawImage(videoElement, 0, 0, 640, 480);
     
+    console.log('[Autoscoring] Reference frame captured');
+    
     setInternalMode('detecting');
     setIsDetecting(true);
-    toast.success('Detection started! Throw your darts.');
+    toast.success('Detection started! Throw your darts when ready.', {
+      description: 'The system will detect changes in the camera view.'
+    });
   };
 
   const stopDetection = () => {
@@ -526,20 +530,15 @@ export function DartboardAutoscorer({
     const current = ctx.getImageData(0, 0, 640, 480);
     const reference = refCtx.getImageData(0, 0, 640, 480);
     
-    // Define region to scan - use most of the frame but ignore extreme edges
-    const marginX = Math.floor(640 * 0.05); // 5% margin
-    const marginY = Math.floor(480 * 0.05);
-    const startX = marginX;
-    const endX = 640 - marginX;
-    const startY = marginY;
-    const endY = 480 - marginY;
-    
-    const threshold = 25; // Lower threshold = more sensitive
+    // MUCH more sensitive settings for small darts
+    const threshold = 15; // Much lower threshold - was 25
     let dartPixels: Point[] = [];
+    let totalDiff = 0;
+    let changedPixelCount = 0;
     
-    // Scan region
-    for (let y = startY; y < endY; y++) {
-      for (let x = startX; x < endX; x++) {
+    // Scan entire frame
+    for (let y = 0; y < 480; y += 2) { // Skip every other row for performance
+      for (let x = 0; x < 640; x += 2) { // Skip every other column
         const i = (y * 640 + x) * 4;
         const diff = Math.abs(current.data[i] - reference.data[i]) +
                      Math.abs(current.data[i + 1] - reference.data[i + 1]) +
@@ -547,20 +546,41 @@ export function DartboardAutoscorer({
         
         if (diff > threshold * 3) {
           dartPixels.push({ x, y });
+          totalDiff += diff;
         }
+        if (diff > 30) changedPixelCount++;
       }
     }
     
-    // Debug: log pixel count
-    if (dartPixels.length > 50) {
-      console.log('[Autoscoring] Changed pixels:', dartPixels.length);
+    // Debug: log pixel count every frame when changes detected
+    if (changedPixelCount > 10) {
+      console.log(`[Autoscoring] Changed pixels: ${changedPixelCount}, Significant: ${dartPixels.length}`);
     }
     
-    // Require reasonable amount of pixels for a dart (50-8000)
-    if (dartPixels.length < 50 || dartPixels.length > 8000) {
-      if (dartPixels.length > 0) console.log('[Autoscoring] Rejected: pixel count out of range');
+    // Draw changed pixels for debugging (subtle green dots)
+    if (dartPixels.length > 5 && dartPixels.length < 1000) {
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; // green-500 with transparency
+      dartPixels.forEach(p => {
+        ctx.fillRect(p.x, p.y, 2, 2);
+      });
+    }
+    
+    // MUCH lower requirements for small darts (15-5000 pixels)
+    if (dartPixels.length < 15 || dartPixels.length > 5000) {
       return;
     }
+    
+    console.log(`[Autoscoring] POTENTIAL DART: ${dartPixels.length} pixels`);
+    
+    // Highlight the detected region
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    dartPixels.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
     
     // Calculate centroid
     const centroid = {
@@ -579,6 +599,8 @@ export function DartboardAutoscorer({
       }
     }
     
+    console.log(`[Autoscoring] Tip at: (${Math.round(tip.x)}, ${Math.round(tip.y)})`);
+    
     // Apply homography to get board coordinates
     const boardTip = applyHomography(tip, homography);
     
@@ -593,70 +615,44 @@ export function DartboardAutoscorer({
     
     // Only accept darts that are on the board
     if (!newScore.isOnBoard) {
-      console.log('[Autoscoring] Dart detected outside board, ignoring');
-      
-      // Still draw indicator but in different color
-      ctx.strokeStyle = '#94a3b8'; // slate-400
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 12, 0, Math.PI * 2);
-      ctx.stroke();
-      
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillText('Outside', tip.x + 15, tip.y);
-      
-      return; // Don't trigger score for outside darts
+      console.log('[Autoscoring] Outside board, ignoring');
+      return;
     }
     
-    console.log('[Autoscoring] Valid dart on board:', newScore);
+    console.log('[Autoscoring] VALID DART:', newScore);
     
-    // Debounce detection (1.5 second cooldown)
-    if (Date.now() - lastDetection > 1500) {
+    // Debounce detection (2 second cooldown to prevent duplicates)
+    if (Date.now() - lastDetection > 2000) {
       setScore(newScore);
       setLastDetection(Date.now());
       onScore?.(newScore);
       
-      // Draw detection indicator with glow
+      // Draw detection indicator
       ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 18, 0, Math.PI * 2);
+      ctx.arc(tip.x, tip.y, 15, 0, Math.PI * 2);
       ctx.stroke();
       
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-      ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 18, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Draw center dot
       ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 6, 0, Math.PI * 2);
+      ctx.arc(tip.x, tip.y, 5, 0, Math.PI * 2);
       ctx.fill();
       
-      // Draw score label with background
-      const labelText = `${newScore.points}`;
-      ctx.font = 'bold 24px sans-serif';
-      const textWidth = ctx.measureText(labelText).width;
-      
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(tip.x + 15, tip.y - 25, textWidth + 15, 35);
-      
+      ctx.font = 'bold 20px sans-serif';
       ctx.fillStyle = '#ef4444';
-      ctx.fillText(labelText, tip.x + 20, tip.y);
+      ctx.fillText(`${newScore.points}`, tip.x + 18, tip.y);
       
-      // Update reference frame after detection to handle remaining dart
-      // This prevents the same dart from being detected multiple times
+      // Update reference frame after detection
       setTimeout(() => {
         if (referenceCanvasRef.current && videoElement) {
           const refCtx = referenceCanvasRef.current.getContext('2d');
           if (refCtx) {
             refCtx.drawImage(videoElement, 0, 0, 640, 480);
-            console.log('[Autoscoring] Reference frame updated');
+            console.log('[Autoscoring] Reference updated');
           }
         }
-      }, 500);
+      }, 1000);
     }
     
   }, [videoElement, homography, lastDetection, onScore]);
