@@ -700,8 +700,14 @@ export default function QuickMatchLobbyPage() {
   
   const [showATCLobbyModal, setShowATCLobbyModal] = useState(false);
   const [showJoinAcceptedPopup, setShowJoinAcceptedPopup] = useState(false);
+  const showJoinAcceptedPopupRef = useRef(false);
   const [acceptedLobbyId, setAcceptedLobbyId] = useState<string | null>(null);
   const [cleanupDone, setCleanupDone] = useState(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    showJoinAcceptedPopupRef.current = showJoinAcceptedPopup;
+  }, [showJoinAcceptedPopup]);
   
   const [inProgressMatches, setInProgressMatches] = useState<number>(0);
   const [last5Record, setLast5Record] = useState<string>('-----');
@@ -776,10 +782,15 @@ export default function QuickMatchLobbyPage() {
           
           // For ATC lobbies, always show the popup
           // The popup will handle fetching the lobby data
-          console.log('[REALTIME] Showing join accepted popup for lobby:', request.lobby_id);
-          setAcceptedLobbyId(request.lobby_id);
-          setShowJoinAcceptedPopup(true);
-          toast.success('Join request accepted! You are in the lobby.');
+          // But only show it if not already showing (use ref to avoid stale closure)
+          if (!showJoinAcceptedPopupRef.current) {
+            console.log('[REALTIME] Showing join accepted popup for lobby:', request.lobby_id);
+            setAcceptedLobbyId(request.lobby_id);
+            setShowJoinAcceptedPopup(true);
+            toast.success('Join request accepted! You are in the lobby.');
+          } else {
+            console.log('[REALTIME] Popup already showing, skipping');
+          }
         } else if (request.status === 'declined') {
           console.log('[REALTIME] Request declined');
           setPendingLobbyId(null);
@@ -1371,11 +1382,16 @@ export default function QuickMatchLobbyPage() {
           setPendingLobbyId(null);
           setJoining(null);
           
-          // Always show the popup - it will handle fetching lobby data
-          console.log('[POLL] Showing join accepted popup');
-          setAcceptedLobbyId(request.lobby_id);
-          setShowJoinAcceptedPopup(true);
-          toast.success('Join request accepted! You are in the lobby.');
+          // Only show popup if not already showing (prevent duplicates from realtime)
+          // Use ref to avoid stale closure issues
+          if (!showJoinAcceptedPopupRef.current) {
+            console.log('[POLL] Showing join accepted popup');
+            setAcceptedLobbyId(request.lobby_id);
+            setShowJoinAcceptedPopup(true);
+            toast.success('Join request accepted! You are in the lobby.');
+          } else {
+            console.log('[POLL] Popup already showing, skipping');
+          }
         } else if (request.status === 'declined') {
           console.log('[POLL] Request DECLINED');
           clearInterval(checkInterval);
@@ -2142,16 +2158,16 @@ export default function QuickMatchLobbyPage() {
         <JoinAcceptedPopup
           lobbyId={acceptedLobbyId}
           userId={userId}
-          onLeave={() => {
+          onLeave={useCallback(() => {
             setShowJoinAcceptedPopup(false);
             setAcceptedLobbyId(null);
             setMyLobby(null);
-          }}
-          onMatchStart={(matchId) => {
+          }, [])}
+          onMatchStart={useCallback((matchId: string) => {
             setShowJoinAcceptedPopup(false);
             setAcceptedLobbyId(null);
             router.push(`/app/play/quick-match/atc-match?matchId=${matchId}`);
-          }}
+          }, [router])}
         />
       )}
 

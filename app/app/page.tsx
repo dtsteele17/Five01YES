@@ -491,16 +491,16 @@ export default function DashboardPage() {
             
             <div className="relative z-10 p-8">
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-                {/* Left - Crown Icon & Division */}
+                {/* Left - Rank Image & Division */}
                 <div className="flex items-center gap-5">
                   <div className="relative">
                     <div className="absolute inset-0 bg-amber-500/30 rounded-2xl blur-lg" />
-                    <div className="relative w-28 h-28 rounded-2xl bg-slate-800 flex items-center justify-center shadow-xl overflow-hidden">
+                    <div className="relative w-28 h-28 flex items-center justify-center">
                       {rankedState?.division_name ? (
                         <img 
                           src={getRankImageUrl(rankedState.division_name)} 
                           alt={rankedState.division_name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain drop-shadow-xl"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                           }}

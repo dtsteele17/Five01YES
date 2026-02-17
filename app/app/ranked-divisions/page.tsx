@@ -146,8 +146,8 @@ function getTierKey(tierName: string): keyof typeof TIER_COLORS {
   return 'bronze';
 }
 
-// Get tier icon based on tier name - returns rank image
-function getTierIcon(tierName: string, size: number = 32) {
+// Get tier icon based on tier name - returns rank image (doubled size)
+function getTierIcon(tierName: string, size: number = 64) {
   return (
     <img 
       src={getRankImageUrl(tierName)} 
@@ -224,10 +224,10 @@ function CurrentRankCard({
               <div className={`absolute -inset-3 ${colors.bg}/30 rounded-[2rem] blur-lg`} />
               
               {/* Main badge container */}
-              <div className={`relative w-28 h-28 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50`}>
+              <div className={`relative w-56 h-56 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50`}>
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/20 to-transparent" />
-                <div className="relative transform scale-125">
-                  {getTierIcon(playerState.division_name)}
+                <div className="relative">
+                  {getTierIcon(playerState.division_name, 200)}
                 </div>
               </div>
               
@@ -361,8 +361,8 @@ function TierPageHeader({ tierName }: { tierName: string }) {
       
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${isGrandChampion ? 'bg-white/30 backdrop-blur-sm ring-2 ring-white/30' : 'bg-white/20 backdrop-blur-sm'} shadow-lg`}>
-            {getTierIcon(tierName)}
+          <div className={`w-32 h-32 rounded-xl flex items-center justify-center ${isGrandChampion ? 'bg-white/30 backdrop-blur-sm ring-2 ring-white/30' : 'bg-white/20 backdrop-blur-sm'} shadow-lg`}>
+            {getTierIcon(tierName, 120)}
           </div>
           <div>
             <p className="text-white/80 text-sm font-semibold uppercase tracking-wider">
@@ -598,8 +598,8 @@ function TierNavigator({
                     
                     <div className="relative">
                       {/* Icon container */}
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${isCurrent ? 'bg-white/25 shadow-lg' : isGrandChampion ? 'bg-gradient-to-br from-amber-500/40 to-purple-500/40 shadow-lg shadow-purple-500/20' : 'bg-slate-800/80 border border-slate-700'} transition-transform group-hover:scale-110`}>
-                        {getTierIcon(tier.tier_name)}
+                      <div className={`w-28 h-28 rounded-2xl flex items-center justify-center mb-4 ${isCurrent ? 'bg-white/25 shadow-lg' : isGrandChampion ? 'bg-gradient-to-br from-amber-500/40 to-purple-500/40 shadow-lg shadow-purple-500/20' : 'bg-slate-800/80 border border-slate-700'} transition-transform group-hover:scale-110`}>
+                        {getTierIcon(tier.tier_name, 100)}
                       </div>
                       
                       <p className={`text-xs uppercase tracking-[0.15em] mb-1 font-bold ${

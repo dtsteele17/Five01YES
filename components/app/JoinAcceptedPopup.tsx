@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CheckCircle2, X, Users, Crown, Loader2 } from 'lucide-react';
+import { 
+  CheckCircle2, 
+  X, 
+  Users, 
+  Crown, 
+  Loader2, 
+  Target,
+  Play
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -15,6 +22,12 @@ interface ATCPlayer {
   username: string;
   avatar_url?: string;
   is_ready: boolean;
+}
+
+interface ATCSettings {
+  order: 'sequential' | 'random';
+  mode: 'singles' | 'doubles' | 'trebles' | 'increase';
+  player_count: number;
 }
 
 interface JoinAcceptedPopupProps {
@@ -28,19 +41,79 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
   const [players, setPlayers] = useState<ATCPlayer[]>([]);
   const [isReady, setIsReady] = useState(false);
   const [lobbyData, setLobbyData] = useState<any>(null);
+  const [atcSettings, setAtcSettings] = useState<ATCSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMatchStarting, setIsMatchStarting] = useState(false);
+  const [isInLobby, setIsInLobby] = useState(false);
   const supabase = createClient();
+  const channelRef = useRef<any>(null);
 
-  // Fetch lobby data on mount
+  // Single effect to handle both data fetching and realtime
   useEffect(() => {
-    fetchLobbyData();
-  }, [lobbyId]);
+    console.log('[POPUP] Initializing for lobby:', lobbyId);
+    let isMounted = true;
 
-  // Subscribe to lobby changes
-  useEffect(() => {
-    console.log('[POPUP] Setting up realtime subscription for lobby:', lobbyId);
-    
+    async function init() {
+      // Retry logic - wait for host to add us to the lobby
+      let data = null;
+      let retries = 0;
+      const maxRetries = 20; // Increased retries
+      
+      while (!data && retries < maxRetries && isMounted) {
+        console.log(`[POPUP] Fetching lobby (attempt ${retries + 1}/${maxRetries})`);
+        const { data: lobbyData, error } = await supabase
+          .from('quick_match_lobbies')
+          .select('*')
+          .eq('id', lobbyId)
+          .maybeSingle();
+
+        if (error) {
+          console.error('[POPUP] Error fetching lobby:', error);
+        }
+
+        if (lobbyData) {
+          // Check if user is in the players list
+          const userInPlayers = lobbyData.players?.some((p: ATCPlayer) => p.id === userId);
+          
+          if (userInPlayers) {
+            console.log('[POPUP] Found lobby and user is in players list');
+            data = lobbyData;
+            if (isMounted) {
+              setLobbyData(data);
+              setPlayers(data.players || []);
+              setAtcSettings(data.atc_settings || null);
+              const me = data.players?.find((p: ATCPlayer) => p.id === userId);
+              setIsReady(me?.is_ready || false);
+              setIsInLobby(true);
+              setLoading(false);
+            }
+          } else {
+            console.log(`[POPUP] Lobby found but user not in players yet`);
+            retries++;
+            if (retries < maxRetries) {
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        } else {
+          console.log(`[POPUP] Lobby not found`);
+          retries++;
+          if (retries < maxRetries) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+      }
+
+      if (!data && isMounted) {
+        console.error('[POPUP] Failed to find lobby after retries');
+        toast.error('Could not join lobby. Please try again.');
+        setLoading(false);
+      }
+    }
+
+    init();
+
+    // Set up realtime subscription
+    console.log('[POPUP] Setting up realtime subscription');
     const channel = supabase
       .channel(`popup-lobby-${lobbyId}`)
       .on(
@@ -52,19 +125,31 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           filter: `id=eq.${lobbyId}`,
         },
         (payload) => {
+          if (!isMounted) return;
+          
           const updatedLobby = payload.new;
           console.log('[POPUP] Lobby update received:', updatedLobby);
           
           setPlayers(updatedLobby.players || []);
+          setAtcSettings(updatedLobby.atc_settings || null);
           const me = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
           setIsReady(me?.is_ready || false);
+          
+          // Check if user was added to lobby
+          const userInPlayers = updatedLobby.players?.some((p: ATCPlayer) => p.id === userId);
+          if (userInPlayers && !isInLobby) {
+            setIsInLobby(true);
+            setLoading(false);
+          }
           
           // Check if match is starting
           if (updatedLobby.status === 'in_progress' && updatedLobby.match_id) {
             console.log('[POPUP] Match starting! Redirecting to:', updatedLobby.match_id);
             setIsMatchStarting(true);
             setTimeout(() => {
-              onMatchStart(updatedLobby.match_id);
+              if (isMounted) {
+                onMatchStart(updatedLobby.match_id);
+              }
             }, 1500);
           }
         }
@@ -73,73 +158,16 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
         console.log('[POPUP] Realtime subscription status:', status);
       });
 
+    channelRef.current = channel;
+
     return () => {
-      console.log('[POPUP] Cleaning up realtime subscription');
-      void channel.unsubscribe();
+      console.log('[POPUP] Cleaning up');
+      isMounted = false;
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
     };
   }, [lobbyId, userId, onMatchStart]);
-
-  const fetchLobbyData = async () => {
-    try {
-      console.log('[POPUP] Fetching lobby data for:', lobbyId);
-      
-      // Retry logic - wait for host to add us to the lobby
-      let data = null;
-      let retries = 0;
-      const maxRetries = 10;
-      
-      while (!data && retries < maxRetries) {
-        const { data: lobbyData, error } = await supabase
-          .from('quick_match_lobbies')
-          .select('*')
-          .eq('id', lobbyId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('[POPUP] Error fetching lobby:', error);
-          throw error;
-        }
-
-        if (lobbyData) {
-          // Check if user is in the players list
-          const isInLobby = lobbyData.players?.some((p: ATCPlayer) => p.id === userId);
-          
-          if (isInLobby) {
-            console.log('[POPUP] Found lobby and user is in players list');
-            data = lobbyData;
-          } else {
-            console.log(`[POPUP] Lobby found but user not in players yet, retry ${retries + 1}/${maxRetries}`);
-            retries++;
-            if (retries < maxRetries) {
-              await new Promise(r => setTimeout(r, 500));
-            }
-          }
-        } else {
-          console.log(`[POPUP] Lobby not found, retry ${retries + 1}/${maxRetries}`);
-          retries++;
-          if (retries < maxRetries) {
-            await new Promise(r => setTimeout(r, 500));
-          }
-        }
-      }
-
-      if (data) {
-        setLobbyData(data);
-        setPlayers(data.players || []);
-        const me = data.players?.find((p: ATCPlayer) => p.id === userId);
-        setIsReady(me?.is_ready || false);
-        console.log('[POPUP] Lobby data loaded successfully');
-      } else {
-        console.error('[POPUP] Failed to find lobby after retries');
-        toast.error('Could not join lobby. Please try again.');
-      }
-    } catch (error: any) {
-      console.error('[POPUP] Error fetching lobby:', error);
-      toast.error('Failed to load lobby data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleReady = async () => {
     const newReadyState = !isReady;
@@ -174,8 +202,10 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
   };
 
   const allReady = players.length > 0 && players.every((p) => p.is_ready);
-  const hostPlayer = players[0];
-  const isHost = hostPlayer?.id === userId;
+  const readyCount = players.filter(p => p.is_ready).length;
+  const isHost = players[0]?.id === userId;
+  const playerSlots = atcSettings?.player_count || 2;
+  const availableSlots = playerSlots - players.length;
 
   if (loading) {
     return (
@@ -201,7 +231,7 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -210,24 +240,25 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           className="w-full max-w-md"
         >
           <Card className="bg-slate-900 border-slate-700 overflow-hidden shadow-2xl">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4">
+            {/* Header - Purple gradient like host modal */}
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-white" />
-                  <h3 className="text-white font-bold">You&apos;re In!</h3>
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    Around The Clock
+                  </h2>
+                  <p className="text-white/70 text-sm">
+                    You are in the lobby - Ready up!
+                  </p>
                 </div>
-                <Badge className="bg-white/20 text-white border-0">
-                  {players.length} Player{players.length !== 1 ? 's' : ''}
-                </Badge>
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
               </div>
-              <p className="text-emerald-100 text-sm mt-1">
-                Your join request was accepted
-              </p>
             </div>
 
             {/* Content */}
-            <div className="p-5 space-y-4">
+            <div className="p-6 space-y-6">
               {isMatchStarting ? (
                 <div className="text-center py-8">
                   <motion.div
@@ -241,103 +272,130 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
                 </div>
               ) : (
                 <>
-                  {/* Players List */}
+                  {/* Match Settings - Same as host modal */}
+                  <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target className="w-4 h-4 text-purple-400" />
+                      <p className="text-sm text-purple-400 font-medium">Match Settings</p>
+                    </div>
+                    <div className="text-xs text-slate-400 space-y-2">
+                      <div className="flex justify-between">
+                        <span>Target Order:</span>
+                        <span className="text-white">{atcSettings?.order === 'random' ? 'Random' : '1-20 + Bull'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Mode:</span>
+                        <span className="text-white capitalize">
+                          {atcSettings?.mode === 'singles' ? 'Singles Only' :
+                           atcSettings?.mode === 'doubles' ? 'Doubles Only' :
+                           atcSettings?.mode === 'trebles' ? 'Trebles Only' : 'Increase by Segment'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Players:</span>
+                        <span className="text-white">{players.length} / {playerSlots}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Player List - Same as host modal */}
                   <div className="space-y-2">
-                    <p className="text-slate-400 text-xs uppercase font-semibold tracking-wider">
-                      Players in Lobby
-                    </p>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Players</p>
                     <div className="space-y-2">
-                      {players.map((player, index) => (
-                        <div
+                      {players.map((player) => (
+                        <div 
                           key={player.id}
-                          className={`flex items-center justify-between p-3 rounded-lg ${
-                            player.id === userId
-                              ? 'bg-emerald-500/10 border border-emerald-500/30'
-                              : 'bg-slate-800'
-                          }`}
+                          className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
                         >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-8 h-8">
-                              <AvatarFallback className="bg-slate-700 text-slate-300 text-xs">
-                                {player.username.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-white font-medium text-sm">
-                                  {player.username}
-                                </span>
-                                {index === 0 && (
-                                  <Crown className="w-3 h-3 text-amber-400" />
-                                )}
-                                {player.id === userId && (
-                                  <span className="text-emerald-400 text-xs">(You)</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
                           <div className="flex items-center gap-2">
-                            {player.is_ready ? (
-                              <Badge className="bg-emerald-500/20 text-emerald-400 border-0 text-xs">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Ready
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-slate-700 text-slate-400 border-0 text-xs">
-                                Not Ready
-                              </Badge>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                              {player.username.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-white text-sm">{player.username}</span>
+                            {player.id === lobbyData?.created_by && (
+                              <Badge className="bg-amber-500/20 text-amber-400 text-xs">Host</Badge>
+                            )}
+                            {player.id === userId && (
+                              <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">You</Badge>
                             )}
                           </div>
+                          {player.is_ready ? (
+                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-xs">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Ready
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-slate-700 text-slate-400 text-xs">Not Ready</Badge>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* Empty slots */}
+                      {Array.from({ length: availableSlots }).map((_, i) => (
+                        <div 
+                          key={`empty-${i}`}
+                          className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700"
+                        >
+                          <span className="text-slate-500 text-sm">Waiting for player...</span>
+                          <Badge className="bg-slate-700 text-slate-500 text-xs">Empty</Badge>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Status Message */}
-                  {allReady && players.length > 1 ? (
-                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-center">
+                  {/* Ready Status */}
+                  <div className="text-center space-y-2">
+                    <span className="text-slate-400 text-sm">
+                      {readyCount} / {players.length} players ready
+                    </span>
+                    
+                    {players.length < 2 && (
+                      <p className="text-xs text-amber-400 mt-1">Need at least 2 players to start</p>
+                    )}
+                    
+                    {players.length >= 2 && allReady && (
                       <p className="text-emerald-400 text-sm font-medium">
-                        All players ready! Starting soon...
+                        Everyone ready! Host will start soon...
                       </p>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-800 rounded-lg p-3 text-center">
-                      <p className="text-slate-400 text-sm">
-                        Waiting for {players.filter((p) => !p.is_ready).length} player
-                        {players.filter((p) => !p.is_ready).length !== 1 ? 's' : ''} to ready up...
+                    )}
+                    
+                    {players.length >= 2 && !allReady && (
+                      <p className="text-amber-400 text-xs">
+                        Waiting for all players to ready up...
                       </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3 pt-2">
+                  <div className="space-y-3">
                     <Button
-                      variant="outline"
-                      className="flex-1 border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white"
-                      onClick={handleLeave}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Leave
-                    </Button>
-                    <Button
-                      className={`flex-1 ${
-                        isReady
-                          ? 'bg-emerald-500 hover:bg-emerald-600'
-                          : 'bg-blue-500 hover:bg-blue-600'
-                      } text-white`}
+                      className={`w-full py-3 text-base font-bold ${
+                        isReady 
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+                          : 'bg-blue-500 hover:bg-blue-600 text-white'
+                      }`}
                       onClick={toggleReady}
                     >
                       {isReady ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Ready!
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel Ready
                         </>
                       ) : (
                         <>
-                          <Users className="w-4 h-4 mr-2" />
-                          Ready Up
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Ready Up!
                         </>
                       )}
+                    </Button>
+                    
+                    <Button
+                      className="w-full bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30"
+                      onClick={handleLeave}
+                      variant="outline"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Leave Lobby
                     </Button>
                   </div>
                 </>
