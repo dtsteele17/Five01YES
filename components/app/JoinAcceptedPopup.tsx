@@ -39,6 +39,8 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
 
   // Subscribe to lobby changes
   useEffect(() => {
+    console.log('[POPUP] Setting up realtime subscription for lobby:', lobbyId);
+    
     const channel = supabase
       .channel(`popup-lobby-${lobbyId}`)
       .on(
@@ -51,12 +53,15 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
         },
         (payload) => {
           const updatedLobby = payload.new;
+          console.log('[POPUP] Lobby update received:', updatedLobby);
+          
           setPlayers(updatedLobby.players || []);
           const me = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
           setIsReady(me?.is_ready || false);
           
           // Check if match is starting
           if (updatedLobby.status === 'in_progress' && updatedLobby.match_id) {
+            console.log('[POPUP] Match starting! Redirecting to:', updatedLobby.match_id);
             setIsMatchStarting(true);
             setTimeout(() => {
               onMatchStart(updatedLobby.match_id);
@@ -64,9 +69,12 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[POPUP] Realtime subscription status:', status);
+      });
 
     return () => {
+      console.log('[POPUP] Cleaning up realtime subscription');
       void channel.unsubscribe();
     };
   }, [lobbyId, userId, onMatchStart]);

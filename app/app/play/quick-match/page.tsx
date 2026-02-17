@@ -183,6 +183,7 @@ function ATCLobbyModal({
         },
         (payload) => {
           const updatedLobby = payload.new as any;
+          console.log('[ATC MODAL] Lobby update received:', updatedLobby);
           setPlayers(updatedLobby.players || []);
           
           const currentPlayer = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
@@ -190,11 +191,14 @@ function ATCLobbyModal({
           
           // If match_id is set, close modal and redirect
           if (updatedLobby.match_id && updatedLobby.status === 'in_progress') {
+            console.log('[ATC MODAL] Match starting! Redirecting to:', updatedLobby.match_id);
             router.push(`/app/play/quick-match/atc-match?matchId=${updatedLobby.match_id}`);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ATC MODAL] Realtime subscription status:', status);
+      });
     
     // Subscribe to join requests if host
     let joinRequestChannel: any;
@@ -259,6 +263,8 @@ function ATCLobbyModal({
     setProcessingRequest(true);
 
     try {
+      console.log('[ATC ACCEPT] Accepting request from:', request.requester_username);
+      
       const currentPlayers = lobby.players || [];
       const settings = lobby.atc_settings;
       
@@ -281,9 +287,10 @@ function ATCLobbyModal({
       };
 
       const updatedPlayers = [...currentPlayers, newPlayer];
+      console.log('[ATC ACCEPT] Updated players list:', updatedPlayers);
 
       // Just add player to lobby - don't create match yet
-      await supabase
+      const { error: updateError } = await supabase
         .from('quick_match_lobbies')
         .update({
           players: updatedPlayers,
@@ -291,11 +298,23 @@ function ATCLobbyModal({
         })
         .eq('id', lobby.id);
 
-      await supabase
+      if (updateError) {
+        console.error('[ATC ACCEPT] Error updating lobby:', updateError);
+        throw updateError;
+      }
+
+      const { error: requestError } = await supabase
         .from('quick_match_join_requests')
         .update({ status: 'accepted' })
         .eq('id', request.id);
 
+      if (requestError) {
+        console.error('[ATC ACCEPT] Error updating request:', requestError);
+        throw requestError;
+      }
+
+      console.log('[ATC ACCEPT] Player accepted successfully');
+      
       // Update local state
       setPlayers(updatedPlayers);
       setJoinRequests(prev => prev.filter(r => r.id !== request.id));
@@ -333,16 +352,29 @@ function ATCLobbyModal({
     if (!userId) return;
     
     const newReadyState = !isReady;
-    setIsReady(newReadyState);
+    console.log('[ATC MODAL] Toggling ready state:', newReadyState);
     
     const updatedPlayers = players.map(p => 
       p.id === userId ? { ...p, is_ready: newReadyState } : p
     );
     
-    await supabase
+    setIsReady(newReadyState);
+    setPlayers(updatedPlayers);
+    
+    const { error } = await supabase
       .from('quick_match_lobbies')
       .update({ players: updatedPlayers })
       .eq('id', lobby.id);
+      
+    if (error) {
+      console.error('[ATC MODAL] Error updating ready state:', error);
+      toast.error('Failed to update ready status');
+      // Revert local state
+      setIsReady(!newReadyState);
+      setPlayers(players);
+    } else {
+      console.log('[ATC MODAL] Ready state updated successfully');
+    }
   };
   
   const playerSlots = atcSettings?.player_count || 2;
@@ -736,14 +768,33 @@ export default function QuickMatchLobbyPage() {
         console.log('[REALTIME] Join request update:', request.status, 'for lobby:', request.lobby_id);
         
         if (request.status === 'accepted') {
-          console.log('[REALTIME] Request accepted! Showing popup...');
+          console.log('[REALTIME] Request accepted! Lobby:', request.lobby_id, 'Game type:', request.game_type);
           
-          // Show the join accepted popup instead of fetching full lobby
-          setPendingLobbyId(null);
-          setJoining(null);
-          setAcceptedLobbyId(request.lobby_id);
-          setShowJoinAcceptedPopup(true);
-          toast.success('Join request accepted! You are in the lobby.');
+          // Check if this is an ATC lobby or regular 301/501
+          const { data: lobbyData } = await supabase
+            .from('quick_match_lobbies')
+            .select('game_type')
+            .eq('id', request.lobby_id)
+            .maybeSingle();
+          
+          const isATC = lobbyData?.game_type === 'atc';
+          
+          if (isATC) {
+            // For ATC: Show the lobby popup
+            console.log('[REALTIME] ATC lobby - showing popup');
+            setPendingLobbyId(null);
+            setJoining(null);
+            setAcceptedLobbyId(request.lobby_id);
+            setShowJoinAcceptedPopup(true);
+            toast.success('Join request accepted! You are in the lobby.');
+          } else if (request.match_id) {
+            // For 301/501: Direct to match (old way)
+            console.log('[REALTIME] 301/501 match - redirecting to:', request.match_id);
+            setPendingLobbyId(null);
+            setJoining(null);
+            router.push(`/app/play/quick-match/match/${request.match_id}`);
+            toast.success('Join request accepted! Match starting...');
+          }
         } else if (request.status === 'declined') {
           console.log('[REALTIME] Request declined');
           setPendingLobbyId(null);
@@ -1328,15 +1379,34 @@ export default function QuickMatchLobbyPage() {
         console.log('[POLL] Request status:', request.status);
 
         if (request.status === 'accepted') {
-          console.log('[POLL] Request ACCEPTED! Showing popup...');
+          console.log('[POLL] Request ACCEPTED! Lobby:', request.lobby_id);
           clearInterval(checkInterval);
           
-          // Show the join accepted popup instead of fetching full lobby
-          setPendingLobbyId(null);
-          setJoining(null);
-          setAcceptedLobbyId(request.lobby_id);
-          setShowJoinAcceptedPopup(true);
-          toast.success('Join request accepted! You are in the lobby.');
+          // Check if this is an ATC lobby or regular 301/501
+          const { data: lobbyData } = await supabase
+            .from('quick_match_lobbies')
+            .select('game_type')
+            .eq('id', request.lobby_id)
+            .maybeSingle();
+          
+          const isATC = lobbyData?.game_type === 'atc';
+          
+          if (isATC) {
+            // For ATC: Show the lobby popup
+            console.log('[POLL] ATC lobby - showing popup');
+            setPendingLobbyId(null);
+            setJoining(null);
+            setAcceptedLobbyId(request.lobby_id);
+            setShowJoinAcceptedPopup(true);
+            toast.success('Join request accepted! You are in the lobby.');
+          } else if (request.match_id) {
+            // For 301/501: Direct to match (old way)
+            console.log('[POLL] 301/501 match - redirecting to:', request.match_id);
+            setPendingLobbyId(null);
+            setJoining(null);
+            router.push(`/app/play/quick-match/match/${request.match_id}`);
+            toast.success('Join request accepted! Match starting...');
+          }
         } else if (request.status === 'declined') {
           console.log('[POLL] Request DECLINED');
           clearInterval(checkInterval);
@@ -1492,11 +1562,21 @@ export default function QuickMatchLobbyPage() {
   async function startATCMatch() {
     if (!myLobby || myLobby.game_type !== 'atc') return;
     
+    console.log('[START ATC] Starting match for lobby:', myLobby.id);
+    
     try {
       const atcSettings = myLobby.atc_settings;
       if (!atcSettings) throw new Error('ATC settings not found');
       
       const currentPlayers = myLobby.players || [];
+      console.log('[START ATC] Players:', currentPlayers.length, 'Settings:', atcSettings);
+      
+      // Verify all players are ready
+      const allReady = currentPlayers.every((p: ATCPlayer) => p.is_ready);
+      if (!allReady) {
+        toast.error('Not all players are ready!');
+        return;
+      }
       
       // Generate targets
       const numbers: number[] = [...Array(20)].map((_, i) => i + 1);
@@ -1515,6 +1595,8 @@ export default function QuickMatchLobbyPage() {
         ? shuffleArray([...baseTargets])
         : baseTargets;
       
+      console.log('[START ATC] Creating match with targets:', targets.slice(0, 5), '...');
+      
       const { data: atcMatch, error: atcError } = await supabase
         .from('atc_matches')
         .insert({
@@ -1523,7 +1605,10 @@ export default function QuickMatchLobbyPage() {
           game_mode: 'atc',
           atc_settings: atcSettings,
           players: currentPlayers.map((p: ATCPlayer) => ({
-            ...p,
+            id: p.id,
+            username: p.username,
+            avatar_url: p.avatar_url,
+            is_ready: false, // Reset ready for match
             current_target: targets[0],
             completed_targets: [],
             is_winner: false
@@ -1535,18 +1620,33 @@ export default function QuickMatchLobbyPage() {
         .select()
         .maybeSingle();
       
-      if (atcError || !atcMatch) throw new Error('Failed to create ATC match');
+      if (atcError) {
+        console.error('[START ATC] Error creating match:', atcError);
+        throw atcError;
+      }
       
-      await supabase
+      if (!atcMatch) throw new Error('Failed to create ATC match');
+      
+      console.log('[START ATC] Match created:', atcMatch.id);
+      
+      // Update lobby to trigger redirect for all players
+      const { error: lobbyError } = await supabase
         .from('quick_match_lobbies')
         .update({ status: 'in_progress', match_id: atcMatch.id })
         .eq('id', myLobby.id);
+        
+      if (lobbyError) {
+        console.error('[START ATC] Error updating lobby:', lobbyError);
+        throw lobbyError;
+      }
+      
+      console.log('[START ATC] Lobby updated, redirecting to match:', atcMatch.id);
       
       setShowATCLobbyModal(false);
       toast.success('Match starting!');
       router.push(`/app/play/quick-match/atc-match?matchId=${atcMatch.id}`);
     } catch (error: any) {
-      console.error('[START MATCH] Failed:', error);
+      console.error('[START ATC] Failed:', error);
       toast.error(`Failed to start match: ${error.message}`);
     }
   }
