@@ -246,15 +246,73 @@ export function DartboardAutoscorer({
     if (currentMode !== 'calibrating' || !canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
+    // Get click position relative to canvas element
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    // Scale to internal canvas resolution (640x480)
     const scaleX = 640 / rect.width;
     const scaleY = 480 / rect.height;
+    
     const point = {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
+      x: Math.max(0, Math.min(640, clickX * scaleX)),
+      y: Math.max(0, Math.min(480, clickY * scaleY))
     };
     
     const newPoints = [...clickedPoints, point];
     setClickedPoints(newPoints);
+    
+    // Redraw immediately to show the new point
+    requestAnimationFrame(() => {
+      if (!canvasRef.current || !videoElement) return;
+      const ctx = canvasRef.current.getContext('2d');
+      if (!ctx) return;
+      
+      // Redraw video frame
+      ctx.drawImage(videoElement, 0, 0, 640, 480);
+      
+      // Draw all points including the new one
+      newPoints.forEach((p, index) => {
+        const calibration = CALIBRATION_POINTS[index];
+        
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
+        ctx.fill();
+        
+        // Inner circle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+        
+        // White center
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        
+        // Number
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillStyle = '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText((index + 1).toString(), p.x, p.y);
+        
+        // Label
+        if (calibration) {
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillStyle = '#f59e0b';
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 3;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'alphabetic';
+          ctx.strokeText(`${calibration.seg1}-${calibration.seg2}`, p.x + 12, p.y - 8);
+          ctx.fillText(`${calibration.seg1}-${calibration.seg2}`, p.x + 12, p.y - 8);
+        }
+      });
+    });
     
     if (newPoints.length >= 4) {
       const H = computeHomography(newPoints.slice(0, 4));
@@ -396,28 +454,49 @@ export function DartboardAutoscorer({
   };
 
   const calculateScoreFromBoardCoords = (tip: Point) => {
+    // Validate input
+    if (!tip || typeof tip.x !== 'number' || typeof tip.y !== 'number' || 
+        isNaN(tip.x) || isNaN(tip.y)) {
+      console.warn('Invalid tip coordinates:', tip);
+      return { segment: 0, multiplier: 0, points: 0 };
+    }
+
     const center = { x: 200, y: 200 };
     const dx = tip.x - center.x;
     const dy = tip.y - center.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
     
+    // Calculate segment
     let degrees = (angle * 180 / Math.PI + 360 + 90) % 360;
     const segmentIndex = Math.floor(degrees / 18) % 20;
-    const segment = SEGMENTS[segmentIndex];
+    const segment = SEGMENTS[segmentIndex] || 20;
     
+    // Scale distance to dartboard coordinates
     const scale = 170 / 200;
     const r = distance * scale;
     
+    // Determine multiplier based on distance from center
     let multiplier = 1;
-    if (r < 12.7) multiplier = 50;
-    else if (r < 31.8) multiplier = 25;
-    else if (r >= 99 && r <= 107) multiplier = 3;
-    else if (r >= 162 && r <= 170) multiplier = 2;
-    else if (r > 170) multiplier = 0;
+    if (r < 12.7) multiplier = 50;        // Bullseye
+    else if (r < 31.8) multiplier = 25;   // Outer bull
+    else if (r >= 99 && r <= 107) multiplier = 3;   // Triple ring
+    else if (r >= 162 && r <= 170) multiplier = 2;  // Double ring
+    else if (r > 170) multiplier = 0;     // Outside board
     
-    const points = multiplier > 20 ? multiplier : segment * multiplier;
-    return { segment, multiplier, points };
+    // Calculate points
+    let points = 0;
+    if (multiplier === 50) points = 50;
+    else if (multiplier === 25) points = 25;
+    else if (multiplier === 0) points = 0;
+    else points = segment * multiplier;
+    
+    // Ensure no NaN values
+    return { 
+      segment: segment || 0, 
+      multiplier: multiplier || 0, 
+      points: points || 0 
+    };
   };
 
   const detectDart = useCallback(() => {
@@ -625,7 +704,7 @@ export function DartboardAutoscorer({
       />
       
       {/* Score Display */}
-      {score && (
+      {score && score.points > 0 && (
         <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-rose-500/30 p-6">
           <div className="text-center">
             <div className="text-6xl font-black text-rose-400 mb-2">
@@ -634,7 +713,23 @@ export function DartboardAutoscorer({
             <div className="text-slate-300 text-lg">
               {score.multiplier === 50 ? '🎯 BULLSEYE!' : 
                score.multiplier === 25 ? '🎯 Outer Bull' :
-               `${score.multiplier === 3 ? 'Triple' : score.multiplier === 2 ? 'Double' : 'Single'} ${score.segment}`}
+               score.multiplier === 3 ? `Triple ${score.segment}` :
+               score.multiplier === 2 ? `Double ${score.segment}` :
+               `Single ${score.segment}`}
+            </div>
+          </div>
+        </Card>
+      )}
+      
+      {/* Miss Display */}
+      {score && score.points === 0 && (
+        <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-slate-500/30 p-6">
+          <div className="text-center">
+            <div className="text-6xl font-black text-slate-400 mb-2">
+              0
+            </div>
+            <div className="text-slate-300 text-lg">
+              Miss (Outside Board)
             </div>
           </div>
         </Card>

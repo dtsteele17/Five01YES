@@ -2427,6 +2427,19 @@ export default function QuickMatchRoomPage() {
       return; // Already have 3 darts
     }
 
+    // Validate score data
+    if (!score || typeof score.points !== 'number' || isNaN(score.points)) {
+      console.warn('Invalid score from autoscoring:', score);
+      return;
+    }
+
+    // Handle miss (0 points)
+    if (score.points === 0 || score.segment === 0) {
+      handleMiss();
+      toast.info('AutoScored: Miss');
+      return;
+    }
+
     // Convert score to dart and add it
     let dartType: 'single' | 'double' | 'triple' | 'bull' = 'single';
     let number = score.segment;
@@ -2440,13 +2453,19 @@ export default function QuickMatchRoomPage() {
       dartType = 'double';
     }
 
+    // Validate number before calling handleDartClick
+    if (typeof number !== 'number' || isNaN(number) || number < 0) {
+      console.warn('Invalid dart number:', number);
+      return;
+    }
+
     // Use handleDartClick to add the dart
     handleDartClick(dartType, number);
     
     toast.success(`🎯 AutoScored: ${score.points} points!`, {
       icon: <Crosshair className="w-4 h-4" />
     });
-  }, [matchState, currentVisit.length]);
+  }, [matchState, currentVisit.length, handleDartClick, handleMiss]);
   
   const handleMiss = () => {
     if (currentVisit.length >= 3) return;
