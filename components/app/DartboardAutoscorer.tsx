@@ -62,6 +62,177 @@ export function DartboardAutoscorer({
 
   const currentMode = mode === 'scoring' && isCalibrated ? 'scoring' : internalMode;
   const currentTarget = CALIBRATION_POINTS[clickedPoints.length];
+  const [mousePos, setMousePos] = useState<Point | null>(null);
+
+  // Handle mouse move for crosshair
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (currentMode !== 'calibrating' || !canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = 640 / rect.width;
+    const scaleY = 480 / rect.height;
+    setMousePos({
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setMousePos(null);
+  };
+
+  // Draw calibration points and crosshair on canvas
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Redraw video frame first if in calibration mode
+    if (videoElement && internalMode === 'calibrating') {
+      ctx.drawImage(videoElement, 0, 0, 640, 480);
+    }
+
+    // Draw clicked points
+    clickedPoints.forEach((point, index) => {
+      const calibration = CALIBRATION_POINTS[index];
+      
+      // Draw outer circle (glow)
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+      ctx.fill();
+      
+      // Draw inner circle
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+      
+      // Draw white center
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      
+      // Draw number
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText((index + 1).toString(), point.x, point.y);
+      
+      // Draw label
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.strokeText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
+      ctx.fillText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
+    });
+
+    // Draw connecting lines between points
+    if (clickedPoints.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(clickedPoints[0].x, clickedPoints[0].y);
+      for (let i = 1; i < clickedPoints.length; i++) {
+        ctx.lineTo(clickedPoints[i].x, clickedPoints[i].y);
+      }
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Draw mouse crosshair when calibrating
+    if (mousePos && internalMode === 'calibrating') {
+      const { x, y } = mousePos;
+      
+      // Draw crosshair lines
+      ctx.beginPath();
+      ctx.moveTo(x - 20, y);
+      ctx.lineTo(x + 20, y);
+      ctx.moveTo(x, y - 20);
+      ctx.lineTo(x, y + 20);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Draw circle
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Draw center dot
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+    }
+  }, [clickedPoints, internalMode, videoElement, mousePos]);
+  useEffect(() => {
+    if (!canvasRef.current || clickedPoints.length === 0) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Redraw video frame first if in calibration mode
+    if (videoElement && internalMode === 'calibrating') {
+      ctx.drawImage(videoElement, 0, 0, 640, 480);
+    }
+
+    // Draw clicked points
+    clickedPoints.forEach((point, index) => {
+      const calibration = CALIBRATION_POINTS[index];
+      
+      // Draw outer circle (glow)
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+      ctx.fill();
+      
+      // Draw inner circle
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+      
+      // Draw white center
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      
+      // Draw label
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
+      ctx.fillText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
+    });
+
+    // Draw connecting lines between points
+    if (clickedPoints.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(clickedPoints[0].x, clickedPoints[0].y);
+      for (let i = 1; i < clickedPoints.length; i++) {
+        ctx.lineTo(clickedPoints[i].x, clickedPoints[i].y);
+      }
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }, [clickedPoints, internalMode, videoElement]);
 
   // Reset when saved homography changes
   useEffect(() => {
@@ -421,6 +592,8 @@ export function DartboardAutoscorer({
           width={640}
           height={480}
           onClick={handleCanvasClick}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
           className={`w-full max-w-[640px] border-2 rounded-lg ${
             internalMode === 'calibrating' 
               ? 'border-amber-500/50 cursor-crosshair' 
