@@ -124,12 +124,13 @@ export function useATCWebRTC({
   const sendSignal = async (type: 'offer' | 'answer' | 'ice', data: any) => {
     if (!matchId || !myUserId || !opponentUserId) return;
     
-    const { error } = await supabase.from('webrtc_signals').insert({
-      room_id: matchId,
+    const { error } = await supabase.from('match_signals').insert({
+      match_id: matchId,
       sender_id: myUserId,
       recipient_id: opponentUserId,
-      type,
-      data,
+      signal_type: type,
+      signal_data: data,
+      created_at: new Date().toISOString(),
     });
     
     if (error) {
@@ -323,7 +324,7 @@ export function useATCWebRTC({
 
     console.log('[ATC WebRTC] Setting up signal subscription...');
 
-    // Subscribe to signals
+    // Subscribe to signals from match_signals table
     const subscription = supabase
       .channel(`atc_signals_${matchId}_${myUserId}`)
       .on(
@@ -331,21 +332,21 @@ export function useATCWebRTC({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'webrtc_signals',
-          filter: `room_id=eq.${matchId}`,
+          table: 'match_signals',
+          filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
           const signal = payload.new;
           if (signal.recipient_id !== myUserId) return;
           
-          console.log('[ATC WebRTC] Received signal:', signal.type);
+          console.log('[ATC WebRTC] Received signal:', signal.signal_type);
           
-          if (signal.type === 'offer') {
-            handleOffer(signal.data.offer);
-          } else if (signal.type === 'answer') {
-            handleAnswer(signal.data.answer);
-          } else if (signal.type === 'ice') {
-            handleIce(signal.data.candidate);
+          if (signal.signal_type === 'offer') {
+            handleOffer(signal.signal_data.offer);
+          } else if (signal.signal_type === 'answer') {
+            handleAnswer(signal.signal_data.answer);
+          } else if (signal.signal_type === 'ice') {
+            handleIce(signal.signal_data.candidate);
           }
         }
       )
