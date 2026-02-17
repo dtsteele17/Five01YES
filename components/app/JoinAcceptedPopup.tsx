@@ -45,6 +45,7 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
   const [loading, setLoading] = useState(true);
   const [isMatchStarting, setIsMatchStarting] = useState(false);
   const [isInLobby, setIsInLobby] = useState(false);
+  const [showLeaveOption, setShowLeaveOption] = useState(false);
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
@@ -54,59 +55,39 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
     let isMounted = true;
 
     async function init() {
-      // Retry logic - wait for host to add us to the lobby
-      let data = null;
-      let retries = 0;
-      const maxRetries = 20; // Increased retries
-      
-      while (!data && retries < maxRetries && isMounted) {
-        console.log(`[POPUP] Fetching lobby (attempt ${retries + 1}/${maxRetries})`);
-        const { data: lobbyData, error } = await supabase
-          .from('quick_match_lobbies')
-          .select('*')
-          .eq('id', lobbyId)
-          .maybeSingle();
+      // Initial fetch attempt - don't show error yet, wait for realtime
+      console.log(`[POPUP] Initial lobby fetch attempt`);
+      const { data: lobbyData, error } = await supabase
+        .from('quick_match_lobbies')
+        .select('*')
+        .eq('id', lobbyId)
+        .maybeSingle();
 
-        if (error) {
-          console.error('[POPUP] Error fetching lobby:', error);
-        }
-
-        if (lobbyData) {
-          // Check if user is in the players list
-          const userInPlayers = lobbyData.players?.some((p: ATCPlayer) => p.id === userId);
-          
-          if (userInPlayers) {
-            console.log('[POPUP] Found lobby and user is in players list');
-            data = lobbyData;
-            if (isMounted) {
-              setLobbyData(data);
-              setPlayers(data.players || []);
-              setAtcSettings(data.atc_settings || null);
-              const me = data.players?.find((p: ATCPlayer) => p.id === userId);
-              setIsReady(me?.is_ready || false);
-              setIsInLobby(true);
-              setLoading(false);
-            }
-          } else {
-            console.log(`[POPUP] Lobby found but user not in players yet`);
-            retries++;
-            if (retries < maxRetries) {
-              await new Promise(r => setTimeout(r, 500));
-            }
-          }
-        } else {
-          console.log(`[POPUP] Lobby not found`);
-          retries++;
-          if (retries < maxRetries) {
-            await new Promise(r => setTimeout(r, 500));
-          }
-        }
+      if (error) {
+        console.error('[POPUP] Error fetching lobby:', error);
       }
 
-      if (!data && isMounted) {
-        console.error('[POPUP] Failed to find lobby after retries');
-        toast.error('Could not join lobby. Please try again.');
-        setLoading(false);
+      if (lobbyData && isMounted) {
+        console.log('[POPUP] Lobby found:', lobbyData.id);
+        setLobbyData(lobbyData);
+        setPlayers(lobbyData.players || []);
+        setAtcSettings(lobbyData.atc_settings || null);
+        
+        // Check if user is in players list
+        const userInPlayers = lobbyData.players?.some((p: ATCPlayer) => p.id === userId);
+        if (userInPlayers) {
+          console.log('[POPUP] User already in players list');
+          const me = lobbyData.players?.find((p: ATCPlayer) => p.id === userId);
+          setIsReady(me?.is_ready || false);
+          setIsInLobby(true);
+          setLoading(false);
+        } else {
+          console.log('[POPUP] User not in players yet, waiting for realtime update...');
+          // Keep loading, wait for realtime
+        }
+      } else {
+        console.log('[POPUP] Lobby not found initially, waiting for realtime...');
+        // Keep loading, wait for realtime update
       }
     }
 
@@ -130,15 +111,21 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           const updatedLobby = payload.new;
           console.log('[POPUP] Lobby update received:', updatedLobby);
           
+          // Update lobby data
+          setLobbyData(updatedLobby);
           setPlayers(updatedLobby.players || []);
           setAtcSettings(updatedLobby.atc_settings || null);
-          const me = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
-          setIsReady(me?.is_ready || false);
           
-          // Check if user was added to lobby
+          // Check if user is in players list
           const userInPlayers = updatedLobby.players?.some((p: ATCPlayer) => p.id === userId);
-          if (userInPlayers && !isInLobby) {
-            setIsInLobby(true);
+          const me = updatedLobby.players?.find((p: ATCPlayer) => p.id === userId);
+          
+          if (userInPlayers) {
+            setIsReady(me?.is_ready || false);
+            if (!isInLobby) {
+              console.log('[POPUP] User added to lobby!');
+              setIsInLobby(true);
+            }
             setLoading(false);
           }
           
@@ -207,6 +194,18 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
   const playerSlots = atcSettings?.player_count || 2;
   const availableSlots = playerSlots - players.length;
 
+  // Add timeout to show leave option if stuck loading
+  const [showLeaveOption, setShowLeaveOption] = useState(false);
+  
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        setShowLeaveOption(true);
+      }, 10000); // Show leave option after 10 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
   if (loading) {
     return (
       <AnimatePresence>
@@ -216,9 +215,24 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
         >
-          <Card className="p-8 bg-slate-900 border-slate-700">
-            <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto" />
-            <p className="text-slate-400 mt-4">Joining lobby...</p>
+          <Card className="p-8 bg-slate-900 border-slate-700 text-center max-w-md">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto mb-4" />
+            <p className="text-slate-400 mb-2">Joining lobby...</p>
+            <p className="text-slate-500 text-sm">Waiting for host to add you</p>
+            
+            {showLeaveOption && (
+              <div className="mt-6 pt-4 border-t border-slate-700">
+                <p className="text-amber-400 text-sm mb-3">Taking longer than expected</p>
+                <Button
+                  onClick={onLeave}
+                  variant="outline"
+                  className="border-red-500/50 text-red-400"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel & Leave
+                </Button>
+              </div>
+            )}
           </Card>
         </motion.div>
       </AnimatePresence>
