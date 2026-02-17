@@ -55,184 +55,13 @@ export function DartboardAutoscorer({
     isCalibrated ? 'ready' : 'calibrating'
   );
   const [clickedPoints, setClickedPoints] = useState<Point[]>([]);
-  const [score, setScore] = useState<{ segment: number; multiplier: number; points: number; isOnBoard: boolean } | null>(null);
+  const [score, setScore] = useState<{ segment: number; multiplier: number; points: number } | null>(null);
   const [homography, setHomography] = useState<number[][] | null>(savedHomography);
   const [lastDetection, setLastDetection] = useState<number>(0);
   const [isDetecting, setIsDetecting] = useState(false);
 
   const currentMode = mode === 'scoring' && isCalibrated ? 'scoring' : internalMode;
   const currentTarget = CALIBRATION_POINTS[clickedPoints.length];
-  const [mousePos, setMousePos] = useState<Point | null>(null);
-
-  // Handle mouse move for crosshair
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (currentMode !== 'calibrating' || !canvasRef.current) return;
-    
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleX = 640 / rect.width;
-    const scaleY = 480 / rect.height;
-    setMousePos({
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
-    });
-  };
-
-  const handleMouseLeave = () => {
-    setMousePos(null);
-  };
-
-  // Draw calibration points and crosshair on canvas
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Redraw video frame first if in calibration mode
-    if (videoElement && internalMode === 'calibrating') {
-      ctx.drawImage(videoElement, 0, 0, 640, 480);
-    }
-
-    // Draw clicked points
-    clickedPoints.forEach((point, index) => {
-      const calibration = CALIBRATION_POINTS[index];
-      
-      // Draw outer circle (glow)
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
-      ctx.fill();
-      
-      // Draw inner circle
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = '#f59e0b';
-      ctx.fill();
-      
-      // Draw white center
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
-      
-      // Draw number
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText((index + 1).toString(), point.x, point.y);
-      
-      // Draw label
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#f59e0b';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 3;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-      ctx.strokeText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
-      ctx.fillText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
-    });
-
-    // Draw connecting lines between points
-    if (clickedPoints.length > 1) {
-      ctx.beginPath();
-      ctx.moveTo(clickedPoints[0].x, clickedPoints[0].y);
-      for (let i = 1; i < clickedPoints.length; i++) {
-        ctx.lineTo(clickedPoints[i].x, clickedPoints[i].y);
-      }
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // Draw mouse crosshair when calibrating
-    if (mousePos && internalMode === 'calibrating') {
-      const { x, y } = mousePos;
-      
-      // Draw crosshair lines
-      ctx.beginPath();
-      ctx.moveTo(x - 20, y);
-      ctx.lineTo(x + 20, y);
-      ctx.moveTo(x, y - 20);
-      ctx.lineTo(x, y + 20);
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      // Draw circle
-      ctx.beginPath();
-      ctx.arc(x, y, 8, 0, Math.PI * 2);
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      // Draw center dot
-      ctx.beginPath();
-      ctx.arc(x, y, 2, 0, Math.PI * 2);
-      ctx.fillStyle = '#ef4444';
-      ctx.fill();
-    }
-  }, [clickedPoints, internalMode, videoElement, mousePos]);
-  useEffect(() => {
-    if (!canvasRef.current || clickedPoints.length === 0) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Redraw video frame first if in calibration mode
-    if (videoElement && internalMode === 'calibrating') {
-      ctx.drawImage(videoElement, 0, 0, 640, 480);
-    }
-
-    // Draw clicked points
-    clickedPoints.forEach((point, index) => {
-      const calibration = CALIBRATION_POINTS[index];
-      
-      // Draw outer circle (glow)
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
-      ctx.fill();
-      
-      // Draw inner circle
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
-      ctx.fillStyle = '#f59e0b';
-      ctx.fill();
-      
-      // Draw white center
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
-      
-      // Draw label
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#f59e0b';
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 3;
-      ctx.strokeText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
-      ctx.fillText(`${calibration.seg1}-${calibration.seg2}`, point.x + 15, point.y - 10);
-    });
-
-    // Draw connecting lines between points
-    if (clickedPoints.length > 1) {
-      ctx.beginPath();
-      ctx.moveTo(clickedPoints[0].x, clickedPoints[0].y);
-      for (let i = 1; i < clickedPoints.length; i++) {
-        ctx.lineTo(clickedPoints[i].x, clickedPoints[i].y);
-      }
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  }, [clickedPoints, internalMode, videoElement]);
 
   // Reset when saved homography changes
   useEffect(() => {
@@ -246,73 +75,15 @@ export function DartboardAutoscorer({
     if (currentMode !== 'calibrating' || !canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    // Get click position relative to canvas element
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    
-    // Scale to internal canvas resolution (640x480)
     const scaleX = 640 / rect.width;
     const scaleY = 480 / rect.height;
-    
     const point = {
-      x: Math.max(0, Math.min(640, clickX * scaleX)),
-      y: Math.max(0, Math.min(480, clickY * scaleY))
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
     
     const newPoints = [...clickedPoints, point];
     setClickedPoints(newPoints);
-    
-    // Redraw immediately to show the new point
-    requestAnimationFrame(() => {
-      if (!canvasRef.current || !videoElement) return;
-      const ctx = canvasRef.current.getContext('2d');
-      if (!ctx) return;
-      
-      // Redraw video frame
-      ctx.drawImage(videoElement, 0, 0, 640, 480);
-      
-      // Draw all points including the new one
-      newPoints.forEach((p, index) => {
-        const calibration = CALIBRATION_POINTS[index];
-        
-        // Outer glow
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
-        ctx.fill();
-        
-        // Inner circle
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
-        ctx.fillStyle = '#f59e0b';
-        ctx.fill();
-        
-        // White center
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-        
-        // Number
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillStyle = '#000000';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText((index + 1).toString(), p.x, p.y);
-        
-        // Label
-        if (calibration) {
-          ctx.font = 'bold 14px sans-serif';
-          ctx.fillStyle = '#f59e0b';
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 3;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'alphabetic';
-          ctx.strokeText(`${calibration.seg1}-${calibration.seg2}`, p.x + 12, p.y - 8);
-          ctx.fillText(`${calibration.seg1}-${calibration.seg2}`, p.x + 12, p.y - 8);
-        }
-      });
-    });
     
     if (newPoints.length >= 4) {
       const H = computeHomography(newPoints.slice(0, 4));
@@ -338,17 +109,13 @@ export function DartboardAutoscorer({
     const refCtx = referenceCanvasRef.current.getContext('2d');
     if (!ctx || !refCtx) return;
     
-    // Capture current frame to both canvases
+    // Capture reference frame
     ctx.drawImage(videoElement, 0, 0, 640, 480);
     refCtx.drawImage(videoElement, 0, 0, 640, 480);
     
-    console.log('[Autoscoring] Reference frame captured');
-    
     setInternalMode('detecting');
     setIsDetecting(true);
-    toast.success('Detection started! Throw your darts when ready.', {
-      description: 'The system will detect changes in the camera view.'
-    });
+    toast.success('Detection started! Throw your darts.');
   };
 
   const stopDetection = () => {
@@ -458,62 +225,28 @@ export function DartboardAutoscorer({
   };
 
   const calculateScoreFromBoardCoords = (tip: Point) => {
-    // Validate input
-    if (!tip || typeof tip.x !== 'number' || typeof tip.y !== 'number' || 
-        isNaN(tip.x) || isNaN(tip.y)) {
-      console.warn('Invalid tip coordinates:', tip);
-      return { segment: 0, multiplier: 0, points: 0, isOnBoard: false };
-    }
-
     const center = { x: 200, y: 200 };
     const dx = tip.x - center.x;
     const dy = tip.y - center.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy, dx);
     
-    // Calculate segment (each segment is 18 degrees)
     let degrees = (angle * 180 / Math.PI + 360 + 90) % 360;
     const segmentIndex = Math.floor(degrees / 18) % 20;
-    const segment = SEGMENTS[segmentIndex] || 20;
+    const segment = SEGMENTS[segmentIndex];
     
-    // Scale distance to actual dartboard coordinates
-    // Standard dartboard: double ring outer edge is ~170mm from center
     const scale = 170 / 200;
     const r = distance * scale;
     
-    // Determine if on board and multiplier based on distance from center
     let multiplier = 1;
-    let isOnBoard = true;
+    if (r < 12.7) multiplier = 50;
+    else if (r < 31.8) multiplier = 25;
+    else if (r >= 99 && r <= 107) multiplier = 3;
+    else if (r >= 162 && r <= 170) multiplier = 2;
+    else if (r > 170) multiplier = 0;
     
-    if (r < 12.7) {
-      multiplier = 50;        // Inner bull (bullseye)
-    } else if (r < 31.8) {
-      multiplier = 25;        // Outer bull
-    } else if (r >= 99 && r <= 107) {
-      multiplier = 3;         // Triple ring
-    } else if (r >= 162 && r <= 170) {
-      multiplier = 2;         // Double ring
-    } else if (r > 170) {
-      multiplier = 0;         // Outside board
-      isOnBoard = false;
-    }
-    // Otherwise single (multiplier = 1)
-    
-    // Calculate points
-    let points = 0;
-    if (multiplier === 50) points = 50;
-    else if (multiplier === 25) points = 25;
-    else if (multiplier === 0) points = 0;
-    else points = segment * multiplier;
-    
-    console.log(`[Autoscoring] Board coords: (${tip.x.toFixed(1)}, ${tip.y.toFixed(1)}), distance: ${r.toFixed(1)}, segment: ${segment}, multiplier: ${multiplier}, points: ${points}`);
-    
-    return { 
-      segment: segment || 0, 
-      multiplier: multiplier || 0, 
-      points: points || 0,
-      isOnBoard
-    };
+    const points = multiplier > 20 ? multiplier : segment * multiplier;
+    return { segment, multiplier, points };
   };
 
   const detectDart = useCallback(() => {
@@ -530,59 +263,25 @@ export function DartboardAutoscorer({
     const current = ctx.getImageData(0, 0, 640, 480);
     const reference = refCtx.getImageData(0, 0, 640, 480);
     
-    // MUCH more sensitive settings for small darts
-    const threshold = 15; // Much lower threshold - was 25
+    const threshold = 30;
     let dartPixels: Point[] = [];
-    let totalDiff = 0;
-    let changedPixelCount = 0;
     
-    // Scan entire frame
-    for (let y = 0; y < 480; y += 2) { // Skip every other row for performance
-      for (let x = 0; x < 640; x += 2) { // Skip every other column
-        const i = (y * 640 + x) * 4;
-        const diff = Math.abs(current.data[i] - reference.data[i]) +
-                     Math.abs(current.data[i + 1] - reference.data[i + 1]) +
-                     Math.abs(current.data[i + 2] - reference.data[i + 2]);
-        
-        if (diff > threshold * 3) {
-          dartPixels.push({ x, y });
-          totalDiff += diff;
-        }
-        if (diff > 30) changedPixelCount++;
+    for (let i = 0; i < current.data.length; i += 4) {
+      const diff = Math.abs(current.data[i] - reference.data[i]) +
+                   Math.abs(current.data[i + 1] - reference.data[i + 1]) +
+                   Math.abs(current.data[i + 2] - reference.data[i + 2]);
+      
+      if (diff > threshold * 3) {
+        const pixelIndex = i / 4;
+        dartPixels.push({
+          x: pixelIndex % 640,
+          y: Math.floor(pixelIndex / 640)
+        });
       }
     }
     
-    // Debug: log pixel count every frame when changes detected
-    if (changedPixelCount > 10) {
-      console.log(`[Autoscoring] Changed pixels: ${changedPixelCount}, Significant: ${dartPixels.length}`);
-    }
+    if (dartPixels.length < 100) return;
     
-    // Draw changed pixels for debugging (subtle green dots)
-    if (dartPixels.length > 5 && dartPixels.length < 1000) {
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; // green-500 with transparency
-      dartPixels.forEach(p => {
-        ctx.fillRect(p.x, p.y, 2, 2);
-      });
-    }
-    
-    // MUCH lower requirements for small darts (15-5000 pixels)
-    if (dartPixels.length < 15 || dartPixels.length > 5000) {
-      return;
-    }
-    
-    console.log(`[Autoscoring] POTENTIAL DART: ${dartPixels.length} pixels`);
-    
-    // Highlight the detected region
-    ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    dartPixels.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    });
-    ctx.stroke();
-    
-    // Calculate centroid
     const centroid = {
       x: dartPixels.reduce((s, p) => s + p.x, 0) / dartPixels.length,
       y: dartPixels.reduce((s, p) => s + p.y, 0) / dartPixels.length
@@ -599,30 +298,11 @@ export function DartboardAutoscorer({
       }
     }
     
-    console.log(`[Autoscoring] Tip at: (${Math.round(tip.x)}, ${Math.round(tip.y)})`);
-    
-    // Apply homography to get board coordinates
     const boardTip = applyHomography(tip, homography);
-    
-    // Validate result
-    if (!boardTip || typeof boardTip.x !== 'number' || typeof boardTip.y !== 'number' ||
-        isNaN(boardTip.x) || isNaN(boardTip.y)) {
-      console.log('[Autoscoring] Rejected: invalid homography result');
-      return;
-    }
-    
     const newScore = calculateScoreFromBoardCoords(boardTip);
     
-    // Only accept darts that are on the board
-    if (!newScore.isOnBoard) {
-      console.log('[Autoscoring] Outside board, ignoring');
-      return;
-    }
-    
-    console.log('[Autoscoring] VALID DART:', newScore);
-    
-    // Debounce detection (2 second cooldown to prevent duplicates)
-    if (Date.now() - lastDetection > 2000) {
+    // Debounce detection (1 second cooldown)
+    if (Date.now() - lastDetection > 1000) {
       setScore(newScore);
       setLastDetection(Date.now());
       onScore?.(newScore);
@@ -634,25 +314,10 @@ export function DartboardAutoscorer({
       ctx.arc(tip.x, tip.y, 15, 0, Math.PI * 2);
       ctx.stroke();
       
+      // Draw label
       ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 5, 0, Math.PI * 2);
-      ctx.fill();
-      
       ctx.font = 'bold 20px sans-serif';
-      ctx.fillStyle = '#ef4444';
-      ctx.fillText(`${newScore.points}`, tip.x + 18, tip.y);
-      
-      // Update reference frame after detection
-      setTimeout(() => {
-        if (referenceCanvasRef.current && videoElement) {
-          const refCtx = referenceCanvasRef.current.getContext('2d');
-          if (refCtx) {
-            refCtx.drawImage(videoElement, 0, 0, 640, 480);
-            console.log('[Autoscoring] Reference updated');
-          }
-        }
-      }, 1000);
+      ctx.fillText(`${newScore.points}`, tip.x + 20, tip.y);
     }
     
   }, [videoElement, homography, lastDetection, onScore]);
@@ -738,10 +403,6 @@ export function DartboardAutoscorer({
               <Camera className="w-5 h-5" />
               <span className="font-medium">🔴 Detecting darts...</span>
             </div>
-            <div className="text-xs text-slate-400">
-              Throw your darts - the system will automatically detect and score them.
-              Make sure your darts contrast with the board.
-            </div>
             <Button 
               onClick={stopDetection}
               variant="outline"
@@ -760,8 +421,6 @@ export function DartboardAutoscorer({
           width={640}
           height={480}
           onClick={handleCanvasClick}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
           className={`w-full max-w-[640px] border-2 rounded-lg ${
             internalMode === 'calibrating' 
               ? 'border-amber-500/50 cursor-crosshair' 
@@ -769,13 +428,17 @@ export function DartboardAutoscorer({
           }`}
         />
         
-        {/* Clicked points overlay - REMOVED to not block the board */}
-        {/* Progress indicator at bottom instead */}
+        {/* Clicked points overlay */}
         {clickedPoints.length > 0 && internalMode === 'calibrating' && (
-          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-slate-900/90 px-3 py-1 rounded-full">
-            <span className="text-amber-400 text-sm font-medium">
-              {clickedPoints.length}/20 points
-            </span>
+          <div className="absolute top-2 left-2 flex flex-wrap gap-1 max-w-[200px]">
+            {clickedPoints.map((_, i) => (
+              <Badge 
+                key={i} 
+                className="bg-slate-900/80 text-amber-400 border-amber-500/30 text-xs"
+              >
+                {CALIBRATION_POINTS[i]?.seg1}-{CALIBRATION_POINTS[i]?.seg2} ✓
+              </Badge>
+            ))}
           </div>
         )}
       </div>
@@ -789,7 +452,7 @@ export function DartboardAutoscorer({
       />
       
       {/* Score Display */}
-      {score && score.points > 0 && (
+      {score && (
         <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-rose-500/30 p-6">
           <div className="text-center">
             <div className="text-6xl font-black text-rose-400 mb-2">
@@ -798,23 +461,7 @@ export function DartboardAutoscorer({
             <div className="text-slate-300 text-lg">
               {score.multiplier === 50 ? '🎯 BULLSEYE!' : 
                score.multiplier === 25 ? '🎯 Outer Bull' :
-               score.multiplier === 3 ? `Triple ${score.segment}` :
-               score.multiplier === 2 ? `Double ${score.segment}` :
-               `Single ${score.segment}`}
-            </div>
-          </div>
-        </Card>
-      )}
-      
-      {/* Miss Display */}
-      {score && score.points === 0 && (
-        <Card className="bg-gradient-to-br from-slate-900 to-slate-950 border-slate-500/30 p-6">
-          <div className="text-center">
-            <div className="text-6xl font-black text-slate-400 mb-2">
-              0
-            </div>
-            <div className="text-slate-300 text-lg">
-              Miss (Outside Board)
+               `${score.multiplier === 3 ? 'Triple' : score.multiplier === 2 ? 'Double' : 'Single'} ${score.segment}`}
             </div>
           </div>
         </Card>
