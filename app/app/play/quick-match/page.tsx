@@ -1207,17 +1207,15 @@ export default function QuickMatchLobbyPage() {
         };
       });
 
-      // Show open lobbies and waiting ATC lobbies that aren't full
+      // Show open lobbies and ATC lobbies (waiting or full)
       setLobbies(transformedLobbies.filter(l => {
         // Don't show own lobbies
         if (l.created_by === currentUserId) return false;
         // Show open lobbies
         if (l.status === 'open') return true;
-        // Show ATC lobbies that are waiting but not full
-        if (l.status === 'waiting' && l.game_type === 'atc') {
-          const currentPlayers = l.players?.length || 1;
-          const maxPlayers = l.atc_settings?.player_count || 2;
-          return currentPlayers < maxPlayers;
+        // Show ATC lobbies that are waiting or full (but not in-progress)
+        if ((l.status === 'waiting' || l.status === 'full') && l.game_type === 'atc') {
+          return true;
         }
         return false;
       }) as QuickMatchLobby[]);
@@ -2204,19 +2202,41 @@ export default function QuickMatchLobbyPage() {
                           </Badge>
                         )}
                         {lobby.game_type === 'atc' && (
-                          <Badge className="text-sm font-bold px-3 py-1 rounded-lg border bg-purple-500/20 text-purple-400 border-purple-500/40">
-                            {lobby.players?.length || 1} / {lobby.atc_settings?.player_count || 2} Players
+                          <Badge className={`text-sm font-bold px-3 py-1 rounded-lg border ${
+                            (lobby.players?.length || 1) >= (lobby.atc_settings?.player_count || 2)
+                              ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                              : 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+                          }`}>
+                            {(lobby.players?.length || 1) >= (lobby.atc_settings?.player_count || 2)
+                              ? 'FULL'
+                              : `${lobby.players?.length || 1} / ${lobby.atc_settings?.player_count || 2} Players`
+                            }
                           </Badge>
                         )}
                       </div>
 
                       <Button
                         onClick={() => joinLobby(lobby.id)}
-                        disabled={joining === lobby.id}
-                        className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold"
+                        disabled={
+                          joining === lobby.id || 
+                          (lobby.game_type === 'atc' && 
+                           (lobby.players?.length || 1) >= (lobby.atc_settings?.player_count || 2))
+                        }
+                        className={`w-full font-bold ${
+                          lobby.game_type === 'atc' && 
+                          (lobby.players?.length || 1) >= (lobby.atc_settings?.player_count || 2)
+                            ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                        }`}
                       >
-                        {joining === lobby.id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
-                        Join Match
+                        {joining === lobby.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : lobby.game_type === 'atc' && 
+                          (lobby.players?.length || 1) >= (lobby.atc_settings?.player_count || 2) ? (
+                          <><span className="mr-2">FULL</span></>
+                        ) : (
+                          <><UserPlus className="w-4 h-4 mr-2" />Join Match</>
+                        )}
                       </Button>
                     </div>
                   ))}
