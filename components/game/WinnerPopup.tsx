@@ -92,30 +92,30 @@ export function WinnerPopup({
   const p2Bg = isPlayer1Winner ? 'from-blue-500/10 to-blue-600/10' : 'from-amber-500/10 to-amber-600/10';
 
   const getRematchButtonContent = () => {
-    // Both ready - room is being created
-    if (rematchStatus === 'creating' || rematchStatus === 'ready' || readyCount >= 2) {
+    // Both ready - creating/starting new game
+    if (rematchStatus === 'ready' || rematchStatus === 'created' || readyCount >= 2) {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Starting...
+          Starting... ({readyCount}/2)
         </>
       );
     }
     // I pressed rematch, waiting for opponent
-    if (youReady && !opponentRematchReady) {
+    if (youReady) {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Waiting for opponent... ({readyCount}/2)
+          Waiting... ({readyCount}/2)
         </>
       );
     }
     // Opponent pressed rematch, waiting for me
-    if (!youReady && opponentRematchReady) {
+    if (opponentRematchReady) {
       return (
         <>
           <RotateCcw className="w-4 h-4 mr-1" />
-          Join Rematch ({readyCount}/2)
+          Join ({readyCount}/2)
         </>
       );
     }
@@ -399,7 +399,7 @@ export function WinnerPopup({
           <div className="flex gap-3">
             <Button
               onClick={onRematch}
-              disabled={rematchStatus === 'creating' || rematchStatus === 'ready' || rematchStatus === 'waiting' || youReady}
+              disabled={youReady || readyCount >= 2}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold disabled:opacity-70"
             >
               {getRematchButtonContent()}

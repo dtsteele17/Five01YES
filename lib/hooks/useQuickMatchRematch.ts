@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+type RematchStatus = 'none' | 'pending' | 'ready' | 'created';
+
 interface RematchState {
-  status: 'none' | 'pending' | 'ready' | 'creating' | 'created';
+  status: RematchStatus;
   player1Ready: boolean;
   player2Ready: boolean;
   bothReady: boolean;
@@ -28,6 +30,7 @@ export function useQuickMatchRematch({
   matchFinished,
 }: UseQuickMatchRematchProps) {
   const supabase = createClient();
+  
   const [state, setState] = useState<RematchState>({
     status: 'none',
     player1Ready: false,
@@ -39,17 +42,19 @@ export function useQuickMatchRematch({
     error: null,
   });
 
-  const subscriptionRef = useRef<any>(null);
   const isNavigatingRef = useRef(false);
+  const hasRequestedRef = useRef(false);
 
   // Subscribe to rematch request changes
   useEffect(() => {
-    if (!roomId || !matchFinished) return;
+    if (!roomId || !matchFinished || !currentUserId) return;
+
+    console.log('[REMATCH] Setting up subscription for room:', roomId);
 
     // Initial fetch
     fetchRematchStatus();
 
-    // Subscribe to changes on quick_match_rematch_requests
+    // Subscribe to changes
     const channel = supabase
       .channel(`rematch-${roomId}`)
       .on(
@@ -62,17 +67,20 @@ export function useQuickMatchRematch({
         },
         (payload) => {
           console.log('[REMATCH] Realtime update:', payload);
-          handleRematchUpdate(payload.new);
+          const record = payload.new as any;
+          if (record) {
+            updateStateFromRecord(record);
+          }
         }
       )
-      .subscribe();
-
-    subscriptionRef.current = channel;
+      .subscribe((status) => {
+        console.log('[REMATCH] Subscription status:', status);
+      });
 
     return () => {
       channel.unsubscribe();
     };
-  }, [roomId, matchFinished]);
+  }, [roomId, matchFinished, currentUserId]);
 
   // Navigate when new room is created
   useEffect(() => {
@@ -94,67 +102,50 @@ export function useQuickMatchRematch({
         return;
       }
 
+      console.log('[REMATCH] Status fetched:', data);
+
       if (data?.success) {
-        updateStateFromStatus(data);
+        if (!data.has_request) {
+          setState(prev => ({
+            ...prev,
+            status: 'none',
+            player1Ready: false,
+            player2Ready: false,
+            bothReady: false,
+            requestId: null,
+          }));
+        } else {
+          const newStatus: RematchStatus = data.status === 'created' ? 'created' : 
+                                          data.both_ready ? 'ready' : 
+                                          data.i_am_ready ? 'pending' : 'none';
+          
+          setState(prev => ({
+            ...prev,
+            status: newStatus,
+            player1Ready: data.player1_ready,
+            player2Ready: data.player2_ready,
+            bothReady: data.both_ready,
+            requestId: data.request_id,
+            newRoomId: data.new_room_id || prev.newRoomId,
+          }));
+
+          if (data.new_room_id && !isNavigatingRef.current) {
+            isNavigatingRef.current = true;
+            setState(prev => ({ ...prev, newRoomId: data.new_room_id }));
+          }
+        }
       }
     } catch (err) {
       console.error('[REMATCH] Error:', err);
     }
   };
 
-  const updateStateFromStatus = (data: any) => {
-    if (!data.has_request) {
-      setState(prev => ({
-        ...prev,
-        status: 'none',
-        player1Ready: false,
-        player2Ready: false,
-        bothReady: false,
-        requestId: null,
-      }));
-      return;
-    }
-
-    const status = data.status === 'created' ? 'created' : 
-                   data.both_ready ? 'ready' : 
-                   data.i_am_ready ? 'pending' : 'none';
-
-    setState(prev => ({
-      ...prev,
-      status,
-      player1Ready: data.player1_ready,
-      player2Ready: data.player2_ready,
-      bothReady: data.both_ready,
-      requestId: data.request_id,
-      newRoomId: data.new_room_id || prev.newRoomId,
-    }));
-
-    // Auto-navigate if room already exists
-    if (data.new_room_id && !isNavigatingRef.current) {
-      isNavigatingRef.current = true;
-      setState(prev => ({ ...prev, newRoomId: data.new_room_id }));
-    }
-  };
-
-  const handleRematchUpdate = (record: any) => {
-    if (!record) return;
-
+  const updateStateFromRecord = (record: any) => {
     const iAmReady = isPlayer1 ? record.player1_ready : record.player2_ready;
     const opponentReady = isPlayer1 ? record.player2_ready : record.player1_ready;
     const bothReady = record.player1_ready && record.player2_ready;
 
-    console.log('[REMATCH] Realtime update received:', {
-      player1Ready: record.player1_ready,
-      player2Ready: record.player2_ready,
-      iAmReady,
-      opponentReady,
-      bothReady,
-      status: record.status,
-      newRoomId: record.new_room_id,
-      isPlayer1,
-    });
-
-    let newStatus: RematchState['status'] = 'none';
+    let newStatus: RematchStatus = 'none';
     if (record.status === 'created' || record.new_room_id) {
       newStatus = 'created';
     } else if (bothReady) {
@@ -162,6 +153,15 @@ export function useQuickMatchRematch({
     } else if (iAmReady) {
       newStatus = 'pending';
     }
+
+    console.log('[REMATCH] Updating state:', {
+      newStatus,
+      player1Ready: record.player1_ready,
+      player2Ready: record.player2_ready,
+      iAmReady,
+      opponentReady,
+      bothReady,
+    });
 
     setState(prev => ({
       ...prev,
@@ -173,7 +173,6 @@ export function useQuickMatchRematch({
       newRoomId: record.new_room_id || prev.newRoomId,
     }));
 
-    // Navigate if room created
     if (record.new_room_id && !isNavigatingRef.current) {
       isNavigatingRef.current = true;
       setState(prev => ({ ...prev, newRoomId: record.new_room_id }));
@@ -182,44 +181,36 @@ export function useQuickMatchRematch({
 
   const requestRematch = useCallback(async () => {
     // Prevent duplicate requests
+    if (state.isLoading) {
+      console.log('[REMATCH] Already loading, ignoring');
+      return;
+    }
+    
     const iAmReady = isPlayer1 ? state.player1Ready : state.player2Ready;
-    if (state.isLoading || state.status === 'created' || iAmReady) {
-      console.log('[REMATCH] Ignoring duplicate request, already ready or loading:', { 
-        isLoading: state.isLoading, 
-        status: state.status, 
-        iAmReady 
-      });
+    if (iAmReady) {
+      console.log('[REMATCH] Already ready, ignoring');
       return;
     }
 
+    hasRequestedRef.current = true;
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      console.log('[REMATCH] Calling RPC request_quick_match_rematch');
       const { data, error } = await supabase.rpc('request_quick_match_rematch', {
         p_original_room_id: roomId,
       });
 
       if (error) {
-        console.error('[REMATCH] Error requesting:', error);
-        setState(prev => ({ 
-          ...prev, 
-          isLoading: false, 
-          error: error.message 
-        }));
+        console.error('[REMATCH] RPC error:', error);
+        setState(prev => ({ ...prev, isLoading: false, error: error.message }));
         return;
       }
 
-      console.log('[REMATCH] Request response:', data);
+      console.log('[REMATCH] RPC response:', data);
 
       if (data?.success) {
-        const newStatus = data.both_ready ? 'ready' : 'pending';
-        
-        console.log('[REMATCH] Setting state:', {
-          newStatus,
-          player1Ready: data.player1_ready,
-          player2Ready: data.player2_ready,
-          bothReady: data.both_ready,
-        });
+        const newStatus: RematchStatus = data.both_ready ? 'ready' : 'pending';
         
         setState(prev => ({
           ...prev,
@@ -230,9 +221,6 @@ export function useQuickMatchRematch({
           requestId: data.request_id,
           isLoading: false,
         }));
-
-        // Note: Room creation is handled by database trigger when both_ready is true
-        // The realtime subscription will pick up the new_room_id when it's created
       } else {
         setState(prev => ({ 
           ...prev, 
@@ -241,45 +229,14 @@ export function useQuickMatchRematch({
         }));
       }
     } catch (err: any) {
-      console.error('[REMATCH] Error:', err);
+      console.error('[REMATCH] Exception:', err);
       setState(prev => ({ 
         ...prev, 
         isLoading: false, 
         error: err.message 
       }));
     }
-  }, [roomId, state.isLoading, state.status, isPlayer1, state.player1Ready, state.player2Ready]);
-
-  const createRematchRoom = async (requestId: string) => {
-    if (state.status === 'creating' || state.status === 'created') return;
-
-    setState(prev => ({ ...prev, status: 'creating' }));
-
-    try {
-      const { data, error } = await supabase.rpc('create_quick_match_rematch_room', {
-        p_request_id: requestId,
-      });
-
-      if (error) {
-        console.error('[REMATCH] Error creating room:', error);
-        setState(prev => ({ ...prev, status: 'ready', error: error.message }));
-        return;
-      }
-
-      console.log('[REMATCH] Create room response:', data);
-
-      if (data?.success && data.room_id) {
-        setState(prev => ({
-          ...prev,
-          status: 'created',
-          newRoomId: data.room_id,
-        }));
-      }
-    } catch (err: any) {
-      console.error('[REMATCH] Error creating room:', err);
-      setState(prev => ({ ...prev, status: 'ready', error: err.message }));
-    }
-  };
+  }, [roomId, state.isLoading, state.player1Ready, state.player2Ready, isPlayer1]);
 
   const cancelRematch = useCallback(async () => {
     if (!state.requestId) return;
@@ -289,6 +246,7 @@ export function useQuickMatchRematch({
         p_request_id: state.requestId,
       });
 
+      hasRequestedRef.current = false;
       setState({
         status: 'none',
         player1Ready: false,
@@ -304,25 +262,21 @@ export function useQuickMatchRematch({
     }
   }, [state.requestId]);
 
+  // Derived values
   const iAmReady = isPlayer1 ? state.player1Ready : state.player2Ready;
   const opponentReady = isPlayer1 ? state.player2Ready : state.player1Ready;
   const readyCount = (state.player1Ready ? 1 : 0) + (state.player2Ready ? 1 : 0);
 
   return {
-    // State
     status: state.status,
     requestId: state.requestId,
     newRoomId: state.newRoomId,
     isLoading: state.isLoading,
     error: state.error,
-    
-    // Derived values
     iAmReady,
     opponentReady,
     bothReady: state.bothReady,
     readyCount,
-    
-    // Actions
     requestRematch,
     cancelRematch,
     refreshStatus: fetchRematchStatus,

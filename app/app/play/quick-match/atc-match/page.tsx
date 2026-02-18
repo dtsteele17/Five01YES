@@ -320,7 +320,8 @@ export default function ATCMatchPage() {
   const {
     localStream,
     remoteStreams,
-    activeRemoteStream,
+    activeStream,
+    activePlayerId,
     isCameraOn,
     callStatus,
     cameraError,
@@ -328,19 +329,19 @@ export default function ATCMatchPage() {
     stopCamera,
     refreshCamera,
     refreshConnection,
-    forceTurnAndRestart,
   } = webrtc;
   
   // Debug logging for camera connection
   useEffect(() => {
     console.log('[ATC CAMERA DEBUG] localStream:', localStream ? 'yes' : 'no');
     console.log('[ATC CAMERA DEBUG] remoteStreams count:', remoteStreams.size);
-    console.log('[ATC CAMERA DEBUG] activeRemoteStream:', activeRemoteStream ? 'yes' : 'no');
+    console.log('[ATC CAMERA DEBUG] activeStream:', activeStream ? 'yes' : 'no');
+    console.log('[ATC CAMERA DEBUG] activePlayerId:', activePlayerId);
     console.log('[ATC CAMERA DEBUG] isCameraOn:', isCameraOn);
     console.log('[ATC CAMERA DEBUG] callStatus:', callStatus);
     console.log('[ATC CAMERA DEBUG] currentTurnPlayer:', currentTurnPlayer?.username);
     console.log('[ATC CAMERA DEBUG] isMyTurn:', isCurrentUserTurn);
-  }, [localStream, remoteStreams, activeRemoteStream, isCameraOn, callStatus, currentTurnPlayer, isCurrentUserTurn]);
+  }, [localStream, remoteStreams, activeStream, activePlayerId, isCameraOn, callStatus, currentTurnPlayer, isCurrentUserTurn]);
   
   // Load match data
   useEffect(() => {
@@ -432,21 +433,20 @@ export default function ATCMatchPage() {
 
   const setRemoteVideoRef = useCallback((el: HTMLVideoElement | null) => {
     if (el) {
-      if (activeRemoteStream) {
-        console.log('[CAMERA] Attaching remote stream to video element');
-        el.srcObject = activeRemoteStream;
+      if (activeStream) {
+        console.log('[CAMERA] Attaching active stream to video element');
+        el.srcObject = activeStream;
         el.play().catch(err => {
           if (err.name !== 'AbortError') {
-            console.error('[CAMERA] Error playing remote:', err);
+            console.error('[CAMERA] Error playing video:', err);
           }
         });
       } else {
-        // Clear the stream if no active remote stream
         el.srcObject = null;
       }
     }
     remoteVideoRef.current = el;
-  }, [activeRemoteStream]);
+  }, [activeStream]);
   
   // Note: Camera auto-start is now handled by the useATCWebRTC hook based on isMyTurn
   
@@ -479,24 +479,24 @@ export default function ATCMatchPage() {
     }
   }, [localStream]);
   
-  // Handle active remote stream changes - re-attach when it changes
+  // Handle active stream changes - re-attach when it changes
   useEffect(() => {
-    console.log('[CAMERA] Active remote stream changed:', activeRemoteStream ? 'has stream' : 'no stream');
+    console.log('[CAMERA] Active stream changed:', activeStream ? 'has stream' : 'no stream');
     if (remoteVideoRef.current) {
       const el = remoteVideoRef.current;
-      if (activeRemoteStream && el.srcObject !== activeRemoteStream) {
-        console.log('[CAMERA] Re-attaching remote stream');
-        el.srcObject = activeRemoteStream;
+      if (activeStream && el.srcObject !== activeStream) {
+        console.log('[CAMERA] Re-attaching stream');
+        el.srcObject = activeStream;
         el.play().catch((err: Error) => {
           if (err.name !== 'AbortError') {
-            console.error('[CAMERA] Error re-playing remote:', err);
+            console.error('[CAMERA] Error re-playing:', err);
           }
         });
-      } else if (!activeRemoteStream) {
+      } else if (!activeStream) {
         el.srcObject = null;
       }
     }
-  }, [activeRemoteStream]);
+  }, [activeStream]);
   
   // Ready up
   const toggleReady = async () => {
@@ -1182,25 +1182,30 @@ export default function ATCMatchPage() {
                         </span>
                       ) : null}
                     </div>
-                    {activeRemoteStream ? (
+                    {activeStream ? (
                       <video 
-                        key={`remote-${currentTurnPlayer?.id}`} // Force remount when player changes
+                        key={`active-${activePlayerId}`} // Force remount when player changes
                         ref={setRemoteVideoRef}
                         autoPlay 
                         playsInline 
-                        muted={false}
+                        muted={isCurrentUserTurn} // Mute if it's my turn (local stream)
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-6">
                         <UserPlus className="w-16 h-16 mb-4 opacity-50" />
                         <span className="text-lg font-medium mb-2">
-                          Waiting for {currentTurnPlayer?.username}...
+                          {isCurrentUserTurn 
+                            ? 'Starting your camera...'
+                            : `Waiting for ${currentTurnPlayer?.username}...`
+                          }
                         </span>
                         <span className="text-sm text-slate-500 text-center mb-4">
-                          {callStatus === 'connecting' 
-                            ? 'Connecting to their camera...'
-                            : "It's their turn. Their camera will appear when they enable it."
+                          {isCurrentUserTurn
+                            ? 'Please allow camera access when prompted'
+                            : callStatus === 'connecting' 
+                              ? 'Connecting to their camera...'
+                              : "It's their turn. Their camera will appear when they enable it."
                           }
                         </span>
                         <div className="flex items-center gap-2">
