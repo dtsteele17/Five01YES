@@ -1100,79 +1100,82 @@ export default function ATCMatchPage() {
               </div>
             </div>
             
-            <div className="flex-1 relative bg-slate-900 p-2">
-              {/* MULTI-PLAYER CAMERA GRID - Shows all players */}
-              <div className="grid gap-2 h-full" style={{
-                gridTemplateColumns: match?.players?.length <= 2 ? '1fr' : '1fr 1fr',
-                gridTemplateRows: match?.players?.length <= 2 ? '1fr' : '1fr 1fr'
-              }}>
-                {/* Local Camera (Current User) */}
-                <div className={`relative bg-slate-800 rounded-lg overflow-hidden border-2 ${isMyTurn() ? 'border-emerald-500' : 'border-slate-600'}`}>
-                  <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded text-xs text-white">
-                    You {isMyTurn() && '🎯'}
-                  </div>
-                  {localStream ? (
-                    <video 
-                      ref={setLocalVideoRef}
-                      autoPlay 
-                      playsInline 
-                      muted 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-4">
-                      <CameraOff className="w-8 h-8 mb-2 opacity-50" />
-                      <span className="text-xs">Camera off</span>
-                      {isMyTurn() && (
+            <div className="flex-1 relative bg-slate-900">
+              {/* SINGLE CAMERA - Shows only the current player's camera */}
+              <div className="w-full h-full">
+                {isMyTurn() ? (
+                  /* MY TURN: Show MY local camera */
+                  <div className="relative w-full h-full bg-slate-800">
+                    <div className="absolute top-4 left-4 z-10 bg-emerald-500/80 px-3 py-1 rounded text-sm font-bold text-white">
+                      YOUR TURN 🎯
+                    </div>
+                    {localStream ? (
+                      <video 
+                        ref={setLocalVideoRef}
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-6">
+                        <CameraOff className="w-16 h-16 mb-4 opacity-50" />
+                        <span className="text-lg font-medium mb-2">Your camera is off</span>
+                        <span className="text-sm text-slate-500 mb-4 text-center">
+                          It's your turn! Enable your camera so other players can see you.
+                        </span>
                         <Button 
-                          size="sm"
                           onClick={toggleCamera}
-                          className="mt-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white"
                         >
-                          <Camera className="w-3 h-3 mr-1" />
-                          Enable
+                          <Camera className="w-4 h-4 mr-2" />
+                          Enable Camera
                         </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Remote Cameras (Other Players) */}
-                {match?.players?.filter(p => p.id !== currentUser).map((player) => {
-                  const playerStream = remoteStreams.get(player.id);
-                  const isCurrentPlayer = player.id === currentTurnPlayer?.id;
-                  
-                  return (
-                    <div 
-                      key={player.id} 
-                      className={`relative bg-slate-800 rounded-lg overflow-hidden border-2 ${isCurrentPlayer ? 'border-emerald-500' : 'border-slate-600'}`}
-                    >
-                      <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded text-xs text-white">
-                        {player.username} {isCurrentPlayer && '🎯'}
                       </div>
-                      {playerStream ? (
-                        <video 
-                          autoPlay 
-                          playsInline 
-                          ref={(el) => {
-                            if (el && playerStream) {
-                              el.srcObject = playerStream;
-                            }
-                          }}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-4">
-                          <UserPlus className="w-8 h-8 mb-2 opacity-50" />
-                          <span className="text-xs text-center">{player.username}</span>
-                          <span className="text-[10px] text-slate-600 mt-1">
-                            {callStatus === 'connecting' ? 'Connecting...' : 'Waiting...'}
-                          </span>
-                        </div>
-                      )}
+                    )}
+                  </div>
+                ) : (
+                  /* OTHER PLAYER'S TURN: Show only their remote camera */
+                  <div className="relative w-full h-full bg-slate-800">
+                    <div className="absolute top-4 left-4 z-10 bg-blue-500/80 px-3 py-1 rounded text-sm font-bold text-white">
+                      {currentTurnPlayer?.username}'s TURN
                     </div>
-                  );
-                })}
+                    {activeRemoteStream ? (
+                      <video 
+                        ref={setRemoteVideoRef}
+                        autoPlay 
+                        playsInline 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-6">
+                        <UserPlus className="w-16 h-16 mb-4 opacity-50" />
+                        <span className="text-lg font-medium mb-2">
+                          Waiting for {currentTurnPlayer?.username}...
+                        </span>
+                        <span className="text-sm text-slate-500 text-center mb-4">
+                          {callStatus === 'connecting' 
+                            ? 'Connecting to their camera...'
+                            : "It's their turn. Their camera will appear when they enable it."
+                          }
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {match?.players?.map((p, i) => (
+                            <div 
+                              key={p.id}
+                              className={`w-3 h-3 rounded-full ${
+                                p.id === currentTurnPlayer?.id 
+                                  ? 'bg-emerald-400 animate-pulse' 
+                                  : 'bg-slate-700'
+                              }`}
+                              title={p.username}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               {/* Camera Controls Overlay */}
