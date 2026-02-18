@@ -24,7 +24,7 @@ interface MatchRecord {
   result: 'win' | 'loss' | 'draw';
   legs_won: number;
   legs_lost: number;
-  // User stats
+  // User stats (from the perspective of the user_id)
   three_dart_avg: number;
   first9_avg: number;
   highest_checkout: number;
@@ -32,7 +32,7 @@ interface MatchRecord {
   visits_100_plus: number;
   visits_140_plus: number;
   visits_180: number;
-  // Opponent stats
+  // Opponent stats (saved during match completion)
   opponent_three_dart_avg: number;
   opponent_first9_avg: number;
   opponent_highest_checkout: number;
@@ -49,7 +49,7 @@ interface MatchHistory {
   draws: number;
   lastMatch: MatchRecord | null;
   previousMatches: MatchRecord[];
-  // Aggregated stats
+  // Aggregated stats (calculated across all matches)
   player1Avg3Dart: number;
   player2Avg3Dart: number;
   player1AvgFirst9: number;
@@ -105,29 +105,39 @@ export function RematchPopup({
     const fetchHistory = async () => {
       setLoadingHistory(true);
       try {
-        // Get all matches between these two players from match_history
-        // We need to get matches where either player is the user and the other is the opponent
+        // Get all matches between these two players
+        // We need both perspectives to get accurate stats for both players
         const { data: matches, error } = await supabase
           .from('match_history')
-          .select('*')
+          .select(`
+            id, room_id, user_id, opponent_id, played_at, game_mode, result,
+            legs_won, legs_lost, winner_id,
+            three_dart_avg, first9_avg, highest_checkout, checkout_percentage,
+            visits_100_plus, visits_140_plus, visits_180,
+            opponent_three_dart_avg, opponent_first9_avg, opponent_highest_checkout,
+            opponent_checkout_percentage, opponent_visits_100_plus, 
+            opponent_visits_140_plus, opponent_visits_180
+          `)
           .or(
             `and(user_id.eq.${player1.id},opponent_id.eq.${player2.id}),and(user_id.eq.${player2.id},opponent_id.eq.${player1.id})`
           )
           .order('played_at', { ascending: false })
-          .limit(20);
+          .limit(50);
 
         if (error) throw error;
 
         if (matches && matches.length > 0) {
-          // Process matches - each match has 2 records (one from each player's perspective)
-          // We need to normalize them so player1 is always the reference
+          // Each match has 2 records (one from each player's perspective)
+          // We normalize them so player1 is always the reference point
           const processedMatches: MatchRecord[] = matches.map((m: any) => {
-            // If this record is from player2's perspective, swap the stats
+            // If this record is from player2's perspective, swap everything
             if (m.user_id === player2.id) {
               return {
                 ...m,
+                user_id: player1.id,  // Normalize to player1
+                opponent_id: player2.id,
                 winner_id: m.result === 'win' ? player2.id : player1.id,
-                // Swap user and opponent stats
+                // Swap player and opponent stats
                 three_dart_avg: m.opponent_three_dart_avg || 0,
                 first9_avg: m.opponent_first9_avg || 0,
                 highest_checkout: m.opponent_highest_checkout || 0,
@@ -144,13 +154,14 @@ export function RematchPopup({
                 opponent_visits_180: m.visits_180 || 0,
               };
             }
+            // Already from player1's perspective, just return with winner_id calculated
             return {
               ...m,
               winner_id: m.result === 'win' ? player1.id : player2.id,
             };
           });
 
-          // Remove duplicates (same match from both perspectives) - keep player1's perspective
+          // Remove duplicates (same room_id from both perspectives) - keep player1's perspective
           const uniqueMatches = processedMatches.filter((m, index, self) => 
             index === self.findIndex((t) => t.room_id === m.room_id)
           );
@@ -424,57 +435,81 @@ export function RematchPopup({
                           </div>
                         </div>
 
-                        {/* Stats Comparison */}
+                        {/* Stats Comparison - NOW WITH BOTH PLAYERS' STATS */}
                         <div className="grid grid-cols-2 gap-3 mt-4">
                           {/* Player 1 Stats */}
-                          <div className="bg-slate-800/50 rounded-lg p-3">
-                            <div className="text-xs text-blue-400 font-medium mb-2 text-center">{player1.name}</div>
-                            <div className="space-y-1 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Avg:</span>
+                          <div className="bg-slate-800/50 rounded-lg p-3 border border-blue-500/20">
+                            <div className="text-xs text-blue-400 font-medium mb-2 text-center border-b border-slate-700 pb-2">
+                              {player1.name}
+                            </div>
+                            <div className="space-y-1.5 text-xs">
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Target className="w-3 h-3" /> 3-Dart Avg
+                                </span>
                                 <span className="text-white font-medium">{matchHistory.lastMatch.three_dart_avg?.toFixed(1) || '0.0'}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">First 9:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <TrendingUp className="w-3 h-3" /> First 9 Avg
+                                </span>
                                 <span className="text-white font-medium">{matchHistory.lastMatch.first9_avg?.toFixed(1) || '0.0'}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Checkout:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Award className="w-3 h-3" /> Best Checkout
+                                </span>
                                 <span className="text-white font-medium">{matchHistory.lastMatch.highest_checkout || 0}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">100+:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Star className="w-3 h-3" /> 100+ Scores
+                                </span>
                                 <span className="text-amber-400 font-medium">{matchHistory.lastMatch.visits_100_plus || 0}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">180s:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Zap className="w-3 h-3" /> 180s
+                                </span>
                                 <span className="text-emerald-400 font-medium">{matchHistory.lastMatch.visits_180 || 0}</span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Player 2 Stats */}
-                          <div className="bg-slate-800/50 rounded-lg p-3">
-                            <div className="text-xs text-orange-400 font-medium mb-2 text-center">{player2.name}</div>
-                            <div className="space-y-1 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Avg:</span>
+                          {/* Player 2 Stats - NOW PROPERLY SHOWING OPPONENT'S SAVED STATS */}
+                          <div className="bg-slate-800/50 rounded-lg p-3 border border-orange-500/20">
+                            <div className="text-xs text-orange-400 font-medium mb-2 text-center border-b border-slate-700 pb-2">
+                              {player2.name}
+                            </div>
+                            <div className="space-y-1.5 text-xs">
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Target className="w-3 h-3" /> 3-Dart Avg
+                                </span>
                                 <span className="text-white font-medium">{matchHistory.lastMatch.opponent_three_dart_avg?.toFixed(1) || '0.0'}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">First 9:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <TrendingUp className="w-3 h-3" /> First 9 Avg
+                                </span>
                                 <span className="text-white font-medium">{matchHistory.lastMatch.opponent_first9_avg?.toFixed(1) || '0.0'}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Checkout:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Award className="w-3 h-3" /> Best Checkout
+                                </span>
                                 <span className="text-white font-medium">{matchHistory.lastMatch.opponent_highest_checkout || 0}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">100+:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Star className="w-3 h-3" /> 100+ Scores
+                                </span>
                                 <span className="text-amber-400 font-medium">{matchHistory.lastMatch.opponent_visits_100_plus || 0}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">180s:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <Zap className="w-3 h-3" /> 180s
+                                </span>
                                 <span className="text-emerald-400 font-medium">{matchHistory.lastMatch.opponent_visits_180 || 0}</span>
                               </div>
                             </div>
@@ -557,13 +592,24 @@ export function RematchPopup({
                                 {formatDate(match!.played_at)}
                               </span>
                             </div>
-                            <div className="flex gap-4 mt-2 text-xs pl-11">
-                              <span className="text-slate-400">
-                                {player1.name}: <span className="text-amber-400">{match!.three_dart_avg?.toFixed(1) || '0.0'}</span> avg
-                              </span>
-                              <span className="text-slate-400">
-                                {player2.name}: <span className="text-amber-400">{match!.opponent_three_dart_avg?.toFixed(1) || '0.0'}</span> avg
-                              </span>
+                            {/* Show both players' stats for each match */}
+                            <div className="grid grid-cols-2 gap-4 mt-2 text-xs pl-11">
+                              <div className="text-slate-400">
+                                <span className="text-blue-400">{player1.name}:</span>
+                                <span className="text-white ml-1">{match!.three_dart_avg?.toFixed(1) || '0.0'}</span> avg
+                                <span className="text-slate-500 ml-1">|</span>
+                                <span className="text-white ml-1">{match!.highest_checkout || 0}</span> out
+                                <span className="text-slate-500 ml-1">|</span>
+                                <span className="text-emerald-400 ml-1">{match!.visits_180 || 0}</span> 180s
+                              </div>
+                              <div className="text-slate-400">
+                                <span className="text-orange-400">{player2.name}:</span>
+                                <span className="text-white ml-1">{match!.opponent_three_dart_avg?.toFixed(1) || '0.0'}</span> avg
+                                <span className="text-slate-500 ml-1">|</span>
+                                <span className="text-white ml-1">{match!.opponent_highest_checkout || 0}</span> out
+                                <span className="text-slate-500 ml-1">|</span>
+                                <span className="text-emerald-400 ml-1">{match!.opponent_visits_180 || 0}</span> 180s
+                              </div>
                             </div>
                           </motion.div>
                         ))}
