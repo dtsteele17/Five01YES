@@ -38,6 +38,10 @@ import {
   Lock,
   Radio,
   ChevronRight,
+  PieChart,
+  ArrowUpRight,
+  Filter,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -49,6 +53,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { TopNav } from '@/components/website/TopNav';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 
 // Animated counter hook with easing
 function useAnimatedCounter(target: number, duration: number = 2500) {
@@ -145,10 +150,20 @@ function FloatingElement({ children, className = '', delay = 0 }: { children: Re
   );
 }
 
-// Glow effect component
-function GlowEffect({ color = 'primary', className = '' }: { color?: string; className?: string }) {
+// Rank Badge Component using actual Supabase images
+function RankBadge({ tier, size = 80 }: { tier: string; size?: number }) {
   return (
-    <div className={`absolute inset-0 bg-${color}/20 blur-[120px] rounded-full pointer-events-none ${className}`} />
+    <img 
+      src={getRankImageUrl(tier)} 
+      alt={tier}
+      width={size}
+      height={size}
+      className="object-contain"
+      onError={(e) => {
+        // Fallback to crown icon if image fails
+        e.currentTarget.style.display = 'none';
+      }}
+    />
   );
 }
 
@@ -173,6 +188,7 @@ export default function Home() {
         <ATCFourWaySection />
         <TournamentsLeaguesSection />
         <DartbotShowcase />
+        <StatsTrackingSection />
         <VideoVerificationSection />
         <AchievementsPreview />
         <SocialProofSection />
@@ -314,8 +330,8 @@ function HeroSection({ scrollToSection }: any) {
                       <p className="text-muted-foreground text-sm">Current Rank</p>
                       <p className="text-3xl font-black text-foreground">Gold Division</p>
                     </div>
-                    <div className="w-14 h-14 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg">
-                      <Crown className="w-7 h-7 text-white" />
+                    <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-2xl flex items-center justify-center">
+                      <RankBadge tier="Gold" size={72} />
                     </div>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -463,12 +479,12 @@ function FeatureShowcase() {
       badge: 'Secure',
     },
     {
-      icon: Target,
-      title: '9 Training Modes',
-      description: 'From Bob\'s 27 to PDC Challenge, master every aspect of your game with specialized training routines.',
+      icon: BarChart3,
+      title: 'Advanced Stats',
+      description: 'Track your 3-dart average, checkout percentage, win rate, and more. Filter by game mode and match type.',
       gradient: 'from-rose-500 to-orange-600',
-      badge: 'Practice',
-      href: '/app/play/training',
+      badge: 'Analytics',
+      href: '/app/stats',
     },
   ];
 
@@ -606,15 +622,15 @@ function TrainingModesSection() {
   );
 }
 
-// RANKED DIVISIONS SHOWCASE
+// RANKED DIVISIONS SHOWCASE - Using actual rank images from Supabase
 function RankedDivisionsShowcase() {
   const tiers = [
-    { name: 'Bronze', divisions: 4, color: 'from-orange-700 to-amber-800', accent: 'orange' },
-    { name: 'Silver', divisions: 4, color: 'from-slate-500 to-gray-600', accent: 'gray' },
-    { name: 'Gold', divisions: 4, color: 'from-yellow-600 to-amber-700', accent: 'amber' },
-    { name: 'Platinum', divisions: 4, color: 'from-cyan-600 to-blue-700', accent: 'cyan' },
-    { name: 'Champion', divisions: 4, color: 'from-red-600 to-rose-700', accent: 'red' },
-    { name: 'Grand Champion', divisions: 1, color: 'from-purple-600 to-violet-700', accent: 'purple', special: true },
+    { name: 'Bronze', divisions: 4, color: 'from-orange-700 to-amber-800', accent: 'orange', bgGlow: 'bg-orange-500/20' },
+    { name: 'Silver', divisions: 4, color: 'from-slate-500 to-gray-600', accent: 'gray', bgGlow: 'bg-gray-500/20' },
+    { name: 'Gold', divisions: 4, color: 'from-yellow-600 to-amber-700', accent: 'amber', bgGlow: 'bg-amber-500/20' },
+    { name: 'Platinum', divisions: 4, color: 'from-cyan-600 to-blue-700', accent: 'cyan', bgGlow: 'bg-cyan-500/20' },
+    { name: 'Champion', divisions: 4, color: 'from-red-600 to-rose-700', accent: 'red', bgGlow: 'bg-red-500/20' },
+    { name: 'Grand Champion', divisions: 1, color: 'from-purple-600 to-violet-700', accent: 'purple', bgGlow: 'bg-purple-500/20', special: true },
   ];
 
   return (
@@ -635,52 +651,59 @@ function RankedDivisionsShowcase() {
           </p>
         </FadeIn>
 
-        {/* Tier Visualization */}
-        <div className="relative max-w-4xl mx-auto">
-          {/* Connecting Line */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-500 via-amber-500 to-purple-500 -translate-x-1/2 hidden lg:block" />
-          
-          <div className="space-y-6">
-            {tiers.map((tier, index) => (
-              <FadeIn key={tier.name} delay={index * 0.1} direction={index % 2 === 0 ? 'left' : 'right'}>
-                <div className={`relative flex items-center gap-6 ${index % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'} flex-col lg:justify-center`}>
-                  {/* Card */}
-                  <div className={`relative w-full lg:w-96 bg-gradient-to-br ${tier.color} rounded-2xl p-6 border border-white/20 shadow-2xl ${tier.special ? 'ring-2 ring-amber-400/50' : ''}`}>
-                    {tier.special && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-black px-4 py-1 rounded-full">
-                        APEX TIER
-                      </div>
-                    )}
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center">
-                        <Crown className={`w-8 h-8 text-white ${tier.special ? 'animate-pulse' : ''}`} />
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-black text-white">{tier.name}</h3>
-                        <p className="text-white/80">{tier.divisions} Division{tier.divisions > 1 ? 's' : ''}</p>
-                      </div>
+        {/* Rank Cards Grid with Actual Images */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
+          {tiers.map((tier, index) => (
+            <FadeIn key={tier.name} delay={index * 0.1}>
+              <div className={`relative bg-gradient-to-b ${tier.color} rounded-2xl p-1 ${tier.special ? 'ring-2 ring-amber-400/50 shadow-xl shadow-purple-500/20' : ''}`}>
+                <div className="bg-slate-950/90 rounded-xl p-4 h-full">
+                  {/* Rank Image from Supabase */}
+                  <div className={`w-full aspect-square rounded-xl ${tier.bgGlow} flex items-center justify-center mb-3`}>
+                    <RankBadge tier={tier.name} size={100} />
+                  </div>
+                  
+                  <h3 className={`text-lg font-black text-center ${tier.special ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-purple-400' : 'text-white'}`}>
+                    {tier.name}
+                  </h3>
+                  <p className="text-muted-foreground text-xs text-center mt-1">
+                    {tier.divisions} Division{tier.divisions > 1 ? 's' : ''}
+                  </p>
+                  
+                  {tier.special && (
+                    <div className="mt-2 text-center">
+                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
+                        <Crown className="w-3 h-3 mr-1" />
+                        APEX
+                      </Badge>
                     </div>
-                  </div>
-                  
-                  {/* Connector Dot */}
-                  <div className={`w-6 h-6 rounded-full bg-${tier.accent}-500 border-4 border-background shadow-lg z-10 hidden lg:block`} />
-                  
-                  {/* Stats */}
-                  <div className={`w-full lg:w-48 text-${index % 2 === 0 ? 'left' : 'right'} text-center lg:text-${index % 2 === 0 ? 'left' : 'right'}`}>
-                    {tier.special ? (
-                      <div className="text-purple-400 font-bold">5000+ RP Required</div>
-                    ) : (
-                      <div className="text-muted-foreground">{1000 + index * 800} - {1800 + index * 800} RP</div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              </FadeIn>
-            ))}
-          </div>
+              </div>
+            </FadeIn>
+          ))}
         </div>
 
+        {/* Current Rank Preview Card */}
+        <FadeIn delay={0.6}>
+          <Card className="max-w-2xl mx-auto bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 p-6">
+            <div className="flex items-center gap-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <RankBadge tier="Gold" size={90} />
+              </div>
+              <div className="flex-1">
+                <p className="text-muted-foreground text-sm">Example Progress</p>
+                <h3 className="text-2xl font-black text-white">Gold Division II</h3>
+                <div className="h-2 bg-slate-800 rounded-full overflow-hidden mt-2">
+                  <div className="h-full w-2/3 bg-gradient-to-r from-amber-500 to-orange-500" />
+                </div>
+                <p className="text-muted-foreground text-sm mt-1">2,450 / 3,000 RP to next division</p>
+              </div>
+            </div>
+          </Card>
+        </FadeIn>
+
         {/* CTA */}
-        <FadeIn delay={0.6} className="text-center mt-12">
+        <FadeIn delay={0.7} className="text-center mt-8">
           <Link href="/app/ranked-divisions">
             <Button size="lg" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold px-8">
               View Ranked System
@@ -988,10 +1011,129 @@ function DartbotShowcase() {
   );
 }
 
+// STATS TRACKING SECTION - New comprehensive section
+function StatsTrackingSection() {
+  const statsFeatures = [
+    { icon: Target, label: '3-Dart Average', desc: 'Track your scoring consistency' },
+    { icon: BarChart3, label: 'Checkout %', desc: 'Master your finishing' },
+    { icon: Flame, label: '180s & High Scores', desc: 'Celebrate your best throws' },
+    { icon: TrendingUp, label: 'Win Rate', desc: 'Monitor your improvement' },
+    { icon: PieChart, label: 'Score Distribution', desc: 'Visualize your performance' },
+    { icon: Filter, label: 'Filter by Mode', desc: '301, 501, Ranked, Quick Match' },
+  ];
+
+  return (
+    <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-rose-500/5 to-transparent" />
+      
+      <div className="container mx-auto relative">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          {/* Left - Visual Preview */}
+          <FadeIn>
+            <Card className="bg-slate-900/80 border-slate-700/50 p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl" />
+              
+              {/* Stats Preview Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-white">Your Stats</h3>
+                  <p className="text-muted-foreground text-sm">Last 30 Days</p>
+                </div>
+                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30">
+                  <BarChart3 className="w-3 h-3 mr-1" />
+                  Pro Stats
+                </Badge>
+              </div>
+
+              {/* Main Stats Grid */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {[
+                  { value: '68.4', label: '3-Dart Avg', trend: '+2.3', positive: true },
+                  { value: '42%', label: 'Checkout %', trend: '+5%', positive: true },
+                  { value: '47', label: '180s', trend: '+12', positive: true },
+                  { value: '156', label: 'Matches', trend: 'W: 89 L: 67', positive: null },
+                ].map((stat, i) => (
+                  <div key={i} className="bg-slate-800/50 rounded-xl p-4">
+                    <p className="text-2xl font-black text-white">{stat.value}</p>
+                    <p className="text-muted-foreground text-xs">{stat.label}</p>
+                    {stat.trend && (
+                      <p className={`text-xs mt-1 ${stat.positive === true ? 'text-emerald-400' : stat.positive === false ? 'text-red-400' : 'text-blue-400'}`}>
+                        {stat.positive === true && '+'}{stat.trend}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Chart Preview */}
+              <div className="bg-slate-800/30 rounded-xl p-4">
+                <p className="text-muted-foreground text-xs mb-3">Average Trend</p>
+                <div className="flex items-end gap-1 h-24">
+                  {[45, 52, 48, 58, 55, 62, 59, 65, 63, 68, 66, 70].map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-gradient-to-t from-rose-500 to-rose-400/50 rounded-t"
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                  <span>Jan</span>
+                  <span>Dec</span>
+                </div>
+              </div>
+            </Card>
+          </FadeIn>
+
+          {/* Right Content */}
+          <div>
+            <FadeIn>
+              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 mb-4">Analytics</Badge>
+              <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
+                Track Every
+                <span className="block text-rose-400">Throw</span>
+              </h2>
+              <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
+                Comprehensive statistics to help you understand and improve your game. 
+                Filter by game mode, match type, and time period to dive deep into your performance.
+              </p>
+            </FadeIn>
+
+            <FadeIn delay={0.2}>
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                {statsFeatures.map((feature, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-rose-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <feature.icon className="w-5 h-5 text-rose-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-sm">{feature.label}</p>
+                      <p className="text-muted-foreground text-xs">{feature.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={0.3}>
+              <Link href="/app/stats">
+                <Button size="lg" className="bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-600 hover:to-orange-700 text-white font-bold px-8">
+                  <BarChart3 className="w-5 h-5 mr-2" />
+                  View Your Stats
+                </Button>
+              </Link>
+            </FadeIn>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // VIDEO VERIFICATION SECTION
 function VideoVerificationSection() {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-950/50 relative overflow-hidden">
       <div className="container mx-auto">
         <div className="max-w-4xl mx-auto text-center">
           <FadeIn>
@@ -1039,7 +1181,7 @@ function AchievementsPreview() {
   ];
 
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-950/50 relative overflow-hidden">
+    <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       <div className="container mx-auto">
         <FadeIn className="text-center mb-12">
           <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 mb-4">Achievements</Badge>
@@ -1123,7 +1265,7 @@ function Testimonials() {
   ];
 
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8">
+    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-950/50">
       <div className="container mx-auto">
         <FadeIn className="text-center mb-16">
           <h2 className="text-4xl font-black text-white mb-4">What Players Say</h2>
@@ -1181,13 +1323,13 @@ function FAQ() {
       answer: 'Start with 10 placement matches to get your initial rank. Then earn or lose Ranking Points (RP) based on match results. Climb from Bronze through Silver, Gold, Platinum, Champion to Grand Champion.',
     },
     {
-      question: 'Is it free to play?',
-      answer: 'Yes! All core features are free including ranked matches, training modes, and tournaments. We offer a Pro subscription for advanced stats and customization options.',
+      question: 'What stats can I track?',
+      answer: 'Track your 3-dart average, checkout percentage, win rate, 180s count, score distribution, and more. Filter stats by game mode (301/501), match type (Ranked/Quick/Private), and time period.',
     },
   ];
 
   return (
-    <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-950/50">
+    <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8">
       <div className="container mx-auto max-w-3xl">
         <FadeIn className="text-center mb-12">
           <Badge className="bg-primary/10 text-primary border-primary/30 mb-4">FAQ</Badge>
@@ -1232,7 +1374,7 @@ function FinalCTA() {
             </h2>
             <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
               Join 12,000+ players already competing on FIVE01. 
-              Create your free account and start playing in minutes.
+              Create your account and start playing in minutes.
             </p>
           </FadeIn>
 
@@ -1246,7 +1388,7 @@ function FinalCTA() {
               </Link>
               <Link href="/login">
                 <Button size="lg" variant="outline" className="border-2 border-slate-600 text-white hover:bg-white/5 font-bold text-lg px-10 h-14">
-                  Already Have Account?
+                  Sign In
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>
@@ -1255,7 +1397,7 @@ function FinalCTA() {
 
           <FadeIn delay={0.3} className="mt-8">
             <p className="text-muted-foreground text-sm">
-              Free forever • No credit card required
+              No credit card required to start playing
             </p>
           </FadeIn>
         </div>
@@ -1295,7 +1437,7 @@ function Footer({ scrollToSection }: any) {
             <ul className="space-y-2">
               <li><button onClick={() => scrollToSection('features')} className="text-muted-foreground hover:text-primary transition-colors text-sm">Features</button></li>
               <li><button onClick={() => scrollToSection('faq')} className="text-muted-foreground hover:text-primary transition-colors text-sm">FAQ</button></li>
-              <li><Link href="/blog" className="text-muted-foreground hover:text-primary transition-colors text-sm">Blog</Link></li>
+              <li><Link href="/app/stats" className="text-muted-foreground hover:text-primary transition-colors text-sm">Stats</Link></li>
             </ul>
           </div>
 
