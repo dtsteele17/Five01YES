@@ -1004,34 +1004,14 @@ export default function QuickMatchLobbyPage() {
 
       // Update lobbies list
       setLobbies(prev => {
-        // Check if this is an ATC lobby that's still joinable (waiting or full status)
-        const isJoinableATC = updatedLobby.game_type === 'atc' && 
-                              (updatedLobby.status === 'waiting' || updatedLobby.status === 'full');
-        
-        // Remove lobby from list if:
-        // - Not open AND
-        // - Not created by current user AND
-        // - User is not in the lobby AND
-        // - Not a joinable ATC lobby
-        if (updatedLobby.status !== 'open' && 
-            updatedLobby.created_by !== currentUserId && 
-            !isPlayerInLobby &&
-            !isJoinableATC) {
+        if (updatedLobby.status !== 'open' && updatedLobby.created_by !== currentUserId && !isPlayerInLobby) {
           return prev.filter(l => l.id !== updatedLobby.id);
         }
-        
-        // Add or update lobby in list
         const exists = prev.some(l => l.id === updatedLobby.id);
         if (exists) {
           return prev.map(l => l.id === updatedLobby.id ? updatedLobby : l);
         }
-        
-        // Add new lobby if it's open or a joinable ATC lobby
-        if (updatedLobby.status === 'open' || isJoinableATC) {
-          return [updatedLobby, ...prev];
-        }
-        
-        return prev;
+        return updatedLobby.status === 'open' ? [updatedLobby, ...prev] : prev;
       });
     }
 
