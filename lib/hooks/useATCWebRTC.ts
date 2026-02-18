@@ -326,14 +326,14 @@ export function useATCWebRTC({
 
   // ========== CREATE CONNECTIONS TO ALL OTHER PLAYERS ==========
   useEffect(() => {
-    if (!matchId || !myUserId || !isMatchActive) return;
+    if (!matchId || !myUserId) return;
     if (allPlayerIds.length < 2) return;
 
     console.log('[ATC WebRTC] Setting up connections to all players:', allPlayerIds);
 
-    // Create connections to all other players
+    // Create connections to all other players immediately (don't wait for match to be active)
     // We'll be the initiator if our ID is alphabetically first (simple tie-breaker)
-    allPlayerIds.forEach((playerId, index) => {
+    allPlayerIds.forEach((playerId) => {
       if (playerId === myUserId) return;
       
       const isInitiator = myUserId < playerId; // Simple tie-breaker
@@ -347,7 +347,7 @@ export function useATCWebRTC({
       });
       peerConnectionsRef.current.clear();
     };
-  }, [matchId, myUserId, allPlayerIds, isMatchActive, createPeerConnection]);
+  }, [matchId, myUserId, allPlayerIds, createPeerConnection]);
 
   // ========== CAMERA CONTROLS ==========
   const toggleCamera = async () => {
@@ -374,19 +374,45 @@ export function useATCWebRTC({
       localStreamRef.current = stream;
       setIsCameraOn(true);
       setCameraError(null);
-      console.log('[ATC WebRTC] Camera stream obtained');
+      console.log('[ATC WebRTC] Camera stream obtained, adding to', peerConnectionsRef.current.size, 'peer connections');
       
-      // Add tracks to all existing peer connections
+      // Add tracks to ALL existing peer connections
       peerConnectionsRef.current.forEach((pc, playerId) => {
         const senders = pc.getSenders();
         const hasVideo = senders.some(s => s.track?.kind === 'video');
         if (!hasVideo) {
           console.log('[ATC WebRTC] Adding track to peer connection:', playerId);
           stream.getTracks().forEach(track => {
-            pc.addTrack(track, stream);
+            try {
+              pc.addTrack(track, stream);
+              console.log('[ATC WebRTC] Track added successfully to', playerId);
+            } catch (e) {
+              console.error('[ATC WebRTC] Error adding track to', playerId, e);
+            }
           });
+          
+          // If we're the initiator, create a new offer after adding tracks
+          if (myUserId && myUserId < playerId) {
+            console.log('[ATC WebRTC] Creating new offer after adding tracks to', playerId);
+            (async () => {
+              try {
+                makingOfferRef.current.add(playerId);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                await sendSignal(playerId, 'offer', { offer: pc.localDescription?.toJSON() });
+                console.log('[ATC WebRTC] New offer sent to', playerId);
+              } catch (err) {
+                console.error('[ATC WebRTC] Error creating offer after track add:', err);
+              } finally {
+                makingOfferRef.current.delete(playerId);
+              }
+            })();
+          }
         }
       });
+      
+      // If there are no peer connections yet, the tracks will be added when connections are created
+      console.log('[ATC WebRTC] Camera started and tracks added to all connections');
     } catch (err) {
       console.error('[ATC WebRTC] Could not access camera:', err);
       setCameraError('Could not access camera');
@@ -394,13 +420,29 @@ export function useATCWebRTC({
     }
   };
   
-  // Auto-start camera when it's my turn
+  // Auto-start camera when it's my turn - with retry logic
   useEffect(() => {
-    if (isMyTurn && isMatchActive && !isCameraOn && !cameraError) {
-      console.log('[ATC WebRTC] Auto-starting camera - it\'s my turn');
-      startCamera();
-    }
-  }, [isMyTurn, isMatchActive]);
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    const tryStartCamera = async () => {
+      if (isMyTurn && isMatchActive && !isCameraOn && !cameraError && retryCount < maxRetries) {
+        console.log('[ATC WebRTC] Auto-starting camera - it\'s my turn (attempt', retryCount + 1, ')');
+        try {
+          await startCamera();
+          console.log('[ATC WebRTC] Camera started successfully');
+        } catch (err) {
+          console.error('[ATC WebRTC] Failed to start camera, will retry:', err);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            setTimeout(tryStartCamera, 1000);
+          }
+        }
+      }
+    };
+    
+    tryStartCamera();
+  }, [isMyTurn, isMatchActive, isCameraOn, cameraError]);
 
   const stopCamera = () => {
     console.log('[ATC WebRTC] Stopping camera');

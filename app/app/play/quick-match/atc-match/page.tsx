@@ -331,6 +331,17 @@ export default function ATCMatchPage() {
     forceTurnAndRestart,
   } = webrtc;
   
+  // Debug logging for camera connection
+  useEffect(() => {
+    console.log('[ATC CAMERA DEBUG] localStream:', localStream ? 'yes' : 'no');
+    console.log('[ATC CAMERA DEBUG] remoteStreams count:', remoteStreams.size);
+    console.log('[ATC CAMERA DEBUG] activeRemoteStream:', activeRemoteStream ? 'yes' : 'no');
+    console.log('[ATC CAMERA DEBUG] isCameraOn:', isCameraOn);
+    console.log('[ATC CAMERA DEBUG] callStatus:', callStatus);
+    console.log('[ATC CAMERA DEBUG] currentTurnPlayer:', currentTurnPlayer?.username);
+    console.log('[ATC CAMERA DEBUG] isMyTurn:', isCurrentUserTurn);
+  }, [localStream, remoteStreams, activeRemoteStream, isCameraOn, callStatus, currentTurnPlayer, isCurrentUserTurn]);
+  
   // Load match data
   useEffect(() => {
     const loadMatch = async () => {
@@ -420,17 +431,18 @@ export default function ATCMatchPage() {
   }, [localStream]);
 
   const setRemoteVideoRef = useCallback((el: HTMLVideoElement | null) => {
-    if (el && activeRemoteStream) {
-      console.log('[CAMERA] Attaching remote stream to video element');
-      el.srcObject = activeRemoteStream;
-      // Only play if element is still in document and ready
-      if (el.isConnected) {
+    if (el) {
+      if (activeRemoteStream) {
+        console.log('[CAMERA] Attaching remote stream to video element');
+        el.srcObject = activeRemoteStream;
         el.play().catch(err => {
-          // Ignore AbortError - happens when element is removed during play
           if (err.name !== 'AbortError') {
             console.error('[CAMERA] Error playing remote:', err);
           }
         });
+      } else {
+        // Clear the stream if no active remote stream
+        el.srcObject = null;
       }
     }
     remoteVideoRef.current = el;
@@ -467,19 +479,21 @@ export default function ATCMatchPage() {
     }
   }, [localStream]);
   
+  // Handle active remote stream changes - re-attach when it changes
   useEffect(() => {
-    if (remoteVideoRef.current && activeRemoteStream) {
+    console.log('[CAMERA] Active remote stream changed:', activeRemoteStream ? 'has stream' : 'no stream');
+    if (remoteVideoRef.current) {
       const el = remoteVideoRef.current;
-      if (el.srcObject !== activeRemoteStream) {
+      if (activeRemoteStream && el.srcObject !== activeRemoteStream) {
         console.log('[CAMERA] Re-attaching remote stream');
         el.srcObject = activeRemoteStream;
-        if (el.isConnected) {
-          el.play().catch((err: Error) => {
-            if (err.name !== 'AbortError') {
-              console.error('[CAMERA] Error re-playing remote:', err);
-            }
-          });
-        }
+        el.play().catch((err: Error) => {
+          if (err.name !== 'AbortError') {
+            console.error('[CAMERA] Error re-playing remote:', err);
+          }
+        });
+      } else if (!activeRemoteStream) {
+        el.srcObject = null;
       }
     }
   }, [activeRemoteStream]);
@@ -1109,6 +1123,18 @@ export default function ATCMatchPage() {
                     <div className="absolute top-4 left-4 z-10 bg-emerald-500/80 px-3 py-1 rounded text-sm font-bold text-white">
                       YOUR TURN 🎯
                     </div>
+                    {/* Your Camera Status */}
+                    <div className="absolute top-4 right-4 z-10">
+                      {isCameraOn ? (
+                        <span className="bg-emerald-500/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                          <Camera className="w-3 h-3" /> Live
+                        </span>
+                      ) : (
+                        <span className="bg-red-500/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                          <CameraOff className="w-3 h-3" /> Camera Off
+                        </span>
+                      )}
+                    </div>
                     {localStream ? (
                       <video 
                         ref={setLocalVideoRef}
@@ -1140,11 +1166,29 @@ export default function ATCMatchPage() {
                     <div className="absolute top-4 left-4 z-10 bg-blue-500/80 px-3 py-1 rounded text-sm font-bold text-white">
                       {currentTurnPlayer?.username}'s TURN
                     </div>
+                    {/* Connection Status Badge */}
+                    <div className="absolute top-4 right-4 z-10">
+                      {callStatus === 'connected' ? (
+                        <span className="bg-emerald-500/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                          <Wifi className="w-3 h-3" /> Connected
+                        </span>
+                      ) : callStatus === 'connecting' ? (
+                        <span className="bg-amber-500/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Connecting...
+                        </span>
+                      ) : callStatus === 'failed' ? (
+                        <span className="bg-red-500/80 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                          <WifiOff className="w-3 h-3" /> Failed
+                        </span>
+                      ) : null}
+                    </div>
                     {activeRemoteStream ? (
                       <video 
+                        key={`remote-${currentTurnPlayer?.id}`} // Force remount when player changes
                         ref={setRemoteVideoRef}
                         autoPlay 
                         playsInline 
+                        muted={false}
                         className="w-full h-full object-cover"
                       />
                     ) : (
