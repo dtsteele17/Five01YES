@@ -307,7 +307,7 @@ export function PrivateMatchLobby({
           <div className="bg-slate-900/50 rounded-lg p-3 text-center">
             <Trophy className="w-5 h-5 text-amber-400 mx-auto mb-1" />
             <p className="text-xs text-slate-400">Best Of</p>
-            <p className="text-white font-bold">{settings?.legsToWin * 2 - 1} Legs</p>
+            <p className="text-white font-bold">{((settings?.legsToWin ?? 0) * 2 - 1)} Legs</p>
           </div>
           <div className="bg-slate-900/50 rounded-lg p-3 text-center">
             <Clock className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
