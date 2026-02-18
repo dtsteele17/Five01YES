@@ -167,7 +167,7 @@ export function useATCWebRTC({
     
     if (!pc && signal.signal_type === 'offer') {
       // New connection - we're not initiator
-      pc = createPeerConnection(senderId, false);
+      pc = createPeerConnection(senderId, false) ?? undefined;
     }
 
     if (!pc) {
@@ -175,48 +175,50 @@ export function useATCWebRTC({
       return;
     }
 
+    const conn: RTCPeerConnection = pc;
+
     try {
       if (signal.signal_type === 'offer') {
         // Add local stream before creating answer
         if (localStreamRef.current) {
-          const senders = pc.getSenders();
+          const senders = conn.getSenders();
           const hasVideo = senders.some(s => s.track?.kind === 'video');
           if (!hasVideo) {
             localStreamRef.current.getTracks().forEach(track => {
-              pc.addTrack(track, localStreamRef.current!);
+              conn.addTrack(track, localStreamRef.current!);
             });
           }
         }
 
         const offerData = signal.signal_data?.offer || signal.offer;
-        await pc.setRemoteDescription(new RTCSessionDescription(offerData));
-        
+        await conn.setRemoteDescription(new RTCSessionDescription(offerData));
+
         // Process pending ICE
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
         for (const candidate of pending) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          await conn.addIceCandidate(new RTCIceCandidate(candidate));
         }
         pendingIceCandidatesRef.current.set(senderId, []);
 
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await sendSignal(senderId, 'answer', { answer: pc.localDescription?.toJSON() });
+        const answer = await conn.createAnswer();
+        await conn.setLocalDescription(answer);
+        await sendSignal(senderId, 'answer', { answer: conn.localDescription?.toJSON() });
 
       } else if (signal.signal_type === 'answer') {
         const answerData = signal.signal_data?.answer || signal.answer;
-        await pc.setRemoteDescription(new RTCSessionDescription(answerData));
-        
+        await conn.setRemoteDescription(new RTCSessionDescription(answerData));
+
         // Process pending ICE
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
         for (const candidate of pending) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          await conn.addIceCandidate(new RTCIceCandidate(candidate));
         }
         pendingIceCandidatesRef.current.set(senderId, []);
 
       } else if (signal.signal_type === 'ice') {
         const candidateData = signal.signal_data?.candidate || signal.candidate;
-        if (pc.remoteDescription) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidateData));
+        if (conn.remoteDescription) {
+          await conn.addIceCandidate(new RTCIceCandidate(candidateData));
         } else {
           const pending = pendingIceCandidatesRef.current.get(senderId) || [];
           pending.push(candidateData);

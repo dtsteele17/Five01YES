@@ -93,7 +93,7 @@ export function WinnerPopup({
 
   const getRematchButtonContent = () => {
     // Both ready - creating/starting new game
-    if (rematchStatus === 'ready' || rematchStatus === 'created' || readyCount >= 2) {
+    if (rematchStatus === 'ready' || rematchStatus === 'creating' || readyCount >= 2) {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
