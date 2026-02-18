@@ -40,6 +40,7 @@ import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { RematchPopup } from '@/components/game/RematchPopup';
+import { HeadToHeadHistoryPopup } from '@/components/game/HeadToHeadHistoryPopup';
 import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
 import type { SafetyGrade } from '@/lib/safety/safetyService';
 import { submitRating, subscribeToRatings, getUserSafetyRating, hasRatedOpponent } from '@/lib/safety/safetyService';
@@ -1139,6 +1140,10 @@ export default function QuickMatchRoomPage() {
   const [playersConnected, setPlayersConnected] = useState<{p1: boolean, p2: boolean}>({p1: false, p2: false});
   const [coinTossSyncStart, setCoinTossSyncStart] = useState(false); // Triggered by signal from Player 1
 
+  // Head-to-head history popup state (for rematches)
+  const [showHeadToHeadHistory, setShowHeadToHeadHistory] = useState(false);
+  const [headToHeadShown, setHeadToHeadShown] = useState(false);
+
   // Pre-game lobby state
   const [showPreGameLobby, setShowPreGameLobby] = useState(false);
   const [player1Ready, setPlayer1Ready] = useState(false);
@@ -1365,12 +1370,17 @@ export default function QuickMatchRoomPage() {
     initCamera();
   }, [bothPlayersReady, coinTossCompleted, room?.status, room?.player2_id, isCameraOn, toggleCamera]);
   
-  // Reset camera init flag when room becomes active (for rematches)
+  // Reset camera init flag when room becomes active or when entering a rematch
   useEffect(() => {
     if (room?.status === 'active' && !isCameraOn) {
       cameraInitAttempted.current = false;
     }
-  }, [room?.status, isCameraOn]);
+    // Also reset when entering a rematch room
+    if (room?.rematch_of && room?.status === 'active') {
+      console.log('[REMATCH] Resetting camera init flag for rematch');
+      cameraInitAttempted.current = false;
+    }
+  }, [room?.status, room?.rematch_of, isCameraOn]);
 
   // Initialize pre-game lobby when both players connect
   useEffect(() => {
@@ -1424,6 +1434,33 @@ export default function QuickMatchRoomPage() {
       fetchPlayerStats();
     }
   }, [room, currentUserId, playersConnected, supabase]);
+
+  // Show head-to-head history popup for rematches before coin toss
+  useEffect(() => {
+    if (!room || !currentUserId) return;
+    if (!room.rematch_of) return; // Only for rematches
+    if (!room.player2_id) return; // Wait for player 2
+    if (headToHeadShown) return; // Already shown
+    if (coinTossCompleted) return; // Game already started
+    if (showHeadToHeadHistory) return; // Already showing
+    if (showCoinToss) return; // Coin toss already showing
+
+    const bothConnected = playersConnected.p1 && playersConnected.p2;
+    // Show when both connected and room is active (rematches skip pregame lobby and go straight to active)
+    if (bothConnected && room.status === 'active') {
+      console.log('[REMATCH] Showing head-to-head history popup');
+      setShowHeadToHeadHistory(true);
+    }
+  }, [room, currentUserId, playersConnected, headToHeadShown, coinTossCompleted, showHeadToHeadHistory, showCoinToss]);
+
+  const handleHeadToHeadClose = () => {
+    setShowHeadToHeadHistory(false);
+    setHeadToHeadShown(true);
+    // After closing head-to-head, show coin toss if not already done
+    if (!coinTossCompleted) {
+      setShowCoinToss(true);
+    }
+  };
 
   // Handle ready button click
   const handleReady = async () => {
@@ -2154,6 +2191,11 @@ export default function QuickMatchRoomPage() {
   useEffect(() => {
     const bothPlayersConnected = playersConnected.p1 && playersConnected.p2;
     const bothReady = player1Ready && player2Ready;
+    
+    // For rematches, wait until head-to-head popup is shown and closed
+    const isRematch = !!room?.rematch_of;
+    const headToHeadReady = isRematch ? headToHeadShown : true;
+    
     const shouldShowCoinToss = room && 
       profiles.length === 2 && 
       bothPlayersConnected &&
@@ -2161,7 +2203,8 @@ export default function QuickMatchRoomPage() {
       room.current_leg === 1 && 
       !coinTossCompleted &&
       room.status === 'active' &&
-      !showPreGameLobby; // Don't show if pregame lobby is still open
+      !showPreGameLobby && // Don't show if pregame lobby is still open
+      headToHeadReady; // Don't show until head-to-head popup is done (for rematches)
     
     if (shouldShowCoinToss) {
       // Check if any visits have been made (if so, don't show coin toss)
@@ -2171,7 +2214,7 @@ export default function QuickMatchRoomPage() {
         setShowCoinToss(true);
       }
     }
-  }, [room, profiles, visits, coinTossCompleted, playersConnected, player1Ready, player2Ready, showPreGameLobby]);
+  }, [room, profiles, visits, coinTossCompleted, playersConnected, player1Ready, player2Ready, showPreGameLobby, headToHeadShown]);
 
   useEffect(() => {
     if (room && profiles.length > 0) {
@@ -4270,6 +4313,27 @@ export default function QuickMatchRoomPage() {
           onRateOpponent={handleTrustRating}
           hasRated={hasSubmittedRating}
           isQuickMatch={true}
+        />
+      )}
+
+      {/* Head-to-Head History Popup - Shows at start of rematch */}
+      {showHeadToHeadHistory && room && profiles.length >= 2 && (
+        <HeadToHeadHistoryPopup
+          isOpen={showHeadToHeadHistory}
+          onClose={handleHeadToHeadClose}
+          player1={{ 
+            id: room.player1_id, 
+            username: profiles.find(p => p.user_id === room.player1_id)?.username || 'Player 1',
+            division_name: profiles.find(p => p.user_id === room.player1_id)?.division_name
+          }}
+          player2={{ 
+            id: room.player2_id || '', 
+            username: profiles.find(p => p.user_id === room.player2_id)?.username || 'Player 2',
+            division_name: profiles.find(p => p.user_id === room.player2_id)?.division_name
+          }}
+          currentUserId={currentUserId || ''}
+          isRematch={true}
+          originalRoomId={room.rematch_of || undefined}
         />
       )}
 

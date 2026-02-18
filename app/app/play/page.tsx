@@ -1,15 +1,19 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion, Variants } from 'framer-motion';
 import { useRecentMatches } from '@/lib/hooks/useRecentMatches';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import { useTodayStats } from '@/lib/hooks/useTodayStats';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
+import { PrivateMatchModal, MatchSettings } from '@/components/game/PrivateMatchModal';
 import { ModernMatchCard } from '@/components/match/ModernMatchCard';
 import {
   Zap,
@@ -354,6 +358,108 @@ function RecentMatchesSection() {
   );
 }
 
+function PrivateMatchCard() {
+  const [showModal, setShowModal] = useState(false);
+  const router = useRouter();
+  
+  const handleStart = async (settings: MatchSettings) => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('Please sign in to create a private match');
+        return;
+      }
+      
+      // Create private match room
+      const { data: room, error } = await supabase
+        .from('match_rooms')
+        .insert({
+          player1_id: user.id,
+          game_mode: settings.gameMode,
+          legs_to_win: Math.ceil(settings.legsToWin / 2), // Convert best-of to legs needed
+          double_out: settings.doubleOut,
+          match_format: 'private',
+          status: 'waiting',
+          current_leg: 1,
+          player1_remaining: settings.gameMode,
+          player2_remaining: settings.gameMode,
+          current_turn: user.id,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Send invitation to invited player
+      if (settings.invitedPlayerId) {
+        await supabase.from('match_invitations').insert({
+          room_id: room.id,
+          inviter_id: user.id,
+          invitee_id: settings.invitedPlayerId,
+          status: 'pending',
+        });
+      }
+      
+      toast.success('Private match created!');
+      router.push(`/app/play/private-match/${room.id}`);
+    } catch (err) {
+      console.error('Error creating private match:', err);
+      toast.error('Failed to create private match');
+    }
+  };
+  
+  return (
+    <>
+      <motion.div variants={itemVariants} className="h-full">
+        <div 
+          onClick={() => setShowModal(true)}
+          className="h-full block cursor-pointer"
+        >
+          <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50 p-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-10 transition-opacity" />
+            
+            <div className="relative z-10 h-full flex flex-col">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                  <Users className="w-7 h-7 text-white" />
+                </div>
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                  Multiplayer
+                </Badge>
+              </div>
+
+              <div className="flex-1">
+                <div className="mb-3">
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Social</p>
+                  <h3 className="text-xl font-bold text-white mt-1 group-hover:text-blue-400 transition-colors">Private Match</h3>
+                </div>
+
+                <p className="text-slate-400 text-sm mb-4 line-clamp-2">Create a private room and invite your friends for custom matches.</p>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-700/30">
+                <div />
+                <div className="flex items-center text-blue-400 text-sm font-medium">
+                  Play
+                  <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </motion.div>
+      
+      <PrivateMatchModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onStart={handleStart}
+      />
+    </>
+  );
+}
+
 export default function PlayPage() {
   return (
     <motion.div 
@@ -436,16 +542,7 @@ export default function PlayPage() {
           />
 
           {/* Private Match */}
-          <GameModeCard
-            href="/app/play/private-match"
-            title="Private Match"
-            subtitle="Social"
-            description="Create a private room and invite your friends for custom matches."
-            icon={<Users className="w-7 h-7 text-white" />}
-            badge={{ text: 'Multiplayer', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }}
-            stats={{ label: 'Online', value: '432' }}
-            color="bg-gradient-to-br from-blue-500 to-indigo-600"
-          />
+          <PrivateMatchCard />
 
           {/* Tournament */}
           <GameModeCard
