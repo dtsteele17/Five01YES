@@ -550,6 +550,7 @@ export default function DartbotMatchPage() {
   const hasSavedStats = useRef(false);
   const [dartboardHits, setDartboardHits] = useState<DartHit[]>([]);
   const [botLastVisitTotal, setBotLastVisitTotal] = useState<number | null>(null);
+  const [botLastVisitWasBust, setBotLastVisitWasBust] = useState(false);
   const [showVisualization, setShowVisualization] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
   const [lastThreeDarts, setLastThreeDarts] = useState<DartResult[]>([]);
@@ -981,54 +982,51 @@ export default function DartbotMatchPage() {
   // Track the last processed turn to prevent double execution
   const lastProcessedTurnRef = useRef(0);
 
-  const animateBotThrows = useCallback(async (darts: DartResult[]): Promise<void> => {
-    // Prevent overlapping animations
+  const animateBotThrows = useCallback(async (darts: DartResult[], isBust?: boolean): Promise<void> => {
     if (botTurnInProgressRef.current) {
       console.log('[DartBot] Turn already in progress, skipping');
       return;
     }
     botTurnInProgressRef.current = true;
-    
+
     clearDartboardAnimationTimer();
     setDartboardHits([]);
     setBotLastVisitTotal(null);
+    setBotLastVisitWasBust(false);
     setLastThreeDarts([]);
-    
-    // Show "DartBot is throwing..." message with dart preview
-    const visitTotal = darts.reduce((sum, dart) => sum + dart.score, 0);
-    
-    for (let i = 0; i < darts.length; i++) {
-      const dart = darts[i];
-      // Delay before dart appears (thinking/aiming time)
-      await new Promise<void>((resolve) => { 
-        dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), i === 0 ? 600 : 1200); 
+
+    // Strip MISS padding darts — only animate darts the bot physically threw
+    // The engine adds MISS placeholders on bust so the stat counter reaches 3,
+    // but we must NOT animate them or it looks like the bot kept throwing after busting.
+    const thrownDarts = darts.filter(d => d.label !== 'MISS');
+    const visitTotal = thrownDarts.reduce((sum, d) => sum + d.score, 0);
+
+    for (let i = 0; i < thrownDarts.length; i++) {
+      const dart = thrownDarts[i];
+      await new Promise<void>((resolve) => {
+        dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), i === 0 ? 600 : 1200);
       });
-      
-      // Add dart to board
+
       setDartboardHits(prev => [...prev, { x: dart.x, y: dart.y, label: dart.label, offboard: dart.offboard }]);
-      
-      // Show dart score immediately
       setLastThreeDarts(prev => [...prev, dart]);
-      
-      // Short pause to show the hit before next dart
-      if (i < darts.length - 1) {
-        await new Promise<void>((resolve) => { 
-          dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 400); 
+
+      if (i < thrownDarts.length - 1) {
+        await new Promise<void>((resolve) => {
+          dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 400);
         });
       }
     }
-    
-    // Show total after all darts thrown
-    setBotLastVisitTotal(visitTotal);
-    
-    // Keep darts visible for a moment, then clear
-    await new Promise<void>((resolve) => { 
-      dartboardAnimationTimerRef.current = window.setTimeout(() => { 
-        setDartboardHits([]); 
-        resolve(); 
-      }, 1500); 
+
+    setBotLastVisitTotal(isBust ? 0 : visitTotal);
+    setBotLastVisitWasBust(isBust ?? false);
+
+    await new Promise<void>((resolve) => {
+      dartboardAnimationTimerRef.current = window.setTimeout(() => {
+        setDartboardHits([]);
+        resolve();
+      }, 1500);
     });
-    
+
     botTurnInProgressRef.current = false;
   }, [clearDartboardAnimationTimer]);
 
@@ -1051,8 +1049,8 @@ export default function DartbotMatchPage() {
       // Update performance tracker for calibration
       setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
       
-      // Animate the throws (shows exactly 3 darts or fewer if checkout)
-      await animateBotThrows(visualVisit.darts);
+      // Animate only the darts actually thrown — stops at the bust dart
+      await animateBotThrows(visualVisit.darts, visualVisit.bust);
       
       // CRITICAL: Bot ALWAYS throws exactly 3 darts per visit (unless checkout)
       // Even on bust, we count 3 darts for stats consistency
@@ -1086,31 +1084,19 @@ export default function DartbotMatchPage() {
         setPlayer2CheckoutsMade(prev => prev + 1);
       }
       
-      // Ensure darts array always has 3 darts for display consistency
-      const paddedDarts = [...visualVisit.darts];
-      while (paddedDarts.length < 3) {
-        paddedDarts.push({
-          label: 'MISS',
-          score: 0,
-          isDouble: false,
-          isTreble: false,
-          offboard: true,
-          aimTarget: '-',
-          x: 1.5,
-          y: 0
-        });
-      }
-      
-      const visit: Visit = { 
-        player: 'player2', 
-        score: visualVisit.bust ? 0 : visualVisit.visitTotal, 
-        remainingScore: visualVisit.newRemaining, 
-        isBust: visualVisit.bust, 
-        isCheckout: visualVisit.finished, 
-        timestamp: Date.now(), 
-        dartsThrown, // Always 3 except on checkout
-        dartsAtDouble: botDartsAtDouble, // Properly calculated based on valid checkout
-        darts: paddedDarts.map(d => ({
+      // Only include darts the bot actually threw — strip MISS padding used for stat counting
+      const visitDisplayDarts = visualVisit.darts.filter(d => d.label !== 'MISS');
+
+      const visit: Visit = {
+        player: 'player2',
+        score: visualVisit.bust ? 0 : visualVisit.visitTotal,
+        remainingScore: visualVisit.newRemaining,
+        isBust: visualVisit.bust,
+        isCheckout: visualVisit.finished,
+        timestamp: Date.now(),
+        dartsThrown, // Always 3 on bust or normal visit; fewer only on checkout
+        dartsAtDouble: botDartsAtDouble,
+        darts: visitDisplayDarts.map(d => ({
           type: d.isDouble ? 'double' : d.isTreble ? 'triple' : d.offboard ? 'single' : 'single',
           number: d.offboard ? 0 : parseInt(d.label.replace(/[^0-9]/g, '')) || (d.label.includes('Bull') ? 25 : 0),
           value: d.score,
@@ -1664,12 +1650,12 @@ export default function DartbotMatchPage() {
           )}
           {/* Show DartBot's last throw - visible after bot completes turn */}
           {lastThreeDarts.length > 0 && currentPlayer === 'player1' && !isBotThinking && (
-            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/20">
-              <div className="text-xs text-purple-400 mb-1 font-medium">{botName}&apos;s Last Throw:</div>
+            <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
+              <div className="text-xs text-slate-400 mb-1 font-medium">{botName}&apos;s Last Throw:</div>
               <div className="flex items-center gap-2">
                 {lastThreeDarts.map((dart, i) => (
                   <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
-                    dart.isDouble ? 'bg-red-500/30 text-red-300' : 
+                    dart.isDouble ? 'bg-red-500/30 text-red-300' :
                     dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
                     dart.offboard ? 'bg-gray-500/30 text-gray-400' :
                     'bg-slate-700 text-white'
@@ -1677,9 +1663,11 @@ export default function DartbotMatchPage() {
                     {dart.label}
                   </span>
                 ))}
-                <span className="text-emerald-400 font-bold ml-auto text-lg">
-                  = {lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}
-                  {lastThreeDarts.some(d => d.isDouble) && lastThreeDarts.reduce((sum, d) => sum + d.score, 0) > 0 && player2Score === 0 && (
+                <span className={`font-bold ml-auto text-lg ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {botLastVisitWasBust
+                    ? 'BUST'
+                    : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
+                  {!botLastVisitWasBust && lastThreeDarts.some(d => d.isDouble) && player2Score === 0 && (
                     <span className="text-xs text-emerald-300 ml-2">CHECKOUT!</span>
                   )}
                 </span>
