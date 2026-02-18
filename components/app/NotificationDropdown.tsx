@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/lib/context/NotificationsContext';
 import {
@@ -44,7 +44,6 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const { notifications, unreadCount, markAllAsRead, markAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
   const [processingFriendRequest, setProcessingFriendRequest] = useState<string | null>(null);
-  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -493,7 +492,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     });
   }, [notifications, supabase, router, markAsRead]);
 
-  // Deduplicate notifications by invite_id, keeping the newest by created_at
+  // Deduplicate notifications by invite_id and request_id, keeping the newest by created_at
   const deduplicatedNotifications = notifications.filter((notification, index, self) => {
     // If it's a private match invite, check for duplicates by invite_id
     if (isPrivateMatchInvite(notification) && notification.data?.invite_id) {
@@ -511,9 +510,35 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       }
       return true;
     }
-    // For non-invite notifications, keep all
+    
+    // Deduplicate friend request notifications by request_id
+    if (isFriendRequest(notification) && notification.data?.request_id) {
+      const requestId = notification.data.request_id;
+      const duplicates = self.filter((n) =>
+        isFriendRequest(n) && n.data?.request_id === requestId
+      );
+      if (duplicates.length > 1) {
+        const newest = duplicates.reduce((prev, current) =>
+          new Date(current.created_at) > new Date(prev.created_at) ? current : prev
+        );
+        return notification.id === newest.id;
+      }
+      return true;
+    }
+    
+    // For non-invite/non-friend-request notifications, keep all
     return true;
   });
+
+  // Limit to 3 most recent notifications
+  const limitedNotifications = deduplicatedNotifications.slice(0, 3);
+
+  // Mark all as read when dropdown opens
+  useEffect(() => {
+    if (dropdownOpen && unreadCount > 0) {
+      markAllAsRead();
+    }
+  }, [dropdownOpen, unreadCount, markAllAsRead]);
 
   // Cleanup when modal closes
   const handleModalClose = (open: boolean) => {
@@ -653,38 +678,12 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-emerald-400" />
               <h3 className="text-lg font-bold text-white">Notifications</h3>
-              {unreadCount > 0 && (
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
-                  {unreadCount}
-                </Badge>
-              )}
             </div>
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={markingAllAsRead}
-                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs h-auto py-1.5 px-3 rounded-lg disabled:opacity-50"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setMarkingAllAsRead(true);
-                  try {
-                    await markAllAsRead();
-                    toast.success('All notifications marked as read');
-                  } catch (err) {
-                    toast.error('Failed to mark notifications as read');
-                  } finally {
-                    setMarkingAllAsRead(false);
-                  }
-                }}
-              >
-                {markingAllAsRead ? 'Marking...' : 'Mark all as read'}
-              </Button>
-            )}
+
           </div>
         </div>
 
-        {deduplicatedNotifications.length === 0 ? (
+        {limitedNotifications.length === 0 ? (
           <div className="py-16 px-6 text-center">
             <div className="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
               <Bell className="w-8 h-8 text-slate-600" />
@@ -694,7 +693,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
         ) : (
           <ScrollArea className="max-h-[320px]">
             <div className="py-2">
-              {deduplicatedNotifications.map((notification) => {
+              {limitedNotifications.map((notification) => {
                 const isInvite = isPrivateMatchInvite(notification);
                 const isFriendReq = isFriendRequest(notification);
                 const link = notification.link || notification.data?.href || notification.data?.link;
