@@ -51,13 +51,8 @@ export default function AppLayout({
         <LeaguesProvider>
           <TournamentsProvider>
             <TrainingProvider>
-              <div className="min-h-screen bg-background transition-colors duration-300">
-                {/* Dark mode gradient background */}
-                <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20 dark:opacity-100 opacity-0 transition-opacity duration-300 pointer-events-none" />
-                <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-900/50 to-slate-950 dark:opacity-100 opacity-0 transition-opacity duration-300 pointer-events-none" />
-                
-                {/* Light mode background */}
-                <div className="fixed inset-0 bg-gradient-to-br from-gray-50 via-white to-emerald-50 dark:opacity-0 opacity-100 transition-opacity duration-300 pointer-events-none" />
+              <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20">
+                <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-900/50 to-slate-950 pointer-events-none" />
 
                 <TopBar />
                 <TournamentMatchMonitor />

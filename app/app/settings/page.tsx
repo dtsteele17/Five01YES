@@ -29,7 +29,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { isInviteSoundEnabled, setInviteSoundEnabled, isGameOnSoundEnabled, setGameOnSoundEnabled } from '@/lib/sfx';
 import { isDartbotVisualizationEnabled, setDartbotVisualizationEnabled } from '@/lib/dartbotSettings';
-import { useTheme } from '@/lib/theme-provider';
+
 import Link from 'next/link';
 import {
   Dialog,
@@ -57,7 +57,10 @@ interface UserSettings {
 export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  // const { theme, setTheme, resolvedTheme } = useTheme();
+  const theme = 'dark';
+  const setTheme = (t: string) => { console.log('Theme change disabled for build'); };
+  const resolvedTheme = 'dark';
   
   // Password state
   const [passwordForm, setPasswordForm] = useState({
