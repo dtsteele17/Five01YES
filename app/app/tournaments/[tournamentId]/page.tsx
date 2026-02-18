@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Clock, Users, Trophy, ArrowLeft, UserPlus, Target, Layers } from 'lucide-react';
+import { Calendar, Clock, Users, Trophy, ArrowLeft, UserPlus, Target, Layers, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import TournamentBracketTab from '@/components/app/TournamentBracketTab';
 
@@ -55,6 +55,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [joining, setJoining] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -225,17 +227,26 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       }));
 
       setParticipants(mappedParticipants);
+      
+      // Check if current user is checked in
+      if (user?.id) {
+        const currentUserParticipant = mappedParticipants.find(
+          (p: any) => p.user_id === user.id
+        );
+        setIsCheckedIn(currentUserParticipant?.status_type === 'checked-in');
+      }
 
       if (user?.id) {
         const { data: existing } = await supabase
           .from('tournament_participants')
-          .select('id')
+          .select('id, status_type')
           .eq('tournament_id', tournamentId)
           .eq('user_id', user.id)
           .in('status_type', ['registered', 'checked-in'])  // Only check registered/checked-in status
           .maybeSingle();
 
         setIsRegistered(!!existing);
+        setIsCheckedIn(existing?.status_type === 'checked-in');
 
         // Check if user has an active match that's already started (in_game)
         if (existing) {
@@ -299,6 +310,35 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       toast.error(error.message || 'Failed to register for tournament');
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    if (!currentUserId || !tournament) {
+      toast.error('Please log in to check in');
+      return;
+    }
+
+    try {
+      setCheckingIn(true);
+
+      const { data, error } = await supabase.rpc('rpc_tournament_check_in', {
+        p_tournament_id: tournament.id,
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success('Successfully checked in!');
+        setIsCheckedIn(true);
+        await loadData();
+      } else {
+        toast.error(data?.error || 'Failed to check in');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to check in');
+    } finally {
+      setCheckingIn(false);
     }
   };
 
@@ -403,7 +443,26 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                 <p className="text-gray-400 text-lg">{tournament.description}</p>
               )}
             </div>
-            {isRegistered ? (
+            {tournament.status === 'checkin' && isRegistered && !isCheckedIn ? (
+              <Button
+                onClick={handleCheckIn}
+                disabled={checkingIn}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                size="lg"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {checkingIn ? 'Checking In...' : 'Check In Now'}
+              </Button>
+            ) : isCheckedIn ? (
+              <Button
+                disabled
+                className="bg-green-600/50 text-white cursor-not-allowed"
+                size="lg"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Checked In
+              </Button>
+            ) : isRegistered ? (
               <Button
                 disabled
                 className="bg-green-600/50 text-white cursor-not-allowed"
@@ -445,13 +504,23 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2 text-gray-400">
                   <Users className="w-4 h-4" />
-                  <CardTitle className="text-sm font-normal">Participants</CardTitle>
+                  <CardTitle className="text-sm font-normal">
+                    {tournament.status === 'checkin' ? 'Checked In' : 'Participants'}
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <p className="text-white font-semibold">
-                  {participants.length} / {tournament.max_participants}
+                  {tournament.status === 'checkin' 
+                    ? `${participants.filter(p => p.status_type === 'checked-in').length} / ${participants.length}`
+                    : `${participants.length} / ${tournament.max_participants}`
+                  }
                 </p>
+                {tournament.status === 'checkin' && (
+                  <p className="text-gray-400 text-xs mt-1">
+                    of {participants.length} registered
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -569,6 +638,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                             </div>
                           </div>
                           <div className="flex gap-2">
+                            {participant.status_type === 'checked-in' && (
+                              <Badge className="bg-green-600/20 text-green-400 border-green-600/30">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Checked In
+                              </Badge>
+                            )}
                             {participant.user_id === tournament.owner_id && (
                               <Badge className="bg-yellow-600/20 text-yellow-400 border-yellow-600/30">
                                 Organizer
