@@ -33,13 +33,8 @@ export interface TournamentRow {
   status: string;
   created_by: string;
   created_at: string;
-  updated_at?: string;
   game_mode: number;
   double_out: boolean;
-  bracket_generated_at?: string | null;
-  started_at?: string | null;
-  current_round?: number;
-  total_rounds?: number;
   match_format?: string;
   timezone?: string;
 }
@@ -109,14 +104,11 @@ export async function joinTournament(tournamentId: string) {
     .upsert({
       tournament_id: tournamentId,
       user_id: user.id,
-      role: 'participant',
-      status_type: 'registered',
     }, {
       onConflict: 'tournament_id,user_id'
     });
 
   if (error) {
-    console.error('JOIN_TOURNAMENT_ERROR:', error);
     throw new Error(error.message || 'Failed to register for tournament');
   }
 }
