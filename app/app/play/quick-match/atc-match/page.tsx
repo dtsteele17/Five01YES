@@ -220,32 +220,84 @@ function PlayerTile({
   );
 }
 
+// Calculate preview target based on pending darts
+function calculatePreviewTarget(
+  startTarget: number | 'bull',
+  darts: Array<{segment: string, number?: number}>,
+  mode: string,
+  order: 'sequential' | 'random'
+): { target: number | 'bull', hits: number } {
+  const allTargets = generateTargets(order);
+  let currentTarget = startTarget;
+  let hits = 0;
+  
+  for (const dart of darts) {
+    const { segment, number } = dart;
+    let hit = false;
+    
+    if (currentTarget === 'bull') {
+      if (mode === 'singles' && segment === 'SB') hit = true;
+      else if (mode === 'doubles' && segment === 'DB') hit = true;
+      else if (mode === 'increase' && (segment === 'SB' || segment === 'DB')) hit = true;
+    } else {
+      if (mode === 'singles' && segment === 'S' && number === currentTarget) hit = true;
+      else if (mode === 'doubles' && segment === 'D' && number === currentTarget) hit = true;
+      else if (mode === 'trebles' && segment === 'T' && number === currentTarget) hit = true;
+      else if (mode === 'increase' && number === currentTarget) hit = true;
+    }
+    
+    if (hit) {
+      hits++;
+      const currentIndex = allTargets.indexOf(currentTarget);
+      if (currentIndex < allTargets.length - 1) {
+        if (mode === 'increase' && order === 'sequential') {
+          let advance = 1;
+          if (segment === 'D') advance = 2;
+          else if (segment === 'T') advance = 3;
+          const nextIndex = Math.min(currentIndex + advance, allTargets.length - 1);
+          currentTarget = allTargets[nextIndex];
+        } else {
+          currentTarget = allTargets[currentIndex + 1];
+        }
+      }
+    }
+  }
+  
+  return { target: currentTarget, hits };
+}
+
 // Current Visit Display Component
 function CurrentVisitDisplay({ 
   visit, 
-  dartCount 
+  dartCount,
+  previewTarget,
+  startTarget
 }: { 
   visit: Partial<Visit>; 
   dartCount: number;
+  previewTarget: number | 'bull';
+  startTarget: number | 'bull';
 }) {
   const darts = [visit.dart1, visit.dart2, visit.dart3];
+  const targetChanged = previewTarget !== startTarget;
   
   return (
-    <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-700/50">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Current Visit</h4>
-        <Badge className="bg-emerald-500/20 text-emerald-400">
-          {dartCount}/3 Darts
+    <div className="bg-slate-900/50 rounded-2xl p-3 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Current Visit</h4>
+        <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">
+          {dartCount}/3
         </Badge>
       </div>
       
-      <div className="grid grid-cols-3 gap-3">
+      {/* Darts - Smaller display */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
         {darts.map((dart, i) => (
           <motion.div 
             key={i}
             initial={dart ? { scale: 0.8, opacity: 0 } : {}}
             animate={dart ? { scale: 1, opacity: 1 } : {}}
-            className={`aspect-square rounded-xl flex flex-col items-center justify-center ${
+            className={`aspect-[4/3] rounded-lg flex flex-col items-center justify-center ${
               dart 
                 ? dart.segment === 'D' 
                   ? 'bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30' 
@@ -263,18 +315,33 @@ function CurrentVisitDisplay({
           >
             {dart ? (
               <>
-                <span className="text-2xl font-black">{dart.label}</span>
+                <span className="text-lg font-black leading-none">{dart.label}</span>
                 {dart.segment !== 'MISS' && (
-                  <span className="text-xs opacity-80">
-                    {dart.segment === 'D' ? 'Double' : dart.segment === 'T' ? 'Triple' : 'Single'}
+                  <span className="text-[10px] opacity-80 leading-tight mt-0.5">
+                    {dart.segment === 'D' ? 'Dbl' : dart.segment === 'T' ? 'Trp' : 'Sgl'}
                   </span>
                 )}
               </>
             ) : (
-              <span className="text-2xl font-bold">{i + 1}</span>
+              <span className="text-lg font-bold text-slate-600">{i + 1}</span>
             )}
           </motion.div>
         ))}
+      </div>
+      
+      {/* Preview Target */}
+      <div className={`text-center p-2 rounded-lg border ${
+        targetChanged 
+          ? 'bg-emerald-500/10 border-emerald-500/30' 
+          : 'bg-slate-800/50 border-slate-700/30'
+      }`}>
+        <span className="text-xs text-slate-400">Target: </span>
+        <span className={`text-lg font-black ${targetChanged ? 'text-emerald-400' : 'text-white'}`}>
+          {previewTarget === 'bull' ? 'BULL' : previewTarget}
+        </span>
+        {targetChanged && (
+          <span className="text-xs text-emerald-400 ml-2">(hit!)</span>
+        )}
       </div>
     </div>
   );
@@ -590,6 +657,19 @@ export default function ATCMatchPage() {
   
   // Store pending darts locally before submitting
   const [pendingDarts, setPendingDarts] = useState<Array<{segment: string, number?: number, label: string}>>([]);
+  const [previewTarget, setPreviewTarget] = useState<number | 'bull'>(1);
+
+  // Update preview target whenever pending darts change
+  useEffect(() => {
+    if (!match) return;
+    const currentPlayer = match.players[match.current_player_index];
+    const startTarget = currentPlayer?.current_target || 1;
+    const mode = match.atc_settings.mode;
+    const order = match.atc_settings.order;
+    
+    const { target } = calculatePreviewTarget(startTarget, pendingDarts, mode, order);
+    setPreviewTarget(target);
+  }, [pendingDarts, match]);
 
   // Handle dart throw - Add dart to pending list (does NOT submit)
   const handleDartThrow = (segment: string, number?: number) => {
@@ -1343,34 +1423,31 @@ export default function ATCMatchPage() {
             ))}
           </div>
           
-          {/* Current Visit Display - Shows darts as entered */}
+          {/* Current Visit Display - Shows darts as entered with preview target */}
           {isMyTurn() && (
-            <CurrentVisitDisplay visit={currentVisit} dartCount={dartCount} />
+            <CurrentVisitDisplay 
+              visit={currentVisit} 
+              dartCount={dartCount} 
+              previewTarget={previewTarget}
+              startTarget={currentPlayer?.current_target || 1}
+            />
           )}
           
-          {/* Scoring Panel */}
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-4 overflow-hidden">
+          {/* Scoring Panel - Compact Layout */}
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-3 overflow-hidden">
             {isMyTurn() ? (
               <div className="h-full flex flex-col">
-                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Crosshair className="h-4 w-4 text-emerald-400" />
-                  Enter Your Throw
-                  <span className="ml-auto text-xs text-slate-400 font-normal normal-case">
-                    {pendingDarts.length}/3 Darts
-                  </span>
-                </h4>
-                
-                {/* Dart Input Buttons - Disabled when 3 darts entered */}
-                <div className={`flex-1 ${pendingDarts.length >= 3 ? 'opacity-50 pointer-events-none' : ''}`}>
+                {/* Dart Input Buttons - Compact */}
+                <div className={`flex-1 min-h-0 ${pendingDarts.length >= 3 ? 'opacity-50 pointer-events-none' : ''}`}>
                   {target === 'bull' ? (
-                    /* Bull Mode */
+                    /* Bull Mode - Compact */
                     <div className="h-full flex flex-col gap-2">
                       <div className="flex-1 flex gap-2">
                         {(mode === 'singles' || mode === 'increase') && (
                           <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
                             <Button
                               onClick={() => handleDartThrow('SB')}
-                              className="h-full w-full text-lg font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                              className="h-full w-full text-base font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
                             >
                               Single Bull
                             </Button>
@@ -1380,7 +1457,7 @@ export default function ATCMatchPage() {
                           <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
                             <Button
                               onClick={() => handleDartThrow('DB')}
-                              className="h-full w-full text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25"
+                              className="h-full w-full text-base font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25"
                             >
                               Double Bull
                             </Button>
@@ -1390,19 +1467,19 @@ export default function ATCMatchPage() {
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
                         <Button
                           onClick={() => handleDartThrow('MISS')}
-                          className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                          className="h-10 w-full text-base font-bold bg-slate-700 hover:bg-slate-600 text-white"
                         >
                           Miss
                         </Button>
                       </motion.div>
                     </div>
                   ) : isIncreaseMode ? (
-                    /* Increase Mode - 2x2 Grid */
+                    /* Increase Mode - 2x2 Grid Compact */
                     <div className="h-full grid grid-cols-2 gap-2">
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
                         <Button
                           onClick={() => handleDartThrow('S', target as number)}
-                          className="h-full w-full text-2xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25"
+                          className="h-full w-full text-xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25"
                         >
                           S{target}
                         </Button>
@@ -1410,7 +1487,7 @@ export default function ATCMatchPage() {
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
                         <Button
                           onClick={() => handleDartThrow('D', target as number)}
-                          className="h-full w-full text-2xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                          className="h-full w-full text-xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
                         >
                           D{target}
                         </Button>
@@ -1418,7 +1495,7 @@ export default function ATCMatchPage() {
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
                         <Button
                           onClick={() => handleDartThrow('T', target as number)}
-                          className="h-full w-full text-2xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25"
+                          className="h-full w-full text-xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25"
                         >
                           T{target}
                         </Button>
@@ -1426,14 +1503,14 @@ export default function ATCMatchPage() {
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
                         <Button
                           onClick={() => handleDartThrow('MISS')}
-                          className="h-full w-full text-xl font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                          className="h-full w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
                         >
                           Miss
                         </Button>
                       </motion.div>
                     </div>
                   ) : (
-                    /* Singles/Doubles/Trebles */
+                    /* Singles/Doubles/Trebles - Compact */
                     <div className="h-full flex flex-col gap-2">
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
                         <Button
@@ -1441,7 +1518,7 @@ export default function ATCMatchPage() {
                             mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', 
                             target as number
                           )}
-                          className={`h-full w-full text-4xl font-black shadow-lg ${
+                          className={`h-full w-full text-3xl font-black shadow-lg ${
                             mode === 'singles' 
                               ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 shadow-cyan-500/25' :
                             mode === 'doubles' 
@@ -1455,7 +1532,7 @@ export default function ATCMatchPage() {
                       <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
                         <Button
                           onClick={() => handleDartThrow('MISS')}
-                          className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                          className="h-10 w-full text-base font-bold bg-slate-700 hover:bg-slate-600 text-white"
                         >
                           Miss
                         </Button>
@@ -1464,48 +1541,26 @@ export default function ATCMatchPage() {
                   )}
                 </div>
                 
-                {/* Submit and Undo Buttons */}
-                {pendingDarts.length > 0 && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }} 
-                      animate={{ opacity: 1, y: 0 }}
-                      className="col-span-1"
-                    >
-                      <Button
-                        onClick={handleUndoLastDart}
-                        variant="outline"
-                        className="w-full h-12 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-bold"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-1" />
-                        Undo
-                      </Button>
-                    </motion.div>
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }} 
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.05 }}
-                      className="col-span-2"
-                    >
-                      <Button
-                        onClick={handleSubmitVisit}
-                        className="w-full h-12 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-lg shadow-lg shadow-emerald-500/25"
-                      >
-                        {pendingDarts.length === 3 ? (
-                          <>
-                            <CheckCircle2 className="w-5 h-5 mr-2" />
-                            Submit Visit
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-5 h-5 mr-2" />
-                            Submit ({pendingDarts.length} dart{pendingDarts.length !== 1 ? 's' : ''})
-                          </>
-                        )}
-                      </Button>
-                    </motion.div>
-                  </div>
-                )}
+                {/* Submit and Undo Buttons - Always visible underneath */}
+                <div className="mt-2 grid grid-cols-2 gap-2 flex-none">
+                  <Button
+                    onClick={handleUndoLastDart}
+                    variant="outline"
+                    disabled={pendingDarts.length === 0}
+                    className="h-10 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    Undo
+                  </Button>
+                  <Button
+                    onClick={handleSubmitVisit}
+                    disabled={pendingDarts.length === 0}
+                    className="h-10 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    {pendingDarts.length === 3 ? 'Submit' : `Submit (${pendingDarts.length})`}
+                  </Button>
+                </div>
               </div>
             ) : (
               /* Waiting for opponent */
