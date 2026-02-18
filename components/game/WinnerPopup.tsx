@@ -102,7 +102,7 @@ export function WinnerPopup({
       );
     }
     // Both ready - navigating to new game
-    if (rematchStatus === 'ready' || rematchStatus === 'created' || readyCount >= 2) {
+    if (rematchStatus === 'ready' || readyCount >= 2) {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />

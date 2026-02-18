@@ -39,7 +39,7 @@ export function useATCWebRTC({
   currentPlayerId,
   isMyTurn = false,
   allPlayerIds = [],
-}: UseATCWebRTCReturn) {
+}: UseATCWebRTCProps) {
   const supabase = createClient();
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -178,7 +178,7 @@ export function useATCWebRTC({
     // For offer, always create connection if doesn't exist
     if (!pc && signal.signal_type === 'offer') {
       console.log('[ATC Camera] Creating new connection for offer from:', senderId);
-      pc = createPeerConnection(senderId, false);
+      pc = createPeerConnection(senderId, false) ?? undefined;
     }
 
     if (!pc) {
@@ -186,31 +186,33 @@ export function useATCWebRTC({
       return;
     }
 
+    const conn: RTCPeerConnection = pc;
+
     try {
       if (signal.signal_type === 'offer') {
         console.log('[ATC Camera] 📨 Processing OFFER from:', senderId);
-        
+
         // Add local stream before creating answer
         if (localStreamRef.current) {
-          const senders = pc.getSenders();
+          const senders = conn.getSenders();
           const hasVideo = senders.some(s => s.track?.kind === 'video');
           if (!hasVideo) {
             console.log('[ATC Camera] Adding local tracks before answer');
             localStreamRef.current.getTracks().forEach(track => {
-              pc.addTrack(track, localStreamRef.current!);
+              conn.addTrack(track, localStreamRef.current!);
             });
           }
         }
 
         const offerData = signal.signal_data?.offer || signal.offer;
-        await pc.setRemoteDescription(new RTCSessionDescription(offerData));
+        await conn.setRemoteDescription(new RTCSessionDescription(offerData));
         console.log('[ATC Camera] Remote description set for offer');
         
         // Process pending ICE candidates
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
         for (const candidate of pending) {
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            await conn.addIceCandidate(new RTCIceCandidate(candidate));
             console.log('[ATC Camera] Added pending ICE candidate');
           } catch (e) {
             console.error('[ATC Camera] Error adding pending ICE:', e);
@@ -219,22 +221,22 @@ export function useATCWebRTC({
         pendingIceCandidatesRef.current.set(senderId, []);
 
         console.log('[ATC Camera] Creating ANSWER for:', senderId);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await sendSignal(senderId, 'answer', { answer: pc.localDescription?.toJSON() });
+        const answer = await conn.createAnswer();
+        await conn.setLocalDescription(answer);
+        await sendSignal(senderId, 'answer', { answer: conn.localDescription?.toJSON() });
         console.log('[ATC Camera] ✅ ANSWER sent to:', senderId);
 
       } else if (signal.signal_type === 'answer') {
         console.log('[ATC Camera] 📨 Processing ANSWER from:', senderId);
         const answerData = signal.signal_data?.answer || signal.answer;
-        await pc.setRemoteDescription(new RTCSessionDescription(answerData));
+        await conn.setRemoteDescription(new RTCSessionDescription(answerData));
         console.log('[ATC Camera] Remote description set for answer');
-        
+
         // Process pending ICE candidates
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
         for (const candidate of pending) {
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            await conn.addIceCandidate(new RTCIceCandidate(candidate));
           } catch (e) {
             console.error('[ATC Camera] Error adding pending ICE:', e);
           }
@@ -244,9 +246,9 @@ export function useATCWebRTC({
 
       } else if (signal.signal_type === 'ice') {
         const candidateData = signal.signal_data?.candidate || signal.candidate;
-        if (pc.remoteDescription && pc.remoteDescription.type) {
+        if (conn.remoteDescription && conn.remoteDescription.type) {
           console.log('[ATC Camera] Adding ICE candidate from:', senderId);
-          await pc.addIceCandidate(new RTCIceCandidate(candidateData));
+          await conn.addIceCandidate(new RTCIceCandidate(candidateData));
         } else {
           console.log('[ATC Camera] Queuing ICE candidate (no remote desc yet)');
           const pending = pendingIceCandidatesRef.current.get(senderId) || [];
