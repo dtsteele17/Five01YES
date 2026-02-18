@@ -26,7 +26,7 @@ export function useATCWebRTC({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected'>('idle');
+  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'failed'>('idle');
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
