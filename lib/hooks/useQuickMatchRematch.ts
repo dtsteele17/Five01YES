@@ -181,7 +181,16 @@ export function useQuickMatchRematch({
   };
 
   const requestRematch = useCallback(async () => {
-    if (state.isLoading || state.status === 'created') return;
+    // Prevent duplicate requests
+    const iAmReady = isPlayer1 ? state.player1Ready : state.player2Ready;
+    if (state.isLoading || state.status === 'created' || iAmReady) {
+      console.log('[REMATCH] Ignoring duplicate request, already ready or loading:', { 
+        isLoading: state.isLoading, 
+        status: state.status, 
+        iAmReady 
+      });
+      return;
+    }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
@@ -239,7 +248,7 @@ export function useQuickMatchRematch({
         error: err.message 
       }));
     }
-  }, [roomId, state.isLoading, state.status]);
+  }, [roomId, state.isLoading, state.status, isPlayer1, state.player1Ready, state.player2Ready]);
 
   const createRematchRoom = async (requestId: string) => {
     if (state.status === 'creating' || state.status === 'created') return;

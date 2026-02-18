@@ -148,14 +148,18 @@ export function useATCWebRTC({
 
       // Remote track handler
       pc.ontrack = (event) => {
-        console.log('[ATC WebRTC] Remote track received from', otherPlayerId, event.track.kind);
+        console.log('[ATC WebRTC] Remote track received from', otherPlayerId, 'kind:', event.track.kind, 'streams:', event.streams?.length);
         if (event.streams && event.streams[0]) {
+          console.log('[ATC WebRTC] Setting remote stream for', otherPlayerId);
           setRemoteStreams(prev => {
             const newMap = new Map(prev);
             newMap.set(otherPlayerId, event.streams[0]);
+            console.log('[ATC WebRTC] RemoteStreams updated, count:', newMap.size);
             return newMap;
           });
           setCallStatus('connected');
+        } else {
+          console.log('[ATC WebRTC] No streams in track event from', otherPlayerId);
         }
       };
 
@@ -208,21 +212,25 @@ export function useATCWebRTC({
 
   // ========== HANDLE SIGNALS FROM OTHER PLAYERS ==========
   const handleSignal = useCallback(async (senderId: string, signal: any) => {
-    const pc = peerConnectionsRef.current.get(senderId);
+    console.log('[ATC WebRTC] handleSignal called for sender:', senderId, 'signal type:', signal.signal_type || signal.type);
+    
+    let pc = peerConnectionsRef.current.get(senderId);
     
     if (!pc) {
       // Create connection if it doesn't exist (we're not initiator)
       console.log('[ATC WebRTC] Creating new connection for signal from', senderId);
       createPeerConnection(senderId, false);
       // Wait a bit for connection to be created
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
+      pc = peerConnectionsRef.current.get(senderId);
     }
 
-    const peerConnection = peerConnectionsRef.current.get(senderId);
-    if (!peerConnection) {
-      console.error('[ATC WebRTC] No peer connection for', senderId);
+    if (!pc) {
+      console.error('[ATC WebRTC] Still no peer connection for', senderId, 'after creation attempt');
       return;
     }
+    
+    console.log('[ATC WebRTC] Have peer connection for', senderId, 'signal type:', signal.signal_type || signal.type);
 
     try {
       if (signal.signal_type === 'offer' || signal.type === 'offer') {
@@ -303,6 +311,26 @@ export function useATCWebRTC({
     const pollIntervalRef = { current: null as NodeJS.Timeout | null };
     
     const pollForSignals = async () => {
+      console.log('[ATC WebRTC] Polling for signals, matchId:', matchId, 'since:', lastPollTime);
+      
+      // First, check ALL signals for this match (for debugging)
+      const { data: allSignals, error: countError } = await supabase
+        .from('atc_match_signals')
+        .select('id, sender_id, recipient_id, signal_type, created_at')
+        .eq('match_id', matchId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (countError) {
+        console.error('[ATC WebRTC] Error checking all signals:', countError);
+      } else {
+        console.log('[ATC WebRTC] Total recent signals in DB:', allSignals?.length || 0);
+        allSignals?.forEach((s: any) => {
+          console.log(`[ATC WebRTC] DB Signal: ${s.sender_id} -> ${s.recipient_id}, type: ${s.signal_type}, time: ${s.created_at}`);
+        });
+      }
+      
+      // Now get signals for me
       const { data: signals, error } = await supabase
         .from('atc_match_signals')
         .select('*')
@@ -316,12 +344,14 @@ export function useATCWebRTC({
       if (error) {
         console.error('[ATC WebRTC] Error polling for signals:', error);
       } else if (signals && signals.length > 0) {
-        console.log('[ATC WebRTC] Poll found', signals.length, 'new signals');
+        console.log('[ATC WebRTC] Poll found', signals.length, 'new signals for me');
         signals.forEach(signal => {
           console.log('[ATC WebRTC] Processing polled signal from:', signal.sender_id, 'type:', signal.signal_type);
           handleSignal(signal.sender_id, signal);
         });
         lastPollTime = signals[signals.length - 1].created_at;
+      } else {
+        console.log('[ATC WebRTC] No new signals for me');
       }
     };
     
@@ -382,20 +412,21 @@ export function useATCWebRTC({
     if (!matchId || !myUserId) return;
     if (allPlayerIds.length < 2) return;
 
-    console.log('[ATC WebRTC] Setting up connections to all players:', allPlayerIds);
+    console.log('[ATC WebRTC] Setting up connections to all players:', allPlayerIds, 'myId:', myUserId);
 
-    // Create connections to all other players immediately (don't wait for match to be active)
-    // We'll be the initiator if our ID is alphabetically first (simple tie-breaker)
+    // Create connections to all other players immediately
     allPlayerIds.forEach((playerId) => {
       if (playerId === myUserId) return;
       
       const isInitiator = myUserId < playerId; // Simple tie-breaker
+      console.log('[ATC WebRTC] Will create connection to:', playerId, 'isInitiator:', isInitiator);
       createPeerConnection(playerId, isInitiator);
     });
 
     return () => {
       // Cleanup connections
-      peerConnectionsRef.current.forEach((pc) => {
+      peerConnectionsRef.current.forEach((pc, id) => {
+        console.log('[ATC WebRTC] Closing connection to:', id);
         pc.close();
       });
       peerConnectionsRef.current.clear();

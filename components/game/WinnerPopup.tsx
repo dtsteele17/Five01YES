@@ -399,7 +399,7 @@ export function WinnerPopup({
           <div className="flex gap-3">
             <Button
               onClick={onRematch}
-              disabled={rematchStatus === 'creating' || rematchStatus === 'ready'}
+              disabled={rematchStatus === 'creating' || rematchStatus === 'ready' || rematchStatus === 'waiting' || youReady}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold disabled:opacity-70"
             >
               {getRematchButtonContent()}
