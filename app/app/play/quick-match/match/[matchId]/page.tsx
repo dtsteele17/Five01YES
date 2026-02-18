@@ -1311,6 +1311,16 @@ export default function QuickMatchRoomPage() {
   // Also retry if camera fails to start
   useEffect(() => {
     const initCamera = async () => {
+      // Debug logging
+      console.log('[CAMERA DEBUG] Checking auto-start conditions:', {
+        bothPlayersReady,
+        coinTossCompleted,
+        roomStatus: room?.status,
+        player2Id: room?.player2_id,
+        isCameraOn,
+        cameraInitAttempted: cameraInitAttempted.current
+      });
+      
       // Allow camera start if:
       // 1. Both players ready AND coin toss complete (normal flow)
       // 2. OR room is active with player2 and camera not on (fallback for reconnects)
@@ -1318,6 +1328,8 @@ export default function QuickMatchRoomPage() {
         (bothPlayersReady && coinTossCompleted && room?.status === 'active') ||
         (room?.status === 'active' && room?.player2_id && !isCameraOn && !cameraInitAttempted.current)
       );
+      
+      console.log('[CAMERA DEBUG] shouldStartCamera:', shouldStartCamera);
       
       if (shouldStartCamera && room?.player2_id && !isCameraOn && !cameraInitAttempted.current) {
         console.log('[CAMERA] Auto-starting camera');
