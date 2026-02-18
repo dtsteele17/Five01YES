@@ -76,7 +76,7 @@ export function useATCWebRTC({
   const sendSignal = useCallback(async (recipientId: string, type: 'offer' | 'answer' | 'ice', data: any) => {
     if (!matchId || !myUserId) return;
     
-    console.log('[ATC WebRTC] Sending signal to', recipientId, 'type:', type);
+    console.log('[ATC WebRTC] Sending signal to', recipientId, 'type:', type, 'matchId:', matchId);
     
     // Use RPC for reliable signal delivery
     const { data: rpcResult, error } = await supabase.rpc('rpc_send_atc_signal', {
@@ -90,6 +90,8 @@ export function useATCWebRTC({
       console.error('[ATC WebRTC] Error sending signal to', recipientId, error);
     } else if (rpcResult && !rpcResult.ok) {
       console.error('[ATC WebRTC] RPC returned error:', rpcResult.error);
+    } else {
+      console.log('[ATC WebRTC] Signal sent successfully to', recipientId, 'type:', type);
     }
   }, [matchId, myUserId, supabase]);
 
@@ -294,8 +296,41 @@ export function useATCWebRTC({
   useEffect(() => {
     if (!matchId || !myUserId) return;
 
-    console.log('[ATC WebRTC] Setting up signal subscription for atc_match_signals');
+    console.log('[ATC WebRTC] Setting up signal subscription for atc_match_signals, matchId:', matchId, 'myUserId:', myUserId);
 
+    // Polling fallback for signals (in case realtime doesn't work)
+    let lastPollTime = new Date(Date.now() - 60000).toISOString(); // Start from 1 minute ago
+    const pollIntervalRef = { current: null as NodeJS.Timeout | null };
+    
+    const pollForSignals = async () => {
+      const { data: signals, error } = await supabase
+        .from('atc_match_signals')
+        .select('*')
+        .eq('match_id', matchId)
+        .gt('created_at', lastPollTime)
+        .or(`recipient_id.eq.${myUserId},recipient_id.is.null`)
+        .neq('sender_id', myUserId)
+        .order('created_at', { ascending: true })
+        .limit(50);
+      
+      if (error) {
+        console.error('[ATC WebRTC] Error polling for signals:', error);
+      } else if (signals && signals.length > 0) {
+        console.log('[ATC WebRTC] Poll found', signals.length, 'new signals');
+        signals.forEach(signal => {
+          console.log('[ATC WebRTC] Processing polled signal from:', signal.sender_id, 'type:', signal.signal_type);
+          handleSignal(signal.sender_id, signal);
+        });
+        lastPollTime = signals[signals.length - 1].created_at;
+      }
+    };
+    
+    // Start polling every 2 seconds as a fallback
+    pollIntervalRef.current = setInterval(pollForSignals, 2000);
+    // Poll immediately on mount
+    pollForSignals();
+
+    // Also set up realtime subscription
     const subscription = supabase
       .channel(`atc_signals_${matchId}_${myUserId}`)
       .on(
@@ -307,20 +342,38 @@ export function useATCWebRTC({
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
+          console.log('[ATC WebRTC] Realtime payload received:', payload);
           const signal = payload.new as any;
-          if (signal.recipient_id && signal.recipient_id !== myUserId) return;
-          if (signal.sender_id === myUserId) return; // Ignore our own signals
           
-          console.log('[ATC WebRTC] Received signal from:', signal.sender_id, 'type:', signal.signal_type);
+          if (signal.recipient_id && signal.recipient_id !== myUserId) {
+            console.log('[ATC WebRTC] Signal not for me, ignoring');
+            return;
+          }
+          if (signal.sender_id === myUserId) {
+            console.log('[ATC WebRTC] Signal from myself, ignoring');
+            return;
+          }
+          
+          console.log('[ATC WebRTC] Processing realtime signal from:', signal.sender_id, 'type:', signal.signal_type);
           handleSignal(signal.sender_id, signal);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[ATC WebRTC] Subscription status:', status);
+      });
 
-    subscriptionsRef.current.push(() => subscription.unsubscribe());
+    subscriptionsRef.current.push(() => {
+      subscription.unsubscribe();
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    });
 
     return () => {
       subscription.unsubscribe();
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
     };
   }, [matchId, myUserId, handleSignal, supabase]);
 

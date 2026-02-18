@@ -143,6 +143,17 @@ export function useQuickMatchRematch({
     const opponentReady = isPlayer1 ? record.player2_ready : record.player1_ready;
     const bothReady = record.player1_ready && record.player2_ready;
 
+    console.log('[REMATCH] Realtime update received:', {
+      player1Ready: record.player1_ready,
+      player2Ready: record.player2_ready,
+      iAmReady,
+      opponentReady,
+      bothReady,
+      status: record.status,
+      newRoomId: record.new_room_id,
+      isPlayer1,
+    });
+
     let newStatus: RematchState['status'] = 'none';
     if (record.status === 'created' || record.new_room_id) {
       newStatus = 'created';
@@ -161,9 +172,6 @@ export function useQuickMatchRematch({
       requestId: record.id,
       newRoomId: record.new_room_id || prev.newRoomId,
     }));
-
-    // Note: Room creation is handled by database trigger when both players are ready
-    // We just need to navigate when the room is created
 
     // Navigate if room created
     if (record.new_room_id && !isNavigatingRef.current) {
@@ -196,6 +204,13 @@ export function useQuickMatchRematch({
 
       if (data?.success) {
         const newStatus = data.both_ready ? 'ready' : 'pending';
+        
+        console.log('[REMATCH] Setting state:', {
+          newStatus,
+          player1Ready: data.player1_ready,
+          player2Ready: data.player2_ready,
+          bothReady: data.both_ready,
+        });
         
         setState(prev => ({
           ...prev,

@@ -1118,6 +1118,21 @@ export default function QuickMatchRoomPage() {
     matchFinished,
   });
 
+  // Log rematch state changes for debugging
+  useEffect(() => {
+    if (matchFinished) {
+      console.log('[REMATCH STATE]', {
+        rematchStatus,
+        iAmReadyForRematch,
+        opponentRematchReady,
+        bothReadyForRematch,
+        readyCount,
+        newRematchRoomId,
+        rematchLoading,
+      });
+    }
+  }, [rematchStatus, iAmReadyForRematch, opponentRematchReady, bothReadyForRematch, readyCount, newRematchRoomId, rematchLoading, matchFinished]);
+
   // Coin toss state
   const [showCoinToss, setShowCoinToss] = useState(false);
   const [coinTossCompleted, setCoinTossCompleted] = useState(false);
@@ -3646,7 +3661,11 @@ export default function QuickMatchRoomPage() {
 
   // Handle rematch button click - directly request rematch
   const handleRematch = async () => {
-    if (rematchLoading) return;
+    if (rematchLoading) {
+      console.log('[REMATCH] Button clicked but already loading');
+      return;
+    }
+    console.log('[REMATCH] Button clicked, requesting rematch...');
     await requestRematch();
   };
 
