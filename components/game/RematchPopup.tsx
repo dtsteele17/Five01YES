@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 
 interface MatchRecord {
   id: string;
+  room_id?: string;
   winner_id: string;
   user_id: string;
   opponent_id: string;
