@@ -346,6 +346,20 @@ export function gaussianRandom(): number {
 }
 
 /**
+ * Generate a random scatter that tends to stay closer to target
+ * Uses a "capped Gaussian" that reduces extreme outliers
+ * 
+ * @param sigma The base sigma (scatter amount)
+ * @param capMultiplier Cap extreme values at this multiple of sigma (default 2.5)
+ */
+function cappedGaussianRandom(sigma: number, capMultiplier: number = 2.5): number {
+  const raw = gaussianRandom();
+  // Cap extreme outliers while preserving distribution shape
+  const capped = Math.max(-capMultiplier, Math.min(capMultiplier, raw));
+  return capped * sigma;
+}
+
+/**
  * Generate a form multiplier for the bot (simulates good/bad days)
  */
 export function generateFormMultiplier(): number {
@@ -735,16 +749,22 @@ export function getBaseSigma(level: number): number {
 
 /**
  * Simulate a single dart throw with Gaussian scatter
+ * Uses capped scatter to keep misses closer to the target
  */
 export function simulateDart(
   aimTarget: string,
-  sigma: number
+  sigma: number,
+  useCappedScatter: boolean = true
 ): DartResult {
   const aimPoint = getAimPoint(aimTarget);
   
-  // Apply Gaussian scatter
-  const dx = gaussianRandom() * sigma;
-  const dy = gaussianRandom() * sigma;
+  // Apply scatter - use capped version for more realistic misses
+  const dx = useCappedScatter 
+    ? cappedGaussianRandom(sigma, 2.5)
+    : gaussianRandom() * sigma;
+  const dy = useCappedScatter
+    ? cappedGaussianRandom(sigma, 2.5)
+    : gaussianRandom() * sigma;
   
   const x = aimPoint.x + dx;
   const y = aimPoint.y + dy;
@@ -1099,27 +1119,14 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     }
   }
   
-  // If we busted, return bust result with darts thrown (counts as full visit - 3 darts)
+  // If we busted, return bust result with ONLY the darts actually thrown
   if (bustState) {
-    console.log(`[DartBot❌] BUST! ${remaining}->${bustState.reason} | Darts: ${darts.map(d => d.label).join(', ')}`);
+    console.log(`[DartBot❌] BUST! ${remaining}->${bustState.reason} | Darts thrown: ${darts.length} | Darts: ${darts.map(d => d.label).join(', ')}`);
     
-    // IMPORTANT: Add "miss" darts for remaining throws to ensure 3 darts are always counted
-    // In real darts, when you bust, your turn ends but you still threw those darts
-    while (darts.length < 3) {
-      darts.push({
-        label: 'MISS',
-        score: 0,
-        isDouble: false,
-        isTreble: false,
-        offboard: true,
-        aimTarget: '-',
-        x: 1.5, // Off board
-        y: 0
-      });
-    }
-    
+    // Return only the darts that were actually thrown before the bust
+    // The caller is responsible for counting stats correctly
     return {
-      darts,
+      darts,  // Only actual darts thrown (1, 2, or 3)
       visitTotal: 0,
       bust: true,
       finished: false,
