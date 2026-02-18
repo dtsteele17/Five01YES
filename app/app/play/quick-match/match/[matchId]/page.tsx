@@ -94,6 +94,7 @@ interface Profile {
   user_id: string;
   username: string;
   trust_rating_letter?: string;
+  division_name?: string;
 }
 
 interface QuickMatchVisit {
