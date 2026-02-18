@@ -30,7 +30,7 @@ function convertTournamentRowToTournament(row: TournamentRow): Tournament {
     entryType: row.entry_type === 'invite_only' ? 'invite' : 'open',
     legsPerMatch: row.legs_per_match,
     description: row.description || undefined,
-    createdByUserId: row.owner_id,
+    createdByUserId: row.created_by,
     createdAtISO: row.created_at,
     participants: [],
     invitedEmails: [],

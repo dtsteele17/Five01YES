@@ -261,7 +261,7 @@ export default function TournamentsPage() {
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredTournaments.map((tournament) => {
               const participantsCount = participantCounts[tournament.id] || 0;
-              const isMyTournament = currentUserId && tournament.owner_id === currentUserId;
+              const isMyTournament = currentUserId && tournament.created_by === currentUserId;
 
               const startDate = tournament.start_at ? new Date(tournament.start_at) : null;
               const startDateStr = startDate ? startDate.toISOString().split('T')[0] : '';

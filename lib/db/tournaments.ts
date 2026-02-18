@@ -31,7 +31,7 @@ export interface TournamentRow {
   legs_per_match: number;
   description: string | null;
   status: string;
-  owner_id: string;
+  created_by: string;
   created_at: string;
   game_mode: number;
   double_out: boolean;
@@ -60,7 +60,7 @@ export async function createTournament(input: CreateTournamentInput) {
     legs_per_match: input.legsPerMatch,
     double_out: input.doubleOut ?? true,
     status: 'scheduled',
-    owner_id: user.id,
+    created_by: user.id,
   };
 
   const { data: tournament, error: tournamentError } = await supabase
@@ -70,6 +70,13 @@ export async function createTournament(input: CreateTournamentInput) {
     .single();
 
   if (tournamentError) {
+    console.error('CREATE_TOURNAMENT_ERROR:', {
+      code: tournamentError.code,
+      message: tournamentError.message,
+      details: tournamentError.details,
+      hint: tournamentError.hint,
+      data: tournamentData
+    });
     if (tournamentError.code === '42501') {
       throw new Error('Permission denied. Please check your authentication.');
     } else if (tournamentError.code === '23505') {
@@ -129,7 +136,7 @@ export async function listTournaments(filters?: TournamentFilters) {
   }
 
   if (filters?.createdBy) {
-    query = query.eq('owner_id', filters.createdBy);
+    query = query.eq('created_by', filters.createdBy);
   }
 
   const { data, error } = await query;
