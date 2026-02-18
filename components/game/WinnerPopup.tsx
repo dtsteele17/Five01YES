@@ -92,33 +92,26 @@ export function WinnerPopup({
   const p2Bg = isPlayer1Winner ? 'from-blue-500/10 to-blue-600/10' : 'from-amber-500/10 to-amber-600/10';
 
   const getRematchButtonContent = () => {
-    if (rematchStatus === 'creating') {
+    if (rematchStatus === 'creating' || rematchStatus === 'ready') {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Creating...
-        </>
-      );
-    }
-    if (rematchStatus === 'ready') {
-      return (
-        <>
-          <Check className="w-4 h-4 mr-1" />
           Starting...
         </>
       );
     }
-    // Show waiting state with spinner when waiting for opponent (I clicked, they haven't)
-    if (rematchStatus === 'waiting') {
+    // Show waiting state with spinner when I clicked but we're still waiting for opponent
+    // readyCount >= 1 means at least one player clicked
+    if (youReady && readyCount < 2) {
       return (
         <>
           <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          Rematch {readyCount}/2
+          Waiting... ({readyCount}/2)
         </>
       );
     }
-    // Show "Join Rematch" when opponent already clicked (they clicked, I haven't)
-    if (opponentRematchReady) {
+    // Show "Join Rematch" when opponent already clicked but I haven't
+    if (opponentRematchReady && !youReady) {
       return (
         <>
           <RotateCcw className="w-4 h-4 mr-1" />
