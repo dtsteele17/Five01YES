@@ -151,7 +151,7 @@ function FloatingElement({ children, className = '', delay = 0 }: { children: Re
 }
 
 // Rank Badge Component using actual Supabase images
-function RankBadge({ tier, size = 80 }: { tier: string; size?: number }) {
+function RankBadge({ tier, size = 120 }: { tier: string; size?: number }) {
   return (
     <img 
       src={getRankImageUrl(tier)} 
@@ -330,8 +330,8 @@ function HeroSection({ scrollToSection }: any) {
                       <p className="text-muted-foreground text-sm">Current Rank</p>
                       <p className="text-3xl font-black text-foreground">Gold Division</p>
                     </div>
-                    <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-2xl flex items-center justify-center">
-                      <RankBadge tier="Gold" size={72} />
+                    <div className="w-28 h-28 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-2xl flex items-center justify-center">
+                      <RankBadge tier="Gold" size={100} />
                     </div>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -509,7 +509,7 @@ function FeatureShowcase() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <FadeIn key={index} delay={index * 0.1}>
-              <Link href={feature.href || '#'} className="block h-full group">
+              <Link href="/signup" className="block h-full group">
                 <Card className="relative overflow-hidden h-full bg-slate-900/50 border-slate-700/50 p-6 hover:border-slate-500/50 transition-all duration-500 group-hover:scale-[1.02] group-hover:-translate-y-1">
                   {/* Glow Effect */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
@@ -687,8 +687,8 @@ function RankedDivisionsShowcase() {
         <FadeIn delay={0.6}>
           <Card className="max-w-2xl mx-auto bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 p-6">
             <div className="flex items-center gap-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <RankBadge tier="Gold" size={90} />
+              <div className="w-32 h-32 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <RankBadge tier="Gold" size={120} />
               </div>
               <div className="flex-1">
                 <p className="text-muted-foreground text-sm">Example Progress</p>
@@ -704,7 +704,7 @@ function RankedDivisionsShowcase() {
 
         {/* CTA */}
         <FadeIn delay={0.7} className="text-center mt-8">
-          <Link href="/app/ranked-divisions">
+          <Link href="/signup">
             <Button size="lg" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold px-8">
               View Ranked System
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -803,7 +803,7 @@ function ATCFourWaySection() {
             </FadeIn>
 
             <FadeIn delay={0.3}>
-              <Link href="/app/play/quick-match">
+              <Link href="/signup">
                 <Button size="lg" className="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold px-8">
                   <Play className="w-5 h-5 mr-2" />
                   Play ATC Now
@@ -857,7 +857,7 @@ function TournamentsLeaguesSection() {
                   ))}
                 </div>
                 
-                <Link href="/app/tournaments">
+                <Link href="/signup">
                   <Button className="bg-purple-500 hover:bg-purple-600 text-white">
                     Browse Tournaments
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -892,7 +892,7 @@ function TournamentsLeaguesSection() {
                   ))}
                 </div>
                 
-                <Link href="/app/leagues">
+                <Link href="/signup">
                   <Button className="bg-emerald-500 hover:bg-emerald-600 text-white">
                     Create League
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -953,7 +953,7 @@ function DartbotShowcase() {
             </FadeIn>
 
             <FadeIn delay={0.3} className="mt-8">
-              <Link href="/app/play/training">
+              <Link href="/signup">
                 <Button size="lg" className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-8">
                   <Cpu className="w-5 h-5 mr-2" />
                   Train with DartBot
@@ -1116,7 +1116,7 @@ function StatsTrackingSection() {
             </FadeIn>
 
             <FadeIn delay={0.3}>
-              <Link href="/app/stats">
+              <Link href="/signup">
                 <Button size="lg" className="bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-600 hover:to-orange-700 text-white font-bold px-8">
                   <BarChart3 className="w-5 h-5 mr-2" />
                   View Your Stats
