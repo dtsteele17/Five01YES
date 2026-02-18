@@ -175,14 +175,16 @@ export default function SettingsPage() {
   // Theme handling
   const handleThemeChange = (newTheme: 'dark' | 'light' | 'system') => {
     setTheme(newTheme);
-    updateSetting('dark_mode', newTheme === 'dark' || (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+    // Also update in database
+    const isDark = newTheme === 'dark' || 
+      (newTheme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    updateSetting('dark_mode', isDark);
   };
 
   // Sound handlers
   const handleInviteSoundToggle = (enabled: boolean) => {
     setInviteSoundEnabledState(enabled);
     setInviteSoundEnabled(enabled);
-    updateSetting('invite_sound', enabled);
     toast.success(enabled ? 'Invite sound enabled' : 'Invite sound disabled');
   };
 
