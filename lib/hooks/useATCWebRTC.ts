@@ -232,50 +232,52 @@ export function useATCWebRTC({
     
     console.log('[ATC WebRTC] Have peer connection for', senderId, 'signal type:', signal.signal_type || signal.type);
 
+    const conn: RTCPeerConnection = pc;
+
     try {
       if (signal.signal_type === 'offer' || signal.type === 'offer') {
         console.log('[ATC WebRTC] Received offer from', senderId);
         
         // Add our stream before creating answer
         if (localStreamRef.current) {
-          const senders = peerConnection.getSenders();
+          const senders = conn.getSenders();
           const hasVideo = senders.some(s => s.track?.kind === 'video');
           if (!hasVideo) {
             localStreamRef.current.getTracks().forEach(track => {
-              peerConnection.addTrack(track, localStreamRef.current!);
+              conn.addTrack(track, localStreamRef.current!);
             });
           }
         }
 
         const offerData = signal.signal_data?.offer || signal.offer;
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offerData));
-        
+        await conn.setRemoteDescription(new RTCSessionDescription(offerData));
+
         // Process pending ICE candidates
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
         for (const candidate of pending) {
           try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            await conn.addIceCandidate(new RTCIceCandidate(candidate));
           } catch (e) {
             console.error('[ATC WebRTC] Error adding pending ICE:', e);
           }
         }
         pendingIceCandidatesRef.current.set(senderId, []);
 
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        await sendSignal(senderId, 'answer', { answer: peerConnection.localDescription?.toJSON() });
+        const answer = await conn.createAnswer();
+        await conn.setLocalDescription(answer);
+        await sendSignal(senderId, 'answer', { answer: conn.localDescription?.toJSON() });
         console.log('[ATC WebRTC] Answer sent to', senderId);
 
       } else if (signal.signal_type === 'answer' || signal.type === 'answer') {
         console.log('[ATC WebRTC] Received answer from', senderId);
         const answerData = signal.signal_data?.answer || signal.answer;
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answerData));
-        
+        await conn.setRemoteDescription(new RTCSessionDescription(answerData));
+
         // Process pending ICE candidates
         const pending = pendingIceCandidatesRef.current.get(senderId) || [];
         for (const candidate of pending) {
           try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            await conn.addIceCandidate(new RTCIceCandidate(candidate));
           } catch (e) {
             console.error('[ATC WebRTC] Error adding pending ICE:', e);
           }
@@ -285,8 +287,8 @@ export function useATCWebRTC({
       } else if (signal.signal_type === 'ice' || signal.type === 'ice') {
         console.log('[ATC WebRTC] Received ICE from', senderId);
         const candidateData = signal.signal_data?.candidate || signal.candidate;
-        if (peerConnection.remoteDescription) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+        if (conn.remoteDescription) {
+          await conn.addIceCandidate(new RTCIceCandidate(candidateData));
         } else {
           // Queue ICE candidate
           const pending = pendingIceCandidatesRef.current.get(senderId) || [];
