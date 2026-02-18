@@ -1305,11 +1305,11 @@ export default function ATCMatchPage() {
                     </div>
                     {activeStream ? (
                       <video 
-                        key={`active-${activePlayerId}`} // Force remount when player changes
+                        key={`remote-${activePlayerId}`} // Force remount when player changes
                         ref={setRemoteVideoRef}
                         autoPlay 
                         playsInline 
-                        muted={isCurrentUserTurn} // Mute if it's my turn (local stream)
+                        muted={isCurrentUserTurn}
                         className="w-full h-full object-cover"
                       />
                     ) : (
