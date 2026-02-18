@@ -12,7 +12,7 @@ import {
   Target, Users, ArrowLeft, CheckCircle2, 
   Camera, CameraOff, Loader2, Trophy, X, RefreshCw,
   Zap, Crosshair, Wifi, WifiOff, RotateCcw, UserPlus,
-  Crown
+  Crown, Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -588,9 +588,13 @@ export default function ATCMatchPage() {
     }
   };
   
-  // Handle dart throw - EVERY input counts as a dart, 3 darts = end turn
-  const handleDartThrow = async (segment: string, number?: number) => {
+  // Store pending darts locally before submitting
+  const [pendingDarts, setPendingDarts] = useState<Array<{segment: string, number?: number, label: string}>>([]);
+
+  // Handle dart throw - Add dart to pending list (does NOT submit)
+  const handleDartThrow = (segment: string, number?: number) => {
     if (!match || !isMyTurn()) return;
+    if (pendingDarts.length >= 3) return; // Max 3 darts
     
     const label = segment === 'MISS' ? 'Miss' : 
                   segment === 'SB' ? 'SB' :
@@ -598,10 +602,11 @@ export default function ATCMatchPage() {
                   `${segment}${number}`;
     
     const dart = { segment, number, label };
-    const currentPlayer = match.players[match.current_player_index];
-    const target = currentPlayer.current_target;
-    const mode = match.atc_settings.mode;
     
+    // Add to pending darts
+    setPendingDarts(prev => [...prev, dart]);
+    
+    // Update current visit display
     setCurrentVisit(prev => {
       const newVisit: Partial<Visit> = { ...prev, timestamp: new Date().toISOString() };
       if (!prev.dart1) newVisit.dart1 = dart;
@@ -610,95 +615,120 @@ export default function ATCMatchPage() {
       return newVisit;
     });
     
-    const newDartCount = dartCount + 1;
-    setDartCount(newDartCount);
+    setDartCount(prev => prev + 1);
+  };
+
+  // Undo last dart
+  const handleUndoLastDart = () => {
+    if (pendingDarts.length === 0) return;
     
-    let hit = false;
-    if (target === 'bull') {
-      if (mode === 'singles' && segment === 'SB') hit = true;
-      else if (mode === 'doubles' && segment === 'DB') hit = true;
-      else if (mode === 'increase' && (segment === 'SB' || segment === 'DB')) hit = true;
-    } else {
-      if (mode === 'singles' && segment === 'S' && number === target) hit = true;
-      else if (mode === 'doubles' && segment === 'D' && number === target) hit = true;
-      else if (mode === 'trebles' && segment === 'T' && number === target) hit = true;
-      else if (mode === 'increase' && number === target) hit = true;
-    }
+    // Remove last pending dart
+    setPendingDarts(prev => prev.slice(0, -1));
     
+    // Update current visit display
+    setCurrentVisit(prev => {
+      const newVisit: Partial<Visit> = { ...prev };
+      if (prev.dart3) {
+        delete newVisit.dart3;
+      } else if (prev.dart2) {
+        delete newVisit.dart2;
+      } else if (prev.dart1) {
+        delete newVisit.dart1;
+      }
+      return newVisit;
+    });
+    
+    setDartCount(prev => Math.max(0, prev - 1));
+  };
+
+  // Submit the visit - Process all pending darts and end turn
+  const handleSubmitVisit = async () => {
+    if (!match || !isMyTurn() || pendingDarts.length === 0) return;
+    
+    const currentPlayer = match.players[match.current_player_index];
     const allTargets = generateTargets(match.atc_settings.order);
     const updatedPlayers = [...match.players];
     const playerIndex = match.current_player_index;
+    const mode = match.atc_settings.mode;
     
-    updatedPlayers[playerIndex].total_darts_thrown = (updatedPlayers[playerIndex].total_darts_thrown || 0) + 1;
+    let currentTarget = currentPlayer.current_target;
+    let hitOccurred = false;
+    let wonGame = false;
     
-    if (hit) {
-      updatedPlayers[playerIndex].completed_targets.push(target);
+    // Process each pending dart
+    for (const dart of pendingDarts) {
+      const { segment, number } = dart;
       
-      let nextTarget: number | 'bull' | null;
+      updatedPlayers[playerIndex].total_darts_thrown = (updatedPlayers[playerIndex].total_darts_thrown || 0) + 1;
       
-      if (mode === 'increase' && match.atc_settings.order === 'sequential') {
-        nextTarget = calculateNextTarget(target, segment, allTargets);
+      let hit = false;
+      if (currentTarget === 'bull') {
+        if (mode === 'singles' && segment === 'SB') hit = true;
+        else if (mode === 'doubles' && segment === 'DB') hit = true;
+        else if (mode === 'increase' && (segment === 'SB' || segment === 'DB')) hit = true;
       } else {
-        const currentIndex = allTargets.indexOf(target);
-        nextTarget = currentIndex < allTargets.length - 1 ? allTargets[currentIndex + 1] : null;
+        if (mode === 'singles' && segment === 'S' && number === currentTarget) hit = true;
+        else if (mode === 'doubles' && segment === 'D' && number === currentTarget) hit = true;
+        else if (mode === 'trebles' && segment === 'T' && number === currentTarget) hit = true;
+        else if (mode === 'increase' && number === currentTarget) hit = true;
       }
       
-      if (nextTarget === null) {
-        updatedPlayers[playerIndex].is_winner = true;
+      if (hit) {
+        hitOccurred = true;
+        updatedPlayers[playerIndex].completed_targets.push(currentTarget);
         
-        const completedVisit: Visit = {
-          ...currentVisit,
-          dart1: !currentVisit.dart1 ? dart : currentVisit.dart1,
-          dart2: currentVisit.dart1 && !currentVisit.dart2 ? dart : currentVisit.dart2,
-          dart3: currentVisit.dart1 && currentVisit.dart2 ? dart : currentVisit.dart3,
-          completed_target: target,
-          timestamp: new Date().toISOString()
-        };
+        let nextTarget: number | 'bull' | null;
         
-        if (!updatedPlayers[playerIndex].visit_history) {
-          updatedPlayers[playerIndex].visit_history = [];
+        if (mode === 'increase' && match.atc_settings.order === 'sequential') {
+          nextTarget = calculateNextTarget(currentTarget, segment, allTargets);
+        } else {
+          const currentIndex = allTargets.indexOf(currentTarget);
+          nextTarget = currentIndex < allTargets.length - 1 ? allTargets[currentIndex + 1] : null;
         }
-        updatedPlayers[playerIndex].visit_history!.push(completedVisit);
         
-        await supabase
-          .from('atc_matches')
-          .update({ 
-            status: 'completed',
-            winner_id: currentPlayer.id,
-            players: updatedPlayers
-          })
-          .eq('id', matchId);
-        
-        toast.success(`${currentPlayer.username} wins!`);
-        setShowGameEndPopup(true);
-        return;
-      } else {
-        updatedPlayers[playerIndex].current_target = nextTarget;
+        if (nextTarget === null) {
+          updatedPlayers[playerIndex].is_winner = true;
+          wonGame = true;
+          break; // Game won, stop processing darts
+        } else {
+          currentTarget = nextTarget;
+          updatedPlayers[playerIndex].current_target = nextTarget;
+        }
       }
     }
     
-    if (newDartCount >= 3) {
-      const completedVisit: Visit = {
-        ...currentVisit,
-        dart1: !currentVisit.dart1 ? dart : currentVisit.dart1,
-        dart2: currentVisit.dart1 && !currentVisit.dart2 ? dart : currentVisit.dart2,
-        dart3: currentVisit.dart1 && currentVisit.dart2 ? dart : currentVisit.dart3,
-        completed_target: hit ? target : undefined,
-        timestamp: new Date().toISOString()
-      };
-      
-      if (!updatedPlayers[playerIndex].visit_history) {
-        updatedPlayers[playerIndex].visit_history = [];
-      }
-      updatedPlayers[playerIndex].visit_history!.push(completedVisit);
-      
-      await endTurn(updatedPlayers);
-    } else {
+    // Build the completed visit
+    const completedVisit: Visit = {
+      dart1: pendingDarts[0] || undefined,
+      dart2: pendingDarts[1] || undefined,
+      dart3: pendingDarts[2] || undefined,
+      completed_target: hitOccurred ? currentPlayer.current_target : undefined,
+      timestamp: new Date().toISOString()
+    };
+    
+    if (!updatedPlayers[playerIndex].visit_history) {
+      updatedPlayers[playerIndex].visit_history = [];
+    }
+    updatedPlayers[playerIndex].visit_history!.push(completedVisit);
+    
+    if (wonGame) {
       await supabase
         .from('atc_matches')
-        .update({ players: updatedPlayers })
+        .update({ 
+          status: 'completed',
+          winner_id: currentPlayer.id,
+          players: updatedPlayers
+        })
         .eq('id', matchId);
+      
+      toast.success(`${currentPlayer.username} wins!`);
+      setShowGameEndPopup(true);
+    } else {
+      await endTurn(updatedPlayers);
     }
+    
+    // Clear pending darts
+    setPendingDarts([]);
   };
   
   const isMyTurn = () => {
@@ -728,6 +758,7 @@ export default function ATCMatchPage() {
       
     setCurrentVisit({});
     setDartCount(0);
+    setPendingDarts([]);
   };
   
   const getCurrentTarget = (): string => {
@@ -1324,104 +1355,153 @@ export default function ATCMatchPage() {
                 <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Crosshair className="h-4 w-4 text-emerald-400" />
                   Enter Your Throw
+                  <span className="ml-auto text-xs text-slate-400 font-normal normal-case">
+                    {pendingDarts.length}/3 Darts
+                  </span>
                 </h4>
                 
-                {target === 'bull' ? (
-                  /* Bull Mode */
-                  <div className="flex-1 flex flex-col gap-2">
-                    <div className="flex-1 flex gap-2">
-                      {(mode === 'singles' || mode === 'increase') && (
-                        <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
-                          <Button
-                            onClick={() => handleDartThrow('SB')}
-                            className="h-full w-full text-lg font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
-                          >
-                            Single Bull
-                          </Button>
-                        </motion.div>
-                      )}
-                      {(mode === 'doubles' || mode === 'increase') && (
-                        <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
-                          <Button
-                            onClick={() => handleDartThrow('DB')}
-                            className="h-full w-full text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25"
-                          >
-                            Double Bull
-                          </Button>
-                        </motion.div>
-                      )}
-                    </div>
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
-                      <Button
-                        onClick={() => handleDartThrow('MISS')}
-                        className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
-                      >
-                        Miss
-                      </Button>
-                    </motion.div>
-                  </div>
-                ) : isIncreaseMode ? (
-                  /* Increase Mode - 2x2 Grid */
-                  <div className="flex-1 grid grid-cols-2 gap-2">
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
-                      <Button
-                        onClick={() => handleDartThrow('S', target as number)}
-                        className="h-full w-full text-2xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25"
-                      >
-                        S{target}
-                      </Button>
-                    </motion.div>
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
-                      <Button
-                        onClick={() => handleDartThrow('D', target as number)}
-                        className="h-full w-full text-2xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
-                      >
-                        D{target}
-                      </Button>
-                    </motion.div>
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
-                      <Button
-                        onClick={() => handleDartThrow('T', target as number)}
-                        className="h-full w-full text-2xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25"
-                      >
-                        T{target}
-                      </Button>
-                    </motion.div>
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
-                      <Button
-                        onClick={() => handleDartThrow('MISS')}
-                        className="h-full w-full text-xl font-bold bg-slate-700 hover:bg-slate-600 text-white"
-                      >
-                        Miss
-                      </Button>
-                    </motion.div>
-                  </div>
-                ) : (
-                  /* Singles/Doubles/Trebles */
-                  <div className="flex-1 flex flex-col gap-2">
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
-                      <Button
-                        onClick={() => handleDartThrow(
-                          mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', 
-                          target as number
+                {/* Dart Input Buttons - Disabled when 3 darts entered */}
+                <div className={`flex-1 ${pendingDarts.length >= 3 ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {target === 'bull' ? (
+                    /* Bull Mode */
+                    <div className="h-full flex flex-col gap-2">
+                      <div className="flex-1 flex gap-2">
+                        {(mode === 'singles' || mode === 'increase') && (
+                          <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
+                            <Button
+                              onClick={() => handleDartThrow('SB')}
+                              className="h-full w-full text-lg font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                            >
+                              Single Bull
+                            </Button>
+                          </motion.div>
                         )}
-                        className={`h-full w-full text-4xl font-black shadow-lg ${
-                          mode === 'singles' 
-                            ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 shadow-cyan-500/25' :
-                          mode === 'doubles' 
-                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-emerald-500/25' :
-                            'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 shadow-amber-500/25'
-                        }`}
+                        {(mode === 'doubles' || mode === 'increase') && (
+                          <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
+                            <Button
+                              onClick={() => handleDartThrow('DB')}
+                              className="h-full w-full text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-lg shadow-red-500/25"
+                            >
+                              Double Bull
+                            </Button>
+                          </motion.div>
+                        )}
+                      </div>
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                        <Button
+                          onClick={() => handleDartThrow('MISS')}
+                          className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                        >
+                          Miss
+                        </Button>
+                      </motion.div>
+                    </div>
+                  ) : isIncreaseMode ? (
+                    /* Increase Mode - 2x2 Grid */
+                    <div className="h-full grid grid-cols-2 gap-2">
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+                        <Button
+                          onClick={() => handleDartThrow('S', target as number)}
+                          className="h-full w-full text-2xl font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/25"
+                        >
+                          S{target}
+                        </Button>
+                      </motion.div>
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
+                        <Button
+                          onClick={() => handleDartThrow('D', target as number)}
+                          className="h-full w-full text-2xl font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                        >
+                          D{target}
+                        </Button>
+                      </motion.div>
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                        <Button
+                          onClick={() => handleDartThrow('T', target as number)}
+                          className="h-full w-full text-2xl font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/25"
+                        >
+                          T{target}
+                        </Button>
+                      </motion.div>
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
+                        <Button
+                          onClick={() => handleDartThrow('MISS')}
+                          className="h-full w-full text-xl font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                        >
+                          Miss
+                        </Button>
+                      </motion.div>
+                    </div>
+                  ) : (
+                    /* Singles/Doubles/Trebles */
+                    <div className="h-full flex flex-col gap-2">
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" className="flex-1">
+                        <Button
+                          onClick={() => handleDartThrow(
+                            mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T', 
+                            target as number
+                          )}
+                          className={`h-full w-full text-4xl font-black shadow-lg ${
+                            mode === 'singles' 
+                              ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 shadow-cyan-500/25' :
+                            mode === 'doubles' 
+                              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 shadow-emerald-500/25' :
+                              'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 shadow-amber-500/25'
+                          }`}
+                        >
+                          {mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T'}{target}
+                        </Button>
+                      </motion.div>
+                      <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                        <Button
+                          onClick={() => handleDartThrow('MISS')}
+                          className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                        >
+                          Miss
+                        </Button>
+                      </motion.div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Submit and Undo Buttons */}
+                {pendingDarts.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }} 
+                      animate={{ opacity: 1, y: 0 }}
+                      className="col-span-1"
+                    >
+                      <Button
+                        onClick={handleUndoLastDart}
+                        variant="outline"
+                        className="w-full h-12 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-bold"
                       >
-                        {mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T'}{target}
+                        <RotateCcw className="w-4 h-4 mr-1" />
+                        Undo
                       </Button>
                     </motion.div>
-                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }} 
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 }}
+                      className="col-span-2"
+                    >
                       <Button
-                        onClick={() => handleDartThrow('MISS')}
-                        className="h-12 w-full text-lg font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                        onClick={handleSubmitVisit}
+                        className="w-full h-12 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-lg shadow-lg shadow-emerald-500/25"
                       >
-                        Miss
+                        {pendingDarts.length === 3 ? (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 mr-2" />
+                            Submit Visit
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 mr-2" />
+                            Submit ({pendingDarts.length} dart{pendingDarts.length !== 1 ? 's' : ''})
+                          </>
+                        )}
                       </Button>
                     </motion.div>
                   </div>
