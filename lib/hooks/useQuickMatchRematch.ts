@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-type RematchStatus = 'none' | 'pending' | 'ready' | 'created';
+type RematchStatus = 'none' | 'pending' | 'ready' | 'creating' | 'created';
 
 interface RematchState {
   status: RematchStatus;
@@ -43,7 +43,7 @@ export function useQuickMatchRematch({
   });
 
   const isNavigatingRef = useRef(false);
-  const hasRequestedRef = useRef(false);
+  const processedRoomIdRef = useRef<string | null>(null);
 
   // Subscribe to rematch request changes
   useEffect(() => {
@@ -66,7 +66,7 @@ export function useQuickMatchRematch({
           filter: `original_room_id=eq.${roomId}`,
         },
         (payload) => {
-          console.log('[REMATCH] Realtime update:', payload);
+          console.log('[REMATCH] Realtime update received:', payload);
           const record = payload.new as any;
           if (record) {
             updateStateFromRecord(record);
@@ -84,12 +84,21 @@ export function useQuickMatchRematch({
 
   // Navigate when new room is created
   useEffect(() => {
-    if (state.newRoomId && !isNavigatingRef.current) {
+    if (state.newRoomId && !isNavigatingRef.current && state.status === 'created') {
+      if (processedRoomIdRef.current === state.newRoomId) {
+        return; // Already processing this room
+      }
+      processedRoomIdRef.current = state.newRoomId;
       isNavigatingRef.current = true;
-      console.log('[REMATCH] Navigating to new room:', state.newRoomId);
-      window.location.href = `/app/play/quick-match/match/${state.newRoomId}`;
+      
+      console.log('[REMATCH] 🚀 NAVIGATING TO NEW ROOM:', state.newRoomId);
+      
+      // Small delay to ensure both players see "Starting..."
+      setTimeout(() => {
+        window.location.href = `/app/play/quick-match/match/${state.newRoomId}`;
+      }, 500);
     }
-  }, [state.newRoomId]);
+  }, [state.newRoomId, state.status]);
 
   const fetchRematchStatus = async () => {
     try {
@@ -113,11 +122,20 @@ export function useQuickMatchRematch({
             player2Ready: false,
             bothReady: false,
             requestId: null,
+            newRoomId: null,
           }));
         } else {
-          const newStatus: RematchStatus = data.status === 'created' ? 'created' : 
-                                          data.both_ready ? 'ready' : 
-                                          data.i_am_ready ? 'pending' : 'none';
+          // Map DB status to UI status
+          let newStatus: RematchStatus = 'none';
+          if (data.status === 'created') {
+            newStatus = 'created';
+          } else if (data.status === 'creating') {
+            newStatus = 'creating';
+          } else if (data.both_ready) {
+            newStatus = 'ready';
+          } else if (data.i_am_ready) {
+            newStatus = 'pending';
+          }
           
           setState(prev => ({
             ...prev,
@@ -126,12 +144,19 @@ export function useQuickMatchRematch({
             player2Ready: data.player2_ready,
             bothReady: data.both_ready,
             requestId: data.request_id,
-            newRoomId: data.new_room_id || prev.newRoomId,
+            newRoomId: data.new_room_id,
           }));
 
-          if (data.new_room_id && !isNavigatingRef.current) {
-            isNavigatingRef.current = true;
-            setState(prev => ({ ...prev, newRoomId: data.new_room_id }));
+          // Auto-navigate if room already exists
+          if (data.new_room_id && data.status === 'created' && !isNavigatingRef.current) {
+            if (processedRoomIdRef.current !== data.new_room_id) {
+              processedRoomIdRef.current = data.new_room_id;
+              isNavigatingRef.current = true;
+              console.log('[REMATCH] 🚀 Auto-navigating to existing room:', data.new_room_id);
+              setTimeout(() => {
+                window.location.href = `/app/play/quick-match/match/${data.new_room_id}`;
+              }, 500);
+            }
           }
         }
       }
@@ -145,22 +170,24 @@ export function useQuickMatchRematch({
     const opponentReady = isPlayer1 ? record.player2_ready : record.player1_ready;
     const bothReady = record.player1_ready && record.player2_ready;
 
+    // Map DB status to UI status
     let newStatus: RematchStatus = 'none';
-    if (record.status === 'created' || record.new_room_id) {
+    if (record.status === 'created') {
       newStatus = 'created';
+    } else if (record.status === 'creating') {
+      newStatus = 'creating';
     } else if (bothReady) {
       newStatus = 'ready';
     } else if (iAmReady) {
       newStatus = 'pending';
     }
 
-    console.log('[REMATCH] Updating state:', {
+    console.log('[REMATCH] State update:', {
       newStatus,
       player1Ready: record.player1_ready,
       player2Ready: record.player2_ready,
-      iAmReady,
-      opponentReady,
       bothReady,
+      newRoomId: record.new_room_id,
     });
 
     setState(prev => ({
@@ -173,30 +200,36 @@ export function useQuickMatchRematch({
       newRoomId: record.new_room_id || prev.newRoomId,
     }));
 
-    if (record.new_room_id && !isNavigatingRef.current) {
-      isNavigatingRef.current = true;
-      setState(prev => ({ ...prev, newRoomId: record.new_room_id }));
+    // Check if we should navigate
+    if (record.new_room_id && record.status === 'created' && !isNavigatingRef.current) {
+      if (processedRoomIdRef.current !== record.new_room_id) {
+        processedRoomIdRef.current = record.new_room_id;
+        isNavigatingRef.current = true;
+        console.log('[REMATCH] 🚀 Navigating from realtime update:', record.new_room_id);
+        setTimeout(() => {
+          window.location.href = `/app/play/quick-match/match/${record.new_room_id}`;
+        }, 500);
+      }
     }
   };
 
   const requestRematch = useCallback(async () => {
     // Prevent duplicate requests
     if (state.isLoading) {
-      console.log('[REMATCH] Already loading, ignoring');
+      console.log('[REMATCH] Already loading, ignoring click');
       return;
     }
     
     const iAmReady = isPlayer1 ? state.player1Ready : state.player2Ready;
     if (iAmReady) {
-      console.log('[REMATCH] Already ready, ignoring');
+      console.log('[REMATCH] Already ready, ignoring click');
       return;
     }
 
-    hasRequestedRef.current = true;
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      console.log('[REMATCH] Calling RPC request_quick_match_rematch');
+      console.log('[REMATCH] Calling request_quick_match_rematch...');
       const { data, error } = await supabase.rpc('request_quick_match_rematch', {
         p_original_room_id: roomId,
       });
@@ -210,7 +243,13 @@ export function useQuickMatchRematch({
       console.log('[REMATCH] RPC response:', data);
 
       if (data?.success) {
-        const newStatus: RematchStatus = data.both_ready ? 'ready' : 'pending';
+        // Determine new status
+        let newStatus: RematchStatus = 'none';
+        if (data.both_ready) {
+          newStatus = 'ready';
+        } else {
+          newStatus = 'pending';
+        }
         
         setState(prev => ({
           ...prev,
@@ -219,8 +258,21 @@ export function useQuickMatchRematch({
           player2Ready: data.player2_ready,
           bothReady: data.both_ready,
           requestId: data.request_id,
+          newRoomId: data.new_room_id,
           isLoading: false,
         }));
+
+        // If both ready and room created, navigate immediately
+        if (data.both_ready && data.new_room_id && !isNavigatingRef.current) {
+          if (processedRoomIdRef.current !== data.new_room_id) {
+            processedRoomIdRef.current = data.new_room_id;
+            isNavigatingRef.current = true;
+            console.log('[REMATCH] 🚀 Both ready, navigating to:', data.new_room_id);
+            setTimeout(() => {
+              window.location.href = `/app/play/quick-match/match/${data.new_room_id}`;
+            }, 800);
+          }
+        }
       } else {
         setState(prev => ({ 
           ...prev, 
@@ -246,7 +298,6 @@ export function useQuickMatchRematch({
         p_request_id: state.requestId,
       });
 
-      hasRequestedRef.current = false;
       setState({
         status: 'none',
         player1Ready: false,

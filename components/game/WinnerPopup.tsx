@@ -92,7 +92,16 @@ export function WinnerPopup({
   const p2Bg = isPlayer1Winner ? 'from-blue-500/10 to-blue-600/10' : 'from-amber-500/10 to-amber-600/10';
 
   const getRematchButtonContent = () => {
-    // Both ready - creating/starting new game
+    // Room being created
+    if (rematchStatus === 'creating') {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          Creating match...
+        </>
+      );
+    }
+    // Both ready - navigating to new game
     if (rematchStatus === 'ready' || rematchStatus === 'created' || readyCount >= 2) {
       return (
         <>

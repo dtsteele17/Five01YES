@@ -333,14 +333,18 @@ export default function ATCMatchPage() {
   
   // Debug logging for camera connection
   useEffect(() => {
+    console.log('[ATC CAMERA DEBUG] ==========');
     console.log('[ATC CAMERA DEBUG] localStream:', localStream ? 'yes' : 'no');
     console.log('[ATC CAMERA DEBUG] remoteStreams count:', remoteStreams.size);
+    console.log('[ATC CAMERA DEBUG] remoteStreams keys:', Array.from(remoteStreams.keys()));
     console.log('[ATC CAMERA DEBUG] activeStream:', activeStream ? 'yes' : 'no');
     console.log('[ATC CAMERA DEBUG] activePlayerId:', activePlayerId);
+    console.log('[ATC CAMERA DEBUG] currentPlayerId (from match):', currentTurnPlayer?.id);
     console.log('[ATC CAMERA DEBUG] isCameraOn:', isCameraOn);
     console.log('[ATC CAMERA DEBUG] callStatus:', callStatus);
     console.log('[ATC CAMERA DEBUG] currentTurnPlayer:', currentTurnPlayer?.username);
     console.log('[ATC CAMERA DEBUG] isMyTurn:', isCurrentUserTurn);
+    console.log('[ATC CAMERA DEBUG] ==========');
   }, [localStream, remoteStreams, activeStream, activePlayerId, isCameraOn, callStatus, currentTurnPlayer, isCurrentUserTurn]);
   
   // Load match data
