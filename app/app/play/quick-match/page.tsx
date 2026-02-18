@@ -2090,6 +2090,8 @@ export default function QuickMatchLobbyPage() {
                           <SelectItem value="best-of-3">Best of 3</SelectItem>
                           <SelectItem value="best-of-5">Best of 5</SelectItem>
                           <SelectItem value="best-of-7">Best of 7</SelectItem>
+                          <SelectItem value="best-of-9">Best of 9</SelectItem>
+                          <SelectItem value="best-of-11">Best of 11</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -2148,6 +2150,8 @@ export default function QuickMatchLobbyPage() {
                   <SelectItem value="best-of-3">Best of 3</SelectItem>
                   <SelectItem value="best-of-5">Best of 5</SelectItem>
                   <SelectItem value="best-of-7">Best of 7</SelectItem>
+                  <SelectItem value="best-of-9">Best of 9</SelectItem>
+                  <SelectItem value="best-of-11">Best of 11</SelectItem>
                 </SelectContent>
               </Select>
             </div>

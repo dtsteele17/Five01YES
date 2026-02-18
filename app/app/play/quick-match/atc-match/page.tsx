@@ -1090,10 +1090,13 @@ export default function ATCMatchPage() {
   
   // In Progress - NEW ENGAGING LAYOUT
   const currentPlayer = getCurrentPlayer();
-  const target = currentPlayer?.current_target;
+  const dbTarget = currentPlayer?.current_target;
   const mode = match.atc_settings.mode;
   const isIncreaseMode = mode === 'increase' && match.atc_settings.order === 'sequential';
   const opponent = match.players.find(p => p.id !== currentUser);
+  
+  // Use previewTarget for buttons (updates after each dart), dbTarget for initial display
+  const target = pendingDarts.length > 0 ? previewTarget : dbTarget;
   
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
