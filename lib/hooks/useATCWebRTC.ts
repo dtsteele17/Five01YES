@@ -28,78 +28,62 @@ export function useATCWebRTC({
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'failed'>('idle');
 
-  const pcRef = useRef<RTCPeerConnection | null>(null);
+  // Store peer connections for each player (key = player ID)
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const processedSignals = useRef<Set<string>>(new Set());
-  const otherPlayerId = useRef<string | null>(null);
+  const isInitiatorRef = useRef<Map<string, boolean>>(new Map());
 
-  // Get the other player's ID (simplified for 2 players)
-  useEffect(() => {
-    if (allPlayerIds.length >= 2 && myUserId) {
-      otherPlayerId.current = allPlayerIds.find(id => id !== myUserId) || null;
-      console.log('[ATC Camera] Other player:', otherPlayerId.current);
-    }
-  }, [allPlayerIds, myUserId]);
+  // Get all other player IDs (excluding myself)
+  const otherPlayerIds = allPlayerIds.filter(id => id !== myUserId);
 
-  // Determine active stream
+  // Determine which stream to display
   const activePlayerId = currentPlayerId || null;
-  const activeStream = isMyTurn ? localStream : (activePlayerId ? remoteStreams.get(activePlayerId) || null : null);
+  const activeStream = isMyTurn 
+    ? localStream 
+    : (activePlayerId ? remoteStreams.get(activePlayerId) || null : null);
 
-  console.log('[ATC Camera] Status:', {
-    myUserId,
-    otherPlayer: otherPlayerId.current,
-    isMyTurn,
-    hasLocal: !!localStream,
-    remoteCount: remoteStreams.size,
-    activeStream: activeStream ? (isMyTurn ? 'local' : 'remote') : 'none',
-    callStatus
-  });
-
-  // Send signal
-  const sendSignal = useCallback(async (type: string, data: any) => {
+  // Send signal to specific recipient
+  const sendSignal = useCallback(async (recipientId: string, type: string, data: any) => {
     if (!matchId || !myUserId) return;
     await supabase.rpc('rpc_send_atc_signal', {
       p_match_id: matchId,
-      p_recipient_id: otherPlayerId.current,
+      p_recipient_id: recipientId,
       p_signal_type: type,
       p_signal_data: data
     });
   }, [matchId, myUserId, supabase]);
 
-  // Create peer connection
-  const createPC = useCallback((isInitiator: boolean) => {
-    if (pcRef.current) {
-      console.log('[ATC Camera] PC already exists');
-      return pcRef.current;
+  // Create peer connection for a specific player
+  const createPeerConnection = useCallback((playerId: string) => {
+    if (peerConnectionsRef.current.has(playerId)) {
+      return peerConnectionsRef.current.get(playerId)!;
     }
 
-    console.log('[ATC Camera] Creating PC, initiator:', isInitiator);
-    
     const pc = new RTCPeerConnection({
       iceServers: getIceServers(),
       iceCandidatePoolSize: 10
     });
 
-    pcRef.current = pc;
+    peerConnectionsRef.current.set(playerId, pc);
 
     pc.onconnectionstatechange = () => {
-      console.log('[ATC Camera] Connection state:', pc.connectionState);
-      setCallStatus(pc.connectionState === 'connected' ? 'connected' : 
-                    pc.connectionState === 'connecting' ? 'connecting' : 'idle');
+      if (pc.connectionState === 'connected') {
+        setCallStatus('connected');
+      }
     };
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
-        sendSignal('ice', { candidate: e.candidate.toJSON() });
+        sendSignal(playerId, 'ice', { candidate: e.candidate.toJSON() });
       }
     };
 
     pc.ontrack = (e) => {
-      console.log('[ATC Camera] Got remote track!');
-      if (e.streams?.[0] && otherPlayerId.current) {
+      if (e.streams?.[0]) {
         setRemoteStreams(prev => {
           const next = new Map(prev);
-          next.set(otherPlayerId.current!, e.streams[0]);
+          next.set(playerId, e.streams[0]);
           return next;
         });
       }
@@ -108,49 +92,52 @@ export function useATCWebRTC({
     return pc;
   }, [sendSignal]);
 
-  // Handle signals
+  // Handle signals from other players
   const handleSignal = useCallback(async (signal: any) => {
-    const sigId = `${signal.sender_id}-${signal.signal_type}-${signal.created_at}`;
+    const senderId = signal.sender_id;
+    const sigId = `${senderId}-${signal.signal_type}-${signal.created_at}`;
+    
     if (processedSignals.current.has(sigId)) return;
     processedSignals.current.add(sigId);
 
-    console.log('[ATC Camera] Signal:', signal.signal_type, 'from:', signal.sender_id);
-
-    const pc = pcRef.current || createPC(false);
+    const pc = createPeerConnection(senderId);
 
     try {
       if (signal.signal_type === 'offer') {
-        // Add local stream before answering
         if (localStreamRef.current) {
-          const hasTrack = pc.getSenders().some(s => s.track?.kind === 'video');
-          if (!hasTrack) {
-            localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+          const hasVideoTrack = pc.getSenders().some(s => s.track?.kind === 'video');
+          if (!hasVideoTrack) {
+            localStreamRef.current.getTracks().forEach(t => {
+              pc.addTrack(t, localStreamRef.current!);
+            });
           }
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data.offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await sendSignal('answer', { answer: pc.localDescription?.toJSON() });
-        console.log('[ATC Camera] Sent answer');
+        if (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await sendSignal(senderId, 'answer', { answer: pc.localDescription?.toJSON() });
+        }
 
       } else if (signal.signal_type === 'answer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data.answer));
-        console.log('[ATC Camera] Answer processed');
+        if (isInitiatorRef.current.get(senderId) && pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data.answer));
+        }
 
       } else if (signal.signal_type === 'ice') {
-        await pc.addIceCandidate(new RTCIceCandidate(signal.signal_data.candidate));
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.signal_data.candidate));
+        }
       }
     } catch (err) {
-      console.error('[ATC Camera] Signal error:', err);
+      console.error(`[ATC Camera] Signal error:`, err);
     }
-  }, [createPC, sendSignal]);
+  }, [createPeerConnection, sendSignal]);
 
   // Subscribe to signals
   useEffect(() => {
     if (!matchId || !myUserId) return;
-
-    console.log('[ATC Camera] Subscribing to signals');
 
     const sub = supabase
       .channel(`atc-${matchId}`)
@@ -161,17 +148,22 @@ export function useATCWebRTC({
         filter: `match_id=eq.${matchId}`
       }, (payload) => {
         const s = payload.new as any;
-        if (s.sender_id !== myUserId) handleSignal(s);
+        if (s.sender_id !== myUserId) {
+          handleSignal(s);
+        }
       })
       .subscribe();
 
-    return () => { sub.unsubscribe(); };
+    return () => { 
+      sub.unsubscribe();
+      peerConnectionsRef.current.forEach((pc) => pc.close());
+      peerConnectionsRef.current.clear();
+    };
   }, [matchId, myUserId, handleSignal, supabase]);
 
-  // Create PC and send offer when camera starts (if initiator)
+  // Start camera and connect to all other players
   const startCamera = async () => {
     try {
-      console.log('[ATC Camera] Starting camera...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' },
         audio: false
@@ -181,18 +173,19 @@ export function useATCWebRTC({
       setLocalStream(stream);
       setIsCameraOn(true);
 
-      // Create PC and add tracks
-      const isInitiator = myUserId! < otherPlayerId.current!;
-      const pc = createPC(isInitiator);
+      // Connect to ALL other players
+      for (const playerId of otherPlayerIds) {
+        const isInitiator = myUserId! < playerId;
+        isInitiatorRef.current.set(playerId, isInitiator);
 
-      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+        const pc = createPeerConnection(playerId);
+        stream.getTracks().forEach(t => pc.addTrack(t, stream));
 
-      // If initiator, send offer
-      if (isInitiator) {
-        console.log('[ATC Camera] Sending offer...');
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await sendSignal('offer', { offer: pc.localDescription?.toJSON() });
+        if (isInitiator) {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await sendSignal(playerId, 'offer', { offer: pc.localDescription?.toJSON() });
+        }
       }
 
       return true;
@@ -203,11 +196,17 @@ export function useATCWebRTC({
   };
 
   const stopCamera = () => {
-    console.log('[ATC Camera] Stopping camera');
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     localStreamRef.current = null;
     setLocalStream(null);
     setIsCameraOn(false);
+
+    peerConnectionsRef.current.forEach((pc) => pc.close());
+    peerConnectionsRef.current.clear();
+    isInitiatorRef.current.clear();
+    
+    setRemoteStreams(new Map());
+    setCallStatus('idle');
   };
 
   const refreshCamera = async () => {
@@ -216,15 +215,7 @@ export function useATCWebRTC({
     await startCamera();
   };
 
-  const refreshConnection = () => {
-    pcRef.current?.close();
-    pcRef.current = null;
-    setRemoteStreams(new Map());
-    setCallStatus('idle');
-    refreshCamera();
-  };
-
-  // Auto-start on my turn
+  // Auto-start camera on my turn
   useEffect(() => {
     if (isMyTurn && isMatchActive && !isCameraOn) {
       startCamera();
@@ -241,7 +232,7 @@ export function useATCWebRTC({
     toggleCamera: async () => isCameraOn ? stopCamera() : await startCamera(),
     stopCamera,
     refreshCamera,
-    refreshConnection,
+    refreshConnection: refreshCamera,
     cameraError: null
   };
 }
