@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { GoogleButton } from '@/components/auth/GoogleButton';
@@ -10,8 +11,117 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { 
+  Eye, 
+  EyeOff, 
+  Loader2, 
+  XCircle, 
+  CheckCircle2, 
+  AlertCircle, 
+  User, 
+  Mail, 
+  Lock,
+  Check,
+} from 'lucide-react';
 import { toast } from 'sonner';
+
+// Helper function to format Supabase error messages into user-friendly format
+function formatSignupError(error: string): { title: string; message: string } {
+  const lowerError = error.toLowerCase();
+  
+  if (lowerError.includes('user already registered') || lowerError.includes('already exists') || lowerError.includes('already registered')) {
+    return {
+      title: 'Account already exists',
+      message: 'An account with this email already exists. Would you like to sign in instead?'
+    };
+  }
+  
+  if (lowerError.includes('username') && (lowerError.includes('taken') || lowerError.includes('exists') || lowerError.includes('already'))) {
+    return {
+      title: 'Username unavailable',
+      message: 'This username is already taken. Please choose a different one.'
+    };
+  }
+  
+  if (lowerError.includes('weak password') || lowerError.includes('password')) {
+    return {
+      title: 'Password too weak',
+      message: 'Please use a stronger password with at least 6 characters, including a mix of letters and numbers.'
+    };
+  }
+  
+  if (lowerError.includes('invalid email')) {
+    return {
+      title: 'Invalid email address',
+      message: 'Please enter a valid email address (e.g., name@example.com).'
+    };
+  }
+  
+  if (lowerError.includes('rate limit') || lowerError.includes('too many requests')) {
+    return {
+      title: 'Too many attempts',
+      message: 'For security reasons, please wait a few minutes before trying again.'
+    };
+  }
+  
+  if (lowerError.includes('network') || lowerError.includes('fetch') || lowerError.includes('connection')) {
+    return {
+      title: 'Connection problem',
+      message: 'Please check your internet connection and try again.'
+    };
+  }
+  
+  // Default error
+  return {
+    title: 'Signup failed',
+    message: error || 'An unexpected error occurred. Please try again.'
+  };
+}
+
+// Password strength indicator
+function PasswordStrengthIndicator({ password }: { password: string }) {
+  const checks = [
+    { label: 'At least 6 characters', met: password.length >= 6 },
+    { label: 'Contains a number', met: /\d/.test(password) },
+    { label: 'Contains a letter', met: /[a-zA-Z]/.test(password) },
+  ];
+  
+  const strength = checks.filter(c => c.met).length;
+  
+  const getColor = () => {
+    if (strength === 0) return 'bg-gray-700';
+    if (strength === 1) return 'bg-red-500';
+    if (strength === 2) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+  
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex gap-1">
+        {[1, 2, 3].map((i) => (
+          <div 
+            key={i} 
+            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+              i <= strength ? getColor() : 'bg-gray-700'
+            }`}
+          />
+        ))}
+      </div>
+      <div className="space-y-1">
+        {checks.map((check, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            {check.met ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+            ) : (
+              <div className="w-3.5 h-3.5 rounded-full border border-gray-600" />
+            )}
+            <span className={check.met ? 'text-green-500' : 'text-muted-foreground'}>{check.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -30,10 +140,25 @@ export default function SignupPage() {
     password?: string;
     confirmPassword?: string;
   }>({});
+  const [apiError, setApiError] = useState<{ title: string; message: string } | null>(null);
+  const [touched, setTouched] = useState({
+    username: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const validateEmail = (email: string) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
+  };
+
+  const validations = {
+    username: formData.username.length >= 3 && /^[a-zA-Z0-9_]+$/.test(formData.username),
+    email: validateEmail(formData.email),
+    password: formData.password.length >= 6 && /\d/.test(formData.password) && /[a-zA-Z]/.test(formData.password),
+    confirmPassword: formData.confirmPassword === formData.password && formData.confirmPassword.length > 0,
   };
 
   const validateForm = () => {
@@ -43,6 +168,8 @@ export default function SignupPage() {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      newErrors.username = 'Only letters, numbers, and underscores allowed';
     }
 
     if (!formData.email) {
@@ -53,8 +180,10 @@ export default function SignupPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    } else if (!/\d/.test(formData.password) || !/[a-zA-Z]/.test(formData.password)) {
+      newErrors.password = 'Password must contain both letters and numbers';
     }
 
     if (!formData.confirmPassword) {
@@ -70,12 +199,22 @@ export default function SignupPage() {
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setApiError(null);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setApiError(null);
 
     if (!validateForm()) return;
+
+    if (!acceptedTerms) {
+      setApiError({
+        title: 'Terms required',
+        message: 'Please accept the Terms of Service and Privacy Policy to continue.'
+      });
+      return;
+    }
 
     setLoading(true);
 
@@ -103,12 +242,19 @@ export default function SignupPage() {
           name: authError.name,
           fullError: authError,
         });
-        toast.error(`Signup failed: ${authError.message} (Status: ${authError.status || 'N/A'})`);
+        
+        const formattedError = formatSignupError(authError.message);
+        setApiError(formattedError);
+        toast.error(formattedError.title);
         return;
       }
 
       if (!authData.user) {
         console.error('[Signup] No user returned from signup');
+        setApiError({
+          title: 'Signup failed',
+          message: 'Something went wrong. Please try again.'
+        });
         toast.error('Signup failed. Please try again.');
         return;
       }
@@ -149,12 +295,20 @@ export default function SignupPage() {
           details: profileError.details,
           fullError: profileError,
         });
+        setApiError({
+          title: 'Profile creation failed',
+          message: profileError.message
+        });
         toast.error(`Profile creation failed: ${profileError.message}`);
         return;
       }
 
       if (!profile) {
         console.error('[Signup] Profile not found after creation');
+        setApiError({
+          title: 'Setup incomplete',
+          message: 'Profile was not created. Please contact support.'
+        });
         toast.error('Profile was not created. Please contact support.');
         return;
       }
@@ -176,7 +330,10 @@ export default function SignupPage() {
         stack: error.stack,
         fullError: error,
       });
-      toast.error(error.message || 'An unexpected error occurred');
+      
+      const formattedError = formatSignupError(error.message);
+      setApiError(formattedError);
+      toast.error(formattedError.title);
     } finally {
       setLoading(false);
     }
@@ -192,7 +349,9 @@ export default function SignupPage() {
     });
 
     if (error) {
-      toast.error(error.message);
+      const formattedError = formatSignupError(error.message);
+      setApiError(formattedError);
+      toast.error(formattedError.title);
     }
   };
 
@@ -206,58 +365,133 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSignup} className="space-y-5">
+            {/* API Error Display */}
+            <AnimatePresence mode="wait">
+              {apiError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -10, height: 0 }}
+                  className="rounded-xl bg-destructive/10 border border-destructive/20 overflow-hidden"
+                >
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-destructive font-semibold text-sm">{apiError.title}</p>
+                        <p className="text-destructive/80 text-sm mt-1">{apiError.message}</p>
+                        {apiError.title === 'Account already exists' && (
+                          <Link 
+                            href="/login" 
+                            className="text-destructive/80 underline text-sm mt-2 hover:text-destructive inline-block"
+                          >
+                            Sign in instead
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Username */}
             <div className="space-y-2">
               <Label htmlFor="username" className="text-foreground font-medium">
                 Username
               </Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="dartmaster"
-                value={formData.username}
-                onChange={(e) => handleChange('username', e.target.value)}
-                className={`h-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
-                  errors.username ? 'border-destructive' : ''
-                }`}
-                disabled={loading}
-              />
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="dartmaster"
+                  value={formData.username}
+                  onChange={(e) => handleChange('username', e.target.value)}
+                  onBlur={() => setTouched({ ...touched, username: true })}
+                  className={`h-12 pl-11 pr-10 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                    errors.username || (touched.username && !validations.username && formData.username)
+                      ? 'border-destructive focus:border-destructive'
+                      : touched.username && validations.username
+                      ? 'border-green-500 focus:border-green-500'
+                      : ''
+                  }`}
+                  disabled={loading}
+                />
+                {touched.username && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {validations.username ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    ) : formData.username ? (
+                      <AlertCircle className="w-5 h-5 text-destructive" />
+                    ) : null}
+                  </div>
+                )}
+              </div>
               {errors.username && (
-                <p className="text-xs text-destructive mt-1">{errors.username}</p>
+                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.username}
+                </p>
               )}
             </div>
 
+            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground font-medium">
                 Email
               </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                className={`h-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
-                  errors.email ? 'border-destructive' : ''
-                }`}
-                disabled={loading}
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  onBlur={() => setTouched({ ...touched, email: true })}
+                  className={`h-12 pl-11 pr-10 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                    errors.email || (touched.email && !validations.email && formData.email)
+                      ? 'border-destructive focus:border-destructive'
+                      : touched.email && validations.email
+                      ? 'border-green-500 focus:border-green-500'
+                      : ''
+                  }`}
+                  disabled={loading}
+                />
+                {touched.email && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {validations.email ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    ) : formData.email ? (
+                      <AlertCircle className="w-5 h-5 text-destructive" />
+                    ) : null}
+                  </div>
+                )}
+              </div>
               {errors.email && (
-                <p className="text-xs text-destructive mt-1">{errors.email}</p>
+                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.email}
+                </p>
               )}
             </div>
 
+            {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-foreground font-medium">
                 Password
               </Label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => handleChange('password', e.target.value)}
-                  className={`h-12 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                  onBlur={() => setTouched({ ...touched, password: true })}
+                  className={`h-12 pl-11 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
                     errors.password ? 'border-destructive' : ''
                   }`}
                   disabled={loading}
@@ -275,24 +509,35 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+              {formData.password && <PasswordStrengthIndicator password={formData.password} />}
               {errors.password && (
-                <p className="text-xs text-destructive mt-1">{errors.password}</p>
+                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.password}
+                </p>
               )}
             </div>
 
+            {/* Confirm Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-foreground font-medium">
                 Confirm Password
               </Label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                  className={`h-12 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
-                    errors.confirmPassword ? 'border-destructive' : ''
+                  onBlur={() => setTouched({ ...touched, confirmPassword: true })}
+                  className={`h-12 pl-11 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                    errors.confirmPassword || (touched.confirmPassword && !validations.confirmPassword && formData.confirmPassword)
+                      ? 'border-destructive focus:border-destructive'
+                      : touched.confirmPassword && validations.confirmPassword
+                      ? 'border-green-500 focus:border-green-500'
+                      : ''
                   }`}
                   disabled={loading}
                 />
@@ -310,8 +555,32 @@ export default function SignupPage() {
                 </button>
               </div>
               {errors.confirmPassword && (
-                <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>
+                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.confirmPassword}
+                </p>
               )}
+            </div>
+
+            {/* Terms Checkbox */}
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={() => setAcceptedTerms(!acceptedTerms)}
+                className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                  acceptedTerms 
+                    ? 'bg-primary border-primary' 
+                    : 'border-border hover:border-primary'
+                }`}
+              >
+                {acceptedTerms && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+              </button>
+              <p className="text-muted-foreground text-sm">
+                I agree to the{' '}
+                <Link href="/terms" className="text-primary hover:text-primary/80">Terms of Service</Link>
+                {' '}and{' '}
+                <Link href="/privacy" className="text-primary hover:text-primary/80">Privacy Policy</Link>
+              </p>
             </div>
 
             <Button
@@ -325,7 +594,7 @@ export default function SignupPage() {
                   Creating account...
                 </>
               ) : (
-                'Create Account'
+                'Create Free Account'
               )}
             </Button>
           </form>
@@ -335,7 +604,7 @@ export default function SignupPage() {
               <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-card text-muted-foreground">or</span>
+              <span className="px-4 bg-card text-muted-foreground">or continue with</span>
             </div>
           </div>
 
@@ -347,7 +616,7 @@ export default function SignupPage() {
               href="/login"
               className="text-primary hover:text-primary/80 font-semibold transition-colors"
             >
-              Log in
+              Sign in
             </Link>
           </p>
         </div>
