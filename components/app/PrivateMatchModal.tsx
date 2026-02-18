@@ -220,11 +220,6 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   };
 
   const handleCreateOnlineMatch = async () => {
-    if (gameMode === 'Around the Clock') {
-      toast.error('Online matches only support 301 and 501');
-      return;
-    }
-
     if (!selectedFriendId && !username.trim()) {
       toast.error('Please select a friend or enter a username');
       return;
@@ -427,34 +422,8 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
 
       console.debug('[INVITE] Invite created successfully:', invite.id);
 
-      // Create notification for invitee with error handling
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: inviteeId,
-          type: 'match_invite',
-          title: 'Private Match Invite',
-          message: `${myUsername} has invited you to a private match`,
-          data: {
-            kind: 'private_match_invite',
-            invite_id: invite.id,
-            room_id: roomId,
-            from_user_id: user.id,
-            from_username: myUsername,
-            match_options: matchOptions,
-          },
-        });
-
-      if (notificationError) {
-        console.error('[INVITE] Failed to create notification:', {
-          message: notificationError.message,
-          details: notificationError.details,
-          hint: notificationError.hint,
-          code: notificationError.code,
-        });
-        // Don't block the flow if notification fails, but warn user
-        toast.warning('Invite created but notification may not have been sent');
-      }
+      // Note: Notification is created automatically by the database trigger in rpc_create_private_match_invite
+      // No need to create it manually here - this was causing duplicate notifications
 
       setInviteId(invite.id);
       setInvitedFriendName(inviteeName);
@@ -494,18 +463,8 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
       player2Name: 'Opponent',
     };
 
-    if (gameMode === 'Around the Clock') {
-      matchConfig.atcSettings = {
-        startNumber: atcStartNumber,
-        endNumber: atcEndNumber,
-        includeBull: atcIncludeBull,
-        increaseBySegment: atcIncreaseBySegment,
-        overshootHandling: atcOvershootHandling,
-      };
-    } else {
-      matchConfig.doubleOut = doubleOut;
-      matchConfig.straightIn = straightIn;
-    }
+    matchConfig.doubleOut = doubleOut;
+    matchConfig.straightIn = straightIn;
 
     localStorage.setItem(`match-${matchId}`, JSON.stringify(matchConfig));
 
@@ -550,7 +509,6 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                   <SelectContent className="bg-slate-900 border-white/10">
                     <SelectItem value="301">301</SelectItem>
                     <SelectItem value="501">501</SelectItem>
-                    <SelectItem value="Around the Clock">Around the Clock</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -566,82 +524,21 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                     <SelectItem value="best-of-3">Best of 3</SelectItem>
                     <SelectItem value="best-of-5">Best of 5</SelectItem>
                     <SelectItem value="best-of-7">Best of 7</SelectItem>
+                    <SelectItem value="best-of-9">Best of 9</SelectItem>
+                    <SelectItem value="best-of-11">Best of 11</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {gameMode !== 'Around the Clock' ? (
-                <>
-                  <div className="flex items-center justify-between py-2">
-                    <Label className="text-gray-300">Double Out</Label>
-                    <Switch checked={doubleOut} onCheckedChange={setDoubleOut} />
-                  </div>
+              <div className="flex items-center justify-between py-2">
+                <Label className="text-gray-300">Double Out</Label>
+                <Switch checked={doubleOut} onCheckedChange={setDoubleOut} />
+              </div>
 
-                  <div className="flex items-center justify-between py-2">
-                    <Label className="text-gray-300">Straight In</Label>
-                    <Switch checked={straightIn} onCheckedChange={setStraightIn} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="border-t border-white/10 pt-4 mt-2">
-                    <h3 className="text-sm font-semibold text-white mb-4">Around the Clock Settings</h3>
-
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-gray-300 text-xs">Start Number</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={atcStartNumber}
-                            onChange={(e) => setAtcStartNumber(parseInt(e.target.value) || 1)}
-                            className="bg-white/5 border-white/10 text-white"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-gray-300 text-xs">End Number</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={atcEndNumber}
-                            onChange={(e) => setAtcEndNumber(parseInt(e.target.value) || 20)}
-                            className="bg-white/5 border-white/10 text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <Label className="text-gray-300 text-sm">Include Bull</Label>
-                        <Switch checked={atcIncludeBull} onCheckedChange={setAtcIncludeBull} />
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <Label className="text-gray-300 text-sm">Increase by Segment</Label>
-                        <Switch checked={atcIncreaseBySegment} onCheckedChange={setAtcIncreaseBySegment} />
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {atcIncreaseBySegment ? 'Single +1, Double +2, Treble +3' : 'Any hit +1'}
-                      </p>
-
-                      <div className="space-y-2">
-                        <Label className="text-gray-300 text-sm">Overshoot Handling</Label>
-                        <Select value={atcOvershootHandling} onValueChange={setAtcOvershootHandling}>
-                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-900 border-white/10">
-                            <SelectItem value="cap">Cap at End</SelectItem>
-                            <SelectItem value="exact">Exact Finish Required</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between py-2">
+                <Label className="text-gray-300">Straight In</Label>
+                <Switch checked={straightIn} onCheckedChange={setStraightIn} />
+              </div>
             </div>
 
             <div className="border-t border-white/10 pt-6 space-y-4">
@@ -784,7 +681,6 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                   <SelectContent className="bg-slate-900 border-white/10">
                     <SelectItem value="301">301</SelectItem>
                     <SelectItem value="501">501</SelectItem>
-                    <SelectItem value="Around the Clock">Around the Clock</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -800,82 +696,21 @@ export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
                     <SelectItem value="best-of-3">Best of 3</SelectItem>
                     <SelectItem value="best-of-5">Best of 5</SelectItem>
                     <SelectItem value="best-of-7">Best of 7</SelectItem>
+                    <SelectItem value="best-of-9">Best of 9</SelectItem>
+                    <SelectItem value="best-of-11">Best of 11</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {gameMode !== 'Around the Clock' ? (
-                <>
-                  <div className="flex items-center justify-between py-2">
-                    <Label className="text-gray-300">Double Out</Label>
-                    <Switch checked={doubleOut} onCheckedChange={setDoubleOut} />
-                  </div>
+              <div className="flex items-center justify-between py-2">
+                <Label className="text-gray-300">Double Out</Label>
+                <Switch checked={doubleOut} onCheckedChange={setDoubleOut} />
+              </div>
 
-                  <div className="flex items-center justify-between py-2">
-                    <Label className="text-gray-300">Straight In</Label>
-                    <Switch checked={straightIn} onCheckedChange={setStraightIn} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="border-t border-white/10 pt-4 mt-2">
-                    <h3 className="text-sm font-semibold text-white mb-4">Around the Clock Settings</h3>
-
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-gray-300 text-xs">Start Number</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={atcStartNumber}
-                            onChange={(e) => setAtcStartNumber(parseInt(e.target.value) || 1)}
-                            className="bg-white/5 border-white/10 text-white"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-gray-300 text-xs">End Number</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={atcEndNumber}
-                            onChange={(e) => setAtcEndNumber(parseInt(e.target.value) || 20)}
-                            className="bg-white/5 border-white/10 text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <Label className="text-gray-300 text-sm">Include Bull</Label>
-                        <Switch checked={atcIncludeBull} onCheckedChange={setAtcIncludeBull} />
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <Label className="text-gray-300 text-sm">Increase by Segment</Label>
-                        <Switch checked={atcIncreaseBySegment} onCheckedChange={setAtcIncreaseBySegment} />
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {atcIncreaseBySegment ? 'Single +1, Double +2, Treble +3' : 'Any hit +1'}
-                      </p>
-
-                      <div className="space-y-2">
-                        <Label className="text-gray-300 text-sm">Overshoot Handling</Label>
-                        <Select value={atcOvershootHandling} onValueChange={setAtcOvershootHandling}>
-                          <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-900 border-white/10">
-                            <SelectItem value="cap">Cap at End</SelectItem>
-                            <SelectItem value="exact">Exact Finish Required</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between py-2">
+                <Label className="text-gray-300">Straight In</Label>
+                <Switch checked={straightIn} onCheckedChange={setStraightIn} />
+              </div>
 
               <div className="space-y-2">
                 <Label className="text-gray-300">Opponent Name</Label>
