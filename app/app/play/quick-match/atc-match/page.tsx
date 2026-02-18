@@ -660,6 +660,8 @@ export default function ATCMatchPage() {
   const [previewTarget, setPreviewTarget] = useState<number | 'bull'>(1);
 
   // Update preview target whenever pending darts change
+  // IMPORTANT: Only depend on pendingDarts, NOT match, to avoid re-renders on every realtime update
+  // The match target only changes on turn change (when pendingDarts is cleared) or submit
   useEffect(() => {
     if (!match) return;
     const currentPlayer = match.players[match.current_player_index];
@@ -669,7 +671,8 @@ export default function ATCMatchPage() {
     
     const { target } = calculatePreviewTarget(startTarget, pendingDarts, mode, order);
     setPreviewTarget(target);
-  }, [pendingDarts, match]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDarts]);
 
   // Handle dart throw - Add dart to pending list (does NOT submit)
   const handleDartThrow = (segment: string, number?: number) => {
