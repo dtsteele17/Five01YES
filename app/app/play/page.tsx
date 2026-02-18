@@ -13,7 +13,7 @@ import { useTodayStats } from '@/lib/hooks/useTodayStats';
 import { formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
-import { PrivateMatchModal, MatchSettings } from '@/components/game/PrivateMatchModal';
+import { PrivateMatchModal } from '@/components/game/PrivateMatchModal';
 import { ModernMatchCard } from '@/components/match/ModernMatchCard';
 import {
   Zap,
@@ -360,55 +360,6 @@ function RecentMatchesSection() {
 
 function PrivateMatchCard() {
   const [showModal, setShowModal] = useState(false);
-  const router = useRouter();
-  
-  const handleStart = async (settings: MatchSettings) => {
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error('Please sign in to create a private match');
-        return;
-      }
-      
-      // Create private match room
-      const { data: room, error } = await supabase
-        .from('match_rooms')
-        .insert({
-          player1_id: user.id,
-          game_mode: settings.gameMode,
-          legs_to_win: Math.ceil(settings.legsToWin / 2), // Convert best-of to legs needed
-          double_out: settings.doubleOut,
-          match_format: 'private',
-          status: 'waiting',
-          current_leg: 1,
-          player1_remaining: settings.gameMode,
-          player2_remaining: settings.gameMode,
-          current_turn: user.id,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Send invitation to invited player
-      if (settings.invitedPlayerId) {
-        await supabase.from('match_invitations').insert({
-          room_id: room.id,
-          inviter_id: user.id,
-          invitee_id: settings.invitedPlayerId,
-          status: 'pending',
-        });
-      }
-      
-      toast.success('Private match created!');
-      router.push(`/app/play/private-match/${room.id}`);
-    } catch (err) {
-      console.error('Error creating private match:', err);
-      toast.error('Failed to create private match');
-    }
-  };
   
   return (
     <>
@@ -454,7 +405,6 @@ function PrivateMatchCard() {
       <PrivateMatchModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        onStart={handleStart}
       />
     </>
   );

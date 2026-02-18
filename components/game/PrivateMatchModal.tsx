@@ -16,10 +16,13 @@ import {
   X,
   Search,
   User,
-  Check
+  Check,
+  Loader2,
+  Crown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 interface Friend {
   id: string;
@@ -31,15 +34,12 @@ interface Friend {
 interface PrivateMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStart: (settings: MatchSettings) => void;
 }
 
 export interface MatchSettings {
   gameMode: 301 | 501;
   legsToWin: number;
   doubleOut: boolean;
-  invitedPlayerId?: string;
-  invitedUsername?: string;
 }
 
 // Simple Toggle Switch Component
@@ -63,8 +63,9 @@ function ToggleSwitch({ checked, onCheckedChange }: { checked: boolean; onChecke
   );
 }
 
-export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModalProps) {
+export function PrivateMatchModal({ isOpen, onClose }: PrivateMatchModalProps) {
   const supabase = createClient();
+  const router = useRouter();
   
   // Game settings
   const [gameMode, setGameMode] = useState<301 | 501>(501);
@@ -72,13 +73,14 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
   const [doubleOut, setDoubleOut] = useState<boolean>(true);
   
   // Invite state
-  const [activeTab, setActiveTab] = useState<'username' | 'friends'>('username');
+  const [activeTab, setActiveTab] = useState<'username' | 'friends'>('friends');
   const [usernameInput, setUsernameInput] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [searchingUser, setSearchingUser] = useState(false);
   const [foundUser, setFoundUser] = useState<Friend | null>(null);
+  const [creating, setCreating] = useState(false);
   
   // Load friends when modal opens
   useEffect(() => {
@@ -94,25 +96,10 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
   const loadFriends = async () => {
     setLoadingFriends(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      // Get friends list
-      const { data: friendsData, error } = await supabase
-        .from('friends')
-        .select('friend_id, profiles:friend_id(user_id, username, avatar_url)')
-        .eq('user_id', user.id)
-        .eq('status', 'accepted');
-      
+      const { data, error } = await supabase.rpc('rpc_get_friends_overview');
       if (error) throw error;
-      
-      if (friendsData) {
-        const formattedFriends = friendsData.map((f: any) => ({
-          id: f.friend_id,
-          username: f.profiles?.username || 'Unknown',
-          avatar_url: f.profiles?.avatar_url,
-        }));
-        setFriends(formattedFriends);
+      if (data?.ok) {
+        setFriends(data.friends || []);
       }
     } catch (err) {
       console.error('Error loading friends:', err);
@@ -134,7 +121,7 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
       const { data, error } = await supabase
         .from('profiles')
         .select('user_id, username, avatar_url')
-        .ilike('username', usernameInput.trim())
+        .ilike('username', `%${usernameInput.trim()}%`)
         .limit(1);
       
       if (error) throw error;
@@ -156,7 +143,7 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
     }
   };
   
-  const handleStart = () => {
+  const handleStart = async () => {
     const invitedPlayer = selectedFriend || foundUser;
     
     if (!invitedPlayer) {
@@ -164,16 +151,55 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
       return;
     }
     
-    onStart({
-      gameMode,
-      legsToWin,
-      doubleOut,
-      invitedPlayerId: invitedPlayer.id,
-      invitedUsername: invitedPlayer.username,
-    });
+    setCreating(true);
+    
+    try {
+      // Generate room ID
+      const roomId = crypto.randomUUID();
+      
+      // Create match options
+      const matchOptions = {
+        gameMode,
+        legsToWin,
+        doubleOut,
+        bestOf: legsToWin * 2 - 1,
+      };
+      
+      // Create private match invite with room
+      const { data, error } = await supabase.rpc('rpc_create_private_match_invite', {
+        p_to_user_id: invitedPlayer.id,
+        p_room_id: roomId,
+        p_match_options: matchOptions,
+      });
+      
+      if (error) {
+        console.error('Error creating invite:', error);
+        toast.error('Failed to create match: ' + error.message);
+        setCreating(false);
+        return;
+      }
+      
+      if (!data?.ok) {
+        toast.error(data?.error || 'Failed to create match');
+        setCreating(false);
+        return;
+      }
+      
+      toast.success('Private match created! Waiting in lobby...');
+      
+      // Navigate to lobby
+      router.push(`/app/play/private/lobby/${roomId}`);
+      
+      // Close modal
+      onClose();
+    } catch (err) {
+      console.error('Error starting match:', err);
+      toast.error('Failed to create match');
+      setCreating(false);
+    }
   };
   
-  const legOptions = [1, 3, 5, 7, 9, 11];
+  const legOptions = [1, 3, 5, 7, 9];
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -226,7 +252,7 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
             
             {/* Best of Legs */}
             <div className="space-y-2">
-              <label className="text-sm text-slate-300">Best Of (Legs)</label>
+              <label className="text-sm text-slate-300">Legs to Win</label>
               <div className="flex flex-wrap gap-2">
                 {legOptions.map((legs) => (
                   <Button
@@ -241,6 +267,7 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
                   </Button>
                 ))}
               </div>
+              <p className="text-xs text-slate-500">Best of {legsToWin * 2 - 1} legs</p>
             </div>
             
             {/* Double Out Toggle */}
@@ -275,17 +302,6 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
             <div className="grid w-full grid-cols-2 bg-slate-800 rounded-lg p-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('username')}
-                className={`py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                  activeTab === 'username' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                By Username
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveTab('friends')}
                 className={`py-2 px-4 rounded-md text-sm font-medium transition-all ${
                   activeTab === 'friends' 
@@ -295,11 +311,78 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
               >
                 Friends
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('username')}
+                className={`py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'username' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                By Username
+              </button>
             </div>
             
             {/* Tab Content */}
             <div className="mt-4">
-              {activeTab === 'username' ? (
+              {activeTab === 'friends' ? (
+                <div>
+                  {loadingFriends ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-14 bg-slate-800/50 rounded-xl animate-pulse" />
+                      ))}
+                    </div>
+                  ) : friends.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400">
+                      <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No friends yet</p>
+                      <p className="text-sm">Add friends to invite them to private matches</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {friends.map((friend) => (
+                        <motion.div
+                          key={friend.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                            selectedFriend?.id === friend.id
+                              ? 'bg-blue-500/20 border-blue-500'
+                              : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                          }`}
+                          onClick={() => setSelectedFriend(selectedFriend?.id === friend.id ? null : friend)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                                {friend.avatar_url ? (
+                                  <img src={friend.avatar_url} alt={friend.username} className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                  <User className="w-5 h-5 text-slate-400" />
+                                )}
+                              </div>
+                              {friend.is_online && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-800 rounded-full" />
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-white font-medium">{friend.username}</span>
+                              {friend.is_online && (
+                                <p className="text-xs text-emerald-400">Online</p>
+                              )}
+                            </div>
+                          </div>
+                          {selectedFriend?.id === friend.id && (
+                            <Check className="w-5 h-5 text-blue-400" />
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <Input
@@ -315,12 +398,7 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       {searchingUser ? (
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        >
-                          <Search className="w-4 h-4" />
-                        </motion.div>
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Search className="w-4 h-4" />
                       )}
@@ -359,52 +437,6 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
-              ) : (
-                <div>
-                  {loadingFriends ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-14 bg-slate-800/50 rounded-xl animate-pulse" />
-                      ))}
-                    </div>
-                  ) : friends.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400">
-                      <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>No friends yet</p>
-                      <p className="text-sm">Add friends to invite them to private matches</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {friends.map((friend) => (
-                        <motion.div
-                          key={friend.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                            selectedFriend?.id === friend.id
-                              ? 'bg-blue-500/20 border-blue-500'
-                              : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
-                          }`}
-                          onClick={() => setSelectedFriend(selectedFriend?.id === friend.id ? null : friend)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                              {friend.avatar_url ? (
-                                <img src={friend.avatar_url} alt={friend.username} className="w-full h-full rounded-full object-cover" />
-                              ) : (
-                                <User className="w-5 h-5 text-slate-400" />
-                              )}
-                            </div>
-                            <span className="text-white font-medium">{friend.username}</span>
-                          </div>
-                          {selectedFriend?.id === friend.id && (
-                            <Check className="w-5 h-5 text-blue-400" />
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -447,11 +479,20 @@ export function PrivateMatchModal({ isOpen, onClose, onStart }: PrivateMatchModa
         <div className="p-6 border-t border-slate-700 bg-slate-800/30">
           <Button
             onClick={handleStart}
-            disabled={!selectedFriend && !foundUser}
+            disabled={!selectedFriend && !foundUser || creating}
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-6 h-auto text-lg font-bold disabled:opacity-50"
           >
-            <Play className="w-5 h-5 mr-2" />
-            Start Private Match
+            {creating ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Creating Match...
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5 mr-2" />
+                Create Private Match
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>
