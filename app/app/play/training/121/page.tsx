@@ -511,7 +511,7 @@ export default function OneTwentyOnePage() {
                     }`}>
                       Visit {visitIdx + 1}
                     </span>
-                    {visit.darts.length > 0 && (
+                    {visit?.darts?.length > 0 && (
                       <span className="text-sm text-emerald-400">
                         Score: {visit.score}
                       </span>
@@ -521,7 +521,7 @@ export default function OneTwentyOnePage() {
                   {/* 3 Dart Slots - Always visible */}
                   <div className="flex gap-2">
                     {[0, 1, 2].map((dartIdx) => {
-                      const dart = visit.darts[dartIdx];
+                      const dart = visit?.darts?.[dartIdx];
                       const isCurrentDart = currentDartIndex === visitIdx * 3 + dartIdx;
                       
                       if (dart) {
