@@ -1240,6 +1240,29 @@ export default function ATCMatchPage() {
                         size="sm"
                         variant="secondary"
                         className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                        onClick={handleRefreshConnection}
+                        disabled={isRefreshingConnection}
+                      >
+                        {isRefreshingConnection ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Wifi className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      <p>Reconnect camera</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        size="sm"
+                        variant="secondary"
+                        className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
                         onClick={handleRefreshCamera}
                         disabled={isRefreshingCamera}
                       >
