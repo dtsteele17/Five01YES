@@ -23,7 +23,7 @@ interface Tournament {
   round_scheduling: string;
   entry_type: string;
   game_mode: number;
-  best_of_legs: number;
+  legs_per_match: number;
   owner_id: string;
   created_at: string;
   bracket_generated_at: string | null;
@@ -544,7 +544,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-white font-semibold">Best of {tournament.best_of_legs}</p>
+                <p className="text-white font-semibold">Best of {tournament.legs_per_match}</p>
               </CardContent>
             </Card>
           </div>

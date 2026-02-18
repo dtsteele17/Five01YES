@@ -29,15 +29,14 @@ export interface TournamentRow {
   round_scheduling: string;
   entry_type: string;
   legs_per_match: number;
-  best_of_legs: number;
   description: string | null;
   status: string;
   owner_id: string;
   created_at: string;
   game_mode: number;
   double_out: boolean;
-  match_format: string;
-  timezone: string;
+  match_format?: string;
+  timezone?: string;
 }
 
 export async function createTournament(input: CreateTournamentInput) {
@@ -58,7 +57,8 @@ export async function createTournament(input: CreateTournamentInput) {
     round_scheduling: input.schedulingMode === 'one-day' ? 'one_day' : 'multi_day',
     entry_type: input.entryType === 'invite' ? 'invite_only' : 'open',
     game_mode: input.startingScore || 501,
-    best_of_legs: input.legsPerMatch,
+    legs_per_match: input.legsPerMatch,
+    double_out: input.doubleOut ?? true,
     status: 'scheduled',
     owner_id: user.id,
   };

@@ -28,7 +28,7 @@ function convertTournamentRowToTournament(row: TournamentRow): Tournament {
     schedulingMode: row.round_scheduling === 'one_day' ? 'one-day' : 'multi-day',
     roundSchedules: [],
     entryType: row.entry_type === 'invite_only' ? 'invite' : 'open',
-    legsPerMatch: row.best_of_legs,
+    legsPerMatch: row.legs_per_match,
     description: row.description || undefined,
     createdByUserId: row.owner_id,
     createdAtISO: row.created_at,

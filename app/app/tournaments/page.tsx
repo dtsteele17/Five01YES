@@ -279,7 +279,7 @@ export default function TournamentsPage() {
                 isOfficial: !!isMyTournament,
                 entryType: tournament.entry_type === 'invite_only' ? 'invite_only' : 'open',
                 description: tournament.description || '',
-                legsPerMatch: tournament.best_of_legs || 3,
+                legsPerMatch: tournament.legs_per_match || 3,
                 isRegistered: userRegistrations[tournament.id] || false,
               };
               return (
