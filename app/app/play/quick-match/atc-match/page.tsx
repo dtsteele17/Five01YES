@@ -319,6 +319,7 @@ export default function ATCMatchPage() {
   
   const {
     localStream,
+    remoteStreams,
     activeRemoteStream,
     isCameraOn,
     callStatus,
@@ -1099,159 +1100,115 @@ export default function ATCMatchPage() {
               </div>
             </div>
             
-            <div className="flex-1 relative bg-slate-900">
-              {/* MY TURN: Show MY local camera */}
-              {isMyTurn() ? (
-                localStream ? (
-                  <div className="relative w-full h-full" key="local-video-container">
+            <div className="flex-1 relative bg-slate-900 p-2">
+              {/* MULTI-PLAYER CAMERA GRID - Shows all players */}
+              <div className="grid gap-2 h-full" style={{
+                gridTemplateColumns: match?.players?.length <= 2 ? '1fr' : '1fr 1fr',
+                gridTemplateRows: match?.players?.length <= 2 ? '1fr' : '1fr 1fr'
+              }}>
+                {/* Local Camera (Current User) */}
+                <div className={`relative bg-slate-800 rounded-lg overflow-hidden border-2 ${isMyTurn() ? 'border-emerald-500' : 'border-slate-600'}`}>
+                  <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded text-xs text-white">
+                    You {isMyTurn() && '🎯'}
+                  </div>
+                  {localStream ? (
                     <video 
-                      key="local-video"
                       ref={setLocalVideoRef}
                       autoPlay 
                       playsInline 
                       muted 
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute bottom-4 right-4">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              size="sm"
-                              variant="secondary"
-                              className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
-                              onClick={handleRefreshCamera}
-                              disabled={isRefreshingCamera}
-                            >
-                              {isRefreshingCamera ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <RotateCcw className="w-4 h-4 mr-2" />
-                                  Refresh
-                                </>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="left">
-                            <p>Restart camera if others can't see you</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-4">
+                      <CameraOff className="w-8 h-8 mb-2 opacity-50" />
+                      <span className="text-xs">Camera off</span>
+                      {isMyTurn() && (
+                        <Button 
+                          size="sm"
+                          onClick={toggleCamera}
+                          className="mt-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
+                        >
+                          <Camera className="w-3 h-3 mr-1" />
+                          Enable
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
-                    <CameraOff className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium mb-2">Your camera is off</span>
-                    <span className="text-sm text-slate-500 mb-4 text-center">
-                      It's your turn! Enable your camera so other players can see you.
-                    </span>
-                    <Button 
-                      onClick={toggleCamera}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                  )}
+                </div>
+
+                {/* Remote Cameras (Other Players) */}
+                {match?.players?.filter(p => p.id !== currentUser).map((player) => {
+                  const playerStream = remoteStreams.get(player.id);
+                  const isCurrentPlayer = player.id === currentTurnPlayer?.id;
+                  
+                  return (
+                    <div 
+                      key={player.id} 
+                      className={`relative bg-slate-800 rounded-lg overflow-hidden border-2 ${isCurrentPlayer ? 'border-emerald-500' : 'border-slate-600'}`}
                     >
-                      <Camera className="w-4 h-4 mr-2" />
-                      Enable Camera
-                    </Button>
-                  </div>
-                )
-              ) : (
-                /* OTHER PLAYER'S TURN */ 
-                match.players.length > 2 ? (
-                  // For 3-4 players, show a waiting screen (WebRTC mesh is complex)
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
-                    <UserPlus className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium mb-2">
-                      {currentPlayer?.username}'s Turn
-                    </span>
-                    <span className="text-sm text-slate-500 text-center mb-4">
-                      Waiting for {currentPlayer?.username} to throw...
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {match.players.map((p, i) => (
-                        <div 
-                          key={p.id}
-                          className={`w-3 h-3 rounded-full ${
-                            p.id === currentPlayer?.id 
-                              ? 'bg-emerald-400 animate-pulse' 
-                              : 'bg-slate-700'
-                          }`}
+                      <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded text-xs text-white">
+                        {player.username} {isCurrentPlayer && '🎯'}
+                      </div>
+                      {playerStream ? (
+                        <video 
+                          autoPlay 
+                          playsInline 
+                          ref={(el) => {
+                            if (el && playerStream) {
+                              el.srcObject = playerStream;
+                            }
+                          }}
+                          className="w-full h-full object-cover"
                         />
-                      ))}
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-4">
+                          <UserPlus className="w-8 h-8 mb-2 opacity-50" />
+                          <span className="text-xs text-center">{player.username}</span>
+                          <span className="text-[10px] text-slate-600 mt-1">
+                            {callStatus === 'connecting' ? 'Connecting...' : 'Waiting...'}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : activeRemoteStream ? (
-                  // Show the current player's camera stream
-                  <video 
-                    key="remote-video"
-                    ref={setRemoteVideoRef}
-                    autoPlay 
-                    playsInline 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
-                    <UserPlus className="w-16 h-16 mb-4 opacity-50" />
-                    <span className="text-lg font-medium mb-2">
-                      {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${currentPlayer?.username}...`}
-                    </span>
-                    <span className="text-sm text-slate-500 text-center mb-4">
-                      {callStatus === 'failed' 
-                        ? 'Video connection failed. This may be due to firewall or network restrictions.'
-                        : "It's their turn. Their camera will appear when they enable it."
-                      }
-                    </span>
-                    {callStatus === 'failed' && (
+                  );
+                })}
+              </div>
+              
+              {/* Camera Controls Overlay */}
+              <div className="absolute bottom-4 right-4 flex gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                       <Button 
-                        onClick={forceTurnAndRestart}
-                        variant="outline"
-                        className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10 mb-2"
-                      >
-                        <Loader2 className="w-4 h-4 mr-2" />
-                        Retry with TURN Relay
-                      </Button>
-                    )}
-                    {isCameraOn && (
-                      <Button 
-                        onClick={handleRefreshCamera}
-                        variant="outline"
                         size="sm"
-                        className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 mt-2"
+                        variant="secondary"
+                        className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                        onClick={handleRefreshCamera}
                         disabled={isRefreshingCamera}
                       >
                         {isRefreshingCamera ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <RotateCcw className="w-4 h-4 mr-2" />
+                          <RotateCcw className="w-4 h-4" />
                         )}
-                        Refresh My Camera
                       </Button>
-                    )}
-                    <Button 
-                      onClick={handleRefreshConnection}
-                      variant="outline"
-                      size="sm"
-                      className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10 mt-2"
-                      disabled={isRefreshingConnection}
-                    >
-                      {isRefreshingConnection ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Wifi className="w-4 h-4 mr-2" />
-                      )}
-                      Reconnect to Opponent
-                    </Button>
-                    {!isCameraOn && callStatus !== 'failed' && (
-                      <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                        <span className="text-sm text-amber-400">
-                          ⚠️ You should also enable your camera for your turn
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )
-              )}
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      <p>Refresh camera</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <Button 
+                  size="sm"
+                  variant={isCameraOn ? "default" : "secondary"}
+                  className={isCameraOn ? "bg-emerald-500 hover:bg-emerald-600" : "bg-black/50 hover:bg-black/70"}
+                  onClick={toggleCamera}
+                >
+                  {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
