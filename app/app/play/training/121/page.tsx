@@ -117,9 +117,13 @@ export default function OneTwentyOnePage() {
 
     const visitIdx = Math.floor(currentDartIndex / 3);
     const dartInVisit = currentDartIndex % 3;
+    
+    // Calculate new dart count for this visit (will be 1, 2, or 3 after this dart)
+    const newDartCountInVisit = dartInVisit + 1;
 
-    // Update current visit darts (for display) - do this FIRST
-    setCurrentVisitDarts(prev => [...prev, hit]);
+    // Update current visit darts (for display)
+    const newCurrentVisitDarts = [...currentVisitDarts, hit];
+    setCurrentVisitDarts(newCurrentVisitDarts);
 
     // Update visits (for round history)
     const newVisits = [...visits];
@@ -200,22 +204,25 @@ export default function OneTwentyOnePage() {
       return;
     }
 
-    // Check if this is the end of a visit (3 darts)
-    if (dartInVisit === 2) {
-      // End of visit, save to history and reset current visit
-      const completedVisit = newVisits[visitIdx];
-      setVisitHistory(prev => [...prev, completedVisit]);
-      setCurrentVisitDarts([]); // Reset current visit display
-      
-      // Check if we have more visits
-      if (visitIdx >= 2) {
-        // Used all 9 darts, failed
-        handleRoundFail(newVisits, false, newTotalDarts);
-      } else {
-        // Move to next visit
-        setCurrentVisitNumber(prev => prev + 1);
-        toast.info(`Visit ${visitIdx + 1} complete. ${newRemaining} remaining.`);
-      }
+    // Check if this is the end of a visit (3 darts entered)
+    if (newDartCountInVisit === 3) {
+      // End of visit, save to history and reset current visit after a brief delay
+      // so user can see the 3rd dart
+      setTimeout(() => {
+        const completedVisit = newVisits[visitIdx];
+        setVisitHistory(prev => [...prev, completedVisit]);
+        setCurrentVisitDarts([]); // Reset current visit display
+        
+        // Check if we have more visits
+        if (visitIdx >= 2) {
+          // Used all 9 darts, failed
+          handleRoundFail(newVisits, false, newTotalDarts);
+        } else {
+          // Move to next visit
+          setCurrentVisitNumber(prev => prev + 1);
+          toast.info(`Visit ${visitIdx + 1} complete. ${newRemaining} remaining.`);
+        }
+      }, 500); // Small delay so user sees the 3rd dart
     }
   };
 
@@ -377,24 +384,26 @@ export default function OneTwentyOnePage() {
       const dartsUsed = totalDartsThrown + dartsNeeded;
       handleRoundFail(newVisits, true, dartsUsed);
     } else {
-      // Continue to next visit - add to visit history and reset current visit
-      const completedVisit = newVisits[visitIdx];
-      setVisitHistory(prev => [...prev, completedVisit]);
-      setCurrentVisitDarts([]); // Reset current visit display
-      
-      setTotalDartsThrown(prev => prev + dartsNeeded);
-      
-      const newDartIndex = currentDartIndex + dartsNeeded;
-      setCurrentDartIndex(newDartIndex);
-      
-      const newVisitNumber = Math.floor(newDartIndex / 3) + 1;
-      
-      if (newVisitNumber > 3) {
-        handleRoundFail(newVisits, false, totalDartsThrown + dartsNeeded);
-      } else {
-        setCurrentVisitNumber(newVisitNumber);
-        toast.info(`Visit complete. ${newRemaining} remaining.`);
-      }
+      // Continue to next visit - add to visit history and reset current visit after delay
+      setTimeout(() => {
+        const completedVisit = newVisits[visitIdx];
+        setVisitHistory(prev => [...prev, completedVisit]);
+        setCurrentVisitDarts([]); // Reset current visit display
+        
+        setTotalDartsThrown(prev => prev + dartsNeeded);
+        
+        const newDartIndex = currentDartIndex + dartsNeeded;
+        setCurrentDartIndex(newDartIndex);
+        
+        const newVisitNumber = Math.floor(newDartIndex / 3) + 1;
+        
+        if (newVisitNumber > 3) {
+          handleRoundFail(newVisits, false, totalDartsThrown + dartsNeeded);
+        } else {
+          setCurrentVisitNumber(newVisitNumber);
+          toast.info(`Visit complete. ${newRemaining} remaining.`);
+        }
+      }, 500);
     }
 
     setTypedScore('');
@@ -540,11 +549,16 @@ export default function OneTwentyOnePage() {
                   <span className="text-sm font-semibold text-orange-400">
                     Current Visit
                   </span>
-                  {currentVisitDarts.length > 0 && (
-                    <span className="text-sm text-emerald-400">
-                      Score: {currentVisitDarts.reduce((sum, d) => sum + d.value, 0)}
+                  <div className="flex items-center gap-3">
+                    {currentVisitDarts.length > 0 && (
+                      <span className="text-sm text-emerald-400">
+                        This Visit: {currentVisitDarts.reduce((sum, d) => sum + d.value, 0)}
+                      </span>
+                    )}
+                    <span className="text-sm text-white font-semibold">
+                      Remaining: {remaining}
                     </span>
-                  )}
+                  </div>
                 </div>
                 
                 {/* 3 Dart Slots - Shows current visit darts */}
