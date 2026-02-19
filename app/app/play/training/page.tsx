@@ -882,8 +882,8 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
   );
 }
 
-// Main Training Hub Page
-export default function TrainingHubPage() {
+// Main Training Hub Page Content
+function TrainingHubContent() {
   const { stats, loading: statsLoading, refresh } = useTrainingStats();
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showATCModal, setShowATCModal] = useState(false);
@@ -1140,10 +1140,17 @@ export default function TrainingHubPage() {
       />
 
       {/* Around the Clock Settings Modal */}
-      <AroundTheClockModal 
-        isOpen={showATCModal} 
-        onClose={() => setShowATCModal(false)} 
+      <AroundTheClockModal
+        isOpen={showATCModal}
+        onClose={() => setShowATCModal(false)}
       />
     </>
+  );
+}
+
+// Main export with error boundary
+export default function TrainingHubPage() {
+  return (
+    <TrainingHubContent />
   );
 }
