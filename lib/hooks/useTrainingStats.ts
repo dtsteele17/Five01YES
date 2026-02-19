@@ -131,36 +131,57 @@ export function useTrainingStats() {
           console.error('[useTrainingStats] Error fetching history:', historyError);
         }
 
-        // Get training matches (for 121 and other training modes that use record_training_match)
-        const { data: trainingMatches, error: trainingError } = await supabase
-          .from('training_matches')
-          .select('xp_earned, played_at, training_mode, completed')
+        // Get training stats (for 121 and other training modes that use record_training_match)
+        console.log('[useTrainingStats] Fetching training_stats for user:', user.id);
+        const { data: trainingStats, error: trainingError } = await supabase
+          .from('training_stats')
+          .select('*')
           .eq('player_id', user.id)
-          .order('played_at', { ascending: false });
+          .order('created_at', { ascending: false });
 
         if (trainingError) {
-          console.error('[useTrainingStats] Error fetching training matches:', trainingError);
+          console.error('[useTrainingStats] Error fetching training stats:', trainingError);
+        } else {
+          console.log('[useTrainingStats] training_stats query success, rows:', trainingStats?.length || 0);
         }
 
         const matches = historyData || [];
-        const trainingData = trainingMatches || [];
+        const trainingData = trainingStats || [];
 
-        console.log('[useTrainingStats] Training matches:', trainingData);
+        console.log('[useTrainingStats] Training stats from DB:', trainingData);
+        console.log('[useTrainingStats] Match history from DB:', matches);
 
         // Calculate XP from match_history
         const historyXp = matches.reduce((sum, match) => sum + calculateMatchXp(match), 0);
         
-        // Calculate XP from training_matches (for 121, etc.)
-        const trainingXp = trainingData.reduce((sum, match) => sum + (match.xp_earned || 0), 0);
+        // Calculate XP from training_stats (for 121, etc.)
+        let trainingXp = 0;
+        for (const stat of trainingData) {
+          const xp = stat.xp_earned || 0;
+          console.log('[useTrainingStats] Training stat XP:', xp, 'from:', stat);
+          trainingXp += xp;
+        }
+        
+        // Also try to get total XP from the database function
+        const { data: levelDataFromDb, error: levelError } = await supabase.rpc('get_player_training_level', {
+          p_user_id: user.id,
+        });
+        
+        if (levelError) {
+          console.error('[useTrainingStats] Error getting level from DB:', levelError);
+        } else {
+          console.log('[useTrainingStats] Level from DB:', levelDataFromDb);
+        }
         
         const totalXp = historyXp + trainingXp;
-        console.log('[useTrainingStats] Total XP:', totalXp, '(history:', historyXp, '+ training:', trainingXp, ')');
+        console.log('[useTrainingStats] Total XP calculated:', totalXp, '(history:', historyXp, '+ training:', trainingXp, ')');
+        console.log('[useTrainingStats] Total XP from DB function:', levelDataFromDb?.total_xp || 0);
         
         const levelInfo = getLevelFromXp(totalXp);
 
         // Calculate today's sessions from both sources
         const todayHistorySessions = matches.filter(m => new Date(m.played_at) >= today).length;
-        const todayTrainingSessions = trainingData.filter(m => new Date(m.played_at) >= today).length;
+        const todayTrainingSessions = trainingData.filter(m => new Date(m.created_at) >= today).length;
         const todaySessions = todayHistorySessions + todayTrainingSessions;
 
         // Calculate streak (consecutive wins from most recent)

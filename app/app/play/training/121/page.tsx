@@ -374,9 +374,13 @@ export default function OneTwentyOnePage() {
 
   // Save session XP when leaving
   const handleSaveAndExit = async () => {
-    console.log('[121] Saving session XP:', sessionXP);
+    console.log('[121] handleSaveAndExit called, sessionXP:', sessionXP);
+    const supabase = createClient();
+    
     if (sessionXP > 0) {
       try {
+        console.log('[121] Calling awardXP with:', { mode: '121', xpOverride: sessionXP });
+        
         const result = await awardXP('121', 0, {
           completed: true,
           xpOverride: sessionXP,
@@ -387,24 +391,46 @@ export default function OneTwentyOnePage() {
           },
         });
         
-        console.log('[121] AwardXP result:', result);
+        console.log('[121] AwardXP result:', JSON.stringify(result, null, 2));
         
         if (result.success) {
+          // Verify the save by querying the database
+          console.log('[121] Verifying save by querying training_stats...');
+          const { data: verifyData, error: verifyError } = await supabase
+            .from('training_stats')
+            .select('*')
+            .eq('player_id', (await supabase.auth.getUser()).data.user?.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+            
+          if (verifyError) {
+            console.error('[121] Error verifying save:', verifyError);
+          } else {
+            console.log('[121] Most recent training_stats record:', verifyData);
+          }
+          
           toast.success(`+${sessionXP} XP added to your training progress!`, { duration: 4000 });
           if (result.levelUp) {
             toast.success(`🎉 Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`, { duration: 5000 });
           }
-          // Small delay to let the toast show before navigating
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // Wait for database to commit before navigating
+          console.log('[121] XP saved successfully, waiting before navigation...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
         } else {
           console.error('[121] Failed to save XP:', result.error);
           toast.error('Failed to save XP: ' + (result.error || 'Unknown error'), { duration: 3000 });
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (err) {
-        console.error('[121] Error saving XP:', err);
-        toast.error('Error saving XP', { duration: 3000 });
+        console.error('[121] Exception saving XP:', err);
+        toast.error('Error saving XP: ' + (err instanceof Error ? err.message : String(err)), { duration: 3000 });
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
+    } else {
+      console.log('[121] No XP to save (sessionXP is 0)');
     }
+    
+    console.log('[121] Navigating to training hub...');
     router.push('/app/play/training');
   };
 

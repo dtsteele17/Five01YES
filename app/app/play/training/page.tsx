@@ -888,23 +888,36 @@ export default function TrainingHubPage() {
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showATCModal, setShowATCModal] = useState(false);
 
+  console.log('[Training Hub] Render - stats:', { xp: stats.xp, level: stats.level, loading: statsLoading });
+
   // Refresh stats when page becomes visible (after returning from 121 game)
   useEffect(() => {
+    console.log('[Training Hub] Mount effect - refreshing stats...');
+    refresh?.();
+    
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[Training Hub] Page visible, refreshing stats...');
+        console.log('[Training Hub] Page became visible, refreshing stats...');
         refresh?.();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Also refresh on mount
-    refresh?.();
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
+  }, [refresh]);
+  
+  // Also refresh on focus (when user clicks back into the window)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('[Training Hub] Window focused, refreshing stats...');
+      refresh?.();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [refresh]);
 
   // Training modes configuration (excluding DartBot which is featured separately)
