@@ -150,9 +150,13 @@ export default function OneTwentyOnePage() {
       return;
     }
 
-    // Check for bust
-    if (newRemaining < 0 || newRemaining === 1) {
-      toast.error('Bust!');
+    // Check for bust - remaining < 0, === 1, or === 0 without a double
+    if (newRemaining < 0 || newRemaining === 1 || newRemaining === 0) {
+      if (newRemaining === 0) {
+        toast.error('Bust! Must finish on a double!');
+      } else {
+        toast.error('Bust!');
+      }
       handleRoundFail(newDarts, true);
       return;
     }
@@ -166,11 +170,14 @@ export default function OneTwentyOnePage() {
         // Used all 9 darts, failed
         handleRoundFail(newDarts, false);
       } else {
-        // Move to next visit
-        setVisitNumber(prev => prev + 1);
-        setCurrentVisitScore(0);
-        setRemaining(newRemaining);
-        toast.info(`Visit ${visitNumber} complete. ${newRemaining} remaining.`);
+        // Move to next visit - clear current darts for new visit
+        setTimeout(() => {
+          setCurrentDarts([]);
+          setVisitNumber(prev => prev + 1);
+          setCurrentVisitScore(0);
+          setRemaining(newRemaining);
+          toast.info(`Visit ${visitNumber} complete. ${newRemaining} remaining.`);
+        }, 500);
       }
     } else {
       setRemaining(newRemaining);
@@ -297,8 +304,12 @@ export default function OneTwentyOnePage() {
       if (visitNumber >= 3) {
         handleRoundFail(newDarts, false);
       } else {
-        setVisitNumber(prev => prev + 1);
-        toast.info(`Visit complete. ${newRemaining} remaining.`);
+        // Clear darts for new visit after delay
+        setTimeout(() => {
+          setCurrentDarts([]);
+          setVisitNumber(prev => prev + 1);
+          toast.info(`Visit complete. ${newRemaining} remaining.`);
+        }, 500);
       }
     }
 
@@ -327,7 +338,7 @@ export default function OneTwentyOnePage() {
   const handleSaveAndExit = async () => {
     if (sessionXP > 0) {
       try {
-        await awardXP('121', 0, {
+        const result = await awardXP('121', 0, {
           completed: true,
           xpOverride: sessionXP,
           sessionData: {
@@ -336,9 +347,18 @@ export default function OneTwentyOnePage() {
             totalRounds: roundHistory.length,
           },
         });
-        toast.success(`+${sessionXP} XP saved!`, { duration: 3000 });
+        
+        if (result.success) {
+          toast.success(`+${sessionXP} XP added to your training progress!`, { duration: 4000 });
+          if (result.levelUp) {
+            toast.success(`Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`, { duration: 5000 });
+          }
+        } else {
+          toast.error('Failed to save XP', { duration: 3000 });
+        }
       } catch (err) {
         console.error('Error saving XP:', err);
+        toast.error('Error saving XP', { duration: 3000 });
       }
     }
     router.push('/app/play/training');
