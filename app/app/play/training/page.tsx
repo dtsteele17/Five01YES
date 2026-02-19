@@ -844,13 +844,6 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
               <p className="text-2xl font-black text-amber-400">{stats.xp.toLocaleString()}</p>
               <p className="text-xs text-slate-400 uppercase tracking-wider">Total XP</p>
             </div>
-            <button 
-              onClick={() => refresh()}
-              className="ml-2 p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-xs"
-              disabled={statsLoading}
-            >
-              {statsLoading ? '...' : '↻'}
-            </button>
           </div>
         </div>
 
