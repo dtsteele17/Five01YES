@@ -46,20 +46,17 @@ const BASE_XP: Record<string, number> = {
 };
 
 // XP for failed attempts in 121 training (per round)
-export const FAILED_ATTEMPT_XP = 5;
+export const FAILED_ATTEMPT_XP = 2;
 
 // XP for successful checkout in 121 training (based on target value)
 // Higher targets = more XP
+// 121: 15, 122: 17, 123: 18, 124: 20, and so on (increases by ~1.5 per target)
 export function calculate121CheckoutXP(targetValue: number): number {
-  // Base XP scaled by difficulty
-  // 121-130: 15 XP
-  // 131-150: 25 XP  
-  // 151-170: 40 XP
-  // 171+: 60 XP
-  if (targetValue <= 130) return 15;
-  if (targetValue <= 150) return 25;
-  if (targetValue <= 170) return 40;
-  return 60;
+  if (targetValue < 121) return 10;
+  // Formula: 15 + (target - 121) * 1.5, rounded
+  // 121: 15, 122: 17, 123: 18, 124: 20, 125: 21, etc.
+  const xp = Math.round(15 + (targetValue - 121) * 1.5);
+  return Math.max(15, xp); // Minimum 15 XP for any checkout
 }
 
 // Performance thresholds for different modes
@@ -162,6 +159,7 @@ export async function awardXP(
     won?: boolean;
     threeDartAvg?: number;
     sessionData?: Record<string, any>;
+    xpOverride?: number; // Optional: use this exact XP value instead of calculating
   }
 ): Promise<XPAwardResult> {
   const supabase = createClient();
@@ -173,8 +171,19 @@ export async function awardXP(
       return { success: false, xpBreakdown: {} as XPBreakdown, error: 'Not authenticated' };
     }
 
-    // Calculate XP
-    const xpBreakdown = calculateTrainingXP(mode, performanceMetric, options);
+    // Calculate XP or use override
+    let xpBreakdown: XPBreakdown;
+    if (options?.xpOverride !== undefined) {
+      xpBreakdown = {
+        base: options.xpOverride,
+        performanceBonus: 0,
+        winBonus: 0,
+        completionBonus: 0,
+        total: options.xpOverride,
+      };
+    } else {
+      xpBreakdown = calculateTrainingXP(mode, performanceMetric, options);
+    }
 
     // Call the database function to record match with XP
     const { data, error } = await supabase.rpc('record_training_match', {
