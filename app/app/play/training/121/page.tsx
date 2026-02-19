@@ -49,6 +49,7 @@ export default function OneTwentyOnePage() {
   const [currentVisitNumber, setCurrentVisitNumber] = useState(1); // 1-3 visits per round
   const [visits, setVisits] = useState<Visit[]>([]);
   const [currentDartIndex, setCurrentDartIndex] = useState(0); // 0-8 (3 visits x 3 darts)
+  const [visitHistory, setVisitHistory] = useState<Visit[]>([]); // Completed visits in current round
   const [roundHistory, setRoundHistory] = useState<RoundResult[]>([]);
   const [gameActive, setGameActive] = useState(true);
   const [showStatsModal, setShowStatsModal] = useState(false);
@@ -77,6 +78,7 @@ export default function OneTwentyOnePage() {
     ]);
     setCurrentVisitNumber(1);
     setCurrentDartIndex(0);
+    setVisitHistory([]); // Clear visit history on new round
     setGameActive(true);
     if (!keepSafehouse) {
       setSafehouseActive(false);
@@ -94,6 +96,7 @@ export default function OneTwentyOnePage() {
     ]);
     setCurrentVisitNumber(1);
     setCurrentDartIndex(0);
+    setVisitHistory([]);
     setRoundHistory([]);
     setGameActive(true);
     setTotalDartsThrown(0);
@@ -184,7 +187,11 @@ export default function OneTwentyOnePage() {
 
     // Check if this is the end of a visit (3 darts)
     if (dartInVisit === 2) {
-      // End of visit, check if we have more visits
+      // End of visit, save to history
+      const completedVisit = newVisits[visitIdx];
+      setVisitHistory(prev => [...prev, completedVisit]);
+      
+      // Check if we have more visits
       if (visitIdx >= 2) {
         // Used all 9 darts, failed
         handleRoundFail(newVisits, false, newTotalDarts);
@@ -430,7 +437,7 @@ export default function OneTwentyOnePage() {
 
         {/* Main Stats Card */}
         <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-slate-700 p-6">
-          <div className="grid grid-cols-5 gap-4 text-center">
+          <div className="grid grid-cols-4 gap-4 text-center">
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Current Target</div>
               <div className={`text-4xl font-bold bg-gradient-to-r ${getProgressColor()} bg-clip-text text-transparent`}>
@@ -455,14 +462,6 @@ export default function OneTwentyOnePage() {
               <div className="text-4xl font-bold text-orange-400">{streak}</div>
               <div className="text-xs text-orange-500">Best: {bestStreak}</div>
             </div>
-            <div className="space-y-1">
-              <div className="text-xs text-amber-400 uppercase tracking-wider flex items-center justify-center gap-1">
-                <Star className="w-3 h-3" />
-                Session XP
-              </div>
-              <div className="text-4xl font-bold text-amber-400">{sessionXP}</div>
-              <div className="text-xs text-amber-500">This Session</div>
-            </div>
           </div>
         </Card>
 
@@ -477,90 +476,126 @@ export default function OneTwentyOnePage() {
           </Card>
         )}
 
-        {/* All Visits Display - Fixed Layout */}
+        {/* Current Visit Display with Compact History */}
         <Card className="bg-slate-800/50 border-slate-700 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-semibold text-white">Your Visits</div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm font-semibold text-white">Current Visit</div>
             <div className="text-emerald-400 font-semibold">
               Target: {currentTarget} | Remaining: {remaining}
             </div>
           </div>
           
-          {/* 3 Visit Slots - Always visible */}
-          <div className="space-y-3">
-            {[0, 1, 2].map((visitIdx) => {
-              const visit = visits[visitIdx];
-              const isCurrentVisit = Math.floor(currentDartIndex / 3) === visitIdx;
-              const isCompleted = Math.floor(currentDartIndex / 3) > visitIdx;
-              const isFuture = Math.floor(currentDartIndex / 3) < visitIdx;
-              
-              return (
-                <div 
-                  key={visitIdx}
-                  className={`p-3 rounded-lg border ${
-                    isCurrentVisit 
-                      ? 'bg-orange-500/10 border-orange-500/30' 
-                      : isCompleted
-                      ? 'bg-slate-700/30 border-slate-600'
-                      : 'bg-slate-800/30 border-slate-700/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-sm font-semibold ${
-                      isCurrentVisit ? 'text-orange-400' : 'text-slate-400'
-                    }`}>
-                      Visit {visitIdx + 1}
+          <div className="flex gap-4">
+            {/* Current Visit - 3 Dart Slots */}
+            <div className="flex-1">
+              <div className="p-4 rounded-lg border bg-orange-500/10 border-orange-500/30">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-orange-400">
+                    Visit {currentVisitNumber}
+                  </span>
+                  {visits[Math.floor(currentDartIndex / 3)]?.score > 0 && (
+                    <span className="text-sm text-emerald-400">
+                      Score: {visits[Math.floor(currentDartIndex / 3)].score}
                     </span>
-                    {visit.darts.length > 0 && (
-                      <span className="text-sm text-emerald-400">
-                        Score: {visit.score}
-                      </span>
-                    )}
+                  )}
+                </div>
+                
+                {/* 3 Dart Slots */}
+                <div className="flex gap-3 justify-center">
+                  {[0, 1, 2].map((dartIdx) => {
+                    const visitIdx = Math.floor(currentDartIndex / 3);
+                    const dart = visits[visitIdx]?.darts[dartIdx];
+                    const isCurrentDart = currentDartIndex === visitIdx * 3 + dartIdx;
+                    
+                    if (dart) {
+                      return (
+                        <Badge
+                          key={dartIdx}
+                          className={`text-xl px-6 py-3 ${
+                            dart.segment === 'D' || dart.segment === 'DB'
+                              ? 'bg-red-500/20 border-red-500 text-red-400'
+                              : dart.segment === 'T'
+                              ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                              : dart.segment === 'MISS'
+                              ? 'bg-slate-600/30 border-slate-500 text-slate-500'
+                              : 'bg-slate-600/30 border-slate-500 text-slate-300'
+                          }`}
+                        >
+                          {dart.label}
+                        </Badge>
+                      );
+                    }
+                    
+                    // Empty slot
+                    return (
+                      <div
+                        key={dartIdx}
+                        className={`w-20 h-14 rounded-lg border-2 border-dashed flex items-center justify-center text-lg font-bold ${
+                          isCurrentDart && gameActive
+                            ? 'border-orange-400 bg-orange-500/10 text-orange-400 animate-pulse'
+                            : 'border-slate-600 text-slate-600'
+                        }`}
+                      >
+                        {isCurrentDart && gameActive ? '?' : '-'}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            
+            {/* Compact Visit History */}
+            <div className="w-48">
+              <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 text-center">
+                Visit History
+              </div>
+              <div className="space-y-2">
+                {visitHistory.length === 0 ? (
+                  <div className="text-center text-slate-600 text-sm py-4">
+                    No visits yet
                   </div>
-                  
-                  {/* 3 Dart Slots - Always visible */}
-                  <div className="flex gap-2">
-                    {[0, 1, 2].map((dartIdx) => {
-                      const dart = visit.darts[dartIdx];
-                      const isCurrentDart = currentDartIndex === visitIdx * 3 + dartIdx;
-                      
-                      if (dart) {
-                        return (
-                          <Badge
+                ) : (
+                  visitHistory.map((visit, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 rounded-lg bg-slate-700/30 border border-slate-600/50"
+                    >
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-slate-400">Visit {idx + 1}</span>
+                        <span className="text-emerald-400 font-semibold">{visit.score}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {visit.darts.map((dart, dartIdx) => (
+                          <div
                             key={dartIdx}
-                            className={`text-lg px-4 py-2 ${
+                            className={`text-[10px] px-1.5 py-0.5 rounded ${
                               dart.segment === 'D' || dart.segment === 'DB'
-                                ? 'bg-red-500/20 border-red-500 text-red-400'
+                                ? 'bg-red-500/20 text-red-400'
                                 : dart.segment === 'T'
-                                ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                                ? 'bg-amber-500/20 text-amber-400'
                                 : dart.segment === 'MISS'
-                                ? 'bg-slate-600/30 border-slate-500 text-slate-500'
-                                : 'bg-slate-600/30 border-slate-500 text-slate-300'
+                                ? 'bg-slate-600/30 text-slate-500'
+                                : 'bg-slate-600/30 text-slate-400'
                             }`}
                           >
                             {dart.label}
-                          </Badge>
-                        );
-                      }
-                      
-                      // Empty slot
-                      return (
-                        <div
-                          key={dartIdx}
-                          className={`w-16 h-10 rounded-md border-2 border-dashed flex items-center justify-center text-sm font-bold ${
-                            isCurrentDart && gameActive
-                              ? 'border-orange-400 bg-orange-500/10 text-orange-400 animate-pulse'
-                              : 'border-slate-600 text-slate-600'
-                          }`}
-                        >
-                          {isCurrentDart && gameActive ? '?' : '-'}
-                        </div>
-                      );
-                    })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {/* Placeholder for future visits */}
+                {[...Array(2 - visitHistory.length)].map((_, idx) => (
+                  <div
+                    key={`empty-${idx}`}
+                    className="p-2 rounded-lg border border-dashed border-slate-700/50 text-center text-slate-700 text-xs"
+                  >
+                    Visit {visitHistory.length + idx + 1}
                   </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            </div>
           </div>
         </Card>
 
