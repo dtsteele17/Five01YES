@@ -63,6 +63,9 @@ export default function OneTwentyOnePage() {
   const [sessionXP, setSessionXP] = useState(0);
   const [awardingXP, setAwardingXP] = useState(false);
 
+  // Current visit darts (temporary storage until visit is complete)
+  const [currentVisitDarts, setCurrentVisitDarts] = useState<DartHit[]>([]);
+
   // Input mode
   const [inputMode, setInputMode] = useState<'dart_pad' | 'typed'>('dart_pad');
   const [scoringTab, setScoringTab] = useState<'singles' | 'doubles' | 'trebles' | 'bulls'>('singles');
@@ -79,6 +82,7 @@ export default function OneTwentyOnePage() {
     setCurrentVisitNumber(1);
     setCurrentDartIndex(0);
     setVisitHistory([]); // Clear visit history on new round
+    setCurrentVisitDarts([]); // Reset current visit display
     setGameActive(true);
     if (!keepSafehouse) {
       setSafehouseActive(false);
@@ -97,6 +101,7 @@ export default function OneTwentyOnePage() {
     setCurrentVisitNumber(1);
     setCurrentDartIndex(0);
     setVisitHistory([]);
+    setCurrentVisitDarts([]);
     setRoundHistory([]);
     setGameActive(true);
     setTotalDartsThrown(0);
@@ -107,18 +112,24 @@ export default function OneTwentyOnePage() {
     toast.success('New game started! Good luck!');
   };
 
+  // Current visit darts (temporary storage until visit is complete)
+  const [currentVisitDarts, setCurrentVisitDarts] = useState<DartHit[]>([]);
+
   const handleDartClick = (hit: DartHit) => {
     if (!gameActive) return;
 
     const visitIdx = Math.floor(currentDartIndex / 3);
     const dartInVisit = currentDartIndex % 3;
 
-    // Update visits
+    // Update visits (for round history)
     const newVisits = [...visits];
     newVisits[visitIdx] = {
       darts: [...newVisits[visitIdx].darts, hit],
       score: newVisits[visitIdx].score + hit.value,
     };
+
+    // Update current visit darts (for display)
+    setCurrentVisitDarts(prev => [...prev, hit]);
 
     const newRemaining = remaining - hit.value;
     const newTotalDarts = totalDartsThrown + 1;
@@ -194,9 +205,10 @@ export default function OneTwentyOnePage() {
 
     // Check if this is the end of a visit (3 darts)
     if (dartInVisit === 2) {
-      // End of visit, save to history
+      // End of visit, save to history and reset current visit
       const completedVisit = newVisits[visitIdx];
       setVisitHistory(prev => [...prev, completedVisit]);
+      setCurrentVisitDarts([]); // Reset current visit display
       
       // Check if we have more visits
       if (visitIdx >= 2) {
@@ -288,6 +300,8 @@ export default function OneTwentyOnePage() {
     // Update state immediately for UI feedback
     setVisits(newVisits);
     setRemaining(newRemaining);
+    // Show darts in current visit
+    setCurrentVisitDarts(genericDarts);
 
     // Check for checkout success (typed mode allows checkout at 0 without double requirement)
     if (newRemaining === 0) {
@@ -341,9 +355,10 @@ export default function OneTwentyOnePage() {
       const dartsUsed = totalDartsThrown + dartsNeeded;
       handleRoundFail(newVisits, true, dartsUsed);
     } else {
-      // Continue to next visit - add to visit history
+      // Continue to next visit - add to visit history and reset current visit
       const completedVisit = newVisits[visitIdx];
       setVisitHistory(prev => [...prev, completedVisit]);
+      setCurrentVisitDarts([]); // Reset current visit display
       
       setTotalDartsThrown(prev => prev + dartsNeeded);
       
@@ -501,22 +516,21 @@ export default function OneTwentyOnePage() {
               <div className="p-4 rounded-lg border bg-orange-500/10 border-orange-500/30">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-semibold text-orange-400">
-                    Visit {currentVisitNumber}
+                    Current Visit
                   </span>
-                  {visits[currentVisitNumber - 1]?.score > 0 && (
+                  {currentVisitDarts.length > 0 && (
                     <span className="text-sm text-emerald-400">
-                      Score: {visits[currentVisitNumber - 1].score}
+                      Score: {currentVisitDarts.reduce((sum, d) => sum + d.value, 0)}
                     </span>
                   )}
                 </div>
                 
-                {/* 3 Dart Slots */}
+                {/* 3 Dart Slots - Shows current visit darts */}
                 <div className="flex gap-3 justify-center">
                   {[0, 1, 2].map((dartIdx) => {
-                    const visitIdx = currentVisitNumber - 1; // 0-based index for current visit
-                    const dart = visits[visitIdx]?.darts[dartIdx];
+                    const dart = currentVisitDarts[dartIdx];
                     // Current dart position within the visit (0, 1, or 2)
-                    const currentDartInVisit = (currentDartIndex % 3);
+                    const currentDartInVisit = currentVisitDarts.length;
                     const isCurrentDart = dartIdx === currentDartInVisit && gameActive;
                     
                     if (dart) {
