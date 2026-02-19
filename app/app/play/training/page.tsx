@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { useTrainingStats, TrainingStats } from '@/lib/hooks/useTrainingStats';
+import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -883,9 +884,28 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
 
 // Main Training Hub Page
 export default function TrainingHubPage() {
-  const { stats, loading: statsLoading } = useTrainingStats();
+  const { stats, loading: statsLoading, refresh } = useTrainingStats();
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showATCModal, setShowATCModal] = useState(false);
+
+  // Refresh stats when page becomes visible (after returning from 121 game)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Training Hub] Page visible, refreshing stats...');
+        refresh?.();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh on mount
+    refresh?.();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refresh]);
 
   // Training modes configuration (excluding DartBot which is featured separately)
   // XP values based on difficulty (40-250 base XP range)

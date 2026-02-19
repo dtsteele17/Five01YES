@@ -165,8 +165,11 @@ export async function awardXP(
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      console.error('[XP Tracker] No user found');
       return { success: false, xpBreakdown: {} as XPBreakdown, error: 'Not authenticated' };
     }
+
+    console.log('[XP Tracker] Awarding XP:', { mode, xpOverride: options?.xpOverride, userId: user.id });
 
     // Calculate XP or use override
     let xpBreakdown: XPBreakdown;
@@ -181,6 +184,8 @@ export async function awardXP(
     } else {
       xpBreakdown = calculateTrainingXP(mode, performanceMetric, options);
     }
+
+    console.log('[XP Tracker] XP Breakdown:', xpBreakdown);
 
     // Call the database function to record match with XP
     const { data, error } = await supabase.rpc('record_training_match', {
@@ -199,10 +204,18 @@ export async function awardXP(
       return { success: false, xpBreakdown, error: error.message };
     }
 
+    console.log('[XP Tracker] Record training match result:', data);
+
     // Get updated training level
-    const { data: levelData } = await supabase.rpc('get_player_training_level', {
+    const { data: levelData, error: levelError } = await supabase.rpc('get_player_training_level', {
       p_user_id: user.id,
     });
+
+    if (levelError) {
+      console.error('[XP Tracker] Error getting training level:', levelError);
+    }
+
+    console.log('[XP Tracker] Training level data:', levelData);
 
     // Show toast notification
     const modeName = mode.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());

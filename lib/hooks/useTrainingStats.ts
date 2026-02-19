@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 export interface TrainingStats {
@@ -97,7 +97,12 @@ export function useTrainingStats() {
     xpProgress: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const supabase = createClient();
+
+  const refresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     async function loadTrainingStats() {
@@ -113,7 +118,6 @@ export function useTrainingStats() {
         // Get start of today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayISO = today.toISOString();
 
         // Get match history for all training modes
         const { data: historyData, error: historyError } = await supabase
@@ -127,14 +131,37 @@ export function useTrainingStats() {
           console.error('[useTrainingStats] Error fetching history:', historyError);
         }
 
-        const matches = historyData || [];
+        // Get training matches (for 121 and other training modes that use record_training_match)
+        const { data: trainingMatches, error: trainingError } = await supabase
+          .from('training_matches')
+          .select('xp_earned, played_at, training_mode, completed')
+          .eq('player_id', user.id)
+          .order('played_at', { ascending: false });
 
-        // Calculate total XP from all matches
-        const totalXp = matches.reduce((sum, match) => sum + calculateMatchXp(match), 0);
+        if (trainingError) {
+          console.error('[useTrainingStats] Error fetching training matches:', trainingError);
+        }
+
+        const matches = historyData || [];
+        const trainingData = trainingMatches || [];
+
+        console.log('[useTrainingStats] Training matches:', trainingData);
+
+        // Calculate XP from match_history
+        const historyXp = matches.reduce((sum, match) => sum + calculateMatchXp(match), 0);
+        
+        // Calculate XP from training_matches (for 121, etc.)
+        const trainingXp = trainingData.reduce((sum, match) => sum + (match.xp_earned || 0), 0);
+        
+        const totalXp = historyXp + trainingXp;
+        console.log('[useTrainingStats] Total XP:', totalXp, '(history:', historyXp, '+ training:', trainingXp, ')');
+        
         const levelInfo = getLevelFromXp(totalXp);
 
-        // Calculate today's sessions
-        const todaySessions = matches.filter(m => new Date(m.played_at) >= today).length;
+        // Calculate today's sessions from both sources
+        const todayHistorySessions = matches.filter(m => new Date(m.played_at) >= today).length;
+        const todayTrainingSessions = trainingData.filter(m => new Date(m.played_at) >= today).length;
+        const todaySessions = todayHistorySessions + todayTrainingSessions;
 
         // Calculate streak (consecutive wins from most recent)
         let streak = 0;
@@ -158,7 +185,7 @@ export function useTrainingStats() {
           : 0;
 
         setStats({
-          totalSessions: matches.length,
+          totalSessions: matches.length + trainingData.length,
           todaySessions,
           currentStreak: streak,
           averageScore: Math.round(avgScore * 10) / 10,
@@ -176,7 +203,7 @@ export function useTrainingStats() {
     }
 
     loadTrainingStats();
-  }, [supabase]);
+  }, [supabase, refreshKey]);
 
-  return { stats, loading };
+  return { stats, loading, refresh };
 }

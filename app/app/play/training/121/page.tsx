@@ -25,6 +25,11 @@ interface DartHit {
   label: string;
 }
 
+interface Visit {
+  darts: DartHit[];
+  score: number;
+}
+
 interface RoundResult {
   target: number;
   darts: string[];
@@ -41,6 +46,7 @@ export default function OneTwentyOnePage() {
   const [currentTarget, setCurrentTarget] = useState(121);
   const [highestTargetReached, setHighestTargetReached] = useState(121);
   const [currentDarts, setCurrentDarts] = useState<DartHit[]>([]);
+  const [visitHistory, setVisitHistory] = useState<Visit[]>([]);
   const [remaining, setRemaining] = useState(121);
   const [visitNumber, setVisitNumber] = useState(1); // 1-3 visits per round
   const [currentVisitScore, setCurrentVisitScore] = useState(0);
@@ -65,6 +71,7 @@ export default function OneTwentyOnePage() {
     setCurrentTarget(newTarget);
     setRemaining(newTarget);
     setCurrentDarts([]);
+    setVisitHistory([]);
     setVisitNumber(1);
     setCurrentVisitScore(0);
     setGameActive(true);
@@ -80,6 +87,7 @@ export default function OneTwentyOnePage() {
     setCurrentDarts([]);
     setVisitNumber(1);
     setCurrentVisitScore(0);
+    setVisitHistory([]);
     setRoundHistory([]);
     setGameActive(true);
     setTotalDartsThrown(0);
@@ -93,24 +101,35 @@ export default function OneTwentyOnePage() {
   const handleDartClick = (hit: DartHit) => {
     if (!gameActive) return;
 
-    const newDarts = [...currentDarts, hit];
+    // Add dart to current visit
+    const newCurrentDarts = [...currentDarts, hit];
     const newRemaining = remaining - hit.value;
     const newVisitScore = currentVisitScore + hit.value;
 
-    setCurrentDarts(newDarts);
+    setCurrentDarts(newCurrentDarts);
     setTotalDartsThrown(prev => prev + 1);
+
+    // Calculate total darts in this round so far
+    const totalDartsInRound = (visitNumber - 1) * 3 + newCurrentDarts.length;
 
     // Check for win (checkout on double)
     if (newRemaining === 0 && (hit.segment === 'D' || hit.segment === 'DB')) {
       // SUCCESSFUL CHECKOUT
-      const dartsInThisVisit = newDarts.length - ((visitNumber - 1) * 3);
+      const dartsInThisVisit = newCurrentDarts.length;
       const isSafehouse = dartsInThisVisit <= 3 && currentTarget >= 121;
+      
+      // Save the completed visit to history
+      const completedVisit: Visit = {
+        darts: newCurrentDarts,
+        score: newVisitScore,
+      };
+      setVisitHistory(prev => [...prev, completedVisit]);
       
       const roundResult: RoundResult = {
         target: currentTarget,
-        darts: newDarts.map(d => d.label),
-        visitTotals: [...roundHistory.find(r => r.target === currentTarget)?.visitTotals || [], newVisitScore],
-        totalDartsUsed: newDarts.length,
+        darts: [...visitHistory.flatMap(v => v.darts.map(d => d.label)), ...newCurrentDarts.map(d => d.label)],
+        visitTotals: [...visitHistory.map(v => v.score), newVisitScore],
+        totalDartsUsed: totalDartsInRound,
         success: true,
         isSafehouse,
       };
@@ -129,7 +148,7 @@ export default function OneTwentyOnePage() {
 
       toast.success(
         <div className="space-y-1">
-          <div>CHECKOUT! {currentTarget} in {newDarts.length} darts!</div>
+          <div>CHECKOUT! {currentTarget} in {totalDartsInRound} darts!</div>
           <div className="text-amber-300 text-sm">+{checkoutXP} XP</div>
         </div>
       );
@@ -157,21 +176,30 @@ export default function OneTwentyOnePage() {
       } else {
         toast.error('Bust!');
       }
-      handleRoundFail(newDarts, true);
+      // Save current visit before failing
+      const completedVisit: Visit = { darts: newCurrentDarts, score: newVisitScore };
+      setVisitHistory(prev => [...prev, completedVisit]);
+      handleRoundFail([...visitHistory.flatMap(v => v.darts), ...newCurrentDarts], true);
       return;
     }
 
-    // Check if this is the end of a visit (3 darts)
-    const dartsInCurrentVisit = newDarts.length - ((visitNumber - 1) * 3);
-    
-    if (dartsInCurrentVisit >= 3) {
+    // Check if this is the end of a visit (3 darts in current visit)
+    if (newCurrentDarts.length >= 3) {
+      // Save completed visit to history
+      const completedVisit: Visit = {
+        darts: newCurrentDarts,
+        score: newVisitScore,
+      };
+      
       // End of visit, check if we have more visits
       if (visitNumber >= 3) {
         // Used all 9 darts, failed
-        handleRoundFail(newDarts, false);
+        setVisitHistory(prev => [...prev, completedVisit]);
+        handleRoundFail([...visitHistory.flatMap(v => v.darts), ...newCurrentDarts], false);
       } else {
         // Move to next visit - clear current darts for new visit
         setTimeout(() => {
+          setVisitHistory(prev => [...prev, completedVisit]);
           setCurrentDarts([]);
           setVisitNumber(prev => prev + 1);
           setCurrentVisitScore(0);
@@ -185,12 +213,12 @@ export default function OneTwentyOnePage() {
     }
   };
 
-  const handleRoundFail = (finalDarts: DartHit[], bust: boolean) => {
+  const handleRoundFail = (allDarts: DartHit[], bust: boolean) => {
     const roundResult: RoundResult = {
       target: currentTarget,
-      darts: finalDarts.map(d => d.label),
-      visitTotals: [],
-      totalDartsUsed: finalDarts.length,
+      darts: allDarts.map(d => d.label),
+      visitTotals: visitHistory.map(v => v.score),
+      totalDartsUsed: allDarts.length,
       success: false,
       isSafehouse: false,
     };
@@ -236,8 +264,7 @@ export default function OneTwentyOnePage() {
     }
 
     const newRemaining = remaining - score;
-    const dartsInCurrentVisit = currentDarts.length % 3;
-    const dartsNeeded = 3 - dartsInCurrentVisit;
+    const dartsNeeded = 3;
     
     // Create generic darts for the visit
     const genericDarts: DartHit[] = Array(dartsNeeded).fill({
@@ -246,17 +273,22 @@ export default function OneTwentyOnePage() {
       label: 'Vis',
     });
 
-    const newDarts = [...currentDarts, ...genericDarts];
+    const newCurrentDarts = [...currentDarts, ...genericDarts];
+    const totalDartsInRound = (visitNumber - 1) * 3 + newCurrentDarts.length;
 
     // Check for checkout success
     if (newRemaining === 0) {
       const isSafehouse = dartsNeeded === 3 && currentTarget >= 121;
       
+      // Save completed visit
+      const completedVisit: Visit = { darts: genericDarts, score };
+      setVisitHistory(prev => [...prev, completedVisit]);
+      
       const roundResult: RoundResult = {
         target: currentTarget,
-        darts: [`Visit: ${score}`],
-        visitTotals: [score],
-        totalDartsUsed: newDarts.length,
+        darts: [...visitHistory.flatMap(v => v.darts.map(d => d.label)), ...newCurrentDarts.map(d => d.label)],
+        visitTotals: [...visitHistory.map(v => v.score), score],
+        totalDartsUsed: totalDartsInRound,
         success: true,
         isSafehouse,
       };
@@ -294,18 +326,24 @@ export default function OneTwentyOnePage() {
       }, 1500);
     } else if (newRemaining < 0 || newRemaining === 1) {
       toast.error('Bust!');
-      handleRoundFail(newDarts, true);
+      const completedVisit: Visit = { darts: genericDarts, score };
+      setVisitHistory(prev => [...prev, completedVisit]);
+      handleRoundFail([...visitHistory.flatMap(v => v.darts), ...newCurrentDarts], true);
     } else {
       // Continue to next visit
-      setCurrentDarts(newDarts);
+      setCurrentDarts(newCurrentDarts);
       setRemaining(newRemaining);
       setTotalDartsThrown(prev => prev + dartsNeeded);
       
       if (visitNumber >= 3) {
-        handleRoundFail(newDarts, false);
+        const completedVisit: Visit = { darts: genericDarts, score };
+        setVisitHistory(prev => [...prev, completedVisit]);
+        handleRoundFail([...visitHistory.flatMap(v => v.darts), ...newCurrentDarts], false);
       } else {
-        // Clear darts for new visit after delay
+        // Save visit and clear for new visit after delay
+        const completedVisit: Visit = { darts: genericDarts, score };
         setTimeout(() => {
+          setVisitHistory(prev => [...prev, completedVisit]);
           setCurrentDarts([]);
           setVisitNumber(prev => prev + 1);
           toast.info(`Visit complete. ${newRemaining} remaining.`);
@@ -336,6 +374,7 @@ export default function OneTwentyOnePage() {
 
   // Save session XP when leaving
   const handleSaveAndExit = async () => {
+    console.log('[121] Saving session XP:', sessionXP);
     if (sessionXP > 0) {
       try {
         const result = await awardXP('121', 0, {
@@ -348,16 +387,21 @@ export default function OneTwentyOnePage() {
           },
         });
         
+        console.log('[121] AwardXP result:', result);
+        
         if (result.success) {
           toast.success(`+${sessionXP} XP added to your training progress!`, { duration: 4000 });
           if (result.levelUp) {
-            toast.success(`Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`, { duration: 5000 });
+            toast.success(`🎉 Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`, { duration: 5000 });
           }
+          // Small delay to let the toast show before navigating
+          await new Promise(resolve => setTimeout(resolve, 1500));
         } else {
-          toast.error('Failed to save XP', { duration: 3000 });
+          console.error('[121] Failed to save XP:', result.error);
+          toast.error('Failed to save XP: ' + (result.error || 'Unknown error'), { duration: 3000 });
         }
       } catch (err) {
-        console.error('Error saving XP:', err);
+        console.error('[121] Error saving XP:', err);
         toast.error('Error saving XP', { duration: 3000 });
       }
     }
@@ -435,19 +479,20 @@ export default function OneTwentyOnePage() {
           </Card>
         )}
 
-        {/* Current Darts Display */}
-        {currentDarts.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700 p-4">
+        {/* Current Visit and History Display */}
+        <div className="grid grid-cols-3 gap-4">
+          {/* Current Visit */}
+          <Card className="bg-slate-800/50 border-slate-700 p-4 col-span-2">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-white">
-                Current Visit (Dart {Math.min(currentDarts.length - ((visitNumber - 1) * 3) + 1, 3)}/3)
+                Current Visit {visitNumber}/3 (Dart {Math.min(currentDarts.length + 1, 3)}/3)
               </div>
               <div className="text-emerald-400 font-semibold">
-                This visit: {currentDarts.slice(-3).reduce((sum, d) => sum + d.value, 0)}
+                This visit: {currentDarts.reduce((sum, d) => sum + d.value, 0)} | Remaining: {remaining}
               </div>
             </div>
             <div className="flex gap-2 mt-2">
-              {currentDarts.slice(-3).map((dart, idx) => (
+              {currentDarts.map((dart, idx) => (
                 <Badge
                   key={idx}
                   className={`text-lg px-4 py-2 ${
@@ -461,17 +506,49 @@ export default function OneTwentyOnePage() {
                   {dart.label}
                 </Badge>
               ))}
-              {Array.from({ length: 3 - (currentDarts.length % 3 || 3) }).map((_, idx) => (
+              {Array.from({ length: 3 - currentDarts.length }).map((_, idx) => (
                 <div
                   key={`empty-${idx}`}
                   className="w-16 h-10 rounded-md border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-600"
                 >
-                  -
+                  {idx === 0 ? '?' : '-'}
                 </div>
               ))}
             </div>
           </Card>
-        )}
+
+          {/* Visit History */}
+          <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <div className="text-sm font-semibold text-white mb-2">
+              Visit History
+            </div>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {visitHistory.length === 0 ? (
+                <div className="text-slate-500 text-sm">No visits yet</div>
+              ) : (
+                visitHistory.map((visit, idx) => (
+                  <div key={idx} className="p-2 bg-slate-700/30 rounded text-xs">
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span>Visit {idx + 1}</span>
+                      <span className="text-emerald-400">{visit.score}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {visit.darts.map((d, i) => (
+                        <span key={i} className={`px-1 rounded ${
+                          d.segment === 'D' || d.segment === 'DB' ? 'bg-red-500/20 text-red-400' :
+                          d.segment === 'T' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-slate-600 text-slate-300'
+                        }`}>
+                          {d.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
 
         {/* Scoring Panel */}
         <Card className="bg-slate-800/50 border-slate-700 p-6">
