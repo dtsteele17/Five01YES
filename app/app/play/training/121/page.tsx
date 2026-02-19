@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star, X, ChevronRight, Undo2 } from 'lucide-react';
+import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star, X, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculateCheckoutXP } from '@/lib/training/xpSystem';
 import { createClient } from '@/lib/supabase/client';
@@ -81,8 +81,8 @@ export default function OneTwentyOnePage() {
     ]);
     setCurrentVisitNumber(1);
     setCurrentDartIndex(0);
-    setVisitHistory([]);
-    setCurrentVisitDarts([]);
+    setVisitHistory([]); // Clear visit history on new round
+    setCurrentVisitDarts([]); // Reset current visit display
     setGameActive(true);
     if (!keepSafehouse) {
       setSafehouseActive(false);
@@ -115,135 +115,108 @@ export default function OneTwentyOnePage() {
   const handleDartClick = (hit: DartHit) => {
     if (!gameActive) return;
 
-    // Calculate new remaining
-    const newRemaining = remaining - hit.value;
-    const newTotalDarts = totalDartsThrown + 1;
+    const visitIdx = Math.floor(currentDartIndex / 3);
+    const dartInVisit = currentDartIndex % 3;
 
-    // Update current visit darts (for display)
-    setCurrentVisitDarts(prev => [...prev, hit]);
-
-    // Update visits array (for round history)
-    const visitIdx = currentVisitNumber - 1; // 0, 1, or 2
+    // Update visits (for round history)
     const newVisits = [...visits];
     newVisits[visitIdx] = {
       darts: [...newVisits[visitIdx].darts, hit],
       score: newVisits[visitIdx].score + hit.value,
     };
-    setVisits(newVisits);
 
-    // Update global counters
+    // Update current visit darts (for display)
+    setCurrentVisitDarts(prev => [...prev, hit]);
+
+    const newRemaining = remaining - hit.value;
+    const newTotalDarts = totalDartsThrown + 1;
+
+    // Update state immediately so UI reflects the change
+    setVisits(newVisits);
     setTotalDartsThrown(newTotalDarts);
-    setCurrentDartIndex(prev => prev + 1);
+    setCurrentDartIndex(currentDartIndex + 1);
     setRemaining(newRemaining);
 
-    // Check for checkout (must end on double)
-    if (newRemaining === 0) {
-      if (hit.segment === 'D' || hit.segment === 'DB') {
-        // SUCCESSFUL CHECKOUT!
-        const dartsUsed = newTotalDarts;
-        const isSafehouse = dartsUsed <= 3 && currentTarget >= 121;
-        const checkoutXP = calculate121CheckoutXP(currentTarget);
-        
-        const roundResult: RoundResult = {
-          target: currentTarget,
-          visits: newVisits,
-          totalDartsUsed: dartsUsed,
-          success: true,
-          isSafehouse,
-          xpEarned: checkoutXP,
-        };
+    // Check for win (checkout on double - MUST end on a double)
+    if (newRemaining === 0 && (hit.segment === 'D' || hit.segment === 'DB')) {
+      // SUCCESSFUL CHECKOUT
+      const dartsUsed = newTotalDarts;
+      const isSafehouse = dartsUsed <= 3 && currentTarget >= 121;
+      
+      // Calculate XP for this checkout
+      const checkoutXP = calculate121CheckoutXP(currentTarget);
+      const newSessionXP = sessionXP + checkoutXP;
+      
+      const roundResult: RoundResult = {
+        target: currentTarget,
+        visits: newVisits,
+        totalDartsUsed: dartsUsed,
+        success: true,
+        isSafehouse,
+        xpEarned: checkoutXP,
+      };
 
-        setRoundHistory(prev => [...prev, roundResult]);
-        setSuccessfulCheckouts(prev => prev + 1);
-        setStreak(prev => {
-          const newStreak = prev + 1;
-          if (newStreak > bestStreak) setBestStreak(newStreak);
-          return newStreak;
-        });
-        setSessionXP(prev => prev + checkoutXP);
+      setRoundHistory(prev => [...prev, roundResult]);
+      setSuccessfulCheckouts(prev => prev + 1);
+      setStreak(prev => {
+        const newStreak = prev + 1;
+        if (newStreak > bestStreak) setBestStreak(newStreak);
+        return newStreak;
+      });
+      setSessionXP(newSessionXP);
 
-        toast.success(
-          <div className="space-y-1">
-            <div className="font-bold">CHECKOUT! {currentTarget} in {dartsUsed} darts!</div>
-            <div className="text-amber-300 text-sm">+{checkoutXP} XP</div>
-          </div>
-        );
+      toast.success(
+        <div className="space-y-1">
+          <div className="font-bold">CHECKOUT! {currentTarget} completed in {dartsUsed} darts!</div>
+          <div className="text-amber-300 text-sm">+{checkoutXP} XP Earned!</div>
+        </div>
+      );
 
-        const nextTarget = currentTarget + 1;
-        if (nextTarget > highestTargetReached) {
-          setHighestTargetReached(nextTarget);
-        }
-        
-        setGameActive(false);
-        setTimeout(() => {
-          resetRound(nextTarget, isSafehouse);
-          if (isSafehouse) toast.info('Safehouse active!');
-        }, 1500);
-        return;
-      } else {
-        // Reached 0 but NOT on a double - BUST!
-        toast.error('Bust! Must finish on a double!');
-        handleRoundFail(newVisits, true, newTotalDarts);
-        return;
+      // Move up to next target
+      const nextTarget = currentTarget + 1;
+      if (nextTarget > highestTargetReached) {
+        setHighestTargetReached(nextTarget);
       }
+      
+      setGameActive(false);
+      setTimeout(() => {
+        resetRound(nextTarget, isSafehouse);
+        if (isSafehouse) {
+          toast.info('Safehouse! You cannot fall below this target next round.');
+        }
+      }, 1500);
+      return;
     }
 
-    // Check for bust (remaining < 0 or === 1)
-    if (newRemaining < 0 || newRemaining === 1) {
-      toast.error('Bust!');
+    // Check for bust (remaining < 0 OR remaining === 1 OR reached 0 without a double)
+    if (newRemaining < 0 || newRemaining === 1 || newRemaining === 0) {
+      // If remaining is 0 but not a double, it's a bust
+      if (newRemaining === 0) {
+        toast.error('Bust! Must finish on a double!');
+      } else {
+        toast.error('Bust!');
+      }
       handleRoundFail(newVisits, true, newTotalDarts);
       return;
     }
 
-    // Check if visit is complete (3 darts thrown in current visit)
-    // currentVisitDarts will have length 1, 2, or 3 AFTER this dart
-    const dartsInCurrentVisit = currentVisitDarts.length + 1; // +1 for the dart we just added
-    
-    if (dartsInCurrentVisit === 3) {
-      // This was the 3rd dart of the visit - complete it after brief delay
-      setTimeout(() => {
-        // Save completed visit to history
-        setVisitHistory(prev => [...prev, newVisits[visitIdx]]);
-        
-        // Reset for next visit
-        setCurrentVisitDarts([]);
-        
-        // Check if this was the last visit (visit 3)
-        if (currentVisitNumber >= 3) {
-          // Used all 9 darts without checkout - FAIL
-          handleRoundFail(newVisits, false, newTotalDarts);
-        } else {
-          // Move to next visit
-          setCurrentVisitNumber(prev => prev + 1);
-          toast.info(`Visit complete. ${newRemaining} left.`);
-        }
-      }, 600);
+    // Check if this is the end of a visit (3 darts)
+    if (dartInVisit === 2) {
+      // End of visit, save to history and reset current visit
+      const completedVisit = newVisits[visitIdx];
+      setVisitHistory(prev => [...prev, completedVisit]);
+      setCurrentVisitDarts([]); // Reset current visit display
+      
+      // Check if we have more visits
+      if (visitIdx >= 2) {
+        // Used all 9 darts, failed
+        handleRoundFail(newVisits, false, newTotalDarts);
+      } else {
+        // Move to next visit
+        setCurrentVisitNumber(prev => prev + 1);
+        toast.info(`Visit ${visitIdx + 1} complete. ${newRemaining} remaining.`);
+      }
     }
-  };
-
-  const handleUndo = () => {
-    if (!gameActive || currentVisitDarts.length === 0) return;
-
-    const visitIdx = currentVisitNumber - 1;
-    const lastDart = currentVisitDarts[currentVisitDarts.length - 1];
-
-    // Remove last dart from current visit display
-    setCurrentVisitDarts(prev => prev.slice(0, -1));
-
-    // Remove last dart from visits array
-    const newVisits = [...visits];
-    newVisits[visitIdx] = {
-      darts: newVisits[visitIdx].darts.slice(0, -1),
-      score: newVisits[visitIdx].score - lastDart.value,
-    };
-    setVisits(newVisits);
-
-    // Restore remaining score
-    setRemaining(prev => prev + lastDart.value);
-
-    // Decrement dart counters
-    setCurrentDartIndex(prev => prev - 1);
-    setTotalDartsThrown(prev => prev - 1);
   };
 
   const handleRoundFail = (finalVisits: Visit[], bust: boolean, dartsUsed: number) => {
@@ -300,10 +273,11 @@ export default function OneTwentyOnePage() {
     const newRemaining = remaining - score;
     
     // Determine how many darts were used (estimate based on score)
+    // If it's a checkout, assume it took the minimum darts needed
     let dartsNeeded = 3;
     if (score === 0) dartsNeeded = 3;
-    else if (score >= 100) dartsNeeded = 3;
-    else if (score >= 60) dartsNeeded = Math.min(3, Math.ceil(score / 40));
+    else if (score >= 100) dartsNeeded = 3; // Likely took 3 darts for high scores
+    else if (score >= 60) dartsNeeded = Math.min(3, Math.ceil(score / 40)); // Estimate
     else dartsNeeded = Math.min(3, Math.max(1, Math.ceil(score / 20)));
     
     // Create generic darts for the visit
@@ -313,25 +287,27 @@ export default function OneTwentyOnePage() {
       label: 'Vis',
     });
 
-    const visitIdx = currentVisitNumber - 1;
+    const visitIdx = Math.floor(currentDartIndex / 3);
     const newVisits = [...visits];
     newVisits[visitIdx] = {
       darts: genericDarts,
       score: score,
     };
 
-    // Update state
+    // Update state immediately for UI feedback
     setVisits(newVisits);
     setRemaining(newRemaining);
+    // Show darts in current visit
     setCurrentVisitDarts(genericDarts);
-    setTotalDartsThrown(prev => prev + dartsNeeded);
-    setCurrentDartIndex(prev => prev + dartsNeeded);
 
-    // Check for checkout (typed mode - no double requirement)
+    // Check for checkout success (typed mode allows checkout at 0 without double requirement)
     if (newRemaining === 0) {
       const dartsUsed = totalDartsThrown + dartsNeeded;
       const isSafehouse = dartsUsed <= 3 && currentTarget >= 121;
+      
+      // Calculate XP for this checkout
       const checkoutXP = calculate121CheckoutXP(currentTarget);
+      const newSessionXP = sessionXP + checkoutXP;
       
       const roundResult: RoundResult = {
         target: currentTarget,
@@ -349,12 +325,13 @@ export default function OneTwentyOnePage() {
         if (newStreak > bestStreak) setBestStreak(newStreak);
         return newStreak;
       });
-      setSessionXP(prev => prev + checkoutXP);
+      setTotalDartsThrown(dartsUsed);
+      setSessionXP(newSessionXP);
 
       toast.success(
         <div className="space-y-1">
           <div className="font-bold">CHECKOUT! {currentTarget} completed!</div>
-          <div className="text-amber-300 text-sm">+{checkoutXP} XP</div>
+          <div className="text-amber-300 text-sm">+{checkoutXP} XP Earned!</div>
         </div>
       );
 
@@ -366,24 +343,33 @@ export default function OneTwentyOnePage() {
       setGameActive(false);
       setTimeout(() => {
         resetRound(nextTarget, isSafehouse);
-        if (isSafehouse) toast.info('Safehouse active!');
+        if (isSafehouse) {
+          toast.info('Safehouse activated!');
+        }
       }, 1500);
     } else if (newRemaining < 0 || newRemaining === 1) {
       toast.error('Bust!');
-      handleRoundFail(newVisits, true, totalDartsThrown + dartsNeeded);
+      const dartsUsed = totalDartsThrown + dartsNeeded;
+      handleRoundFail(newVisits, true, dartsUsed);
     } else {
-      // Continue to next visit
-      setTimeout(() => {
-        setVisitHistory(prev => [...prev, newVisits[visitIdx]]);
-        setCurrentVisitDarts([]);
-        
-        if (currentVisitNumber >= 3) {
-          handleRoundFail(newVisits, false, totalDartsThrown + dartsNeeded);
-        } else {
-          setCurrentVisitNumber(prev => prev + 1);
-          toast.info(`Visit complete. ${newRemaining} left.`);
-        }
-      }, 600);
+      // Continue to next visit - add to visit history and reset current visit
+      const completedVisit = newVisits[visitIdx];
+      setVisitHistory(prev => [...prev, completedVisit]);
+      setCurrentVisitDarts([]); // Reset current visit display
+      
+      setTotalDartsThrown(prev => prev + dartsNeeded);
+      
+      const newDartIndex = currentDartIndex + dartsNeeded;
+      setCurrentDartIndex(newDartIndex);
+      
+      const newVisitNumber = Math.floor(newDartIndex / 3) + 1;
+      
+      if (newVisitNumber > 3) {
+        handleRoundFail(newVisits, false, totalDartsThrown + dartsNeeded);
+      } else {
+        setCurrentVisitNumber(newVisitNumber);
+        toast.info(`Visit complete. ${newRemaining} remaining.`);
+      }
     }
 
     setTypedScore('');
@@ -529,16 +515,11 @@ export default function OneTwentyOnePage() {
                   <span className="text-sm font-semibold text-orange-400">
                     Current Visit
                   </span>
-                  <div className="flex items-center gap-3">
-                    {currentVisitDarts.length > 0 && (
-                      <span className="text-sm text-emerald-400">
-                        This Visit: {currentVisitDarts.reduce((sum, d) => sum + d.value, 0)}
-                      </span>
-                    )}
-                    <span className="text-sm text-white font-semibold">
-                      Remaining: {remaining}
+                  {currentVisitDarts.length > 0 && (
+                    <span className="text-sm text-emerald-400">
+                      Score: {currentVisitDarts.reduce((sum, d) => sum + d.value, 0)}
                     </span>
-                  </div>
+                  )}
                 </div>
                 
                 {/* 3 Dart Slots - Shows current visit darts */}
@@ -735,15 +716,7 @@ export default function OneTwentyOnePage() {
                 </TabsContent>
               </Tabs>
 
-              <div className="grid grid-cols-3 gap-4 mt-4 max-w-3xl mx-auto">
-                <Button
-                  onClick={handleUndo}
-                  disabled={!gameActive || currentVisitDarts.length === 0}
-                  className="h-16 bg-amber-600 hover:bg-amber-700 text-white text-lg font-bold disabled:opacity-30"
-                >
-                  <Undo2 className="w-5 h-5 mr-2" />
-                  UNDO
-                </Button>
+              <div className="grid grid-cols-2 gap-4 mt-4 max-w-2xl mx-auto">
                 <Button
                   onClick={handleMiss}
                   disabled={!gameActive}
