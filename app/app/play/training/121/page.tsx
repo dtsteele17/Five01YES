@@ -123,13 +123,11 @@ export default function OneTwentyOnePage() {
     const newRemaining = remaining - hit.value;
     const newTotalDarts = totalDartsThrown + 1;
 
-    // Update state immediately so UI reflects the change
     setVisits(newVisits);
     setTotalDartsThrown(newTotalDarts);
     setCurrentDartIndex(currentDartIndex + 1);
-    setRemaining(newRemaining);
 
-    // Check for win (checkout on double - MUST end on a double)
+    // Check for win (checkout on double)
     if (newRemaining === 0 && (hit.segment === 'D' || hit.segment === 'DB')) {
       // SUCCESSFUL CHECKOUT
       const dartsUsed = newTotalDarts;
@@ -180,14 +178,9 @@ export default function OneTwentyOnePage() {
       return;
     }
 
-    // Check for bust (remaining < 0 OR remaining === 1 OR reached 0 without a double)
-    if (newRemaining < 0 || newRemaining === 1 || newRemaining === 0) {
-      // If remaining is 0 but not a double, it's a bust
-      if (newRemaining === 0) {
-        toast.error('Bust! Must finish on a double!');
-      } else {
-        toast.error('Bust!');
-      }
+    // Check for bust
+    if (newRemaining < 0 || newRemaining === 1) {
+      toast.error('Bust!');
       handleRoundFail(newVisits, true, newTotalDarts);
       return;
     }
@@ -205,8 +198,11 @@ export default function OneTwentyOnePage() {
       } else {
         // Move to next visit
         setCurrentVisitNumber(prev => prev + 1);
+        setRemaining(newRemaining);
         toast.info(`Visit ${visitIdx + 1} complete. ${newRemaining} remaining.`);
       }
+    } else {
+      setRemaining(newRemaining);
     }
   };
 
@@ -285,11 +281,7 @@ export default function OneTwentyOnePage() {
       score: score,
     };
 
-    // Update state immediately for UI feedback
-    setVisits(newVisits);
-    setRemaining(newRemaining);
-
-    // Check for checkout success (typed mode allows checkout at 0 without double requirement)
+    // Check for checkout success
     if (newRemaining === 0) {
       const dartsUsed = totalDartsThrown + dartsNeeded;
       const isSafehouse = dartsUsed <= 3 && currentTarget >= 121;
@@ -341,10 +333,9 @@ export default function OneTwentyOnePage() {
       const dartsUsed = totalDartsThrown + dartsNeeded;
       handleRoundFail(newVisits, true, dartsUsed);
     } else {
-      // Continue to next visit - add to visit history
-      const completedVisit = newVisits[visitIdx];
-      setVisitHistory(prev => [...prev, completedVisit]);
-      
+      // Continue to next visit
+      setVisits(newVisits);
+      setRemaining(newRemaining);
       setTotalDartsThrown(prev => prev + dartsNeeded);
       
       const newDartIndex = currentDartIndex + dartsNeeded;
@@ -388,7 +379,6 @@ export default function OneTwentyOnePage() {
       try {
         const result = await awardXP('121', 0, {
           completed: true,
-          xpOverride: sessionXP, // Use accumulated session XP
           sessionData: {
             highestTarget: highestTargetReached,
             successfulCheckouts,
