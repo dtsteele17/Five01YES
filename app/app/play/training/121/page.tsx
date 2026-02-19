@@ -503,9 +503,9 @@ export default function OneTwentyOnePage() {
                   <span className="text-sm font-semibold text-orange-400">
                     Visit {currentVisitNumber}
                   </span>
-                  {visits[currentVisitNumber - 1]?.score > 0 && (
+                  {visits[Math.floor(currentDartIndex / 3)]?.score > 0 && (
                     <span className="text-sm text-emerald-400">
-                      Score: {visits[currentVisitNumber - 1].score}
+                      Score: {visits[Math.floor(currentDartIndex / 3)].score}
                     </span>
                   )}
                 </div>
@@ -513,11 +513,9 @@ export default function OneTwentyOnePage() {
                 {/* 3 Dart Slots */}
                 <div className="flex gap-3 justify-center">
                   {[0, 1, 2].map((dartIdx) => {
-                    const visitIdx = currentVisitNumber - 1; // 0-based index for current visit
+                    const visitIdx = Math.floor(currentDartIndex / 3);
                     const dart = visits[visitIdx]?.darts[dartIdx];
-                    // Current dart position within the visit (0, 1, or 2)
-                    const currentDartInVisit = (currentDartIndex % 3);
-                    const isCurrentDart = dartIdx === currentDartInVisit && gameActive;
+                    const isCurrentDart = currentDartIndex === visitIdx * 3 + dartIdx;
                     
                     if (dart) {
                       return (
@@ -543,12 +541,12 @@ export default function OneTwentyOnePage() {
                       <div
                         key={dartIdx}
                         className={`w-20 h-14 rounded-lg border-2 border-dashed flex items-center justify-center text-lg font-bold ${
-                          isCurrentDart
+                          isCurrentDart && gameActive
                             ? 'border-orange-400 bg-orange-500/10 text-orange-400 animate-pulse'
                             : 'border-slate-600 text-slate-600'
                         }`}
                       >
-                        {isCurrentDart ? '?' : '-'}
+                        {isCurrentDart && gameActive ? '?' : '-'}
                       </div>
                     );
                   })}
