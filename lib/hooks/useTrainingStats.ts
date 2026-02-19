@@ -12,7 +12,7 @@ export interface TrainingStats {
   xp: number;
   level: number;
   xpToNextLevel: number;
-  xpProgress: number; // Percentage to next level
+  xpProgress: number;
 }
 
 // Training match formats (including dartbot and all training modes)
@@ -97,134 +97,115 @@ export function useTrainingStats() {
     xpProgress: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
   const supabase = createClient();
 
-  const refresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1);
-  }, []);
+  const loadTrainingStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('[useTrainingStats] Loading stats...');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('[useTrainingStats] No user found');
+        setLoading(false);
+        return;
+      }
+      console.log('[useTrainingStats] User:', user.id);
+
+      // Get total XP and level from the database function
+      const { data: levelData, error: levelError } = await supabase.rpc('get_player_training_level', {
+        p_user_id: user.id,
+      });
+      
+      if (levelError) {
+        console.error('[useTrainingStats] Error getting level:', levelError);
+      }
+      console.log('[useTrainingStats] Level data from DB:', levelData);
+
+      // Get all training_stats to sum up XP
+      const { data: trainingStats, error: statsError } = await supabase
+        .from('training_stats')
+        .select('xp_earned, created_at')
+        .eq('player_id', user.id);
+
+      if (statsError) {
+        console.error('[useTrainingStats] Error fetching training_stats:', statsError);
+      }
+
+      // Calculate total XP from training_stats
+      const totalXpFromStats = trainingStats?.reduce((sum, stat) => sum + (stat.xp_earned || 0), 0) || 0;
+      console.log('[useTrainingStats] Total XP from training_stats:', totalXpFromStats, 'rows:', trainingStats?.length || 0);
+
+      // Get start of today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get match history for additional stats
+      const { data: historyData } = await supabase
+        .from('match_history')
+        .select('result, played_at, highest_checkout, three_dart_avg, match_format')
+        .eq('user_id', user.id)
+        .in('match_format', TRAINING_FORMATS)
+        .order('played_at', { ascending: false });
+
+      const matches = historyData || [];
+      
+      // Calculate XP from match_history (fallback calculation)
+      const historyXp = matches.reduce((sum, match) => sum + calculateMatchXp(match), 0);
+      
+      // Use the larger of the two XP values
+      const totalXp = Math.max(totalXpFromStats, historyXp, levelData?.total_xp || 0);
+      console.log('[useTrainingStats] Final total XP:', totalXp, '(stats:', totalXpFromStats, ', history:', historyXp, ', db:', levelData?.total_xp || 0, ')');
+
+      // Calculate level info
+      const levelInfo = levelData?.total_xp !== undefined 
+        ? getLevelFromXp(levelData.total_xp)
+        : getLevelFromXp(totalXp);
+
+      // Calculate today's sessions
+      const todaySessions = matches.filter(m => new Date(m.played_at) >= today).length +
+        (trainingStats?.filter(s => new Date(s.created_at) >= today).length || 0);
+
+      // Calculate streak
+      let streak = 0;
+      for (const match of matches) {
+        if (match.result === 'win') streak++;
+        else break;
+      }
+
+      // Best checkout
+      const bestCheckout = matches.reduce((max, match) => 
+        Math.max(max, match.highest_checkout || 0), 0);
+
+      // Average
+      const validAverages = matches.filter(m => m.three_dart_avg > 0).map(m => m.three_dart_avg);
+      const avgScore = validAverages.length > 0
+        ? validAverages.reduce((a, b) => a + b, 0) / validAverages.length
+        : 0;
+
+      setStats({
+        totalSessions: matches.length + (trainingStats?.length || 0),
+        todaySessions,
+        currentStreak: streak,
+        averageScore: Math.round(avgScore * 10) / 10,
+        bestCheckout,
+        xp: totalXp,
+        level: levelInfo.level,
+        xpToNextLevel: levelInfo.xpToNext,
+        xpProgress: levelInfo.progress,
+      });
+      
+      console.log('[useTrainingStats] Stats updated:', { xp: totalXp, level: levelInfo.level });
+    } catch (err) {
+      console.error('[useTrainingStats] Unexpected error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
 
   useEffect(() => {
-    async function loadTrainingStats() {
-      try {
-        setLoading(true);
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        // Get start of today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Get match history for all training modes
-        const { data: historyData, error: historyError } = await supabase
-          .from('match_history')
-          .select('result, played_at, highest_checkout, three_dart_avg, match_format')
-          .eq('user_id', user.id)
-          .in('match_format', TRAINING_FORMATS)
-          .order('played_at', { ascending: false });
-
-        if (historyError) {
-          console.error('[useTrainingStats] Error fetching history:', historyError);
-        }
-
-        // Get training stats (for 121 and other training modes that use record_training_match)
-        console.log('[useTrainingStats] Fetching training_stats for user:', user.id);
-        const { data: trainingStats, error: trainingError } = await supabase
-          .from('training_stats')
-          .select('*')
-          .eq('player_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (trainingError) {
-          console.error('[useTrainingStats] Error fetching training stats:', trainingError);
-        } else {
-          console.log('[useTrainingStats] training_stats query success, rows:', trainingStats?.length || 0);
-        }
-
-        const matches = historyData || [];
-        const trainingData = trainingStats || [];
-
-        console.log('[useTrainingStats] Training stats from DB:', trainingData);
-        console.log('[useTrainingStats] Match history from DB:', matches);
-
-        // Calculate XP from match_history
-        const historyXp = matches.reduce((sum, match) => sum + calculateMatchXp(match), 0);
-        
-        // Calculate XP from training_stats (for 121, etc.)
-        let trainingXp = 0;
-        for (const stat of trainingData) {
-          const xp = stat.xp_earned || 0;
-          console.log('[useTrainingStats] Training stat XP:', xp, 'from:', stat);
-          trainingXp += xp;
-        }
-        
-        // Also try to get total XP from the database function
-        const { data: levelDataFromDb, error: levelError } = await supabase.rpc('get_player_training_level', {
-          p_user_id: user.id,
-        });
-        
-        if (levelError) {
-          console.error('[useTrainingStats] Error getting level from DB:', levelError);
-        } else {
-          console.log('[useTrainingStats] Level from DB:', levelDataFromDb);
-        }
-        
-        const totalXp = historyXp + trainingXp;
-        console.log('[useTrainingStats] Total XP calculated:', totalXp, '(history:', historyXp, '+ training:', trainingXp, ')');
-        console.log('[useTrainingStats] Total XP from DB function:', levelDataFromDb?.total_xp || 0);
-        
-        const levelInfo = getLevelFromXp(totalXp);
-
-        // Calculate today's sessions from both sources
-        const todayHistorySessions = matches.filter(m => new Date(m.played_at) >= today).length;
-        const todayTrainingSessions = trainingData.filter(m => new Date(m.created_at) >= today).length;
-        const todaySessions = todayHistorySessions + todayTrainingSessions;
-
-        // Calculate streak (consecutive wins from most recent)
-        let streak = 0;
-        for (const match of matches) {
-          if (match.result === 'win') {
-            streak++;
-          } else {
-            break;
-          }
-        }
-
-        // Calculate best checkout from training matches
-        const bestCheckout = matches.reduce((max, match) => {
-          return Math.max(max, match.highest_checkout || 0);
-        }, 0);
-
-        // Calculate average from training matches
-        const validAverages = matches.filter(m => m.three_dart_avg > 0).map(m => m.three_dart_avg);
-        const avgScore = validAverages.length > 0
-          ? validAverages.reduce((a, b) => a + b, 0) / validAverages.length
-          : 0;
-
-        setStats({
-          totalSessions: matches.length + trainingData.length,
-          todaySessions,
-          currentStreak: streak,
-          averageScore: Math.round(avgScore * 10) / 10,
-          bestCheckout: bestCheckout,
-          xp: totalXp,
-          level: levelInfo.level,
-          xpToNextLevel: levelInfo.xpToNext,
-          xpProgress: levelInfo.progress,
-        });
-      } catch (err) {
-        console.error('[useTrainingStats] Unexpected error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadTrainingStats();
-  }, [supabase, refreshKey]);
+  }, [loadTrainingStats]);
 
-  return { stats, loading, refresh };
+  return { stats, loading, refresh: loadTrainingStats };
 }

@@ -401,21 +401,26 @@ export default function OneTwentyOnePage() {
             .select('*')
             .eq('player_id', (await supabase.auth.getUser()).data.user?.id)
             .order('created_at', { ascending: false })
-            .limit(1);
+            .limit(5);
             
           if (verifyError) {
             console.error('[121] Error verifying save:', verifyError);
           } else {
-            console.log('[121] Most recent training_stats record:', verifyData);
+            console.log('[121] Recent training_stats records:', verifyData);
+            const totalFromDb = verifyData?.reduce((sum, r) => sum + (r.xp_earned || 0), 0) || 0;
+            console.log('[121] Total XP from last 5 records:', totalFromDb);
           }
           
-          toast.success(`+${sessionXP} XP added to your training progress!`, { duration: 4000 });
+          const msg = `✅ +${sessionXP} XP saved!\n\nYour XP will appear in Training Hub.`;
+          toast.success(msg, { duration: 5000 });
+          alert(`XP Saved: +${sessionXP}\n\nClick OK to return to Training Hub. Your XP will be updated there.`);
+          
           if (result.levelUp) {
             toast.success(`🎉 Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`, { duration: 5000 });
           }
           // Wait for database to commit before navigating
           console.log('[121] XP saved successfully, waiting before navigation...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
         } else {
           console.error('[121] Failed to save XP:', result.error);
           toast.error('Failed to save XP: ' + (result.error || 'Unknown error'), { duration: 3000 });

@@ -844,6 +844,13 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
               <p className="text-2xl font-black text-amber-400">{stats.xp.toLocaleString()}</p>
               <p className="text-xs text-slate-400 uppercase tracking-wider">Total XP</p>
             </div>
+            <button 
+              onClick={() => refresh()}
+              className="ml-2 p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-xs"
+              disabled={statsLoading}
+            >
+              {statsLoading ? '...' : '↻'}
+            </button>
           </div>
         </div>
 
@@ -890,34 +897,41 @@ export default function TrainingHubPage() {
 
   console.log('[Training Hub] Render - stats:', { xp: stats.xp, level: stats.level, loading: statsLoading });
 
-  // Refresh stats when page becomes visible (after returning from 121 game)
+  // Refresh multiple times on mount to ensure we get latest data
   useEffect(() => {
-    console.log('[Training Hub] Mount effect - refreshing stats...');
-    refresh?.();
+    console.log('[Training Hub] Mount - initial refresh');
+    refresh();
     
+    // Refresh again after a short delay (in case DB is still committing)
+    const t1 = setTimeout(() => {
+      console.log('[Training Hub] Delayed refresh 1');
+      refresh();
+    }, 500);
+    
+    const t2 = setTimeout(() => {
+      console.log('[Training Hub] Delayed refresh 2');
+      refresh();
+    }, 1500);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [refresh]);
+
+  // Refresh when page becomes visible
+  useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[Training Hub] Page became visible, refreshing stats...');
-        refresh?.();
+        console.log('[Training Hub] Page visible, refreshing...');
+        refresh();
+        // Double refresh after delay
+        setTimeout(() => refresh(), 500);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [refresh]);
-  
-  // Also refresh on focus (when user clicks back into the window)
-  useEffect(() => {
-    const handleFocus = () => {
-      console.log('[Training Hub] Window focused, refreshing stats...');
-      refresh?.();
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refresh]);
 
   // Training modes configuration (excluding DartBot which is featured separately)
