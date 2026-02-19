@@ -112,14 +112,14 @@ export default function OneTwentyOnePage() {
     toast.success('New game started! Good luck!');
   };
 
-  // Current visit darts (temporary storage until visit is complete)
-  const [currentVisitDarts, setCurrentVisitDarts] = useState<DartHit[]>([]);
-
   const handleDartClick = (hit: DartHit) => {
     if (!gameActive) return;
 
     const visitIdx = Math.floor(currentDartIndex / 3);
     const dartInVisit = currentDartIndex % 3;
+
+    // Update current visit darts (for display) - do this FIRST
+    setCurrentVisitDarts(prev => [...prev, hit]);
 
     // Update visits (for round history)
     const newVisits = [...visits];
@@ -127,9 +127,6 @@ export default function OneTwentyOnePage() {
       darts: [...newVisits[visitIdx].darts, hit],
       score: newVisits[visitIdx].score + hit.value,
     };
-
-    // Update current visit darts (for display)
-    setCurrentVisitDarts(prev => [...prev, hit]);
 
     const newRemaining = remaining - hit.value;
     const newTotalDarts = totalDartsThrown + 1;
