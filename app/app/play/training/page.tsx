@@ -887,45 +887,27 @@ export default function TrainingHubPage() {
   const { stats, loading: statsLoading, refresh } = useTrainingStats();
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showATCModal, setShowATCModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   console.log('[Training Hub] Render - stats:', { xp: stats.xp, level: stats.level, loading: statsLoading });
 
-  // Refresh multiple times on mount to ensure we get latest data
+  // Set mounted flag
   useEffect(() => {
-    console.log('[Training Hub] Mount - initial refresh');
-    refresh();
-    
-    // Refresh again after a short delay (in case DB is still committing)
-    const t1 = setTimeout(() => {
-      console.log('[Training Hub] Delayed refresh 1');
-      refresh();
-    }, 500);
-    
-    const t2 = setTimeout(() => {
-      console.log('[Training Hub] Delayed refresh 2');
-      refresh();
-    }, 1500);
+    setMounted(true);
+  }, []);
 
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [refresh]);
-
-  // Refresh when page becomes visible
+  // Refresh when page becomes visible (user returns from 121 game)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[Training Hub] Page visible, refreshing...');
+      if (document.visibilityState === 'visible' && mounted) {
+        console.log('[Training Hub] Page visible, refreshing stats...');
         refresh();
-        // Double refresh after delay
-        setTimeout(() => refresh(), 500);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [refresh]);
+  }, [refresh, mounted]);
 
   // Training modes configuration (excluding DartBot which is featured separately)
   // XP values based on difficulty (40-250 base XP range)

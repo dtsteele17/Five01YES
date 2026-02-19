@@ -267,14 +267,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_player_total_xp(p_user_id UUID)
 RETURNS INTEGER AS $$
 DECLARE
-  v_total_xp INTEGER := 0;
+  v_match_xp INTEGER := 0;
+  v_training_xp INTEGER := 0;
 BEGIN
+  -- Get XP from match_history
   SELECT COALESCE(SUM(xp_earned), 0)
-  INTO v_total_xp
+  INTO v_match_xp
   FROM match_history
   WHERE user_id = p_user_id;
 
-  RETURN v_total_xp;
+  -- Get XP from training_stats (for 121 training, etc.)
+  SELECT COALESCE(SUM(xp_earned), 0)
+  INTO v_training_xp
+  FROM training_stats
+  WHERE player_id = p_user_id;
+
+  RETURN v_match_xp + v_training_xp;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
