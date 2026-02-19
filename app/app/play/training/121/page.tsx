@@ -17,6 +17,7 @@ import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star } from 'l
 import { toast } from 'sonner';
 import { calculateCheckoutXP } from '@/lib/training/xpSystem';
 import { createClient } from '@/lib/supabase/client';
+import { FAILED_ATTEMPT_XP, calculate121CheckoutXP, awardXP } from '@/lib/training/xpTracker';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -85,6 +86,7 @@ export default function OneTwentyOnePage() {
     setSuccessfulCheckouts(0);
     setStreak(0);
     setSafehouseActive(false);
+    setSessionXP(0);
     toast.success('New game started! Good luck!');
   };
 
@@ -121,7 +123,16 @@ export default function OneTwentyOnePage() {
         return newStreak;
       });
 
-      toast.success(`CHECKOUT! ${currentTarget} completed in ${newDarts.length} darts!`);
+      // Award XP for checkout
+      const checkoutXP = calculate121CheckoutXP(currentTarget);
+      setSessionXP(prev => prev + checkoutXP);
+
+      toast.success(
+        <div className="space-y-1">
+          <div>CHECKOUT! {currentTarget} in {newDarts.length} darts!</div>
+          <div className="text-amber-300 text-sm">+{checkoutXP} XP</div>
+        </div>
+      );
 
       // Move up to next target
       const nextTarget = currentTarget + 1;
@@ -180,14 +191,28 @@ export default function OneTwentyOnePage() {
     setRoundHistory(prev => [...prev, roundResult]);
     setStreak(0);
 
+    // Award XP for failed attempt
+    const failXP = FAILED_ATTEMPT_XP;
+    setSessionXP(prev => prev + failXP);
+
     // Determine next target
     let nextTarget: number;
     if (safehouseActive) {
       nextTarget = currentTarget;
-      toast.error(`${bust ? 'Bust!' : 'Failed!'} Safehouse protects you at ${currentTarget}!`);
+      toast.error(
+        <div className="space-y-1">
+          <div>{bust ? 'Bust!' : 'Failed!'} Safehouse at {currentTarget}!</div>
+          <div className="text-amber-300 text-xs">+{failXP} XP</div>
+        </div>
+      );
     } else {
       nextTarget = Math.max(121, currentTarget - 1);
-      toast.error(`${bust ? 'Bust!' : 'Failed to checkout!'} Dropping to ${nextTarget}`);
+      toast.error(
+        <div className="space-y-1">
+          <div>{bust ? 'Bust!' : 'Failed!'} Dropping to {nextTarget}</div>
+          <div className="text-amber-300 text-xs">+{failXP} XP</div>
+        </div>
+      );
     }
 
     setGameActive(false);
@@ -238,7 +263,16 @@ export default function OneTwentyOnePage() {
       });
       setTotalDartsThrown(prev => prev + dartsNeeded);
 
-      toast.success(`CHECKOUT! ${currentTarget} completed!`);
+      // Award XP for checkout (typed mode)
+      const checkoutXP = calculate121CheckoutXP(currentTarget);
+      setSessionXP(prev => prev + checkoutXP);
+
+      toast.success(
+        <div className="space-y-1">
+          <div>CHECKOUT! {currentTarget} completed!</div>
+          <div className="text-amber-300 text-sm">+{checkoutXP} XP</div>
+        </div>
+      );
 
       const nextTarget = currentTarget + 1;
       if (nextTarget > highestTargetReached) {
@@ -289,6 +323,27 @@ export default function OneTwentyOnePage() {
     return 'Expert';
   };
 
+  // Save session XP when leaving
+  const handleSaveAndExit = async () => {
+    if (sessionXP > 0) {
+      try {
+        await awardXP('121', 0, {
+          completed: true,
+          xpOverride: sessionXP,
+          sessionData: {
+            highestTarget: highestTargetReached,
+            successfulCheckouts,
+            totalRounds: roundHistory.length,
+          },
+        });
+        toast.success(`+${sessionXP} XP saved!`, { duration: 3000 });
+      } catch (err) {
+        console.error('Error saving XP:', err);
+      }
+    }
+    router.push('/app/play/training');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <div className="max-w-5xl mx-auto space-y-4">
@@ -296,11 +351,11 @@ export default function OneTwentyOnePage() {
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => router.push('/app/play')}
+            onClick={handleSaveAndExit}
             className="text-slate-400 hover:text-white"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Save & Exit
           </Button>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
@@ -701,14 +756,25 @@ export default function OneTwentyOnePage() {
                 Continue Playing
               </Button>
               <Button
-                onClick={() => router.push('/app/play')}
+                onClick={handleSaveAndExit}
                 className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
               >
-                Back to Play
+                Save & Exit
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Floating Session XP Indicator */}
+        <div className="fixed bottom-4 right-4 bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white px-4 py-3 rounded-lg shadow-lg border border-amber-400/30">
+          <div className="flex items-center gap-2">
+            <Star className="w-5 h-5 text-amber-200" />
+            <div>
+              <div className="text-xs text-amber-100">Session XP</div>
+              <div className="text-xl font-bold">{sessionXP}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

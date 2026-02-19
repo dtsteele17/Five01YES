@@ -44,6 +44,18 @@ const BASE_XP: Record<string, number> = {
   '501-dartbot': 100,
 };
 
+// XP for failed attempts in 121 training
+export const FAILED_ATTEMPT_XP = 2;
+
+// XP for successful checkout in 121 training (based on target value)
+// Formula: 15 + (target - 121) * 1.5, rounded
+// 121: 15, 122: 17, 123: 18, 124: 20, etc.
+export function calculate121CheckoutXP(targetValue: number): number {
+  if (targetValue < 121) return 10;
+  const xp = Math.round(15 + (targetValue - 121) * 1.5);
+  return Math.max(15, xp);
+}
+
 // Performance thresholds for different modes
 interface Thresholds {
   poor: number;
@@ -144,6 +156,7 @@ export async function awardXP(
     won?: boolean;
     threeDartAvg?: number;
     sessionData?: Record<string, any>;
+    xpOverride?: number; // Use this exact XP value instead of calculating
   }
 ): Promise<XPAwardResult> {
   const supabase = createClient();
@@ -155,8 +168,19 @@ export async function awardXP(
       return { success: false, xpBreakdown: {} as XPBreakdown, error: 'Not authenticated' };
     }
 
-    // Calculate XP
-    const xpBreakdown = calculateTrainingXP(mode, performanceMetric, options);
+    // Calculate XP or use override
+    let xpBreakdown: XPBreakdown;
+    if (options?.xpOverride !== undefined) {
+      xpBreakdown = {
+        base: options.xpOverride,
+        performanceBonus: 0,
+        winBonus: 0,
+        completionBonus: 0,
+        total: options.xpOverride,
+      };
+    } else {
+      xpBreakdown = calculateTrainingXP(mode, performanceMetric, options);
+    }
 
     // Call the database function to record match with XP
     const { data, error } = await supabase.rpc('record_training_match', {

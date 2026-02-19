@@ -892,7 +892,7 @@ export default function TrainingHubPage() {
   const otherTrainingModes: TrainingMode[] = [
     {
       id: '121-dartbot',
-      title: '121 vs DartBot',
+      title: '121',
       subtitle: 'Quick Format',
       description: 'Fast-paced 121 practice. Perfect for quick games and improving your checkout speed.',
       icon: <Zap className="w-6 h-6 text-white" />,
