@@ -112,9 +112,6 @@ export default function OneTwentyOnePage() {
     toast.success('New game started! Good luck!');
   };
 
-  // Current visit darts (temporary storage until visit is complete)
-  const [currentVisitDarts, setCurrentVisitDarts] = useState<DartHit[]>([]);
-
   const handleDartClick = (hit: DartHit) => {
     if (!gameActive) return;
 
