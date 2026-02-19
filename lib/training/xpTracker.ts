@@ -40,27 +40,9 @@ const BASE_XP: Record<string, number> = {
   'pdc-challenge': 150,
   'form-analysis': 200,
   '121-dartbot': 50,
-  '121': 50,  // Renamed from 121-dartbot
   '301-dartbot': 90,
   '501-dartbot': 100,
 };
-
-// XP for failed attempts in 121 training (per round)
-export const FAILED_ATTEMPT_XP = 5;
-
-// XP for successful checkout in 121 training (based on target value)
-// Higher targets = more XP
-export function calculate121CheckoutXP(targetValue: number): number {
-  // Base XP scaled by difficulty
-  // 121-130: 15 XP
-  // 131-150: 25 XP  
-  // 151-170: 40 XP
-  // 171+: 60 XP
-  if (targetValue <= 130) return 15;
-  if (targetValue <= 150) return 25;
-  if (targetValue <= 170) return 40;
-  return 60;
-}
 
 // Performance thresholds for different modes
 interface Thresholds {

@@ -647,16 +647,13 @@ export default function DartbotMatchPage() {
   // Calculate match stats for display
   const calculateMatchStats = useCallback((isPlayer1: boolean) => {
     const allVisits = [...allLegs.flatMap(l => l.visits), ...currentLeg.visits];
-    // Include ALL visits for darts thrown (including busts) - busts count as 3 darts with 0 score
-    const allPlayerVisits = allVisits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
-    const validPlayerVisits = allPlayerVisits.filter(v => !v.isBust);
-    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    const totalScored = validPlayerVisits.reduce((sum, v) => sum + v.score, 0);
+    const playerVisits = allVisits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2') && !v.isBust);
+    const totalDarts = playerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
-    const currentLegAllVisits = currentLeg.visits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
-    const dartsThisLeg = currentLegAllVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    const currentLegValidVisits = currentLegAllVisits.filter(v => !v.isBust);
-    return { average: threeDartAverage, lastScore: currentLegValidVisits.length > 0 ? currentLegValidVisits[currentLegValidVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
+    const currentLegVisits = currentLeg.visits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2') && !v.isBust);
+    const dartsThisLeg = currentLegVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    return { average: threeDartAverage, lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
   }, [allLegs, currentLeg]);
 
   const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, allLegsData?: LegData[]) => {
@@ -1055,20 +1052,20 @@ export default function DartbotMatchPage() {
       // Animate only the darts actually thrown — stops at the bust dart
       await animateBotThrows(visualVisit.darts, visualVisit.bust);
       
-      // IMPORTANT: For STATS, we always count 3 darts per visit (except on checkout)
-      // Even on bust, the bot threw 3 darts - they just didn't score
-      const actualDartsThrown = visualVisit.darts.length; // Actual darts animated
-      const dartsForStats = visualVisit.finished ? actualDartsThrown : 3; // 3 for stats unless checkout
+      // CRITICAL: Bot ALWAYS throws exactly 3 darts per visit (unless checkout)
+      // Even on bust, we count 3 darts for stats consistency
+      const actualDartsThrown = visualVisit.darts.length;
+      const dartsThrown = visualVisit.finished ? actualDartsThrown : 3; // Force 3 darts except on checkout
       
       // Track checkout stats for DartBot
       // Calculate darts at double properly like dartcounter.net
+      // Only count darts that are ACTUALLY thrown at a double
       const isOnValidCheckout = config?.doubleOut !== false ? isValidCheckout(currentScore) : currentScore > 0 && currentScore <= 180;
       let botDartsAtDouble = 0;
       if (isOnValidCheckout) {
         if (currentScore <= 40) {
           // When on 40 or less, every dart is an attempt at double
-          // Count all 3 darts (or actual if checkout)
-          botDartsAtDouble = dartsForStats;
+          botDartsAtDouble = dartsThrown;
         } else {
           // When above 40, only count darts that actually hit a double
           const doublesHit = visualVisit.darts.filter(d => d.isDouble).length;
@@ -1087,21 +1084,8 @@ export default function DartbotMatchPage() {
         setPlayer2CheckoutsMade(prev => prev + 1);
       }
       
-      // Build display darts - show actual thrown darts, pad with MISS for display if bust happened early
-      // This ensures the UI shows all 3 darts (MISS for ones not thrown due to bust)
-      const displayDarts: typeof visualVisit.darts = [...visualVisit.darts];
-      while (displayDarts.length < 3) {
-        displayDarts.push({
-          label: 'MISS',
-          score: 0,
-          isDouble: false,
-          isTreble: false,
-          offboard: true,
-          aimTarget: '-',
-          x: 0,
-          y: 0
-        } as any);
-      }
+      // Only include darts the bot actually threw — strip MISS padding used for stat counting
+      const visitDisplayDarts = visualVisit.darts.filter(d => d.label !== 'MISS');
 
       const visit: Visit = {
         player: 'player2',
@@ -1110,9 +1094,9 @@ export default function DartbotMatchPage() {
         isBust: visualVisit.bust,
         isCheckout: visualVisit.finished,
         timestamp: Date.now(),
-        dartsThrown: dartsForStats, // Always 3 for stats (unless checkout)
+        dartsThrown, // Always 3 on bust or normal visit; fewer only on checkout
         dartsAtDouble: botDartsAtDouble,
-        darts: displayDarts.map(d => ({
+        darts: visitDisplayDarts.map(d => ({
           type: d.isDouble ? 'double' : d.isTreble ? 'triple' : d.offboard ? 'single' : 'single',
           number: d.offboard ? 0 : parseInt(d.label.replace(/[^0-9]/g, '')) || (d.label.includes('Bull') ? 25 : 0),
           value: d.score,
@@ -1128,12 +1112,12 @@ export default function DartbotMatchPage() {
       };
       
       setCurrentLeg(prev => {
-        const dartsUsedInFirst9 = Math.min(dartsForStats, Math.max(0, 9 - prev.player2First9DartsThrown));
-        const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (visualVisit.bust ? 0 : (visualVisit.visitTotal * dartsUsedInFirst9) / dartsForStats) : 0;
+        const dartsUsedInFirst9 = Math.min(dartsThrown, Math.max(0, 9 - prev.player2First9DartsThrown));
+        const pointsForFirst9 = dartsUsedInFirst9 > 0 ? (visualVisit.bust ? 0 : (visualVisit.visitTotal * dartsUsedInFirst9) / dartsThrown) : 0;
         return { 
           ...prev, 
           visits: [...prev.visits, visit], 
-          player2DartsThrown: prev.player2DartsThrown + dartsForStats, // 3 darts for stats
+          player2DartsThrown: prev.player2DartsThrown + dartsThrown, 
           player2First9DartsThrown: prev.player2First9DartsThrown + dartsUsedInFirst9, 
           player2First9PointsScored: prev.player2First9PointsScored + pointsForFirst9 
         };
@@ -1142,11 +1126,11 @@ export default function DartbotMatchPage() {
       if (!visualVisit.bust) {
         setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
       } else {
-        console.log(`[DartBot] BUST: ${actualDartsThrown} actual darts thrown, counting ${dartsForStats} for stats, 0 scored, remaining stays at ${currentScore}`);
+        console.log(`[DartBot] BUST: ${actualDartsThrown} actual darts, counting ${dartsThrown} toward stats`);
       }
       setPlayer2MatchDartsThrown(prev => {
-        const newTotal = prev + dartsForStats;
-        console.log(`[DartBot] Darts thrown: ${dartsForStats} for stats (actual: ${actualDartsThrown}) (total: ${newTotal})`);
+        const newTotal = prev + dartsThrown;
+        console.log(`[DartBot] Darts thrown: ${dartsThrown} (total: ${newTotal})`);
         return newTotal;
       });
       setPlayer2Score(visualVisit.newRemaining);

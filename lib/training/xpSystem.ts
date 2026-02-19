@@ -273,10 +273,10 @@ export const TRAINING_MODE_INFO: Record<TrainingMode, { name: string; difficulty
     difficulty: 'Intermediate', 
     description: 'Progressive difficulty: singles, then doubles, then trebles' 
   },
-  '121-dartbot': {
-    name: '121',
-    difficulty: 'Beginner',
-    description: 'Quick checkout practice against AI'
+  '121-dartbot': { 
+    name: '121 vs DartBot', 
+    difficulty: 'Beginner', 
+    description: 'Quick checkout practice against AI' 
   },
   '301-dartbot': { 
     name: '301 vs DartBot', 

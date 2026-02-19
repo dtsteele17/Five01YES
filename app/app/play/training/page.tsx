@@ -891,8 +891,8 @@ export default function TrainingHubPage() {
   // XP values based on difficulty (40-250 base XP range)
   const otherTrainingModes: TrainingMode[] = [
     {
-      id: '121',
-      title: '121',
+      id: '121-dartbot',
+      title: '121 vs DartBot',
       subtitle: 'Quick Format',
       description: 'Fast-paced 121 practice. Perfect for quick games and improving your checkout speed.',
       icon: <Zap className="w-6 h-6 text-white" />,

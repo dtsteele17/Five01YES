@@ -13,11 +13,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star, X, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculateCheckoutXP } from '@/lib/training/xpSystem';
 import { createClient } from '@/lib/supabase/client';
-import { FAILED_ATTEMPT_XP, calculate121CheckoutXP, awardXP } from '@/lib/training/xpTracker';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -25,18 +24,13 @@ interface DartHit {
   label: string;
 }
 
-interface Visit {
-  darts: DartHit[];
-  score: number;
-}
-
 interface RoundResult {
   target: number;
-  visits: Visit[];
+  darts: string[];
+  visitTotals: number[];
   totalDartsUsed: number;
   success: boolean;
   isSafehouse: boolean;
-  xpEarned: number;
 }
 
 export default function OneTwentyOnePage() {
@@ -45,11 +39,10 @@ export default function OneTwentyOnePage() {
   // Game State
   const [currentTarget, setCurrentTarget] = useState(121);
   const [highestTargetReached, setHighestTargetReached] = useState(121);
+  const [currentDarts, setCurrentDarts] = useState<DartHit[]>([]);
   const [remaining, setRemaining] = useState(121);
-  const [currentVisitNumber, setCurrentVisitNumber] = useState(1); // 1-3 visits per round
-  const [visits, setVisits] = useState<Visit[]>([]);
-  const [currentDartIndex, setCurrentDartIndex] = useState(0); // 0-8 (3 visits x 3 darts)
-  const [visitHistory, setVisitHistory] = useState<Visit[]>([]); // Completed visits in current round
+  const [visitNumber, setVisitNumber] = useState(1); // 1-3 visits per round
+  const [currentVisitScore, setCurrentVisitScore] = useState(0);
   const [roundHistory, setRoundHistory] = useState<RoundResult[]>([]);
   const [gameActive, setGameActive] = useState(true);
   const [showStatsModal, setShowStatsModal] = useState(false);
@@ -61,7 +54,6 @@ export default function OneTwentyOnePage() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [sessionXP, setSessionXP] = useState(0);
-  const [awardingXP, setAwardingXP] = useState(false);
 
   // Input mode
   const [inputMode, setInputMode] = useState<'dart_pad' | 'typed'>('dart_pad');
@@ -71,14 +63,9 @@ export default function OneTwentyOnePage() {
   const resetRound = (newTarget: number, keepSafehouse: boolean = false) => {
     setCurrentTarget(newTarget);
     setRemaining(newTarget);
-    setVisits([
-      { darts: [], score: 0 },
-      { darts: [], score: 0 },
-      { darts: [], score: 0 },
-    ]);
-    setCurrentVisitNumber(1);
-    setCurrentDartIndex(0);
-    setVisitHistory([]); // Clear visit history on new round
+    setCurrentDarts([]);
+    setVisitNumber(1);
+    setCurrentVisitScore(0);
     setGameActive(true);
     if (!keepSafehouse) {
       setSafehouseActive(false);
@@ -89,61 +76,41 @@ export default function OneTwentyOnePage() {
     setCurrentTarget(121);
     setHighestTargetReached(121);
     setRemaining(121);
-    setVisits([
-      { darts: [], score: 0 },
-      { darts: [], score: 0 },
-      { darts: [], score: 0 },
-    ]);
-    setCurrentVisitNumber(1);
-    setCurrentDartIndex(0);
-    setVisitHistory([]);
+    setCurrentDarts([]);
+    setVisitNumber(1);
+    setCurrentVisitScore(0);
     setRoundHistory([]);
     setGameActive(true);
     setTotalDartsThrown(0);
     setSuccessfulCheckouts(0);
     setStreak(0);
     setSafehouseActive(false);
-    setSessionXP(0);
     toast.success('New game started! Good luck!');
   };
 
   const handleDartClick = (hit: DartHit) => {
     if (!gameActive) return;
 
-    const visitIdx = Math.floor(currentDartIndex / 3);
-    const dartInVisit = currentDartIndex % 3;
-
-    // Update visits
-    const newVisits = [...visits];
-    newVisits[visitIdx] = {
-      darts: [...newVisits[visitIdx].darts, hit],
-      score: newVisits[visitIdx].score + hit.value,
-    };
-
+    const newDarts = [...currentDarts, hit];
     const newRemaining = remaining - hit.value;
-    const newTotalDarts = totalDartsThrown + 1;
+    const newVisitScore = currentVisitScore + hit.value;
 
-    setVisits(newVisits);
-    setTotalDartsThrown(newTotalDarts);
-    setCurrentDartIndex(currentDartIndex + 1);
+    setCurrentDarts(newDarts);
+    setTotalDartsThrown(prev => prev + 1);
 
     // Check for win (checkout on double)
     if (newRemaining === 0 && (hit.segment === 'D' || hit.segment === 'DB')) {
       // SUCCESSFUL CHECKOUT
-      const dartsUsed = newTotalDarts;
-      const isSafehouse = dartsUsed <= 3 && currentTarget >= 121;
-      
-      // Calculate XP for this checkout
-      const checkoutXP = calculate121CheckoutXP(currentTarget);
-      const newSessionXP = sessionXP + checkoutXP;
+      const dartsInThisVisit = newDarts.length - ((visitNumber - 1) * 3);
+      const isSafehouse = dartsInThisVisit <= 3 && currentTarget >= 121;
       
       const roundResult: RoundResult = {
         target: currentTarget,
-        visits: newVisits,
-        totalDartsUsed: dartsUsed,
+        darts: newDarts.map(d => d.label),
+        visitTotals: [...roundHistory.find(r => r.target === currentTarget)?.visitTotals || [], newVisitScore],
+        totalDartsUsed: newDarts.length,
         success: true,
         isSafehouse,
-        xpEarned: checkoutXP,
       };
 
       setRoundHistory(prev => [...prev, roundResult]);
@@ -153,14 +120,8 @@ export default function OneTwentyOnePage() {
         if (newStreak > bestStreak) setBestStreak(newStreak);
         return newStreak;
       });
-      setSessionXP(newSessionXP);
 
-      toast.success(
-        <div className="space-y-1">
-          <div className="font-bold">CHECKOUT! {currentTarget} completed in {dartsUsed} darts!</div>
-          <div className="text-amber-300 text-sm">+{checkoutXP} XP Earned!</div>
-        </div>
-      );
+      toast.success(`CHECKOUT! ${currentTarget} completed in ${newDarts.length} darts!`);
 
       // Move up to next target
       const nextTarget = currentTarget + 1;
@@ -168,7 +129,7 @@ export default function OneTwentyOnePage() {
         setHighestTargetReached(nextTarget);
       }
       
-      setGameActive(false);
+      // Small delay before next round
       setTimeout(() => {
         resetRound(nextTarget, isSafehouse);
         if (isSafehouse) {
@@ -181,67 +142,52 @@ export default function OneTwentyOnePage() {
     // Check for bust
     if (newRemaining < 0 || newRemaining === 1) {
       toast.error('Bust!');
-      handleRoundFail(newVisits, true, newTotalDarts);
+      handleRoundFail(newDarts, true);
       return;
     }
 
     // Check if this is the end of a visit (3 darts)
-    if (dartInVisit === 2) {
-      // End of visit, save to history
-      const completedVisit = newVisits[visitIdx];
-      setVisitHistory(prev => [...prev, completedVisit]);
-      
-      // Check if we have more visits
-      if (visitIdx >= 2) {
+    const dartsInCurrentVisit = newDarts.length - ((visitNumber - 1) * 3);
+    
+    if (dartsInCurrentVisit >= 3) {
+      // End of visit, check if we have more visits
+      if (visitNumber >= 3) {
         // Used all 9 darts, failed
-        handleRoundFail(newVisits, false, newTotalDarts);
+        handleRoundFail(newDarts, false);
       } else {
         // Move to next visit
-        setCurrentVisitNumber(prev => prev + 1);
+        setVisitNumber(prev => prev + 1);
+        setCurrentVisitScore(0);
         setRemaining(newRemaining);
-        toast.info(`Visit ${visitIdx + 1} complete. ${newRemaining} remaining.`);
+        toast.info(`Visit ${visitNumber} complete. ${newRemaining} remaining.`);
       }
     } else {
       setRemaining(newRemaining);
+      setCurrentVisitScore(newVisitScore);
     }
   };
 
-  const handleRoundFail = (finalVisits: Visit[], bust: boolean, dartsUsed: number) => {
-    // Award small XP for failed attempt
-    const failXP = FAILED_ATTEMPT_XP;
-    const newSessionXP = sessionXP + failXP;
-    
+  const handleRoundFail = (finalDarts: DartHit[], bust: boolean) => {
     const roundResult: RoundResult = {
       target: currentTarget,
-      visits: finalVisits,
-      totalDartsUsed: dartsUsed,
+      darts: finalDarts.map(d => d.label),
+      visitTotals: [],
+      totalDartsUsed: finalDarts.length,
       success: false,
       isSafehouse: false,
-      xpEarned: failXP,
     };
 
     setRoundHistory(prev => [...prev, roundResult]);
     setStreak(0);
-    setSessionXP(newSessionXP);
 
     // Determine next target
     let nextTarget: number;
     if (safehouseActive) {
       nextTarget = currentTarget;
-      toast.error(
-        <div className="space-y-1">
-          <div>{bust ? 'Bust!' : 'Failed!'} Safehouse protects you at {currentTarget}!</div>
-          <div className="text-amber-300 text-xs">+{failXP} XP</div>
-        </div>
-      );
+      toast.error(`${bust ? 'Bust!' : 'Failed!'} Safehouse protects you at ${currentTarget}!`);
     } else {
       nextTarget = Math.max(121, currentTarget - 1);
-      toast.error(
-        <div className="space-y-1">
-          <div>{bust ? 'Bust!' : 'Failed to checkout!'} Dropping to {nextTarget}</div>
-          <div className="text-amber-300 text-xs">+{failXP} XP</div>
-        </div>
-      );
+      toast.error(`${bust ? 'Bust!' : 'Failed to checkout!'} Dropping to ${nextTarget}`);
     }
 
     setGameActive(false);
@@ -258,14 +204,8 @@ export default function OneTwentyOnePage() {
     }
 
     const newRemaining = remaining - score;
-    
-    // Determine how many darts were used (estimate based on score)
-    // If it's a checkout, assume it took the minimum darts needed
-    let dartsNeeded = 3;
-    if (score === 0) dartsNeeded = 3;
-    else if (score >= 100) dartsNeeded = 3; // Likely took 3 darts for high scores
-    else if (score >= 60) dartsNeeded = Math.min(3, Math.ceil(score / 40)); // Estimate
-    else dartsNeeded = Math.min(3, Math.max(1, Math.ceil(score / 20)));
+    const dartsInCurrentVisit = currentDarts.length % 3;
+    const dartsNeeded = 3 - dartsInCurrentVisit;
     
     // Create generic darts for the visit
     const genericDarts: DartHit[] = Array(dartsNeeded).fill({
@@ -274,29 +214,19 @@ export default function OneTwentyOnePage() {
       label: 'Vis',
     });
 
-    const visitIdx = Math.floor(currentDartIndex / 3);
-    const newVisits = [...visits];
-    newVisits[visitIdx] = {
-      darts: genericDarts,
-      score: score,
-    };
+    const newDarts = [...currentDarts, ...genericDarts];
 
     // Check for checkout success
     if (newRemaining === 0) {
-      const dartsUsed = totalDartsThrown + dartsNeeded;
-      const isSafehouse = dartsUsed <= 3 && currentTarget >= 121;
-      
-      // Calculate XP for this checkout
-      const checkoutXP = calculate121CheckoutXP(currentTarget);
-      const newSessionXP = sessionXP + checkoutXP;
+      const isSafehouse = dartsNeeded === 3 && currentTarget >= 121;
       
       const roundResult: RoundResult = {
         target: currentTarget,
-        visits: newVisits,
-        totalDartsUsed: dartsUsed,
+        darts: [`Visit: ${score}`],
+        visitTotals: [score],
+        totalDartsUsed: newDarts.length,
         success: true,
         isSafehouse,
-        xpEarned: checkoutXP,
       };
 
       setRoundHistory(prev => [...prev, roundResult]);
@@ -306,22 +236,15 @@ export default function OneTwentyOnePage() {
         if (newStreak > bestStreak) setBestStreak(newStreak);
         return newStreak;
       });
-      setTotalDartsThrown(dartsUsed);
-      setSessionXP(newSessionXP);
+      setTotalDartsThrown(prev => prev + dartsNeeded);
 
-      toast.success(
-        <div className="space-y-1">
-          <div className="font-bold">CHECKOUT! {currentTarget} completed!</div>
-          <div className="text-amber-300 text-sm">+{checkoutXP} XP Earned!</div>
-        </div>
-      );
+      toast.success(`CHECKOUT! ${currentTarget} completed!`);
 
       const nextTarget = currentTarget + 1;
       if (nextTarget > highestTargetReached) {
         setHighestTargetReached(nextTarget);
       }
 
-      setGameActive(false);
       setTimeout(() => {
         resetRound(nextTarget, isSafehouse);
         if (isSafehouse) {
@@ -330,23 +253,17 @@ export default function OneTwentyOnePage() {
       }, 1500);
     } else if (newRemaining < 0 || newRemaining === 1) {
       toast.error('Bust!');
-      const dartsUsed = totalDartsThrown + dartsNeeded;
-      handleRoundFail(newVisits, true, dartsUsed);
+      handleRoundFail(newDarts, true);
     } else {
       // Continue to next visit
-      setVisits(newVisits);
+      setCurrentDarts(newDarts);
       setRemaining(newRemaining);
       setTotalDartsThrown(prev => prev + dartsNeeded);
       
-      const newDartIndex = currentDartIndex + dartsNeeded;
-      setCurrentDartIndex(newDartIndex);
-      
-      const newVisitNumber = Math.floor(newDartIndex / 3) + 1;
-      
-      if (newVisitNumber > 3) {
-        handleRoundFail(newVisits, false, totalDartsThrown + dartsNeeded);
+      if (visitNumber >= 3) {
+        handleRoundFail(newDarts, false);
       } else {
-        setCurrentVisitNumber(newVisitNumber);
+        setVisitNumber(prev => prev + 1);
         toast.info(`Visit complete. ${newRemaining} remaining.`);
       }
     }
@@ -372,39 +289,6 @@ export default function OneTwentyOnePage() {
     return 'Expert';
   };
 
-  // Award all session XP to the user
-  const handleBackToTrainingHub = async () => {
-    if (sessionXP > 0 && !awardingXP) {
-      setAwardingXP(true);
-      try {
-        const result = await awardXP('121', 0, {
-          completed: true,
-          sessionData: {
-            highestTarget: highestTargetReached,
-            successfulCheckouts,
-            totalRounds: roundHistory.length,
-          },
-        });
-        
-        if (result.success) {
-          toast.success(`+${sessionXP} XP added to your profile!`, { duration: 4000 });
-        }
-      } catch (err) {
-        console.error('Error awarding XP:', err);
-      } finally {
-        setAwardingXP(false);
-      }
-    }
-    router.push('/app/play/training');
-  };
-
-  // Get current dart slot position
-  const getCurrentSlot = () => {
-    const visit = Math.floor(currentDartIndex / 3);
-    const dart = currentDartIndex % 3;
-    return { visit, dart };
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <div className="max-w-5xl mx-auto space-y-4">
@@ -412,7 +296,7 @@ export default function OneTwentyOnePage() {
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => router.push('/app/play/training')}
+            onClick={() => router.push('/app/play')}
             className="text-slate-400 hover:text-white"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -421,7 +305,7 @@ export default function OneTwentyOnePage() {
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
               <Flame className="w-6 h-6 text-orange-500" />
-              121
+              121 Training
             </h1>
             <p className="text-xs text-slate-400">Checkout in 9 darts or less</p>
           </div>
@@ -450,7 +334,7 @@ export default function OneTwentyOnePage() {
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Remaining</div>
               <div className="text-4xl font-bold text-white">{remaining}</div>
-              <div className="text-xs text-slate-500">Visit {currentVisitNumber}/3</div>
+              <div className="text-xs text-slate-500">Visit {visitNumber}/3</div>
             </div>
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Best Target</div>
@@ -476,128 +360,43 @@ export default function OneTwentyOnePage() {
           </Card>
         )}
 
-        {/* Current Visit Display with Compact History */}
-        <Card className="bg-slate-800/50 border-slate-700 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-sm font-semibold text-white">Current Visit</div>
-            <div className="text-emerald-400 font-semibold">
-              Target: {currentTarget} | Remaining: {remaining}
+        {/* Current Darts Display */}
+        {currentDarts.length > 0 && (
+          <Card className="bg-slate-800/50 border-slate-700 p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-white">
+                Current Visit (Dart {Math.min(currentDarts.length - ((visitNumber - 1) * 3) + 1, 3)}/3)
+              </div>
+              <div className="text-emerald-400 font-semibold">
+                This visit: {currentDarts.slice(-3).reduce((sum, d) => sum + d.value, 0)}
+              </div>
             </div>
-          </div>
-          
-          <div className="flex gap-4">
-            {/* Current Visit - 3 Dart Slots */}
-            <div className="flex-1">
-              <div className="p-4 rounded-lg border bg-orange-500/10 border-orange-500/30">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-orange-400">
-                    Visit {currentVisitNumber}
-                  </span>
-                  {visits[Math.floor(currentDartIndex / 3)]?.score > 0 && (
-                    <span className="text-sm text-emerald-400">
-                      Score: {visits[Math.floor(currentDartIndex / 3)].score}
-                    </span>
-                  )}
+            <div className="flex gap-2 mt-2">
+              {currentDarts.slice(-3).map((dart, idx) => (
+                <Badge
+                  key={idx}
+                  className={`text-lg px-4 py-2 ${
+                    dart.segment === 'D' || dart.segment === 'DB'
+                      ? 'bg-red-500/20 border-red-500 text-red-400'
+                      : dart.segment === 'T'
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                      : 'bg-slate-600/30 border-slate-500 text-slate-300'
+                  }`}
+                >
+                  {dart.label}
+                </Badge>
+              ))}
+              {Array.from({ length: 3 - (currentDarts.length % 3 || 3) }).map((_, idx) => (
+                <div
+                  key={`empty-${idx}`}
+                  className="w-16 h-10 rounded-md border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-600"
+                >
+                  -
                 </div>
-                
-                {/* 3 Dart Slots */}
-                <div className="flex gap-3 justify-center">
-                  {[0, 1, 2].map((dartIdx) => {
-                    const visitIdx = Math.floor(currentDartIndex / 3);
-                    const dart = visits[visitIdx]?.darts[dartIdx];
-                    const isCurrentDart = currentDartIndex === visitIdx * 3 + dartIdx;
-                    
-                    if (dart) {
-                      return (
-                        <Badge
-                          key={dartIdx}
-                          className={`text-xl px-6 py-3 ${
-                            dart.segment === 'D' || dart.segment === 'DB'
-                              ? 'bg-red-500/20 border-red-500 text-red-400'
-                              : dart.segment === 'T'
-                              ? 'bg-amber-500/20 border-amber-500 text-amber-400'
-                              : dart.segment === 'MISS'
-                              ? 'bg-slate-600/30 border-slate-500 text-slate-500'
-                              : 'bg-slate-600/30 border-slate-500 text-slate-300'
-                          }`}
-                        >
-                          {dart.label}
-                        </Badge>
-                      );
-                    }
-                    
-                    // Empty slot
-                    return (
-                      <div
-                        key={dartIdx}
-                        className={`w-20 h-14 rounded-lg border-2 border-dashed flex items-center justify-center text-lg font-bold ${
-                          isCurrentDart && gameActive
-                            ? 'border-orange-400 bg-orange-500/10 text-orange-400 animate-pulse'
-                            : 'border-slate-600 text-slate-600'
-                        }`}
-                      >
-                        {isCurrentDart && gameActive ? '?' : '-'}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              ))}
             </div>
-            
-            {/* Compact Visit History */}
-            <div className="w-48">
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 text-center">
-                Visit History
-              </div>
-              <div className="space-y-2">
-                {visitHistory.length === 0 ? (
-                  <div className="text-center text-slate-600 text-sm py-4">
-                    No visits yet
-                  </div>
-                ) : (
-                  visitHistory.map((visit, idx) => (
-                    <div
-                      key={idx}
-                      className="p-2 rounded-lg bg-slate-700/30 border border-slate-600/50"
-                    >
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-slate-400">Visit {idx + 1}</span>
-                        <span className="text-emerald-400 font-semibold">{visit.score}</span>
-                      </div>
-                      <div className="flex gap-1">
-                        {visit.darts.map((dart, dartIdx) => (
-                          <div
-                            key={dartIdx}
-                            className={`text-[10px] px-1.5 py-0.5 rounded ${
-                              dart.segment === 'D' || dart.segment === 'DB'
-                                ? 'bg-red-500/20 text-red-400'
-                                : dart.segment === 'T'
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : dart.segment === 'MISS'
-                                ? 'bg-slate-600/30 text-slate-500'
-                                : 'bg-slate-600/30 text-slate-400'
-                            }`}
-                          >
-                            {dart.label}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-                {/* Placeholder for future visits */}
-                {[...Array(2 - visitHistory.length)].map((_, idx) => (
-                  <div
-                    key={`empty-${idx}`}
-                    className="p-2 rounded-lg border border-dashed border-slate-700/50 text-center text-slate-700 text-xs"
-                  >
-                    Visit {visitHistory.length + idx + 1}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Scoring Panel */}
         <Card className="bg-slate-800/50 border-slate-700 p-6">
@@ -702,7 +501,7 @@ export default function OneTwentyOnePage() {
                   MISS (0)
                 </Button>
                 <Button
-                  onClick={() => handleRoundFail(visits, true, totalDartsThrown)}
+                  onClick={() => handleRoundFail(currentDarts, true)}
                   disabled={!gameActive}
                   className="h-16 bg-red-600 hover:bg-red-700 text-white text-lg font-bold disabled:opacity-30"
                 >
@@ -735,7 +534,7 @@ export default function OneTwentyOnePage() {
                   </Button>
                 </div>
                 <Button
-                  onClick={() => handleRoundFail(visits, true, totalDartsThrown)}
+                  onClick={() => handleRoundFail(currentDarts, true)}
                   disabled={!gameActive}
                   variant="destructive"
                   className="w-full"
@@ -785,22 +584,15 @@ export default function OneTwentyOnePage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {round.xpEarned > 0 && (
-                      <span className="text-xs text-amber-400 font-semibold">
-                        +{round.xpEarned} XP
-                      </span>
-                    )}
-                    <Badge
-                      className={
-                        round.success
-                          ? 'bg-emerald-500/20 text-emerald-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }
-                    >
-                      {round.success ? 'Success' : 'Failed'}
-                    </Badge>
-                  </div>
+                  <Badge
+                    className={
+                      round.success
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }
+                  >
+                    {round.success ? 'Success' : 'Failed'}
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -829,18 +621,17 @@ export default function OneTwentyOnePage() {
 
             <div className="space-y-6 py-4">
               {/* XP Earned */}
-              <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg p-6 text-center border border-amber-500/30">
-                <div className="text-amber-300 text-sm uppercase tracking-wider mb-2">
-                  XP Earned This Session
+              {sessionXP > 0 && (
+                <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg p-6 text-center border border-amber-500/30">
+                  <div className="text-amber-300 text-sm uppercase tracking-wider mb-2">
+                    XP Earned This Session
+                  </div>
+                  <div className="text-5xl font-bold text-white flex items-center justify-center gap-2">
+                    <Star className="w-8 h-8 text-amber-400" />
+                    {sessionXP}
+                  </div>
                 </div>
-                <div className="text-5xl font-bold text-white flex items-center justify-center gap-2">
-                  <Star className="w-8 h-8 text-amber-400" />
-                  {sessionXP}
-                </div>
-                <div className="text-xs text-amber-400 mt-2">
-                  Will be added to your profile when you return to Training Hub
-                </div>
-              </div>
+              )}
 
               {/* Main Stats */}
               <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-lg p-6 text-center border border-orange-500/30">
@@ -910,36 +701,14 @@ export default function OneTwentyOnePage() {
                 Continue Playing
               </Button>
               <Button
-                onClick={handleBackToTrainingHub}
-                disabled={awardingXP}
+                onClick={() => router.push('/app/play')}
                 className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
               >
-                {awardingXP ? (
-                  <span className="flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4 animate-spin" />
-                    Saving...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    Back to Training Hub
-                    <ChevronRight className="w-4 h-4" />
-                  </span>
-                )}
+                Back to Play
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Floating XP Indicator */}
-        <div className="fixed bottom-4 right-4 bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white px-4 py-3 rounded-lg shadow-lg border border-amber-400/30">
-          <div className="flex items-center gap-2">
-            <Star className="w-5 h-5 text-amber-200" />
-            <div>
-              <div className="text-xs text-amber-100">Session XP</div>
-              <div className="text-xl font-bold">{sessionXP}</div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
