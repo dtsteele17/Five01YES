@@ -97,7 +97,6 @@ export function useTrainingStats() {
     xpProgress: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   const loadTrainingStats = useCallback(async () => {
@@ -113,44 +112,29 @@ export function useTrainingStats() {
       }
       console.log('[useTrainingStats] User:', user.id);
 
-      // Get total XP using the database function (now includes both match_history and training_stats)
-      const { data: totalXpData, error: totalXpError } = await supabase.rpc('get_player_total_xp', {
-        p_user_id: user.id,
-      });
-
-      if (totalXpError) {
-        console.error('[useTrainingStats] Error getting total XP:', totalXpError);
-        // Continue with 0 XP if function doesn't exist
-      }
-      console.log('[useTrainingStats] Total XP from DB function:', totalXpData);
-
-      // Get level info using the database function
+      // Get total XP and level from the database function
       const { data: levelData, error: levelError } = await supabase.rpc('get_player_training_level', {
         p_user_id: user.id,
       });
-
+      
       if (levelError) {
         console.error('[useTrainingStats] Error getting level:', levelError);
-        // Continue with default level if function doesn't exist
       }
       console.log('[useTrainingStats] Level data from DB:', levelData);
 
-      // Get all training_stats for session counting (handle if table doesn't exist)
-      let trainingStats = null;
-      try {
-        const { data, error: statsError } = await supabase
-          .from('training_stats')
-          .select('xp_earned, created_at')
-          .eq('player_id', user.id);
+      // Get all training_stats to sum up XP
+      const { data: trainingStats, error: statsError } = await supabase
+        .from('training_stats')
+        .select('xp_earned, created_at')
+        .eq('player_id', user.id);
 
-        if (statsError) {
-          console.error('[useTrainingStats] Error fetching training_stats:', statsError);
-        } else {
-          trainingStats = data;
-        }
-      } catch (err) {
-        console.error('[useTrainingStats] training_stats table might not exist:', err);
+      if (statsError) {
+        console.error('[useTrainingStats] Error fetching training_stats:', statsError);
       }
+
+      // Calculate total XP from training_stats
+      const totalXpFromStats = trainingStats?.reduce((sum, stat) => sum + (stat.xp_earned || 0), 0) || 0;
+      console.log('[useTrainingStats] Total XP from training_stats:', totalXpFromStats, 'rows:', trainingStats?.length || 0);
 
       // Get start of today
       const today = new Date();
@@ -165,18 +149,17 @@ export function useTrainingStats() {
         .order('played_at', { ascending: false });
 
       const matches = historyData || [];
+      
+      // Calculate XP from match_history (fallback calculation)
+      const historyXp = matches.reduce((sum, match) => sum + calculateMatchXp(match), 0);
+      
+      // Use the larger of the two XP values
+      const totalXp = Math.max(totalXpFromStats, historyXp, levelData?.total_xp || 0);
+      console.log('[useTrainingStats] Final total XP:', totalXp, '(stats:', totalXpFromStats, ', history:', historyXp, ', db:', levelData?.total_xp || 0, ')');
 
-      // Use XP from database function (now includes both tables)
-      const totalXp = totalXpData || 0;
-      console.log('[useTrainingStats] Final total XP:', totalXp);
-
-      // Calculate level info from database response or compute locally
-      const levelInfo = levelData 
-        ? { 
-            level: levelData.level, 
-            xpToNext: levelData.xp_to_next_level,
-            progress: levelData.progress
-          }
+      // Calculate level info
+      const levelInfo = levelData?.total_xp !== undefined 
+        ? getLevelFromXp(levelData.total_xp)
         : getLevelFromXp(totalXp);
 
       // Calculate today's sessions
@@ -213,22 +196,8 @@ export function useTrainingStats() {
       });
       
       console.log('[useTrainingStats] Stats updated:', { xp: totalXp, level: levelInfo.level });
-      setError(null);
     } catch (err) {
       console.error('[useTrainingStats] Unexpected error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      // Set default stats on error
-      setStats({
-        totalSessions: 0,
-        todaySessions: 0,
-        currentStreak: 0,
-        averageScore: 0,
-        bestCheckout: 0,
-        xp: 0,
-        level: 1,
-        xpToNextLevel: 100,
-        xpProgress: 0,
-      });
     } finally {
       setLoading(false);
     }
@@ -238,5 +207,5 @@ export function useTrainingStats() {
     loadTrainingStats();
   }, [loadTrainingStats]);
 
-  return { stats, loading, refresh: loadTrainingStats, error };
+  return { stats, loading, refresh: loadTrainingStats };
 }
