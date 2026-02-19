@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star, X, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Trophy, TrendingUp, Target, Flame, RotateCcw, Star, X, ChevronRight, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculateCheckoutXP } from '@/lib/training/xpSystem';
 import { createClient } from '@/lib/supabase/client';
@@ -217,6 +217,31 @@ export default function OneTwentyOnePage() {
         toast.info(`Visit ${visitIdx + 1} complete. ${newRemaining} remaining.`);
       }
     }
+  };
+
+  const handleUndo = () => {
+    if (!gameActive || currentVisitDarts.length === 0) return;
+
+    const visitIdx = Math.floor(currentDartIndex / 3);
+    const lastDart = currentVisitDarts[currentVisitDarts.length - 1];
+
+    // Remove last dart from current visit display
+    setCurrentVisitDarts(prev => prev.slice(0, -1));
+
+    // Remove last dart from visits array
+    const newVisits = [...visits];
+    newVisits[visitIdx] = {
+      darts: newVisits[visitIdx].darts.slice(0, -1),
+      score: newVisits[visitIdx].score - lastDart.value,
+    };
+    setVisits(newVisits);
+
+    // Restore remaining score
+    setRemaining(prev => prev + lastDart.value);
+
+    // Decrement dart counters
+    setCurrentDartIndex(prev => prev - 1);
+    setTotalDartsThrown(prev => prev - 1);
   };
 
   const handleRoundFail = (finalVisits: Visit[], bust: boolean, dartsUsed: number) => {
@@ -716,7 +741,15 @@ export default function OneTwentyOnePage() {
                 </TabsContent>
               </Tabs>
 
-              <div className="grid grid-cols-2 gap-4 mt-4 max-w-2xl mx-auto">
+              <div className="grid grid-cols-3 gap-4 mt-4 max-w-3xl mx-auto">
+                <Button
+                  onClick={handleUndo}
+                  disabled={!gameActive || currentVisitDarts.length === 0}
+                  className="h-16 bg-amber-600 hover:bg-amber-700 text-white text-lg font-bold disabled:opacity-30"
+                >
+                  <Undo2 className="w-5 h-5 mr-2" />
+                  UNDO
+                </Button>
                 <Button
                   onClick={handleMiss}
                   disabled={!gameActive}
