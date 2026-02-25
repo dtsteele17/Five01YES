@@ -265,6 +265,14 @@ export default function TournamentsPage() {
 
   useEffect(() => {
     loadTournaments();
+    
+    // Check for tournament status updates every 60 seconds
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing tournaments list...');
+      loadTournaments();
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadCurrentUser = async () => {

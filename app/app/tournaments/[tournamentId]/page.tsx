@@ -23,7 +23,8 @@ import {
   Star,
   CheckCircle,
   AlertCircle,
-  Share2
+  Share2,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -68,6 +69,18 @@ const statusConfig = {
     description: 'Players can join this tournament',
     icon: Users
   },
+  scheduled: {
+    label: 'Registration Open',
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    description: 'Players can join this tournament',
+    icon: Users
+  },
+  checkin: {
+    label: 'Registration Open',
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    description: 'Players can join this tournament',
+    icon: Users
+  },
   ready: {
     label: 'Starting Soon',
     color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
@@ -86,6 +99,12 @@ const statusConfig = {
     color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     description: 'Tournament has finished',
     icon: Crown
+  },
+  cancelled: {
+    label: 'Tournament Cancelled',
+    color: 'bg-red-500/20 text-red-400 border-red-500/30',
+    description: 'Tournament was cancelled',
+    icon: X
   },
 };
 
@@ -108,14 +127,59 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     loadCurrentUser();
   }, [tournamentId]);
 
+  // Auto-refresh tournament status every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
+        console.log('Auto-checking tournament status...');
+        checkAndUpdateTournamentStatus().then(() => {
+          // Reload tournament data after status check
+          loadTournament();
+        });
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [tournament?.status, tournamentId]);
+
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUserId(user?.id || null);
   };
 
+  const checkAndUpdateTournamentStatus = async () => {
+    try {
+      console.log('Checking tournament status for:', tournamentId);
+      
+      // Use the SQL function to check and update tournament status
+      const { data: statusResult, error: statusError } = await supabase
+        .rpc('check_tournament_status', { p_tournament_id: tournamentId });
+
+      if (statusError) {
+        console.error('Error checking tournament status:', statusError);
+        return;
+      }
+
+      console.log('Tournament status check result:', statusResult);
+
+      // If tournament was cancelled, show toast
+      if (statusResult?.action === 'cancelled') {
+        toast.error(`Tournament cancelled: ${statusResult.reason || 'Insufficient participants'}`);
+      } else if (statusResult?.action === 'started') {
+        toast.success('Tournament has started!');
+      }
+
+    } catch (error) {
+      console.error('Error in tournament status check:', error);
+    }
+  };
+
   const loadTournament = async () => {
     try {
       setLoading(true);
+
+      // First check if tournament status needs updating based on time
+      await checkAndUpdateTournamentStatus();
 
       const { data: tournamentData, error: tournamentError } = await supabase
         .from('tournaments')
@@ -165,10 +229,29 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     try {
       setJoinLoading(true);
 
-      const { error } = await supabase.rpc('join_tournament', {
-        p_tournament_id: tournamentId,
-        p_user_id: currentUserId
-      });
+      // Try RPC function first, fallback to direct insert
+      let error;
+      try {
+        const { error: rpcError } = await supabase.rpc('join_tournament', {
+          p_tournament_id: tournamentId,
+          p_user_id: currentUserId
+        });
+        error = rpcError;
+      } catch (rpcFail) {
+        console.log('RPC join_tournament not available, using direct insert');
+        
+        // Direct insert method
+        const { error: insertError } = await supabase
+          .from('tournament_participants')
+          .insert({
+            tournament_id: tournamentId,
+            user_id: currentUserId,
+            role: 'participant',
+            status_type: 'confirmed',
+            joined_at: new Date().toISOString()
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
 
@@ -177,7 +260,11 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
     } catch (error: any) {
       console.error('Error joining tournament:', error);
-      toast.error(error.message || 'Failed to join tournament');
+      if (error.code === '23505') {
+        toast.error('You are already registered for this tournament');
+      } else {
+        toast.error(error.message || 'Failed to join tournament');
+      }
     } finally {
       setJoinLoading(false);
     }
@@ -673,7 +760,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
                     <Button
                       onClick={handleJoinTournament}
-                      disabled={joinLoading || participants.length >= tournament.max_participants || tournament.status !== 'registration'}
+                      disabled={joinLoading || participants.length >= tournament.max_participants || !['registration', 'scheduled', 'checkin'].includes(tournament.status)}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                     >
                       {joinLoading ? (

@@ -74,40 +74,96 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // PHASE 2: Start tournaments whose start time has arrived
-    console.log("[TOURNAMENT_CRON] Phase 2: Checking tournaments to start");
+    // PHASE 2: Process tournament status transitions (start tournaments or cancel if insufficient participants)
+    console.log("[TOURNAMENT_CRON] Phase 2: Processing tournament status transitions");
 
-    const { data: tournamentsToStart, error: startQueryError } = await supabase
-      .from("tournaments")
-      .select("id, name, start_at")
-      .eq("status", "registration")
-      .is("started_at", null)
-      .lte("start_at", new Date().toISOString());
+    try {
+      const { data: statusResult, error: statusError } = await supabase
+        .rpc('process_tournament_status_transitions');
 
-    if (startQueryError) {
-      console.error("[TOURNAMENT_CRON] Error querying tournaments to start:", startQueryError);
-      errors.push(`Start query error: ${startQueryError.message}`);
-    } else {
-      console.log(`[TOURNAMENT_CRON] Found ${tournamentsToStart?.length || 0} tournaments to start`);
-
-      for (const tournament of tournamentsToStart || []) {
-        try {
-          console.log(`[TOURNAMENT_CRON] Starting tournament ${tournament.id} (${tournament.name})`);
-
-          const { error: rpcError } = await supabase.rpc("start_tournament_round_one", {
-            tournament_id: tournament.id,
-          });
-
-          if (rpcError) {
-            console.error(`[TOURNAMENT_CRON] Failed to start tournament ${tournament.id}:`, rpcError);
-            errors.push(`Tournament start for ${tournament.name}: ${rpcError.message}`);
-          } else {
-            tournamentsStarted++;
-            console.log(`[TOURNAMENT_CRON] Successfully started tournament ${tournament.id}`);
+      if (statusError) {
+        console.error("[TOURNAMENT_CRON] Error processing tournament status transitions:", statusError);
+        errors.push(`Status transition error: ${statusError.message}`);
+      } else if (statusResult) {
+        console.log("[TOURNAMENT_CRON] Tournament status transitions completed:", statusResult);
+        
+        tournamentsStarted = statusResult.tournaments_started || 0;
+        const tournamentsCancelled = statusResult.tournaments_cancelled || 0;
+        
+        console.log(`[TOURNAMENT_CRON] Started ${tournamentsStarted} tournaments`);
+        console.log(`[TOURNAMENT_CRON] Cancelled ${tournamentsCancelled} tournaments (insufficient participants)`);
+        
+        if (statusResult.results && statusResult.results.length > 0) {
+          for (const result of statusResult.results) {
+            if (result.action === 'started') {
+              console.log(`[TOURNAMENT_CRON] ✓ Started: ${result.tournament_name} (${result.participant_count} participants)`);
+            } else if (result.action === 'cancelled') {
+              console.log(`[TOURNAMENT_CRON] ✗ Cancelled: ${result.tournament_name} (${result.participant_count} participants - insufficient)`);
+            }
           }
-        } catch (error: any) {
-          console.error(`[TOURNAMENT_CRON] Exception starting tournament ${tournament.id}:`, error);
-          errors.push(`Tournament start exception for ${tournament.name}: ${error.message}`);
+        }
+      }
+    } catch (error: any) {
+      console.error("[TOURNAMENT_CRON] Exception in status transitions:", error);
+      errors.push(`Status transition exception: ${error.message}`);
+      
+      // Fallback to old method
+      console.log("[TOURNAMENT_CRON] Falling back to legacy tournament starting logic");
+      
+      const { data: tournamentsToStart, error: startQueryError } = await supabase
+        .from("tournaments")
+        .select("id, name, start_at")
+        .in("status", ["registration", "scheduled", "checkin"])
+        .lte("start_at", new Date().toISOString());
+
+      if (startQueryError) {
+        console.error("[TOURNAMENT_CRON] Error querying tournaments to start:", startQueryError);
+        errors.push(`Legacy start query error: ${startQueryError.message}`);
+      } else {
+        console.log(`[TOURNAMENT_CRON] Found ${tournamentsToStart?.length || 0} tournaments to process (legacy)`);
+
+        for (const tournament of tournamentsToStart || []) {
+          try {
+            console.log(`[TOURNAMENT_CRON] Processing tournament ${tournament.id} (${tournament.name}) with legacy logic`);
+
+            // Check participant count
+            const { count: participantCount } = await supabase
+              .from('tournament_participants')
+              .select('*', { count: 'exact', head: true })
+              .eq('tournament_id', tournament.id);
+
+            if (participantCount && participantCount >= 2) {
+              // Start tournament
+              const { error: updateError } = await supabase
+                .from('tournaments')
+                .update({ 
+                  status: 'in_progress',
+                  started_at: new Date().toISOString()
+                })
+                .eq('id', tournament.id);
+
+              if (!updateError) {
+                tournamentsStarted++;
+                console.log(`[TOURNAMENT_CRON] ✓ Started tournament ${tournament.id} (${participantCount} participants)`);
+              }
+            } else {
+              // Cancel tournament
+              const { error: cancelError } = await supabase
+                .from('tournaments')
+                .update({ 
+                  status: 'cancelled',
+                  cancelled_reason: 'Insufficient participants'
+                })
+                .eq('id', tournament.id);
+
+              if (!cancelError) {
+                console.log(`[TOURNAMENT_CRON] ✗ Cancelled tournament ${tournament.id} (${participantCount || 0} participants)`);
+              }
+            }
+          } catch (error: any) {
+            console.error(`[TOURNAMENT_CRON] Exception processing tournament ${tournament.id}:`, error);
+            errors.push(`Legacy processing exception for ${tournament.name}: ${error.message}`);
+          }
         }
       }
     }
