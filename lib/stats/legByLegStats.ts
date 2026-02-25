@@ -82,9 +82,10 @@ export async function calculateLegByLegStats(
 
   for (const [legNumber, legVisits] of Object.entries(visitsByLeg)) {
     const legNum = parseInt(legNumber);
-    
-    const playerVisits = legVisits.filter(v => v.player_id === playerId);
-    const opponentVisits = legVisits.filter(v => v.player_id === opponentId);
+    const typedLegVisits = legVisits as QuickMatchVisit[];
+
+    const playerVisits = typedLegVisits.filter(v => v.player_id === playerId);
+    const opponentVisits = typedLegVisits.filter(v => v.player_id === opponentId);
 
     const playerStats = calculatePlayerLegStats(playerVisits);
     const opponentStats = calculatePlayerLegStats(opponentVisits);
