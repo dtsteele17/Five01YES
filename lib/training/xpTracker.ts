@@ -197,7 +197,6 @@ export async function awardXP(
       p_won: options?.won ?? true,
       p_session_data: options?.sessionData || {},
       p_xp_earned: xpBreakdown.total,
-      p_room_id: null, // Solo training sessions don't have room IDs
     });
 
     if (error) {
