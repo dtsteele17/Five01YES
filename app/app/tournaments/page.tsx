@@ -433,10 +433,19 @@ export default function TournamentsPage() {
                     try {
                       const result = await supabase.rpc('process_tournament_status_transitions');
                       console.log('Manual tournament status transitions result:', result.data);
-                      toast.success(`Processed ${result.data?.tournaments_started || 0} started, ${result.data?.tournaments_cancelled || 0} cancelled`);
-                      loadTournaments();
+                      
+                      const started = result.data?.tournaments_started || 0;
+                      const cancelled = result.data?.tournaments_cancelled || 0;
+                      
+                      if (started > 0 || cancelled > 0) {
+                        toast.success(`Processed: ${started} started, ${cancelled} cancelled`);
+                      } else {
+                        toast.info('All tournaments up to date');
+                      }
+                      
+                      loadTournaments(true); // Force reload to see changes
                     } catch (err: any) {
-                      toast.error('Tournament status function not available yet. Apply SQL first.');
+                      toast.error('Tournament status function not available yet. Apply FIX_TOURNAMENT_FLOW_COMPLETE.sql first.');
                       console.error('Status transitions error:', err);
                     }
                   }}

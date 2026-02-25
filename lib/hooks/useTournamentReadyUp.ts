@@ -104,11 +104,11 @@ export function useTournamentReadyUp() {
     try {
       const now = new Date();
 
+      // FIXED: Use tournament_matches directly instead of broken view
       const { data: matches, error } = await supabase
-        .from('v_tournament_match_ready_status')
+        .from('tournament_matches')
         .select('*')
         .eq('status', 'ready')
-        .not('ready_open_at', 'is', null)
         .not('ready_deadline', 'is', null)
         .or(`player1_id.eq.${currentUserId},player2_id.eq.${currentUserId}`)
         .order('ready_deadline', { ascending: true });
@@ -126,12 +126,12 @@ export function useTournamentReadyUp() {
       const dismissed = getDismissedMatches();
 
       for (const match of matches) {
-        const readyOpenAt = match.ready_open_at ? new Date(match.ready_open_at) : null;
         const readyDeadline = match.ready_deadline ? new Date(match.ready_deadline) : null;
 
-        if (!readyOpenAt || !readyDeadline) continue;
+        if (!readyDeadline) continue;
 
-        if (now < readyOpenAt || now > readyDeadline) {
+        // Check if ready period is active (deadline hasn't passed)
+        if (now > readyDeadline) {
           continue;
         }
 
@@ -277,11 +277,36 @@ export function useTournamentReadyUp() {
     if (!activeMatch || !currentUserId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('v_tournament_match_ready_status')
+      // FIXED: Use tournament_matches with ready count calculation
+      const { data: matchData, error: matchError } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('id', activeMatch.match_id)
+        .single();
+
+      if (matchError) {
+        console.error('[TOURNAMENT READY] Error refetching match:', matchError);
+        return;
+      }
+
+      // Get ready count separately
+      const { data: readyData, count: readyCount } = await supabase
+        .from('tournament_match_ready')
+        .select('*', { count: 'exact' })
+        .eq('match_id', activeMatch.match_id);
+      
+      const { data: myReadyData } = await supabase
+        .from('tournament_match_ready')
         .select('*')
         .eq('match_id', activeMatch.match_id)
-        .single();
+        .eq('user_id', currentUserId);
+
+      const data = {
+        ...matchData,
+        ready_count: readyCount || 0,
+        my_ready: (myReadyData && myReadyData.length > 0),
+        match_id: matchData.id
+      };
 
       if (error) {
         console.error('[TOURNAMENT READY] Error refetching match:', error);
@@ -388,11 +413,36 @@ export function useTournamentReadyUp() {
 
           // Refetch the full match data to get updated ready_count and my_ready status
           try {
-            const { data, error } = await supabase
-              .from('v_tournament_match_ready_status')
+            // FIXED: Use tournament_matches with ready count calculation
+            const { data: matchData, error: matchError } = await supabase
+              .from('tournament_matches')
+              .select('*')
+              .eq('id', activeMatch.match_id)
+              .single();
+
+            if (matchError) {
+              console.error('[TOURNAMENT READY] Error fetching updated match:', matchError);
+              return;
+            }
+
+            // Get ready count separately
+            const { count: readyCount } = await supabase
+              .from('tournament_match_ready')
+              .select('*', { count: 'exact' })
+              .eq('match_id', activeMatch.match_id);
+            
+            const { data: myReadyData } = await supabase
+              .from('tournament_match_ready')
               .select('*')
               .eq('match_id', activeMatch.match_id)
-              .single();
+              .eq('user_id', currentUserId);
+
+            const data = {
+              ...matchData,
+              ready_count: readyCount || 0,
+              my_ready: (myReadyData && myReadyData.length > 0),
+              match_id: matchData.id
+            };
 
             if (error) {
               console.error('[TOURNAMENT READY] Error fetching updated match:', error);

@@ -146,14 +146,38 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
         console.log('Auto-checking tournament status...');
 
-        // Also run global tournament status transitions to catch tournaments that should start/cancel
+        // Run both global and specific tournament progression
         (async () => {
           try {
-            await supabase.rpc('process_tournament_status_transitions');
+            // Global tournament status transitions
+            const globalResult = await supabase.rpc('process_tournament_status_transitions').catch(err => {
+              console.log('Global tournament transitions not available:', err?.message);
+              return { data: null };
+            });
+            
+            // Specific tournament progression
+            const specificResult = await supabase.rpc('complete_tournament_flow_progression', { 
+              p_tournament_id: tournamentId 
+            }).catch(err => {
+              console.log('Tournament flow progression not available:', err?.message);
+              return { data: null };
+            });
+            
+            console.log('Tournament progression results:', { globalResult, specificResult });
+            
+            // Check for tournament status changes
+            if (specificResult?.data?.action === 'tournament_started') {
+              toast.success('Tournament has started! Generating bracket...');
+            } else if (specificResult?.data?.action === 'tournament_cancelled') {
+              toast.error('Tournament cancelled - insufficient participants');
+            }
+            
+            // Always check status and reload
             await checkAndUpdateTournamentStatus();
             loadTournament();
+            
           } catch (err: any) {
-            console.log('Tournament status transitions not available yet:', err?.message);
+            console.log('Tournament status transitions error:', err?.message);
             // Fallback to individual tournament check
             await checkAndUpdateTournamentStatus();
             loadTournament();
