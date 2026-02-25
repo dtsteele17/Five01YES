@@ -912,6 +912,17 @@ export default function TrainingHubPage() {
     };
   }, [refresh]);
 
+  // Refresh when window gets focus (user returns from training)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('[Training Hub] Window focused - refreshing stats');
+      refresh();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refresh]);
+
   // Refresh when page becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
