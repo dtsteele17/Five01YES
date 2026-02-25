@@ -59,45 +59,50 @@ export function getParticipantState(
 /**
  * Canonical function to update participant state optimistically
  */
-export function updateParticipantStateOptimistically(
-  participants: Array<{
-    user_id: string;
-    status_type: string;
-    joined_at?: string;
-    checked_in_at?: string;
-  }>,
-  userId: string,
-  action: 'register' | 'checkin' | 'eliminate'
-): Array<{
+export function updateParticipantStateOptimistically<T extends {
   user_id: string;
   status_type: string;
   joined_at?: string;
   checked_in_at?: string;
-}> {
+}>(
+  participants: T[],
+  userId: string,
+  action: 'register' | 'checkin' | 'eliminate'
+): T[] {
   const now = new Date().toISOString();
-  
+
   // Remove existing participation for this user
   const filteredParticipants = participants.filter(p => p.user_id !== userId);
-  
+
   if (action === 'register') {
-    return [...filteredParticipants, {
-      user_id: userId,
-      status_type: 'confirmed',
-      joined_at: now
-    }];
-  }
-  
-  if (action === 'checkin') {
-    // Find existing registration or create new one
+    // Find existing participant to preserve their full data structure
     const existing = participants.find(p => p.user_id === userId);
-    return [...filteredParticipants, {
-      user_id: userId,
-      status_type: 'checked_in',
-      joined_at: existing?.joined_at || now,
-      checked_in_at: now
-    }];
+    if (existing) {
+      // Update existing participant
+      return [...filteredParticipants, {
+        ...existing,
+        status_type: 'confirmed',
+        joined_at: now
+      }];
+    }
+    // Can't create new participant without full data, just return filtered list
+    return filteredParticipants as T[];
   }
-  
+
+  if (action === 'checkin') {
+    // Find existing registration to update
+    const existing = participants.find(p => p.user_id === userId);
+    if (existing) {
+      return [...filteredParticipants, {
+        ...existing,
+        status_type: 'checked_in',
+        checked_in_at: now
+      }];
+    }
+    // Can't check in if not registered
+    return participants;
+  }
+
   // For eliminate, just remove from participants
   return filteredParticipants;
 }
