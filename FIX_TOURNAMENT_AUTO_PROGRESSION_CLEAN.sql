@@ -1,13 +1,11 @@
 -- =======================================================
--- FIX TOURNAMENT AUTO-PROGRESSION - DARTCOUNTER.NET STYLE
+-- TOURNAMENT AUTO-PROGRESSION - CLEAN VERSION
 -- =======================================================
-
--- This SQL file fixes the critical issue where tournaments scheduled for 7pm
--- were not automatically moving to "Live Now" or being cancelled at 7:16pm
 
 -- DROP existing functions to ensure clean slate
 DROP FUNCTION IF EXISTS process_tournament_status_transitions();
 DROP FUNCTION IF EXISTS check_tournament_status(UUID);
+DROP FUNCTION IF EXISTS run_tournament_cron();
 
 -- Create comprehensive tournament status transition function
 CREATE OR REPLACE FUNCTION process_tournament_status_transitions()
@@ -231,22 +229,6 @@ BEGIN
 END;
 $$;
 
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticated;
-GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
-GRANT EXECUTE ON FUNCTION check_tournament_status(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION check_tournament_status(UUID) TO service_role;
-
--- Create a pg_cron job to run tournament status transitions every 2 minutes
--- NOTE: This requires the pg_cron extension and superuser privileges
--- Run this manually in Supabase SQL editor if you have the permissions:
-
--- SELECT cron.schedule(
---   'tournament-status-transitions',
---   '*/2 * * * *',
---   'SELECT process_tournament_status_transitions();'
--- );
-
 -- Alternative: Create a simple RPC function that can be called by cron job or manually
 CREATE OR REPLACE FUNCTION run_tournament_cron()
 RETURNS JSON
@@ -258,8 +240,10 @@ BEGIN
 END;
 $$;
 
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticated;
+GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
+GRANT EXECUTE ON FUNCTION check_tournament_status(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION check_tournament_status(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION run_tournament_cron() TO authenticated;
 GRANT EXECUTE ON FUNCTION run_tournament_cron() TO service_role;
-
--- Test the function immediately (uncomment to run):
--- SELECT process_tournament_status_transitions();
