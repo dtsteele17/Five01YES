@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { CreateTournamentModal } from '@/components/app/CreateTournamentModal';
-import { Plus, Search, Filter, Trophy, Users, Clock, Calendar, Target, Zap, Crown, Star, PlayCircle } from 'lucide-react';
+import { Plus, Search, Filter, Trophy, Users, Clock, Calendar, Target, Zap, Crown, Star, PlayCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -255,7 +255,6 @@ export default function TournamentsPage() {
 
   useEffect(() => {
     loadTournaments();
-    loadCurrentUser();
   }, []);
 
   const loadCurrentUser = async () => {
@@ -267,28 +266,86 @@ export default function TournamentsPage() {
     try {
       setLoading(true);
       
-      // Get tournaments with participant counts and user registration status
-      const { data: tournamentsData, error } = await supabase
-        .from('tournaments')
-        .select(`
-          *,
-          tournament_participants(user_id)
-        `)
-        .order('created_at', { ascending: false });
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      setCurrentUserId(userId || null);
+      
+      // Try the RPC function first (more reliable)
+      let tournamentsData;
+      let error;
+      
+      try {
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_tournaments_with_user_status');
+        
+        if (!rpcError) {
+          tournamentsData = rpcData;
+          error = null;
+        } else {
+          throw rpcError;
+        }
+      } catch (rpcError) {
+        console.log('RPC function not available, falling back to direct query');
+        
+        // Fallback to direct query
+        const { data: directData, error: directError } = await supabase
+          .from('tournaments')
+          .select(`
+            *,
+            tournament_participants!inner(count)
+          `)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
+        if (directError) {
+          // Final fallback - just get tournaments without participant data
+          const { data: simpleData, error: simpleError } = await supabase
+            .from('tournaments')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (simpleError) throw simpleError;
+          
+          // Get participant counts separately
+          const tournamentsWithCounts = await Promise.all(
+            (simpleData || []).map(async (tournament) => {
+              const { count } = await supabase
+                .from('tournament_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('tournament_id', tournament.id);
+              
+              const { data: userParticipation } = await supabase
+                .from('tournament_participants')
+                .select('id')
+                .eq('tournament_id', tournament.id)
+                .eq('user_id', userId || '')
+                .single();
+              
+              return {
+                ...tournament,
+                participant_count: count || 0,
+                is_registered: !!userParticipation
+              };
+            })
+          );
+          
+          tournamentsData = tournamentsWithCounts;
+        } else {
+          // Process direct query data
+          tournamentsData = directData?.map(t => ({
+            ...t,
+            participant_count: (t.tournament_participants as any)?.count || 0,
+            is_registered: false // We'll check this separately if needed
+          })) || [];
+        }
+      }
 
-      // Process tournaments and add participant counts + user registration status
-      const processedTournaments = tournamentsData?.map(t => ({
-        ...t,
-        participant_count: (t.tournament_participants as any[])?.length || 0,
-        is_registered: (t.tournament_participants as any[])?.some((p: any) => p.user_id === currentUserId) || false
-      })) || [];
+      if (!tournamentsData) throw new Error('No tournament data received');
 
-      setTournaments(processedTournaments);
+      setTournaments(tournamentsData);
       
       // Featured tournaments - prioritize live/starting soon tournaments
-      const featured = processedTournaments
+      const featured = tournamentsData
         .filter(t => ['in_progress', 'ready', 'registration'].includes(t.status))
         .slice(0, 3);
       setFeaturedTournaments(featured);
@@ -296,6 +353,7 @@ export default function TournamentsPage() {
     } catch (error) {
       console.error('Error loading tournaments:', error);
       toast.error('Failed to load tournaments');
+      setTournaments([]); // Set empty array so UI doesn't break
     } finally {
       setLoading(false);
     }
