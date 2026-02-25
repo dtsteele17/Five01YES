@@ -825,6 +825,12 @@ export default function QuickMatchRoomPage() {
   const matchId = params.matchId as string;
   const supabase = createClient();
 
+  // Tournament context - check URL parameters
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const tournamentMatchId = searchParams.get('tournamentMatch');
+  const tournamentId = searchParams.get('tournamentId');
+  const isTournamentMatch = Boolean(tournamentMatchId);
+
   const [room, setRoom] = useState<MatchRoom | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [visits, setVisits] = useState<QuickMatchVisit[]>([]);
@@ -841,6 +847,56 @@ export default function QuickMatchRoomPage() {
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
+
+  // Tournament match completion handler
+  const handleTournamentMatchCompletion = async (winnerId: string | null) => {
+    if (!tournamentMatchId || !winnerId) return;
+    
+    try {
+      console.log('Updating tournament match:', { tournamentMatchId, winnerId });
+      
+      // Update the tournament match with the winner
+      const { error: updateError } = await supabase
+        .from('tournament_matches')
+        .update({ 
+          winner_id: winnerId,
+          status: 'completed'
+        })
+        .eq('id', tournamentMatchId);
+
+      if (updateError) throw updateError;
+
+      // Progress the tournament bracket (advance winner to next round)
+      const { error: progressError } = await supabase.rpc('progress_tournament_bracket', {
+        p_tournament_match_id: tournamentMatchId,
+        p_winner_id: winnerId
+      });
+
+      if (progressError) {
+        console.error('Error progressing tournament bracket:', progressError);
+        // Don't throw - the match result is still recorded
+      }
+
+      toast.success('Tournament match completed!');
+      
+    } catch (error) {
+      console.error('Error handling tournament match completion:', error);
+      toast.error('Failed to update tournament bracket');
+    }
+  };
+
+  // Get return path based on tournament context
+  const getReturnPath = () => {
+    if (isTournamentMatch && (tournamentId || tournamentMatchId)) {
+      // Extract tournament ID from tournament match if not provided
+      if (tournamentId) {
+        return `/app/tournaments/${tournamentId}`;
+      }
+      // If we only have match ID, we'll need to look up the tournament
+      return `/app/tournaments`;
+    }
+    return '/app/play';
+  };
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
   const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
@@ -1099,6 +1155,11 @@ export default function QuickMatchRoomPage() {
             } else if (updatedRoom.status === 'finished') {
               loadMatchCompletionStats();
               setShowMatchCompleteModal(true);
+              
+              // Handle tournament match progression
+              if (isTournamentMatch && tournamentMatchId) {
+                handleTournamentMatchCompletion(updatedRoom.winner_id);
+              }
             }
             setTimeout(() => cleanupMatchRef.current?.(), 100);
           }
@@ -1939,11 +2000,11 @@ export default function QuickMatchRoomPage() {
           onRematch={() => {
             // TODO: Implement rematch logic
             setShowMatchCompleteModal(false);
-            router.push('/app/play');
+            router.push(getReturnPath());
           }}
           onReturn={() => {
             setShowMatchCompleteModal(false);
-            router.push('/app/play');
+            router.push(getReturnPath());
           }}
           legStats={legStats}
           isQuickMatch={true}
