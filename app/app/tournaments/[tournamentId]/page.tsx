@@ -59,7 +59,7 @@ interface Participant {
   role: string;
   status_type: string;
   joined_at: string;
-  user_profile: {
+  profiles: {
     username: string | null;
     avatar_url: string | null;
   } | null;
@@ -262,12 +262,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         setIsRegistered(true);
       }
 
-      // Load participants - FIXED: Proper join with profiles table
+      // Load participants - using standard profiles join that works reliably
       const { data: participantsData, error: participantsError } = await supabase
         .from('tournament_participants')
         .select(`
           *,
-          user_profile:user_id!inner (
+          profiles!tournament_participants_user_id_fkey (
             username,
             avatar_url
           )
@@ -312,7 +312,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           .from('tournament_activities')
           .select(`
             *,
-            user_profile:user_id (
+            profiles!tournament_activities_user_id_fkey (
               username,
               avatar_url
             )
@@ -797,12 +797,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         >
                           <Avatar className="w-8 h-8">
                             <AvatarFallback className="bg-slate-700 text-slate-300">
-                              {activity.user_profile?.username?.[0]?.toUpperCase() || activity.activity_data?.username?.[0]?.toUpperCase() || 'U'}
+                              {activity.profiles?.username?.[0]?.toUpperCase() || activity.activity_data?.username?.[0]?.toUpperCase() || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <span className="text-white font-medium">
-                              {activity.user_profile?.username || activity.activity_data?.username || 'Unknown Player'}
+                              {activity.profiles?.username || activity.activity_data?.username || 'Unknown Player'}
                             </span>
                             <span className="text-slate-400">
                               {activity.activity_type === 'user_joined' && ' joined the tournament'}
@@ -863,12 +863,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         >
                           <Avatar className="w-10 h-10">
                             <AvatarFallback className="bg-slate-700 text-white font-semibold">
-                              {participant.user_profile?.username?.[0]?.toUpperCase() || 'U'}
+                              {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="text-white font-medium truncate">
-                              {participant.user_profile?.username || 'Unknown Player'}
+                              {participant.profiles?.username || 'Unknown Player'}
                             </div>
                             <div className="text-xs text-slate-400">
                               Joined {new Date(participant.joined_at).toLocaleDateString()}
