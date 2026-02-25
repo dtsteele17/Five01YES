@@ -79,89 +79,97 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <Card 
-        className="bg-slate-900/50 border-white/10 hover:border-white/20 transition-all cursor-pointer h-full overflow-hidden group"
+        className="bg-slate-900/60 backdrop-blur-sm border-white/10 hover:border-white/20 hover:shadow-xl hover:shadow-slate-900/25 transition-all duration-300 cursor-pointer h-full overflow-hidden group rounded-2xl"
         onClick={onClick}
       >
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-2">
+        <CardHeader className="pb-4 relative">
+          {/* Background Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
+          <div className="flex items-start justify-between gap-3 relative">
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+              <CardTitle className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors duration-200 truncate leading-tight">
                 {tournament.name}
               </CardTitle>
-              <CardDescription className="text-slate-400 text-sm">
+              <CardDescription className="text-slate-400 text-sm mt-1 flex items-center gap-2">
+                <Target className="w-3 h-3" />
                 {tournament.game_mode} • Best of {tournament.legs_per_match}
               </CardDescription>
             </div>
             <Badge 
-              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${statusInfo.pulse ? 'animate-pulse' : ''} shadow-sm`}
             >
-              <StatusIcon className="w-3 h-3 mr-1" />
+              <StatusIcon className="w-3 h-3 mr-1.5" />
               {statusInfo.label}
             </Badge>
           </div>
         </CardHeader>
         
-        <CardContent className="pt-0">
-          <div className="space-y-3">
-            {/* Participants */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-slate-300">
+        <CardContent className="pt-0 space-y-4">
+          {/* Participants */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <div className="w-8 h-8 bg-slate-800/50 rounded-lg flex items-center justify-center">
                 <Users className="w-4 h-4 text-slate-400" />
-                <span>{tournament.participant_count || 0}/{tournament.max_participants} players</span>
               </div>
-              <div className="flex items-center gap-1">
-                {[...Array(Math.min(3, tournament.participant_count || 0))].map((_, i) => (
-                  <Avatar key={i} className="w-6 h-6 border border-white/20">
-                    <AvatarFallback className="bg-slate-700 text-xs">
-                      {String.fromCharCode(65 + i)}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-                {(tournament.participant_count || 0) > 3 && (
-                  <div className="w-6 h-6 rounded-full bg-slate-700 border border-white/20 flex items-center justify-center text-xs text-slate-300">
-                    +{(tournament.participant_count || 0) - 3}
-                  </div>
-                )}
-              </div>
+              <span className="font-medium">{tournament.participant_count || 0}/{tournament.max_participants}</span>
             </div>
-
-            {/* Progress Bar */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Registration</span>
-                <span>{Math.round(((tournament.participant_count || 0) / tournament.max_participants) * 100)}%</span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                <motion.div 
-                  className="bg-gradient-to-r from-emerald-500 to-blue-500 h-full rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${((tournament.participant_count || 0) / tournament.max_participants) * 100}%` }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                />
-              </div>
+            <div className="flex items-center gap-1">
+              {[...Array(Math.min(3, tournament.participant_count || 0))].map((_, i) => (
+                <Avatar key={i} className="w-7 h-7 border-2 border-white/20 shadow-sm">
+                  <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-xs font-semibold text-slate-300">
+                    {String.fromCharCode(65 + i)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {(tournament.participant_count || 0) > 3 && (
+                <div className="w-7 h-7 rounded-full bg-slate-700 border-2 border-white/20 flex items-center justify-center text-xs font-semibold text-slate-300 shadow-sm">
+                  +{(tournament.participant_count || 0) - 3}
+                </div>
+              )}
             </div>
+          </div>
 
-            {/* Timing */}
-            {tournament.start_at && (
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <span>{formatDate(tournament.start_at)}</span>
-              </div>
-            )}
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-slate-400 font-medium">
+              <span>Registration Progress</span>
+              <span>{Math.round(((tournament.participant_count || 0) / tournament.max_participants) * 100)}%</span>
+            </div>
+            <div className="w-full bg-slate-800/50 rounded-full h-2.5 overflow-hidden backdrop-blur-sm">
+              <motion.div 
+                className="bg-gradient-to-r from-emerald-500 to-blue-500 h-full rounded-full shadow-sm"
+                initial={{ width: 0 }}
+                animate={{ width: `${((tournament.participant_count || 0) / tournament.max_participants) * 100}%` }}
+                transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
+              />
+            </div>
+          </div>
 
-            {/* Entry Type */}
-            <div className="flex items-center justify-between text-xs">
-              <Badge variant="outline" className="text-slate-400 border-slate-600">
-                {tournament.entry_type === 'open' ? 'Open Entry' : 'Invite Only'}
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2">
+              {tournament.start_at && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/30 px-2 py-1 rounded-lg">
+                  <Calendar className="w-3 h-3" />
+                  <span>{formatDate(tournament.start_at)}</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-slate-400 border-slate-600 text-xs">
+                {tournament.entry_type === 'open' ? 'Open' : 'Invite Only'}
               </Badge>
               {tournament.is_registered && (
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                  Registered
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs font-semibold shadow-sm">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Joined
                 </Badge>
               )}
             </div>
@@ -239,7 +247,7 @@ export default function TournamentsPage() {
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'open' | 'live' | 'completed'>('open');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -259,21 +267,23 @@ export default function TournamentsPage() {
     try {
       setLoading(true);
       
-      // Get tournaments with participant counts
+      // Get tournaments with participant counts and user registration status
       const { data: tournamentsData, error } = await supabase
         .from('tournaments')
         .select(`
           *,
-          tournament_participants(count)
+          tournament_participants!inner(count),
+          user_participation:tournament_participants!left(user_id)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Process tournaments and add participant counts
+      // Process tournaments and add participant counts + user registration status
       const processedTournaments = tournamentsData?.map(t => ({
         ...t,
-        participant_count: t.tournament_participants?.[0]?.count || 0
+        participant_count: t.tournament_participants?.[0]?.count || 0,
+        is_registered: t.user_participation?.some((p: any) => p.user_id === currentUserId) || false
       })) || [];
 
       setTournaments(processedTournaments);
@@ -298,191 +308,212 @@ export default function TournamentsPage() {
 
   const filteredTournaments = tournaments.filter(tournament => {
     const matchesSearch = tournament.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || tournament.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    
+    // Filter based on active tab
+    switch (activeTab) {
+      case 'open':
+        return matchesSearch && ['registration', 'ready'].includes(tournament.status);
+      case 'live':
+        return matchesSearch && tournament.status === 'in_progress';
+      case 'completed':
+        return matchesSearch && tournament.status === 'completed';
+      default:
+        return matchesSearch;
+    }
   });
 
-  const openTournaments = filteredTournaments.filter(t => t.status === 'registration');
-  const liveTournaments = filteredTournaments.filter(t => t.status === 'in_progress');
-  const completedToday = filteredTournaments.filter(t => {
-    if (t.status !== 'completed') return false;
-    const today = new Date().toDateString();
-    return new Date(t.created_at).toDateString() === today;
-  });
+  // Get counts for tab badges
+  const openCount = tournaments.filter(t => ['registration', 'ready'].includes(t.status)).length;
+  const liveCount = tournaments.filter(t => t.status === 'in_progress').length;
+  const completedCount = tournaments.filter(t => t.status === 'completed').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black text-white">Tournaments</h1>
-              <p className="text-slate-400">Compete in organized competitions</p>
+        {/* Premium Header Section */}
+        <div className="bg-slate-900/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
+          <div className="px-6 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 via-emerald-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                  <Trophy className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-black text-white tracking-tight">Tournaments</h1>
+                  <p className="text-slate-400">Compete in organized competitions</p>
+                </div>
+              </div>
+              
+              <Button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Tournament
+              </Button>
             </div>
           </div>
-          
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Tournament
-          </Button>
         </div>
 
-        {/* Featured Tournaments */}
-        {featuredTournaments.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-400" />
-              <h2 className="text-xl font-bold text-white">Featured Tournaments</h2>
+        <div className="px-6 py-6 space-y-8")
+
+          {/* Featured Tournaments */}
+          {featuredTournaments.length > 0 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center">
+                  <Star className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-white">Featured Tournaments</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {featuredTournaments.map(tournament => (
+                  <FeaturedTournamentCard
+                    key={tournament.id}
+                    tournament={tournament}
+                    onClick={() => handleTournamentClick(tournament.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {featuredTournaments.map(tournament => (
-                <FeaturedTournamentCard
+          )}
+
+          {/* Tab Navigation */}
+          <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10 p-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('open')}
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                  activeTab === 'open'
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Open to Join</span>
+                {openCount > 0 && (
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                    {openCount}
+                  </Badge>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('live')}
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                  activeTab === 'live'
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <PlayCircle className="w-4 h-4" />
+                <span>Live Now</span>
+                {liveCount > 0 && (
+                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs animate-pulse">
+                    {liveCount}
+                  </Badge>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('completed')}
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                  activeTab === 'completed'
+                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Crown className="w-4 h-4" />
+                <span>Completed</span>
+                {completedCount > 0 && (
+                  <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
+                    {completedCount}
+                  </Badge>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative max-w-md mx-auto">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Input
+              placeholder="Search tournaments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 bg-slate-900/50 backdrop-blur-sm border-white/10 text-white placeholder:text-slate-500 rounded-2xl focus:ring-2 focus:ring-emerald-500/25 focus:border-emerald-500/50"
+            />
+          </div>
+
+          {/* Tournament Grid */}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <Card key={i} className="bg-slate-900/50 backdrop-blur-sm border-white/10 animate-pulse rounded-2xl">
+                  <CardHeader className="pb-3">
+                    <div className="h-6 bg-slate-700 rounded-xl w-3/4 mb-2" />
+                    <div className="h-4 bg-slate-700 rounded-lg w-1/2" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="h-4 bg-slate-700 rounded-lg" />
+                      <div className="h-2 bg-slate-700 rounded-full" />
+                      <div className="h-4 bg-slate-700 rounded-lg w-2/3" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredTournaments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredTournaments.map(tournament => (
+                <TournamentCard
                   key={tournament.id}
                   tournament={tournament}
                   onClick={() => handleTournamentClick(tournament.id)}
                 />
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-slate-800/50 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-slate-900/25">
+                <Trophy className="w-12 h-12 text-slate-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-300 mb-4">
+                {searchQuery 
+                  ? 'No tournaments found'
+                  : activeTab === 'open' 
+                    ? 'No open tournaments'
+                    : activeTab === 'live'
+                      ? 'No live tournaments'
+                      : 'No completed tournaments'
+                }
+              </h3>
+              <p className="text-slate-500 mb-10 max-w-md mx-auto leading-relaxed">
+                {searchQuery 
+                  ? 'Try adjusting your search terms or check a different category'
+                  : activeTab === 'open'
+                    ? 'Create the first tournament and invite others to compete!'
+                    : activeTab === 'live'
+                      ? 'No tournaments are currently in progress. Check back soon!'
+                      : 'No tournaments have finished recently. Check out the open tournaments!'
+                }
+              </p>
+              {activeTab === 'open' && !searchQuery && (
+                <Button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 px-8 py-3 rounded-xl"
+                >
+                  <Plus className="w-5 h-5 mr-3" />
+                  Create Your First Tournament
+                </Button>
+              )}
+            </div>
+          )}
+      </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Search tournaments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-white/10 text-white"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px] bg-slate-800/50 border-white/10 text-white">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="registration">Open</SelectItem>
-              <SelectItem value="ready">Starting Soon</SelectItem>
-              <SelectItem value="in_progress">Live</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-
-        {/* Tournament Categories */}
-        <div className="space-y-6">
-          {/* Open Tournaments */}
-          {openTournaments.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-emerald-400" />
-                Open Tournaments ({openTournaments.length})
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {openTournaments.map(tournament => (
-                  <TournamentCard
-                    key={tournament.id}
-                    tournament={tournament}
-                    onClick={() => handleTournamentClick(tournament.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Live Tournaments */}
-          {liveTournaments.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <PlayCircle className="w-5 h-5 text-red-400" />
-                Live Tournaments ({liveTournaments.length})
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {liveTournaments.map(tournament => (
-                  <TournamentCard
-                    key={tournament.id}
-                    tournament={tournament}
-                    onClick={() => handleTournamentClick(tournament.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Completed Today */}
-          {completedToday.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Crown className="w-5 h-5 text-yellow-400" />
-                Completed Today ({completedToday.length})
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {completedToday.map(tournament => (
-                  <TournamentCard
-                    key={tournament.id}
-                    tournament={tournament}
-                    onClick={() => handleTournamentClick(tournament.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Empty State */}
-        {!loading && filteredTournaments.length === 0 && (
-          <div className="text-center py-12">
-            <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-slate-400 mb-2">No tournaments found</h3>
-            <p className="text-slate-500 mb-6">
-              {searchQuery || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filters'
-                : 'Be the first to create a tournament!'
-              }
-            </p>
-            {(!searchQuery && statusFilter === 'all') && (
-              <Button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Tournament
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} className="bg-slate-900/50 border-white/10 animate-pulse">
-                <CardHeader>
-                  <div className="h-6 bg-slate-700 rounded w-3/4 mb-2" />
-                  <div className="h-4 bg-slate-700 rounded w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="h-4 bg-slate-700 rounded" />
-                    <div className="h-2 bg-slate-700 rounded" />
-                    <div className="h-4 bg-slate-700 rounded w-2/3" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Create Tournament Modal */}

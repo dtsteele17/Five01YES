@@ -28,6 +28,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import TournamentBracketTab from '@/components/app/TournamentBracketTab';
+import { TournamentInviteModal } from '@/components/app/TournamentInviteModal';
 
 interface Tournament {
   id: string;
@@ -100,6 +101,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [isCreator, setIsCreator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     loadTournament();
@@ -447,12 +449,26 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               <TabsContent value="players" className="space-y-6">
                 <Card className="bg-slate-900/50 border-white/10">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center justify-between">
-                      Registered Players
-                      <Badge variant="outline" className="text-slate-400 border-slate-600">
-                        {participants.length}/{tournament.max_participants}
-                      </Badge>
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white flex items-center gap-3">
+                        Registered Players
+                        <Badge variant="outline" className="text-slate-400 border-slate-600">
+                          {participants.length}/{tournament.max_participants}
+                        </Badge>
+                      </CardTitle>
+                      
+                      {/* Invite Button - Only for tournament creators */}
+                      {isCreator && tournament.status === 'registration' && (
+                        <Button
+                          onClick={() => setShowInviteModal(true)}
+                          size="sm"
+                          className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-semibold"
+                        >
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Invite Players
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -628,6 +644,16 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
             </Card>
           </div>
         </div>
+
+        {/* Tournament Invite Modal */}
+        {tournament && (
+          <TournamentInviteModal
+            isOpen={showInviteModal}
+            onClose={() => setShowInviteModal(false)}
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+          />
+        )}
       </div>
     </div>
   );
