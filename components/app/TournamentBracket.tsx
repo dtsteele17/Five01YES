@@ -114,8 +114,8 @@ function MatchCard({ match, onClick, roundName }: {
           {/* Match Header */}
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs text-slate-400 font-medium">{roundName}</div>
-            <Badge 
-              className={`${statusInfo.color} text-xs border ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+            <Badge
+              className={`${statusInfo.color} text-xs border ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
             >
               <StatusIcon className="w-3 h-3 mr-1" />
               {statusInfo.label}

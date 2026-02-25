@@ -280,8 +280,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                 </div>
               </div>
               
-              <Badge 
-                className={`${statusInfo.color} text-base font-semibold border px-3 py-1 w-fit ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+              <Badge
+                className={`${statusInfo.color} text-base font-semibold border px-3 py-1 w-fit ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
               >
                 <StatusIcon className="w-4 h-4 mr-2" />
                 {statusInfo.label}
