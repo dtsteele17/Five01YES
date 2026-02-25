@@ -16,7 +16,9 @@ import { ArrowLeft, Trophy, Skull, Heart, Target, RotateCcw, Zap, Undo2, Star } 
 import { toast } from 'sonner';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { awardXP } from '@/lib/training/xpTracker';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import { createClient } from '@/lib/supabase/client';
 
 interface DartHit {
@@ -88,6 +90,7 @@ export default function KillerTrainingPage() {
   const [xpResult, setXpResult] = useState<XPResult | null>(null);
   const [saving, setSaving] = useState(false);
   const supabase = createClient();
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   const getAvailableNumbers = useCallback(() => {
     const takenNumbers = players
@@ -351,6 +354,17 @@ export default function KillerTrainingPage() {
         performance_rating: xp.performanceRating,
         created_at: new Date().toISOString(),
       });
+
+      // Award XP to player total
+      const xpResult = await awardXP('killer', finalScore.user, {
+        completed: true,
+        won,
+        xpOverride: xp.totalXP,
+        sessionData: { roundsWon: finalScore.user, roundsLost: finalScore.bot, totalKills },
+      });
+      if (xpResult.levelUp) {
+        triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
+      }
     } catch (error) {
       console.error('Error saving training stats:', error);
     } finally {
@@ -492,6 +506,7 @@ export default function KillerTrainingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      {LevelUpToastComponent}
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

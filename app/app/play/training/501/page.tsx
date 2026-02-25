@@ -32,6 +32,7 @@ import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTrac
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
 import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import type { PlayerStats } from '@/lib/match/recordMatchCompletion';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
 import { computeMatchStats } from '@/lib/stats/computeMatchStats';
@@ -550,6 +551,7 @@ export default function DartbotMatchPage() {
   const hasSavedStats = useRef(false);
   const [dartboardHits, setDartboardHits] = useState<DartHit[]>([]);
   const [botLastVisitTotal, setBotLastVisitTotal] = useState<number | null>(null);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
   const [botLastVisitWasBust, setBotLastVisitWasBust] = useState(false);
   const [showVisualization, setShowVisualization] = useState(true);
   const [debugMode, setDebugMode] = useState(false);
@@ -948,7 +950,7 @@ export default function DartbotMatchPage() {
         // Award XP for DartBot match
         const gameMode = normalizedConfig.mode === '301' ? 301 : 501;
         const won = currentMatchWinner === 'player1';
-        await awardXP(`${gameMode}-dartbot`, 0, {
+        const xpResult = await awardXP(`${gameMode}-dartbot`, 0, {
           won,
           threeDartAvg: userStats.threeDartAverage,
           completed: true,
@@ -964,6 +966,9 @@ export default function DartbotMatchPage() {
             visits180: userStats.oneEighties,
           },
         });
+        if (xpResult.levelUp) {
+          triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
+        }
       }
       else console.error('Failed to save match:', result.error);
     } catch (error) { 
@@ -1610,6 +1615,7 @@ export default function DartbotMatchPage() {
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
+      {LevelUpToastComponent}
       {/* Top Bar */}
       <div className="flex items-center justify-between p-3 border-b border-white/10">
         <div className="flex items-center gap-3">

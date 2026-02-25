@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { calculateCheckoutXP } from '@/lib/training/xpSystem';
 import { createClient } from '@/lib/supabase/client';
 import { FAILED_ATTEMPT_XP, calculate121CheckoutXP, awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 interface DartHit {
   segment: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS';
@@ -61,6 +62,7 @@ export default function OneTwentyOnePage() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [sessionXP, setSessionXP] = useState(0);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   // Input mode
   const [inputMode, setInputMode] = useState<'dart_pad' | 'typed'>('dart_pad');
@@ -393,6 +395,10 @@ export default function OneTwentyOnePage() {
         
         console.log('[121] AwardXP result:', JSON.stringify(result, null, 2));
         
+        if (result.levelUp) {
+          triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
+        }
+        
         if (result.success) {
           // Verify the save by querying the database
           console.log('[121] Verifying save by querying training_stats...');
@@ -441,6 +447,7 @@ export default function OneTwentyOnePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      {LevelUpToastComponent}
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

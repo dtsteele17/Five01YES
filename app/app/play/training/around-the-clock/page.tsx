@@ -19,7 +19,9 @@ import { useTraining } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { awardXP } from '@/lib/training/xpTracker';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import {
   initSession,
   applyThrow,
@@ -50,6 +52,7 @@ export default function AroundTheClockPage() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [startTime, setStartTime] = useState<number>(Date.now());
   const [xpResult, setXpResult] = useState<XPResult | null>(null);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   // Visit tracking
   const [currentVisit, setCurrentVisit] = useState<DartThrow[]>([]);
@@ -180,10 +183,10 @@ export default function AroundTheClockPage() {
 
     try {
       // Calculate XP based on darts thrown (fewer = more XP)
-      // Performance metric: 100 - totalThrows (so fewer throws = higher score)
       const xp = calculateXP('around-the-clock-singles', 100 - totalThrows, { completed: true });
       setXpResult(xp);
 
+      // Update training_sessions record
       const { error } = await supabase
         .from('training_sessions')
         .update({
@@ -204,8 +207,17 @@ export default function AroundTheClockPage() {
 
       if (error) {
         console.error('[ATC] Failed to complete session:', error);
-      } else {
-        toast.success(`Session complete! +${xp.totalXP} XP earned!`);
+      }
+
+      // Award XP to player total
+      const result = await awardXP('around-the-clock-singles', 100 - totalThrows, {
+        completed: true,
+        xpOverride: xp.totalXP,
+        sessionData: { totalThrows },
+      });
+
+      if (result.levelUp) {
+        triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
       }
     } catch (err) {
       console.error('[ATC] Exception completing session:', err);
@@ -465,6 +477,7 @@ export default function AroundTheClockPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+      {LevelUpToastComponent}
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Animated Header */}
         <motion.div 

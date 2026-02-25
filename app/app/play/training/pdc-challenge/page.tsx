@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 interface DartThrow {
   score: number;
@@ -57,6 +58,7 @@ export default function PDCChallengePage() {
   const [completedRounds, setCompletedRounds] = useState<RoundResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [xpResult, setXpResult] = useState<XPResult | null>(null);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   const currentTarget = PDC_TARGETS[currentRound - 1];
 
@@ -169,7 +171,7 @@ export default function PDCChallengePage() {
         });
 
       // Award XP via unified tracker (records to match_history too)
-      await awardXP('pdc-challenge', totalScore, {
+      const xpAwarded = await awardXP('pdc-challenge', totalScore, {
         completed: true,
         won: totalScore >= 500,
         sessionData: {
@@ -178,6 +180,9 @@ export default function PDCChallengePage() {
           rounds: rounds.length,
         },
       });
+      if (xpAwarded.levelUp) {
+        triggerLevelUp(xpAwarded.levelUp.oldLevel, xpAwarded.levelUp.newLevel);
+      }
 
       toast.success(`PDC Challenge completed! +${xp.totalXP} XP earned!`);
     } catch (error) {
@@ -297,6 +302,7 @@ export default function PDCChallengePage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
+      {LevelUpToastComponent}
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -491,3 +497,4 @@ export default function PDCChallengePage() {
     </div>
   );
 }
+
