@@ -253,6 +253,15 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (tournamentError) throw tournamentError;
       if (!tournamentData) throw new Error('Tournament not found');
 
+      console.log('Tournament data loaded:', {
+        tournamentData,
+        status: tournamentData.status,
+        start_at: tournamentData.start_at,
+        current_time: new Date().toISOString(),
+        created_by: tournamentData.created_by,
+        currentUserId
+      });
+
       setTournament(tournamentData);
       const userIsCreator = currentUserId === tournamentData.created_by;
       setIsCreator(userIsCreator);
@@ -260,28 +269,53 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       // If user is the creator, they should be automatically registered
       if (userIsCreator && !justJoined) {
         setIsRegistered(true);
+        
+        // Ensure creator is registered in the database
+        try {
+          const { data: autoRegisterResult } = await supabase.rpc('auto_register_tournament_creator', {
+            p_tournament_id: tournamentId,
+            p_creator_user_id: currentUserId
+          });
+          console.log('Auto-register creator result:', autoRegisterResult);
+        } catch (error) {
+          console.log('Auto-register creator not available yet:', error);
+        }
       }
 
-      // Load participants - using standard profiles join that works reliably
+      // Load participants - direct query with manual profile lookup for reliability
       const { data: participantsData, error: participantsError } = await supabase
         .from('tournament_participants')
-        .select(`
-          *,
-          profiles!tournament_participants_user_id_fkey (
-            username,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('tournament_id', tournamentId)
-        .eq('status_type', 'confirmed')
         .order('joined_at', { ascending: true });
+
+      console.log('Raw participants data:', { participantsData, participantsError });
 
       if (participantsError) throw participantsError;
 
-      setParticipants(participantsData || []);
+      // Manually get profile data for each participant to ensure it works
+      const participantsWithProfiles = [];
+      for (const participant of (participantsData || [])) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('user_id', participant.user_id)
+          .single();
+
+        participantsWithProfiles.push({
+          ...participant,
+          profiles: profile
+        });
+      }
+
+      console.log('Participants with profiles:', participantsWithProfiles);
+
+      if (participantsError) throw participantsError;
+
+      setParticipants(participantsWithProfiles);
       
       // P1.2 FIX: Use centralized participant state logic
-      const participantState = getParticipantState(participantsData || [], currentUserId);
+      const participantState = getParticipantState(participantsWithProfiles, currentUserId);
       
       // Only update registration status if user didn't just join
       if (!justJoined) {
@@ -306,28 +340,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         }
       }
 
-      // Load tournament activities for Recent Activity section
-      try {
-        const { data: activitiesData, error: activitiesError } = await supabase
-          .from('tournament_activities')
-          .select(`
-            *,
-            profiles!tournament_activities_user_id_fkey (
-              username,
-              avatar_url
-            )
-          `)
-          .eq('tournament_id', tournamentId)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (!activitiesError) {
-          setActivities(activitiesData || []);
-        }
-      } catch (error) {
-        console.log('Activities not available yet:', error);
-        setActivities([]);
-      }
+      // Skip activities for now - causing 400 errors
+      setActivities([]);
 
       // If tournament is in progress, load matches and check for ready-up
       if (tournamentData.status === 'in_progress') {
@@ -404,39 +418,35 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     try {
       setJoinLoading(true);
 
-      // Try RPC function first, fallback to direct insert
-      let error;
-      try {
-        const { error: rpcError } = await supabase.rpc('join_tournament', {
-          p_tournament_id: tournamentId,
-          p_user_id: currentUserId
-        });
-        error = rpcError;
-      } catch (rpcFail) {
-        console.log('RPC join_tournament not available, using direct insert');
-        
-        // Direct insert method
-        const { error: insertError } = await supabase
-          .from('tournament_participants')
-          .insert({
-            tournament_id: tournamentId,
-            user_id: currentUserId,
-            role: 'participant',
-            status_type: 'confirmed',
-            joined_at: new Date().toISOString()
-          });
-        error = insertError;
+      console.log('Attempting to join tournament:', { tournamentId, currentUserId });
+
+      // Try RPC function first
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('join_tournament', {
+        p_tournament_id: tournamentId,
+        p_user_id: currentUserId
+      });
+
+      console.log('Join tournament RPC result:', { rpcResult, rpcError });
+
+      if (rpcError) {
+        console.error('RPC join_tournament failed:', rpcError);
+        throw rpcError;
       }
 
-      if (error) throw error;
+      if (rpcResult && !rpcResult.success) {
+        console.error('Join tournament failed:', rpcResult.error);
+        throw new Error(rpcResult.error);
+      }
 
-      toast.success('Successfully joined tournament!');
+      console.log('Successfully joined tournament!', rpcResult);
+      toast.success(`Successfully joined tournament! (${rpcResult?.participant_count || '?'} participants)`);
       
       // Force immediate reload to show user in participants
       setIsRegistered(true);
       setJustJoined(true);
       
       // Reload tournament data immediately to get updated participant list
+      console.log('Reloading tournament data after join...');
       await loadTournament(true);
 
     } catch (error: any) {
@@ -787,9 +797,9 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {activities.slice(0, 5).map((activity, index) => (
+                      {participants.slice(-5).reverse().map((participant, index) => (
                         <motion.div
-                          key={activity.id}
+                          key={participant.id}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
@@ -797,27 +807,23 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         >
                           <Avatar className="w-8 h-8">
                             <AvatarFallback className="bg-slate-700 text-slate-300">
-                              {activity.profiles?.username?.[0]?.toUpperCase() || activity.activity_data?.username?.[0]?.toUpperCase() || 'U'}
+                              {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <span className="text-white font-medium">
-                              {activity.profiles?.username || activity.activity_data?.username || 'Unknown Player'}
+                              {participant.profiles?.username || 'Unknown Player'}
                             </span>
-                            <span className="text-slate-400">
-                              {activity.activity_type === 'user_joined' && ' joined the tournament'}
-                              {activity.activity_type === 'match_completed' && ' completed a match'}
-                              {activity.activity_type === 'tournament_started' && ' - tournament started!'}
-                            </span>
+                            <span className="text-slate-400"> joined the tournament</span>
                           </div>
                           <span className="text-xs text-slate-500">
-                            {new Date(activity.created_at).toLocaleDateString()}
+                            {new Date(participant.joined_at).toLocaleDateString()}
                           </span>
                         </motion.div>
                       ))}
 
-                      {activities.length === 0 && (
-                        <p className="text-slate-400 text-center py-4">No recent activity</p>
+                      {participants.length === 0 && (
+                        <p className="text-slate-400 text-center py-4">No players have joined yet</p>
                       )}
                     </div>
                   </CardContent>
