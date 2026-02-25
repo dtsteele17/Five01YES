@@ -300,10 +300,11 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
       }
 
       // Call RPC function to accept friend request
-      if (DEBUG_FRIENDS) console.log('[FRIEND] Calling rpc_accept_friend_request', requestId);
+      if (DEBUG_FRIENDS) console.log('[FRIEND] Calling rpc_respond_friend_request', requestId);
 
-      const { data, error: rpcError } = await supabase.rpc('rpc_accept_friend_request', {
-        p_request_id: requestId
+      const { data, error: rpcError } = await supabase.rpc('rpc_respond_friend_request', {
+        p_request_id: requestId,
+        p_accept: true
       });
 
       if (DEBUG_FRIENDS) console.log('[FRIEND] RPC response:', data);
