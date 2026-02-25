@@ -890,37 +890,26 @@ export default function TrainingHubPage() {
 
   console.log('[Training Hub] Render - stats:', { xp: stats.xp, level: stats.level, loading: statsLoading });
 
-  // Refresh multiple times on mount to ensure we get latest data
+  // Single refresh on mount
   useEffect(() => {
     console.log('[Training Hub] Mount - initial refresh');
     refresh();
-    
-    // Refresh again after a short delay (in case DB is still committing)
-    const t1 = setTimeout(() => {
-      console.log('[Training Hub] Delayed refresh 1');
-      refresh();
-    }, 500);
-    
-    const t2 = setTimeout(() => {
-      console.log('[Training Hub] Delayed refresh 2');
-      refresh();
-    }, 1500);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
   }, [refresh]);
 
-  // Refresh when window gets focus (user returns from training)
+  // Debounced focus refresh (user returns from training)
   useEffect(() => {
+    let focusTimeout: NodeJS.Timeout;
     const handleFocus = () => {
       console.log('[Training Hub] Window focused - refreshing stats');
-      refresh();
+      clearTimeout(focusTimeout);
+      focusTimeout = setTimeout(refresh, 300); // Small delay to avoid rapid fire
     };
     
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearTimeout(focusTimeout);
+    };
   }, [refresh]);
 
   // Refresh when page becomes visible
