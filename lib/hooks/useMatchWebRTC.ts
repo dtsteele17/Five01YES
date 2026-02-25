@@ -329,6 +329,13 @@ export function useMatchWebRTC({
       const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
         const _pc = peerConnectionRef.current;
         if (!_pc) return;
+
+        // Guard: only apply answer when we're expecting one (have-local-offer state)
+        if (_pc.signalingState !== 'have-local-offer') {
+          console.log('[WebRTC] Ignoring stale answer (state:', _pc.signalingState, ')');
+          return;
+        }
+
         try {
           await _pc.setRemoteDescription(new RTCSessionDescription(answer));
           for (const candidate of pendingIceCandidatesRef.current) {

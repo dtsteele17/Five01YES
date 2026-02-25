@@ -165,9 +165,13 @@ export function subscribeSignals(
   let pollInterval: NodeJS.Timeout | null = null;
   let realtimeChannel: any = null;
 
+  // Only process signals created after this timestamp (ignore stale signals from previous sessions)
+  const subscriptionStartTime = new Date().toISOString();
+
   console.log('[WEBRTC QS] ========== SUBSCRIPTION SETUP ==========');
   console.log('[WEBRTC QS] room_id:', roomId);
   console.log('[WEBRTC QS] my user_id:', myUserId);
+  console.log('[WEBRTC QS] filtering signals after:', subscriptionStartTime);
 
   // Process a signal
   const processSignal = async (signal: any) => {
@@ -225,6 +229,7 @@ export function subscribeSignals(
         .select('*')
         .eq('room_id', roomId)
         .eq('to_user_id', myUserId)
+        .gte('created_at', subscriptionStartTime)
         .order('created_at', { ascending: true });
 
       if (error) {
