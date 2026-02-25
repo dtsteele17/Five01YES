@@ -265,7 +265,7 @@ export default function TournamentsPage() {
   
   // P1.1 FIX: Debounce tournament loading to prevent reload storms
   const [lastLoadTime, setLastLoadTime] = useState(0);
-  const LOAD_DEBOUNCE_MS = 5000; // Don't reload more than once per 5 seconds
+  const LOAD_DEBOUNCE_MS = 10000; // Don't reload more than once per 10 seconds (reduced request frequency)
 
   useEffect(() => {
     loadTournaments(true); // Force initial load
@@ -287,7 +287,7 @@ export default function TournamentsPage() {
           loadTournaments();
         }
       })();
-    }, 60000);
+    }, 120000); // Reduced to every 2 minutes to prevent request storms
 
     return () => clearInterval(interval);
   }, [lastLoadTime]);
@@ -323,30 +323,35 @@ export default function TournamentsPage() {
       
       if (directError) throw directError;
       
-      // Get participant counts and user registration status separately
-      const tournamentsWithCounts = await Promise.all(
-        (directData || []).map(async (tournament) => {
-          // Get participant count
-          const { count } = await supabase
-            .from('tournament_participants')
-            .select('*', { count: 'exact', head: true })
-            .eq('tournament_id', tournament.id);
-          
-          // Check if current user is registered
-          const { data: userParticipation } = userId ? await supabase
-            .from('tournament_participants')
-            .select('id')
-            .eq('tournament_id', tournament.id)
-            .eq('user_id', userId)
-            .maybeSingle() : { data: null };
-          
-          return {
-            ...tournament,
-            participant_count: count || 0,
-            is_registered: !!userParticipation
-          };
-        })
-      );
+      // FIXED: Get participant data in ONE batch query instead of 220+ individual requests
+      const tournamentIds = (directData || []).map(t => t.id);
+      
+      // Get ALL participant data in one query
+      const { data: allParticipants } = await supabase
+        .from('tournament_participants')
+        .select('tournament_id, user_id')
+        .in('tournament_id', tournamentIds);
+      
+      // Calculate counts and user registrations from batch data
+      const participantCounts = new Map<string, number>();
+      const userRegistrations = new Set<string>();
+      
+      (allParticipants || []).forEach(p => {
+        // Count participants per tournament
+        participantCounts.set(p.tournament_id, (participantCounts.get(p.tournament_id) || 0) + 1);
+        
+        // Track user registrations
+        if (userId && p.user_id === userId) {
+          userRegistrations.add(p.tournament_id);
+        }
+      });
+      
+      // Apply counts to tournaments
+      const tournamentsWithCounts = (directData || []).map(tournament => ({
+        ...tournament,
+        participant_count: participantCounts.get(tournament.id) || 0,
+        is_registered: userRegistrations.has(tournament.id)
+      }));
       
       const tournamentsData = tournamentsWithCounts;
 

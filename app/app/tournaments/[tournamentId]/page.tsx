@@ -133,7 +133,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   
   // P1.1 FIX: Debounce tournament loading to prevent reload storms
   const [lastLoadTime, setLastLoadTime] = useState(0);
-  const LOAD_DEBOUNCE_MS = 3000; // Don't reload more than once per 3 seconds
+  const LOAD_DEBOUNCE_MS = 10000; // Don't reload more than once per 10 seconds (prevent request storms)
 
   useEffect(() => {
     loadTournament(true); // Force initial load
@@ -190,7 +190,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           checkForReadyUpMatch();
         });
       }
-    }, 30000); // Check every 30 seconds for tournaments that should be transitioning
+    }, 60000); // Check every 60 seconds for tournaments that should be transitioning (reduced frequency)
 
     return () => clearInterval(interval);
   }, [tournament?.status, tournamentId]);

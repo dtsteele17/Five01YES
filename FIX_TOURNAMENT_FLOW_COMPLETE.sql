@@ -62,7 +62,7 @@ FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can leave tournaments" ON tournament_participants
 FOR DELETE USING (auth.uid() = user_id);
 
--- Fix 3: Enhanced tournament status transitions with proper bracket generation
+-- Fix 3: Enhanced tournament status transitions - OPEN → LIVE → COMPLETE
 DROP FUNCTION IF EXISTS complete_tournament_flow_progression(UUID);
 
 CREATE OR REPLACE FUNCTION complete_tournament_flow_progression(p_tournament_id UUID)
@@ -75,6 +75,7 @@ DECLARE
   v_participant_count INTEGER;
   v_now TIMESTAMP WITH TIME ZONE;
   v_result JSON;
+  v_final_match RECORD;
 BEGIN
   v_now := NOW();
   
@@ -90,47 +91,101 @@ BEGIN
   WHERE tournament_id = p_tournament_id
   AND status_type = 'confirmed';
   
-  -- STEP 1: If tournament should start and has enough participants
-  IF v_tournament.status IN ('scheduled', 'checkin') 
-     AND v_tournament.start_at <= v_now 
-     AND v_participant_count >= 2 THEN
-    
-    -- Generate bracket if not already generated
-    IF v_tournament.bracket_generated_at IS NULL THEN
-      PERFORM generate_tournament_bracket(p_tournament_id);
+  -- STEP 1: Before start time → keep status as "open" (scheduled/registration/checkin)
+  IF v_tournament.start_at > v_now AND v_tournament.status IN ('cancelled', 'completed') = false THEN
+    -- Tournament is open for registration
+    IF v_tournament.status NOT IN ('scheduled', 'registration', 'checkin') THEN
+      UPDATE tournaments 
+      SET status = 'scheduled'
+      WHERE id = p_tournament_id;
+      
+      v_result := json_build_object(
+        'success', true,
+        'action', 'tournament_opened',
+        'message', 'Tournament opened for registration',
+        'participant_count', v_participant_count
+      );
+    ELSE
+      v_result := json_build_object(
+        'success', true,
+        'action', 'tournament_open',
+        'message', 'Tournament open for registration',
+        'participant_count', v_participant_count
+      );
     END IF;
     
-    -- Start tournament (this will trigger countdown and then matches)
-    UPDATE tournaments 
-    SET status = 'in_progress',
-        started_at = v_now
-    WHERE id = p_tournament_id;
+  -- STEP 2: Start time reached → LIVE (if enough participants) or DELETE (if not)  
+  ELSIF v_tournament.status IN ('scheduled', 'checkin', 'registration') 
+        AND v_tournament.start_at <= v_now THEN
     
-    v_result := json_build_object(
-      'success', true,
-      'action', 'tournament_started',
-      'message', 'Tournament started with bracket generation',
-      'participant_count', v_participant_count
-    );
+    IF v_participant_count >= 2 THEN
+      -- Generate bracket if not already generated
+      IF v_tournament.bracket_generated_at IS NULL THEN
+        PERFORM generate_tournament_bracket(p_tournament_id);
+      END IF;
+      
+      -- Start tournament → status = "LIVE" (in_progress)
+      UPDATE tournaments 
+      SET status = 'in_progress',
+          started_at = v_now
+      WHERE id = p_tournament_id;
+      
+      v_result := json_build_object(
+        'success', true,
+        'action', 'tournament_live',
+        'message', 'Tournament is now LIVE!',
+        'participant_count', v_participant_count
+      );
+      
+    ELSE
+      -- DELETE tournament - not enough players
+      DELETE FROM tournament_participants WHERE tournament_id = p_tournament_id;
+      DELETE FROM tournaments WHERE id = p_tournament_id;
+      
+      v_result := json_build_object(
+        'success', true,
+        'action', 'tournament_deleted',
+        'message', 'Not enough players - tournament deleted',
+        'participant_count', v_participant_count
+      );
+    END IF;
     
-  -- STEP 2: If tournament should start but insufficient participants
-  ELSIF v_tournament.status IN ('scheduled', 'checkin') 
-        AND v_tournament.start_at <= v_now 
-        AND v_participant_count < 2 THEN
+  -- STEP 3: Check if tournament should be COMPLETE (final match finished)
+  ELSIF v_tournament.status = 'in_progress' THEN
     
-    -- Cancel tournament
-    UPDATE tournaments 
-    SET status = 'cancelled',
-        cancelled_at = v_now,
-        cancellation_reason = 'Insufficient participants (minimum 2 required)'
-    WHERE id = p_tournament_id;
+    -- Find the final match (highest round with winner)
+    SELECT * INTO v_final_match
+    FROM tournament_matches
+    WHERE tournament_id = p_tournament_id
+    AND round = (
+      SELECT MAX(round) FROM tournament_matches WHERE tournament_id = p_tournament_id
+    )
+    AND status = 'completed'
+    AND winner_id IS NOT NULL
+    LIMIT 1;
     
-    v_result := json_build_object(
-      'success', true,
-      'action', 'tournament_cancelled',
-      'message', 'Tournament cancelled - insufficient participants',
-      'participant_count', v_participant_count
-    );
+    IF FOUND THEN
+      -- Final match completed → Tournament COMPLETE
+      UPDATE tournaments 
+      SET status = 'completed',
+          completed_at = v_now,
+          winner_id = v_final_match.winner_id
+      WHERE id = p_tournament_id;
+      
+      v_result := json_build_object(
+        'success', true,
+        'action', 'tournament_completed',
+        'message', 'Tournament COMPLETED!',
+        'winner_id', v_final_match.winner_id
+      );
+    ELSE
+      v_result := json_build_object(
+        'success', true,
+        'action', 'tournament_live',
+        'message', 'Tournament still in progress',
+        'participant_count', v_participant_count
+      );
+    END IF;
     
   ELSE
     v_result := json_build_object(
@@ -287,7 +342,19 @@ BEGIN
 END;
 $$;
 
--- Fix 5: Ensure tournament_match_ready table has proper structure and RLS
+-- Fix 5: Add winner_id and completed_at columns to tournaments table
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'winner_id') THEN
+    ALTER TABLE tournaments ADD COLUMN winner_id UUID REFERENCES auth.users(id);
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'completed_at') THEN
+    ALTER TABLE tournaments ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$;
+
+-- Fix 6: Ensure tournament_match_ready table has proper structure and RLS
 CREATE TABLE IF NOT EXISTS tournament_match_ready (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   match_id UUID NOT NULL REFERENCES tournament_matches(id) ON DELETE CASCADE,
@@ -309,13 +376,13 @@ FOR SELECT USING (true);
 CREATE POLICY "Users can ready up" ON tournament_match_ready
 FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Fix 6: Grant execute permissions on functions
+-- Fix 7: Grant execute permissions on functions
 GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO service_role;
 
--- Fix 7: Update process_tournament_status_transitions to use the enhanced progression
+-- Fix 8: Update process_tournament_status_transitions to use the enhanced progression
 DROP FUNCTION IF EXISTS process_tournament_status_transitions();
 
 CREATE OR REPLACE FUNCTION process_tournament_status_transitions()
@@ -366,7 +433,7 @@ $$;
 GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticated;
 GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
 
--- Fix 8: Create RPC function for ready-up that's properly accessible
+-- Fix 9: Create RPC function for ready-up that's properly accessible
 DROP FUNCTION IF EXISTS ready_up_tournament_match(UUID);
 
 CREATE OR REPLACE FUNCTION ready_up_tournament_match(p_match_id UUID)
