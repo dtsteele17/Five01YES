@@ -119,6 +119,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [justJoined, setJustJoined] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joinLoading, setJoinLoading] = useState(false);
@@ -133,24 +134,30 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     loadCurrentUser();
   }, [tournamentId]);
 
-  // Auto-refresh tournament status every 10 seconds (more responsive for tournament start)
+  // Auto-refresh tournament status every 2 minutes (less aggressive, no blinking)
   useEffect(() => {
     const interval = setInterval(() => {
       if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
         console.log('Auto-checking tournament status...');
         checkAndUpdateTournamentStatus().then(() => {
-          loadTournament();
+          // Only reload if status actually changed
+          const currentStatus = tournament.status;
+          setTimeout(() => {
+            if (currentStatus !== tournament?.status) {
+              loadTournament();
+            }
+          }, 1000);
         });
       } else if (tournament?.status === 'in_progress') {
-        // Check for new matches and ready-up requirements
+        // Check for new matches and ready-up requirements less frequently
         loadTournamentMatches().then(() => {
           checkForReadyUpMatch();
         });
       }
-    }, 10000); // Check every 10 seconds for tournament timing
+    }, 120000); // Check every 2 minutes to avoid blinking
 
     return () => clearInterval(interval);
-  }, [tournament?.status, tournamentId, matches, currentUserId]);
+  }, [tournament?.status, tournamentId]);
 
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -201,7 +208,13 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (!tournamentData) throw new Error('Tournament not found');
 
       setTournament(tournamentData);
-      setIsCreator(currentUserId === tournamentData.created_by);
+      const userIsCreator = currentUserId === tournamentData.created_by;
+      setIsCreator(userIsCreator);
+      
+      // If user is the creator, they should be automatically registered
+      if (userIsCreator && !justJoined) {
+        setIsRegistered(true);
+      }
 
       // Load participants
       const { data: participantsData, error: participantsError } = await supabase
@@ -220,7 +233,16 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (participantsError) throw participantsError;
 
       setParticipants(participantsData || []);
-      setIsRegistered(participantsData?.some(p => p.user_id === currentUserId) || false);
+      
+      // Only update registration status if user didn't just join
+      if (!justJoined) {
+        setIsRegistered(participantsData?.some(p => p.user_id === currentUserId) || false);
+      } else {
+        // User just joined - verify they're in the participant list, if so clear the flag
+        if (participantsData?.some(p => p.user_id === currentUserId)) {
+          setJustJoined(false); // Registration confirmed in database
+        }
+      }
 
       // Check if tournament is about to start (within 60 seconds)
       if (tournamentData.status === 'scheduled' && tournamentData.start_at) {
@@ -332,24 +354,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
       toast.success('Successfully joined tournament!');
       
-      // Update UI immediately for better UX
+      // Update UI state immediately and set flag to prevent override
       setIsRegistered(true);
-      setParticipants(prev => [...prev, {
-        id: `temp-${Date.now()}`,
-        tournament_id: tournamentId,
-        user_id: currentUserId,
-        role: 'participant',
-        status_type: 'confirmed',
-        joined_at: new Date().toISOString(),
-        profiles: {
-          id: currentUserId,
-          username: 'You',
-          avatar_url: null
-        }
-      }]);
+      setJustJoined(true);
       
-      // Reload to get accurate data
-      setTimeout(() => loadTournament(), 500);
+      // Reload tournament data to get accurate participant list
+      loadTournament();
 
     } catch (error: any) {
       console.error('Error joining tournament:', error);
@@ -853,13 +863,18 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
                     <Button
                       onClick={handleJoinTournament}
-                      disabled={joinLoading || participants.length >= tournament.max_participants || !['registration', 'scheduled', 'checkin'].includes(tournament.status)}
+                      disabled={joinLoading || participants.length >= tournament.max_participants || !['registration', 'scheduled', 'checkin'].includes(tournament.status) || justJoined}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                     >
                       {joinLoading ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                           Joining...
+                        </>
+                      ) : justJoined ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Registering...
                         </>
                       ) : (
                         <>

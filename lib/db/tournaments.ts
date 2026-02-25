@@ -133,6 +133,29 @@ export async function createTournament(input: CreateTournamentInput) {
     }
   }
 
+  // Automatically register the creator as a participant
+  try {
+    const { error: participantError } = await supabase
+      .from('tournament_participants')
+      .insert({
+        tournament_id: tournament.id,
+        user_id: user.id,
+        role: 'participant',
+        status_type: 'confirmed',
+        joined_at: new Date().toISOString()
+      });
+
+    if (participantError && participantError.code !== '23505') { // Ignore duplicate key errors
+      console.error('Error auto-registering tournament creator:', participantError);
+      // Don't fail the tournament creation, just log the error
+    } else {
+      console.log('Tournament creator auto-registered successfully');
+    }
+  } catch (error) {
+    console.error('Exception auto-registering creator:', error);
+    // Continue without failing
+  }
+
   return tournament;
 }
 
@@ -156,7 +179,7 @@ export async function joinTournament(tournamentId: string) {
   }
 
   // Check if tournament is still accepting registrations
-  if (tournament.status !== 'registration') {
+  if (!['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
     throw new Error('Tournament registration is closed');
   }
 
