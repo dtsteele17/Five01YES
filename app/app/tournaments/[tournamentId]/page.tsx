@@ -195,9 +195,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     try {
       setLoading(true);
 
-      // First check if tournament status needs updating based on time
-      await checkAndUpdateTournamentStatus();
-
+      // Load tournament data directly (status checking handled by interval)
       const { data: tournamentData, error: tournamentError } = await supabase
         .from('tournaments')
         .select('*')
