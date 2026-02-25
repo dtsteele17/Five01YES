@@ -209,8 +209,8 @@ function FeaturedTournamentCard({ tournament, onClick }: { tournament: Tournamen
                 </p>
               </div>
             </div>
-            <Badge 
-              className={`${statusInfo.color} font-semibold border ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+            <Badge
+              className={`${statusInfo.color} font-semibold border ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
             >
               <StatusIcon className="w-3 h-3 mr-1" />
               {statusInfo.label}
