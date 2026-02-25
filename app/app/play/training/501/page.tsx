@@ -889,7 +889,7 @@ export default function DartbotMatchPage() {
       });
 
       // Calculate leg-by-leg stats for dartbot match
-      const legStats = await calculateDartbotLegByLegStats(config.mode, completedLegs, currentLeg);
+      const legStats = await calculateDartbotLegByLegStats(parseInt(config.mode), completedLegs, currentLeg);
       setMatchLegStats(legStats);
 
       // Store the actual bot average (25, 35, 45, 55, 65, 75, 85, 95) for display
