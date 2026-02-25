@@ -91,11 +91,11 @@ BEGIN
     RETURN json_build_object('success', false, 'error', 'Tournament not found');
   END IF;
   
-  -- Count confirmed participants
+  -- Count registered participants
   SELECT COUNT(*) INTO v_participant_count
   FROM tournament_participants
   WHERE tournament_id = p_tournament_id
-  AND status_type = 'confirmed';
+  AND status_type = 'registered';
   
   -- STEP 1: Before start time → keep status as "open" (scheduled/registration/checkin)
   IF v_tournament.start_at > v_now AND v_tournament.status IN ('cancelled', 'completed') = false THEN
@@ -238,7 +238,7 @@ BEGIN
   
   SELECT ARRAY_AGG(user_id ORDER BY RANDOM()) INTO v_participants
   FROM tournament_participants
-  WHERE tournament_id = p_tournament_id AND status_type = 'confirmed';
+  WHERE tournament_id = p_tournament_id AND status_type = 'registered';
   
   v_participant_count := array_length(v_participants, 1);
   
@@ -484,7 +484,7 @@ BEGIN
     p_tournament_id,
     p_user_id,
     'participant',
-    'confirmed',
+    'registered',
     NOW()
   );
   
@@ -532,7 +532,7 @@ BEGIN
     p_tournament_id,
     p_creator_user_id,
     'creator',
-    'confirmed',
+    'registered',
     NOW()
   )
   ON CONFLICT (tournament_id, user_id) DO NOTHING;

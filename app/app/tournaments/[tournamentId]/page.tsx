@@ -451,15 +451,15 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         throw new Error(rpcResult.error);
       }
 
-      console.log('Successfully joined tournament!', rpcResult);
-      toast.success(`Successfully joined tournament! (${rpcResult?.participant_count || '?'} participants)`);
+      console.log('🎉 Successfully joined tournament!', rpcResult);
+      toast.success(`🏆 Joined tournament! Welcome to the lobby! (${rpcResult?.participant_count || '?'} participants)`);
       
       // Force immediate reload to show user in participants
       setIsRegistered(true);
       setJustJoined(true);
       
       // Reload tournament data immediately to get updated participant list
-      console.log('Reloading tournament data after join...');
+      console.log('Reloading tournament data after successful join...');
       await loadTournament(true);
 
     } catch (error: any) {
@@ -962,41 +962,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
             </Tabs>
           </div>
 
-          {/* DEBUG: Real-time Status Panel (REMOVE AFTER TESTING) */}
-          {tournament && (
-            <Card className="bg-red-900/20 border-red-500/30">
-              <CardContent className="p-4">
-                <h3 className="text-red-400 font-semibold mb-2">🐛 DEBUG STATUS</h3>
-                <div className="text-xs text-red-300 space-y-1">
-                  <div><strong>DB Status:</strong> {tournament.status}</div>
-                  <div><strong>Start Time:</strong> {tournament.start_at}</div>
-                  <div><strong>Current Time:</strong> {new Date().toISOString()}</div>
-                  <div><strong>Is Before Start:</strong> {tournament.start_at ? (new Date() < new Date(tournament.start_at) ? 'YES' : 'NO') : 'N/A'}</div>
-                  <div><strong>Minutes Until Start:</strong> {tournament.start_at ? Math.round((new Date(tournament.start_at).getTime() - new Date().getTime()) / (1000 * 60)) : 'N/A'}</div>
-                  <div><strong>Should Be Open:</strong> {(() => {
-                    const now = new Date();
-                    const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
-                    const isBeforeStartTime = startTime ? now < startTime : true;
-                    return isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'YES' : 'NO';
-                  })()}</div>
-                  <div><strong>Display Status:</strong> {(() => {
-                    const now = new Date();
-                    const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
-                    const isBeforeStartTime = startTime ? now < startTime : true;
-                    const shouldBeOpen = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
-                    
-                    if (shouldBeOpen) return 'Open';
-                    if (tournament.status === 'ready') return 'Starting';
-                    if (tournament.status === 'in_progress') return 'Live';
-                    if (tournament.status === 'cancelled') return 'Cancelled';
-                    if (tournament.status === 'completed') return 'Complete';
-                    if (!isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) return 'Processing';
-                    return 'Complete';
-                  })()}</div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* Right Sidebar */}
           <div className="space-y-6">
