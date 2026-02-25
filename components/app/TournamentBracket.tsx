@@ -2,9 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Crown, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { 
+  Trophy, 
+  Users, 
+  Crown, 
+  PlayCircle, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle,
+  Target,
+  Zap
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -28,28 +41,223 @@ interface TournamentMatch {
     id: string;
     username: string | null;
   };
+  player1_score?: number;
+  player2_score?: number;
 }
 
 interface TournamentBracketProps {
   tournamentId: string;
-  isCreator: boolean;
-  tournamentStatus: string;
-  tournamentStartAt: string;
+  isCreator?: boolean;
+  tournamentStatus?: string;
 }
 
-export function TournamentBracket({ tournamentId, isCreator, tournamentStatus, tournamentStartAt }: TournamentBracketProps) {
+interface BracketRound {
+  round: number;
+  name: string;
+  matches: TournamentMatch[];
+}
+
+const matchStatusConfig = {
+  pending: {
+    label: 'Waiting',
+    color: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    icon: Clock
+  },
+  ready: {
+    label: 'Ready',
+    color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    icon: Users
+  },
+  in_progress: {
+    label: 'Live',
+    color: 'bg-red-500/20 text-red-400 border-red-500/30',
+    icon: PlayCircle,
+    pulse: true
+  },
+  completed: {
+    label: 'Complete',
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    icon: CheckCircle
+  },
+};
+
+function MatchCard({ match, onClick, roundName }: { 
+  match: TournamentMatch; 
+  onClick: () => void; 
+  roundName: string;
+}) {
+  const statusInfo = matchStatusConfig[match.status as keyof typeof matchStatusConfig] || matchStatusConfig.pending;
+  const StatusIcon = statusInfo.icon;
+  
+  const player1Name = match.player1?.username || 'TBD';
+  const player2Name = match.player2?.username || 'TBD';
+  const hasWinner = match.winner_id;
+  
+  const isPlayer1Winner = match.winner_id === match.player1_id;
+  const isPlayer2Winner = match.winner_id === match.player2_id;
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card 
+        className={`
+          bg-slate-900/60 border-white/10 hover:border-white/20 transition-all cursor-pointer 
+          ${match.status === 'in_progress' ? 'ring-1 ring-red-500/30' : ''}
+          ${hasWinner ? 'border-emerald-500/30' : ''}
+        `}
+        onClick={onClick}
+      >
+        <CardContent className="p-4">
+          {/* Match Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs text-slate-400 font-medium">{roundName}</div>
+            <Badge 
+              className={`${statusInfo.color} text-xs border ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+            >
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {statusInfo.label}
+            </Badge>
+          </div>
+
+          {/* Players */}
+          <div className="space-y-2">
+            {/* Player 1 */}
+            <div className={`
+              flex items-center gap-3 p-2 rounded-lg transition-all
+              ${isPlayer1Winner 
+                ? 'bg-emerald-500/10 border border-emerald-500/30' 
+                : match.player1_id 
+                  ? 'bg-slate-800/30' 
+                  : 'bg-slate-800/10 border-2 border-dashed border-slate-700'
+              }
+            `}>
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className={`
+                  text-xs font-semibold
+                  ${isPlayer1Winner ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}
+                `}>
+                  {match.player1_id ? player1Name[0]?.toUpperCase() : '?'}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 min-w-0">
+                <div className={`
+                  font-medium truncate text-sm
+                  ${isPlayer1Winner ? 'text-emerald-400' : match.player1_id ? 'text-white' : 'text-slate-500'}
+                `}>
+                  {player1Name}
+                </div>
+              </div>
+              
+              {/* Score/Winner Indicator */}
+              <div className="flex items-center gap-2">
+                {match.player1_score !== undefined && (
+                  <div className={`
+                    text-sm font-bold px-2 py-1 rounded
+                    ${isPlayer1Winner ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}
+                  `}>
+                    {match.player1_score}
+                  </div>
+                )}
+                {isPlayer1Winner && (
+                  <Crown className="w-4 h-4 text-yellow-400" />
+                )}
+              </div>
+            </div>
+
+            {/* VS Indicator */}
+            <div className="flex justify-center">
+              <div className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded">
+                {match.status === 'in_progress' ? 'LIVE' : 'vs'}
+              </div>
+            </div>
+
+            {/* Player 2 */}
+            <div className={`
+              flex items-center gap-3 p-2 rounded-lg transition-all
+              ${isPlayer2Winner 
+                ? 'bg-emerald-500/10 border border-emerald-500/30' 
+                : match.player2_id 
+                  ? 'bg-slate-800/30' 
+                  : 'bg-slate-800/10 border-2 border-dashed border-slate-700'
+              }
+            `}>
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className={`
+                  text-xs font-semibold
+                  ${isPlayer2Winner ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}
+                `}>
+                  {match.player2_id ? player2Name[0]?.toUpperCase() : '?'}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 min-w-0">
+                <div className={`
+                  font-medium truncate text-sm
+                  ${isPlayer2Winner ? 'text-emerald-400' : match.player2_id ? 'text-white' : 'text-slate-500'}
+                `}>
+                  {player2Name}
+                </div>
+              </div>
+              
+              {/* Score/Winner Indicator */}
+              <div className="flex items-center gap-2">
+                {match.player2_score !== undefined && (
+                  <div className={`
+                    text-sm font-bold px-2 py-1 rounded
+                    ${isPlayer2Winner ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}
+                  `}>
+                    {match.player2_score}
+                  </div>
+                )}
+                {isPlayer2Winner && (
+                  <Crown className="w-4 h-4 text-yellow-400" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          {match.status === 'in_progress' && (
+            <Button size="sm" className="w-full mt-3 bg-red-600 hover:bg-red-700 text-white">
+              <PlayCircle className="w-3 h-3 mr-1" />
+              Watch Live
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+function BracketConnector({ roundIndex, totalRounds }: { roundIndex: number; totalRounds: number }) {
+  if (roundIndex === totalRounds - 1) return null;
+  
+  return (
+    <div className="hidden lg:flex items-center justify-center w-8">
+      <div className="w-full h-px bg-slate-700" />
+      <div className="w-2 h-2 bg-slate-600 rounded-full -mx-1" />
+      <div className="w-full h-px bg-slate-700" />
+    </div>
+  );
+}
+
+export function TournamentBracket({ tournamentId, isCreator, tournamentStatus }: TournamentBracketProps) {
   const router = useRouter();
   const supabase = createClient();
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingAction, setProcessingAction] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
 
   useEffect(() => {
     loadMatches();
-
+    
     // Subscribe to match updates
-    const channel = supabase
-      .channel(`tournament_matches_${tournamentId}`)
+    const matchSubscription = supabase
+      .channel(`tournament-matches-${tournamentId}`)
       .on(
         'postgres_changes',
         {
@@ -65,34 +273,20 @@ export function TournamentBracket({ tournamentId, isCreator, tournamentStatus, t
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      matchSubscription.unsubscribe();
     };
   }, [tournamentId]);
 
-  async function loadMatches() {
+  const loadMatches = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      const { data: matchesData, error } = await supabase
         .from('tournament_matches')
         .select(`
-          id,
-          tournament_id,
-          round,
-          match_index,
-          player1_id,
-          player2_id,
-          winner_id,
-          match_room_id,
-          status,
-          created_at,
-          updated_at,
-          player1:profiles!tournament_matches_player1_id_fkey (
-            id,
-            username
-          ),
-          player2:profiles!tournament_matches_player2_id_fkey (
-            id,
-            username
-          )
+          *,
+          player1:player1_id (id, username),
+          player2:player2_id (id, username)
         `)
         .eq('tournament_id', tournamentId)
         .order('round', { ascending: true })
@@ -100,293 +294,201 @@ export function TournamentBracket({ tournamentId, isCreator, tournamentStatus, t
 
       if (error) throw error;
 
-      // Map data to handle array joins from Supabase
-      const mappedMatches: TournamentMatch[] = (data || []).map((match: any) => ({
-        ...match,
-        player1: Array.isArray(match.player1) ? match.player1[0] : match.player1,
-        player2: Array.isArray(match.player2) ? match.player2[0] : match.player2,
-      }));
-
-      setMatches(mappedMatches);
-    } catch (error: any) {
-      console.error('LOAD_TOURNAMENT_MATCHES_ERROR', error);
-      toast.error('Failed to load bracket');
+      setMatches(matchesData || []);
+    } catch (error) {
+      console.error('Error loading matches:', error);
+      toast.error('Failed to load tournament bracket');
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleGenerateBracket() {
-    if (!isCreator || processingAction) return;
-
-    try {
-      setProcessingAction(true);
-      const { error } = await supabase.rpc('generate_tournament_bracket', {
-        tournament_id: tournamentId
-      });
-
-      if (error) {
-        toast.error(error.message || 'Failed to generate bracket');
-        return;
-      }
-
-      toast.success('Bracket generated successfully!');
-      await loadMatches();
-    } catch (error: any) {
-      console.error('GENERATE_BRACKET_ERROR', error);
-      toast.error(error.message || 'Failed to generate bracket');
-    } finally {
-      setProcessingAction(false);
-    }
-  }
-
-  async function handleStartRound(round: number) {
-    if (!isCreator || processingAction) return;
-
-    try {
-      setProcessingAction(true);
-      const { error } = await supabase.rpc('start_tournament_round_matches', {
-        p_tournament_id: tournamentId,
-        p_round: round
-      });
-
-      if (error) throw error;
-
-      toast.success(`Round ${round} started!`);
-      await loadMatches();
-    } catch (error: any) {
-      console.error('START_ROUND_ERROR', error);
-      toast.error(error.message || 'Failed to start round');
-    } finally {
-      setProcessingAction(false);
-    }
-  }
-
-  async function handleSetWinner(matchId: string, winnerId: string) {
-    if (!isCreator || processingAction) return;
-
-    try {
-      setProcessingAction(true);
-      const { error } = await supabase.rpc('report_tournament_match_winner', {
-        p_match_id: matchId,
-        p_winner_id: winnerId
-      });
-
-      if (error) throw error;
-
-      toast.success('Winner reported!');
-      await loadMatches();
-    } catch (error: any) {
-      console.error('REPORT_WINNER_ERROR', error);
-      toast.error(error.message || 'Failed to report winner');
-    } finally {
-      setProcessingAction(false);
-    }
-  }
-
-  function handleOpenMatch(matchRoomId: string) {
-    console.log('[TOURNAMENT BRACKET] Opening match with room ID:', matchRoomId);
-    console.log('[TOURNAMENT BRACKET] Navigation path:', `/app/match/online/${matchRoomId}`);
-    router.push(`/app/match/online/${matchRoomId}`);
-  }
-
-  const getPlayerName = (player: any) => {
-    if (!player) return 'TBD';
-    return player.username || 'Anonymous';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-      case 'ready':
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      case 'completed':
-        return 'bg-green-500/10 text-green-400 border-green-500/20';
-      default:
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  const handleMatchClick = (match: TournamentMatch) => {
+    setSelectedMatch(match);
+    
+    if (match.match_room_id && match.status === 'in_progress') {
+      // Navigate to live match
+      router.push(`/app/play/quick-match/match/${match.match_room_id}`);
     }
   };
 
-  // Group matches by round
-  const rounds = matches.reduce((acc, match) => {
-    if (!acc[match.round]) {
-      acc[match.round] = [];
-    }
-    acc[match.round].push(match);
-    return acc;
-  }, {} as Record<number, TournamentMatch[]>);
-
-  const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b);
-
-  // Check if we should show generate bracket button
-  const showGenerateBracket = isCreator && matches.length === 0 && (tournamentStatus === 'open' || tournamentStatus === 'scheduled');
+  const getRoundName = (round: number, totalRounds: number): string => {
+    if (round === totalRounds) return 'Final';
+    if (round === totalRounds - 1) return 'Semifinals';
+    if (round === totalRounds - 2) return 'Quarterfinals';
+    return `Round ${round}`;
+  };
 
   if (loading) {
     return (
-      <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
-        <p className="text-gray-400">Loading bracket...</p>
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="bg-slate-900/60 border-white/10 animate-pulse">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="h-4 bg-slate-700 rounded w-1/3" />
+                  <div className="space-y-2">
+                    <div className="h-10 bg-slate-700 rounded" />
+                    <div className="h-4 bg-slate-700 rounded w-8 mx-auto" />
+                    <div className="h-10 bg-slate-700 rounded" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (matches.length === 0) {
     return (
-      <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
-        <Trophy className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-white mb-2">No Bracket Yet</h3>
-        <p className="text-gray-400 mb-6">
-          {showGenerateBracket
-            ? 'Generate the bracket to start the tournament'
-            : 'The bracket will be generated when the tournament starts'}
+      <div className="text-center py-12">
+        <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-300 mb-2">No Bracket Generated</h3>
+        <p className="text-slate-400">
+          Tournament bracket will be created when the tournament starts.
         </p>
-        {showGenerateBracket && (
-          <Button
-            onClick={handleGenerateBracket}
-            disabled={processingAction}
-            className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:opacity-90 text-white"
-          >
-            {processingAction ? 'Generating...' : 'Generate Bracket'}
-          </Button>
-        )}
       </div>
     );
   }
 
+  // Group matches by round
+  const roundsMap = new Map<number, TournamentMatch[]>();
+  matches.forEach(match => {
+    if (!roundsMap.has(match.round)) {
+      roundsMap.set(match.round, []);
+    }
+    roundsMap.get(match.round)!.push(match);
+  });
+
+  const rounds: BracketRound[] = Array.from(roundsMap.entries())
+    .map(([round, roundMatches]) => ({
+      round,
+      name: getRoundName(round, Math.max(...matches.map(m => m.round))),
+      matches: roundMatches.sort((a, b) => a.match_index - b.match_index)
+    }))
+    .sort((a, b) => a.round - b.round);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-white">Tournament Bracket</h3>
-        <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-          {matches.length} Matches
-        </Badge>
+      {/* Tournament Status */}
+      <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+        <div className="flex items-center gap-3">
+          <Trophy className="w-5 h-5 text-emerald-400" />
+          <div>
+            <h3 className="font-semibold text-white">Tournament Bracket</h3>
+            <p className="text-sm text-slate-400">
+              {rounds.length} rounds • Click matches for details
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-slate-400">
+              {matches.filter(m => m.status === 'in_progress').length} live
+            </span>
+          </div>
+          <div className="text-slate-600">•</div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+            <span className="text-slate-400">
+              {matches.filter(m => m.status === 'completed').length} complete
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="flex gap-6 pb-4 min-w-max">
-          {roundNumbers.map((roundNum) => {
-            const roundMatches = rounds[roundNum];
-            const roundName = roundNum === roundNumbers[roundNumbers.length - 1] ? 'Final' :
-                            roundNum === roundNumbers[roundNumbers.length - 2] ? 'Semi-Finals' :
-                            roundNum === roundNumbers[roundNumbers.length - 3] ? 'Quarter-Finals' :
-                            `Round ${roundNum}`;
-
-            // Check if we can start this round
-            const canStartRound = isCreator &&
-                                  roundMatches.some(m => m.status === 'pending') &&
-                                  roundMatches.every(m => m.player1_id && m.player2_id);
-
-            return (
-              <div key={roundNum} className="flex-shrink-0 w-80">
-                <div className="mb-4 flex items-center justify-between">
-                  <h4 className="text-lg font-bold text-white">{roundName}</h4>
-                  {canStartRound && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleStartRound(roundNum)}
-                      disabled={processingAction}
-                      className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:opacity-90 text-white text-xs"
-                    >
-                      Start Round
-                    </Button>
-                  )}
+      {/* Desktop Bracket Layout */}
+      <div className="hidden lg:block overflow-x-auto">
+        <div className="flex items-start gap-4 min-w-max p-4">
+          {rounds.map((round, roundIndex) => (
+            <div key={round.round} className="flex items-center">
+              {/* Round Column */}
+              <div className="space-y-4 min-w-[280px]">
+                <div className="text-center">
+                  <h3 className="font-bold text-white text-lg">{round.name}</h3>
+                  <p className="text-xs text-slate-400">Round {round.round}</p>
                 </div>
-
+                
                 <div className="space-y-4">
-                  {roundMatches.map((match) => (
-                    <div
+                  {round.matches.map((match, matchIndex) => (
+                    <motion.div
                       key={match.id}
-                      className="bg-slate-800/50 border border-white/10 rounded-lg p-4 space-y-3"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: roundIndex * 0.1 + matchIndex * 0.05 }}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge className={`${getStatusColor(match.status)} border text-xs`}>
-                          {match.status}
-                        </Badge>
-                        {match.match_room_id && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleOpenMatch(match.match_room_id!)}
-                            className="text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 text-xs h-7"
-                          >
-                            <ExternalLink className="w-3 h-3 mr-1" />
-                            Open
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Player 1 */}
-                      <div className={`flex items-center gap-2 p-2 rounded ${
-                        match.winner_id === match.player1_id
-                          ? 'bg-teal-500/20 border border-teal-500/30'
-                          : 'bg-slate-700/30'
-                      }`}>
-                        <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                          1
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-white text-sm font-medium">
-                            {getPlayerName(match.player1)}
-                          </p>
-                        </div>
-                        {match.winner_id === match.player1_id && (
-                          <Crown className="w-4 h-4 text-yellow-400" />
-                        )}
-                      </div>
-
-                      {/* VS */}
-                      <div className="text-center text-xs text-gray-500">VS</div>
-
-                      {/* Player 2 */}
-                      <div className={`flex items-center gap-2 p-2 rounded ${
-                        match.winner_id === match.player2_id
-                          ? 'bg-teal-500/20 border border-teal-500/30'
-                          : 'bg-slate-700/30'
-                      }`}>
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                          2
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-white text-sm font-medium">
-                            {getPlayerName(match.player2)}
-                          </p>
-                        </div>
-                        {match.winner_id === match.player2_id && (
-                          <Crown className="w-4 h-4 text-yellow-400" />
-                        )}
-                      </div>
-
-                      {/* Set Winner Buttons (Creator Only, No Winner Yet) */}
-                      {isCreator && !match.winner_id && match.player1_id && match.player2_id && (
-                        <div className="flex gap-2 pt-2 border-t border-white/10">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSetWinner(match.id, match.player1_id!)}
-                            disabled={processingAction}
-                            className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs h-8"
-                          >
-                            Set P1 Winner
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSetWinner(match.id, match.player2_id!)}
-                            disabled={processingAction}
-                            className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs h-8"
-                          >
-                            Set P2 Winner
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                      <MatchCard 
+                        match={match} 
+                        onClick={() => handleMatchClick(match)}
+                        roundName={round.name}
+                      />
+                    </motion.div>
                   ))}
                 </div>
               </div>
-            );
-          })}
+              
+              {/* Connector */}
+              <BracketConnector roundIndex={roundIndex} totalRounds={rounds.length} />
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Mobile Bracket Layout */}
+      <div className="lg:hidden space-y-6">
+        {rounds.map(round => (
+          <div key={round.round} className="space-y-4">
+            <div className="text-center">
+              <h3 className="font-bold text-white text-lg">{round.name}</h3>
+              <p className="text-xs text-slate-400">Round {round.round}</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {round.matches.map(match => (
+                <MatchCard 
+                  key={match.id}
+                  match={match} 
+                  onClick={() => handleMatchClick(match)}
+                  roundName={round.name}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tournament Winner */}
+      {tournamentStatus === 'completed' && rounds.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-yellow-500/30">
+            <CardContent className="p-6 text-center">
+              <Crown className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
+              <h2 className="text-2xl font-bold text-white mb-2">Tournament Champion</h2>
+              {(() => {
+                const finalMatch = rounds[rounds.length - 1]?.matches[0];
+                const winner = finalMatch?.winner_id === finalMatch?.player1_id 
+                  ? finalMatch?.player1?.username 
+                  : finalMatch?.player2?.username;
+                
+                return winner ? (
+                  <p className="text-lg text-yellow-400 font-semibold">{winner}</p>
+                ) : (
+                  <p className="text-slate-400">Winner TBD</p>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
     </div>
   );
 }

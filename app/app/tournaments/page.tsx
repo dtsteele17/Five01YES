@@ -6,338 +6,494 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TournamentCard } from '@/components/app/TournamentCard';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { CreateTournamentModal } from '@/components/app/CreateTournamentModal';
-import { Plus, Search, Filter, Trophy } from 'lucide-react';
-import { listTournaments, subscribeToTournaments, TournamentRow } from '@/lib/db/tournaments';
+import { Plus, Search, Filter, Trophy, Users, Clock, Calendar, Target, Zap, Crown, Star, PlayCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
-interface TournamentCardProps {
+interface Tournament {
   id: string;
   name: string;
-  startDate: string;
-  startTime: string;
-  maxParticipants: number;
-  participantsCount: number;
-  status: 'open' | 'full' | 'started' | 'completed';
-  scheduleMode: 'singleDay' | 'multiDay';
-  isOfficial: boolean;
-  entryType: string;
-  description: string;
-  legsPerMatch: number;
-  isRegistered?: boolean;
+  description: string | null;
+  start_at: string | null;
+  status: string;
+  max_participants: number;
+  round_scheduling: string;
+  entry_type: string;
+  game_mode: number;
+  legs_per_match: number;
+  created_by: string;
+  created_at: string;
+  bracket_generated_at: string | null;
+  started_at: string | null;
+  participant_count?: number;
+  is_registered?: boolean;
+}
+
+const statusConfig = {
+  registration: { 
+    label: 'Open', 
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    icon: Users
+  },
+  ready: { 
+    label: 'Starting Soon', 
+    color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    icon: Clock
+  },
+  in_progress: { 
+    label: 'Live', 
+    color: 'bg-red-500/20 text-red-400 border-red-500/30',
+    icon: PlayCircle,
+    pulse: true
+  },
+  completed: { 
+    label: 'Completed', 
+    color: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+    icon: Trophy
+  },
+};
+
+function TournamentCard({ tournament, onClick }: { tournament: Tournament; onClick: () => void }) {
+  const statusInfo = statusConfig[tournament.status as keyof typeof statusConfig] || statusConfig.registration;
+  const StatusIcon = statusInfo.icon;
+  
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === date.toDateString();
+    
+    if (isToday) return `Today ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    if (isTomorrow) return `Tomorrow ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card 
+        className="bg-slate-900/50 border-white/10 hover:border-white/20 transition-all cursor-pointer h-full overflow-hidden group"
+        onClick={onClick}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+                {tournament.name}
+              </CardTitle>
+              <CardDescription className="text-slate-400 text-sm">
+                {tournament.game_mode} • Best of {tournament.legs_per_match}
+              </CardDescription>
+            </div>
+            <Badge 
+              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+            >
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {statusInfo.label}
+            </Badge>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="pt-0">
+          <div className="space-y-3">
+            {/* Participants */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <Users className="w-4 h-4 text-slate-400" />
+                <span>{tournament.participant_count || 0}/{tournament.max_participants} players</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {[...Array(Math.min(3, tournament.participant_count || 0))].map((_, i) => (
+                  <Avatar key={i} className="w-6 h-6 border border-white/20">
+                    <AvatarFallback className="bg-slate-700 text-xs">
+                      {String.fromCharCode(65 + i)}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {(tournament.participant_count || 0) > 3 && (
+                  <div className="w-6 h-6 rounded-full bg-slate-700 border border-white/20 flex items-center justify-center text-xs text-slate-300">
+                    +{(tournament.participant_count || 0) - 3}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>Registration</span>
+                <span>{Math.round(((tournament.participant_count || 0) / tournament.max_participants) * 100)}%</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <motion.div 
+                  className="bg-gradient-to-r from-emerald-500 to-blue-500 h-full rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${((tournament.participant_count || 0) / tournament.max_participants) * 100}%` }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                />
+              </div>
+            </div>
+
+            {/* Timing */}
+            {tournament.start_at && (
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <span>{formatDate(tournament.start_at)}</span>
+              </div>
+            )}
+
+            {/* Entry Type */}
+            <div className="flex items-center justify-between text-xs">
+              <Badge variant="outline" className="text-slate-400 border-slate-600">
+                {tournament.entry_type === 'open' ? 'Open Entry' : 'Invite Only'}
+              </Badge>
+              {tournament.is_registered && (
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                  Registered
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+function FeaturedTournamentCard({ tournament, onClick }: { tournament: Tournament; onClick: () => void }) {
+  const statusInfo = statusConfig[tournament.status as keyof typeof statusConfig] || statusConfig.registration;
+  const StatusIcon = statusInfo.icon;
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card 
+        className="bg-gradient-to-br from-slate-900 to-slate-800 border-white/20 hover:border-emerald-500/50 transition-all cursor-pointer overflow-hidden group"
+        onClick={onClick}
+      >
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">
+                  {tournament.name}
+                </h3>
+                <p className="text-slate-400">
+                  {tournament.game_mode} • {tournament.max_participants} Players
+                </p>
+              </div>
+            </div>
+            <Badge 
+              className={`${statusInfo.color} font-semibold border ${statusInfo.pulse ? 'animate-pulse' : ''}`}
+            >
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {statusInfo.label}
+            </Badge>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 text-sm text-slate-300">
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span>{tournament.participant_count || 0}/{tournament.max_participants}</span>
+              </div>
+              {tournament.start_at && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  <span>{new Date(tournament.start_at).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+            
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {tournament.is_registered ? 'View' : 'Join'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
 }
 
 export default function TournamentsPage() {
   const router = useRouter();
   const supabase = createClient();
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [maxParticipantsFilter, setMaxParticipantsFilter] = useState<string>('all');
-  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
-  const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
-  const [userRegistrations, setUserRegistrations] = useState<Record<string, boolean>>({});
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastError, setLastError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTournaments();
     loadCurrentUser();
-
-    const tournamentsUnsubscribe = subscribeToTournaments((tournament) => {
-      setTournaments((prev) => {
-        const existing = prev.find((t) => t.id === tournament.id);
-        if (existing) {
-          return prev.map((t) => (t.id === tournament.id ? tournament : t));
-        }
-        return [tournament, ...prev];
-      });
-    });
-
-    // Subscribe to participant changes
-    const participantsChannel = supabase
-      .channel('tournament_participants_channel')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tournament_participants',
-        },
-        async () => {
-          await loadParticipantCounts();
-        }
-      )
-      .subscribe();
-
-    const pollInterval = setInterval(async () => {
-      try {
-        await supabase.rpc('process_due_tournaments');
-        await supabase.rpc('process_ready_deadlines');
-      } catch (error) {
-        console.error('Error polling tournament processing:', error);
-      }
-    }, 15000);
-
-    return () => {
-      tournamentsUnsubscribe();
-      supabase.removeChannel(participantsChannel);
-      clearInterval(pollInterval);
-    };
   }, []);
 
-  async function loadCurrentUser() {
+  const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUserId(user?.id || null);
-  }
+  };
 
-  async function loadParticipantCounts() {
+  const loadTournaments = async () => {
     try {
-      const { data, error } = await supabase
-        .from('tournament_participants')
-        .select('tournament_id, user_id, status_type')
-        .in('status_type', ['registered', 'checked-in']);  // Only count registered/checked-in participants
+      setLoading(true);
+      
+      // Get tournaments with participant counts
+      const { data: tournamentsData, error } = await supabase
+        .from('tournaments')
+        .select(`
+          *,
+          tournament_participants(count)
+        `)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const counts: Record<string, number> = {};
-      const registrations: Record<string, boolean> = {};
+      // Process tournaments and add participant counts
+      const processedTournaments = tournamentsData?.map(t => ({
+        ...t,
+        participant_count: t.tournament_participants?.[0]?.count || 0
+      })) || [];
 
-      data?.forEach((entry: any) => {
-        counts[entry.tournament_id] = (counts[entry.tournament_id] || 0) + 1;
-
-        if (currentUserId && entry.user_id === currentUserId) {
-          registrations[entry.tournament_id] = true;
-        }
-      });
-
-      setParticipantCounts(counts);
-      setUserRegistrations(registrations);
-    } catch (error: any) {
-      console.error('LOAD_PARTICIPANT_COUNTS_ERROR', error);
-    }
-  }
-
-  async function loadTournaments() {
-    try {
-      setLoading(true);
-      setLastError(null);
-      console.log('LOADING_TOURNAMENTS_START');
-      const data = await listTournaments();
-      setTournaments(data);
-      console.log('TOURNAMENTS_LOADED_INTO_STATE', {
-        count: data.length,
-        tournaments: data.map(t => ({ id: t.id, name: t.name }))
-      });
-
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
-
-      await loadParticipantCounts();
-    } catch (error: any) {
-      console.error('LOAD_TOURNAMENTS_ERROR', {
-        message: error.message,
-        stack: error.stack
-      });
-      setLastError(`List fetch error: ${error.message}`);
-      toast.error(`Failed to load tournaments: ${error.message}`);
+      setTournaments(processedTournaments);
+      
+      // Featured tournaments - prioritize live/starting soon tournaments
+      const featured = processedTournaments
+        .filter(t => ['in_progress', 'ready', 'registration'].includes(t.status))
+        .slice(0, 3);
+      setFeaturedTournaments(featured);
+      
+    } catch (error) {
+      console.error('Error loading tournaments:', error);
+      toast.error('Failed to load tournaments');
     } finally {
       setLoading(false);
     }
-  }
-
-  const handleTournamentCreated = async (tournamentId: string) => {
-    try {
-      setIsCreateModalOpen(false);
-      setLastError(null);
-      console.log('TOURNAMENT_CREATED_CALLBACK', tournamentId);
-
-      await loadTournaments();
-
-      console.log('NAVIGATING_TO_TOURNAMENT', tournamentId);
-      router.push(`/app/tournaments/${tournamentId}`);
-    } catch (error: any) {
-      console.error('TOURNAMENT_CREATED_NAVIGATION_ERROR', error);
-      setLastError(`Create insert error: ${error.message}`);
-    }
   };
 
-  const handleJoinTournament = (tournamentId: string) => {
-    console.log('JOIN_TOURNAMENT', tournamentId);
+  const handleTournamentClick = (tournamentId: string) => {
     router.push(`/app/tournaments/${tournamentId}`);
   };
 
-  const filteredTournaments = tournaments.filter((tournament) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      if (!tournament.name.toLowerCase().includes(query)) return false;
-    }
+  const filteredTournaments = tournaments.filter(tournament => {
+    const matchesSearch = tournament.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || tournament.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-    if (statusFilter !== 'all' && tournament.status.toLowerCase() !== statusFilter) {
-      return false;
-    }
-
-    if (maxParticipantsFilter !== 'all' && tournament.max_participants !== parseInt(maxParticipantsFilter)) {
-      return false;
-    }
-
-    return true;
+  const openTournaments = filteredTournaments.filter(t => t.status === 'registration');
+  const liveTournaments = filteredTournaments.filter(t => t.status === 'in_progress');
+  const completedToday = filteredTournaments.filter(t => {
+    if (t.status !== 'completed') return false;
+    const today = new Date().toDateString();
+    return new Date(t.created_at).toDateString() === today;
   });
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Tournaments</h1>
-          <p className="text-gray-400">Compete in tournaments and win prizes.</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl flex items-center justify-center">
+              <Trophy className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-white">Tournaments</h1>
+              <p className="text-slate-400">Compete in organized competitions</p>
+            </div>
+          </div>
+          
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Tournament
+          </Button>
         </div>
-        <Button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:opacity-90 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Tournament
-        </Button>
-      </div>
 
-      <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-        <div className="flex flex-col lg:flex-row gap-4">
+        {/* Featured Tournaments */}
+        {featuredTournaments.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400" />
+              <h2 className="text-xl font-bold text-white">Featured Tournaments</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {featuredTournaments.map(tournament => (
+                <FeaturedTournamentCard
+                  key={tournament.id}
+                  tournament={tournament}
+                  onClick={() => handleTournamentClick(tournament.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
-              type="search"
               placeholder="Search tournaments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800/50 border-white/10 text-white placeholder:text-gray-500 focus:border-teal-500 focus:ring-teal-500/20"
+              className="pl-10 bg-slate-800/50 border-white/10 text-white"
             />
           </div>
-
-          <div className="flex gap-3">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px] bg-slate-800/50 border-white/10 text-white focus:border-teal-500 focus:ring-teal-500/20">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/10">
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="full">Full</SelectItem>
-                <SelectItem value="started">Started</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={maxParticipantsFilter} onValueChange={setMaxParticipantsFilter}>
-              <SelectTrigger className="w-[160px] bg-slate-800/50 border-white/10 text-white focus:border-teal-500 focus:ring-teal-500/20">
-                <SelectValue placeholder="All Sizes" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-white/10">
-                <SelectItem value="all">All Sizes</SelectItem>
-                <SelectItem value="4">4 Players</SelectItem>
-                <SelectItem value="8">8 Players</SelectItem>
-                <SelectItem value="16">16 Players</SelectItem>
-                <SelectItem value="32">32 Players</SelectItem>
-                <SelectItem value="64">64 Players</SelectItem>
-                <SelectItem value="128">128 Players</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Tournaments</h2>
-          <p className="text-gray-400">Browse and join active tournaments.</p>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px] bg-slate-800/50 border-white/10 text-white">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="registration">Open</SelectItem>
+              <SelectItem value="ready">Starting Soon</SelectItem>
+              <SelectItem value="in_progress">Live</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {loading ? (
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
-            <p className="text-gray-400">Loading tournaments...</p>
-          </div>
-        ) : filteredTournaments.length > 0 ? (
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredTournaments.map((tournament) => {
-              const participantsCount = participantCounts[tournament.id] || 0;
-              const isMyTournament = currentUserId && tournament.created_by === currentUserId;
-
-              const startDate = tournament.start_at ? new Date(tournament.start_at) : null;
-              const startDateStr = startDate ? startDate.toISOString().split('T')[0] : '';
-              const startTimeStr = startDate ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-
-              const cardProps: TournamentCardProps = {
-                id: tournament.id,
-                name: tournament.name,
-                startDate: startDateStr,
-                startTime: startTimeStr,
-                maxParticipants: tournament.max_participants,
-                participantsCount,
-                status: tournament.status.toLowerCase() as 'open' | 'full' | 'started' | 'completed',
-                scheduleMode: tournament.round_scheduling === 'one_day' ? 'singleDay' : 'multiDay',
-                isOfficial: !!isMyTournament,
-                entryType: tournament.entry_type === 'invite_only' ? 'invite_only' : 'open',
-                description: tournament.description || '',
-                legsPerMatch: tournament.legs_per_match || 3,
-                isRegistered: userRegistrations[tournament.id] || false,
-              };
-              return (
-                <TournamentCard key={tournament.id} tournament={cardProps} onJoin={handleJoinTournament} />
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-12 text-center">
-            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-8 h-8 text-gray-500" />
+        {/* Tournament Categories */}
+        <div className="space-y-6">
+          {/* Open Tournaments */}
+          {openTournaments.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-emerald-400" />
+                Open Tournaments ({openTournaments.length})
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {openTournaments.map(tournament => (
+                  <TournamentCard
+                    key={tournament.id}
+                    tournament={tournament}
+                    onClick={() => handleTournamentClick(tournament.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <p className="text-gray-400 mb-2">
-              {searchQuery || statusFilter !== 'all' || maxParticipantsFilter !== 'all'
-                ? 'No tournaments match your filters'
-                : 'No tournaments available'}
+          )}
+
+          {/* Live Tournaments */}
+          {liveTournaments.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <PlayCircle className="w-5 h-5 text-red-400" />
+                Live Tournaments ({liveTournaments.length})
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {liveTournaments.map(tournament => (
+                  <TournamentCard
+                    key={tournament.id}
+                    tournament={tournament}
+                    onClick={() => handleTournamentClick(tournament.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Completed Today */}
+          {completedToday.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Crown className="w-5 h-5 text-yellow-400" />
+                Completed Today ({completedToday.length})
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {completedToday.map(tournament => (
+                  <TournamentCard
+                    key={tournament.id}
+                    tournament={tournament}
+                    onClick={() => handleTournamentClick(tournament.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Empty State */}
+        {!loading && filteredTournaments.length === 0 && (
+          <div className="text-center py-12">
+            <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-slate-400 mb-2">No tournaments found</h3>
+            <p className="text-slate-500 mb-6">
+              {searchQuery || statusFilter !== 'all' 
+                ? 'Try adjusting your search or filters'
+                : 'Be the first to create a tournament!'
+              }
             </p>
-            <p className="text-gray-500 text-sm mb-4">
-              {searchQuery || statusFilter !== 'all' || maxParticipantsFilter !== 'all'
-                ? 'Try adjusting your filters or create your own tournament'
-                : 'Be the first to create a tournament'}
-            </p>
-            <Button
-              onClick={() => setIsCreateModalOpen(true)}
-              variant="outline"
-              className="border-white/10 text-white hover:bg-white/5"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Tournament
-            </Button>
+            {(!searchQuery && statusFilter === 'all') && (
+              <Button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Tournament
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <Card key={i} className="bg-slate-900/50 border-white/10 animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-slate-700 rounded w-3/4 mb-2" />
+                  <div className="h-4 bg-slate-700 rounded w-1/2" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-slate-700 rounded" />
+                    <div className="h-2 bg-slate-700 rounded" />
+                    <div className="h-4 bg-slate-700 rounded w-2/3" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>
 
+      {/* Create Tournament Modal */}
       <CreateTournamentModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onTournamentCreated={handleTournamentCreated}
+        onSuccess={() => {
+          setIsCreateModalOpen(false);
+          loadTournaments();
+        }}
       />
-
-      {process.env.NODE_ENV === 'development' && lastError && (
-        <div className="fixed bottom-4 right-4 bg-red-500/10 border border-red-500/20 rounded-lg p-4 max-w-md">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h4 className="text-red-400 font-semibold mb-1">Dev Debug Panel</h4>
-              <p className="text-red-400 text-sm font-mono">{lastError}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLastError(null)}
-              className="text-red-400 hover:bg-red-500/20"
-            >
-              ×
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
