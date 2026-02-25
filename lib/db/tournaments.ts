@@ -42,12 +42,22 @@ export interface TournamentRow {
 export async function createTournament(input: CreateTournamentInput) {
   const supabase = createClient();
 
+  console.log('CREATE_TOURNAMENT_FUNCTION_CALLED', input);
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
+    console.error('CREATE_TOURNAMENT_NO_USER');
     throw new Error('User must be authenticated to create tournaments');
   }
 
+  console.log('CREATE_TOURNAMENT_USER_AUTHENTICATED', { userId: user.id });
+
   const startDateTime = new Date(`${input.startDate}T${input.startTime}`);
+  console.log('CREATE_TOURNAMENT_DATE_PARSED', { 
+    inputDate: input.startDate,
+    inputTime: input.startTime,
+    parsedDateTime: startDateTime.toISOString()
+  });
 
   const tournamentData = {
     name: input.name,
@@ -63,11 +73,18 @@ export async function createTournament(input: CreateTournamentInput) {
     created_by: user.id,
   };
 
+  console.log('CREATE_TOURNAMENT_DATA_PREPARED', tournamentData);
+
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
     .insert(tournamentData)
     .select()
     .single();
+
+  console.log('CREATE_TOURNAMENT_DB_RESPONSE', { 
+    data: tournament, 
+    error: tournamentError 
+  });
 
   if (tournamentError) {
     console.error('CREATE_TOURNAMENT_ERROR:', {

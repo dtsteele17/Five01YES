@@ -181,7 +181,18 @@ export function CreateTournamentModal({ isOpen, onClose, onTournamentCreated }: 
   };
 
   const handleSubmit = async () => {
+    console.log('CREATE_TOURNAMENT_STARTING', {
+      name,
+      startDate,
+      startTime,
+      maxParticipants,
+      scheduleMode,
+      entryType,
+      legsPerMatch
+    });
+
     if (!validate()) {
+      console.log('CREATE_TOURNAMENT_VALIDATION_FAILED', errors);
       toast.error('Please fix all validation errors');
       return;
     }
@@ -189,6 +200,8 @@ export function CreateTournamentModal({ isOpen, onClose, onTournamentCreated }: 
     setIsSubmitting(true);
 
     try {
+      console.log('CREATE_TOURNAMENT_CALLING_API');
+      
       const tournament = await createTournament({
         name,
         startDate,
@@ -203,6 +216,7 @@ export function CreateTournamentModal({ isOpen, onClose, onTournamentCreated }: 
         straightIn: true,
       });
 
+      console.log('CREATE_TOURNAMENT_SUCCESS', tournament);
       toast.success('Tournament created successfully!');
 
       if (onTournamentCreated) {
@@ -210,9 +224,14 @@ export function CreateTournamentModal({ isOpen, onClose, onTournamentCreated }: 
       }
 
       handleClose();
-
       router.push(`/app/tournaments/${tournament.id}`);
+      
     } catch (error: any) {
+      console.error('CREATE_TOURNAMENT_ERROR', {
+        message: error.message,
+        stack: error.stack,
+        error: error
+      });
       toast.error(error.message || 'Failed to create tournament');
     } finally {
       setIsSubmitting(false);
