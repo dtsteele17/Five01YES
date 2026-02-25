@@ -271,76 +271,42 @@ export default function TournamentsPage() {
       const userId = user?.id;
       setCurrentUserId(userId || null);
       
-      // Try the RPC function first (more reliable)
-      let tournamentsData;
-      let error;
+      // Simple direct query to avoid relationship ambiguity
+      const { data: directData, error: directError } = await supabase
+        .from('tournaments')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      try {
-        const { data: rpcData, error: rpcError } = await supabase
-          .rpc('get_tournaments_with_user_status');
-        
-        if (!rpcError) {
-          tournamentsData = rpcData;
-          error = null;
-        } else {
-          throw rpcError;
-        }
-      } catch (rpcError) {
-        console.log('RPC function not available, falling back to direct query');
-        
-        // Fallback to direct query
-        const { data: directData, error: directError } = await supabase
-          .from('tournaments')
-          .select(`
-            *,
-            tournament_participants!inner(count)
-          `)
-          .order('created_at', { ascending: false });
+      if (directError) throw directError;
+      
+      // Get participant counts and user registration status separately
+      const tournamentsWithCounts = await Promise.all(
+        (directData || []).map(async (tournament) => {
+          // Get participant count
+          const { count } = await supabase
+            .from('tournament_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id);
+          
+          // Check if current user is registered
+          const { data: userParticipation } = userId ? await supabase
+            .from('tournament_participants')
+            .select('id')
+            .eq('tournament_id', tournament.id)
+            .eq('user_id', userId)
+            .maybeSingle() : { data: null };
+          
+          return {
+            ...tournament,
+            participant_count: count || 0,
+            is_registered: !!userParticipation
+          };
+        })
+      );
+      
+      const tournamentsData = tournamentsWithCounts;
 
-        if (directError) {
-          // Final fallback - just get tournaments without participant data
-          const { data: simpleData, error: simpleError } = await supabase
-            .from('tournaments')
-            .select('*')
-            .order('created_at', { ascending: false });
-          
-          if (simpleError) throw simpleError;
-          
-          // Get participant counts separately
-          const tournamentsWithCounts = await Promise.all(
-            (simpleData || []).map(async (tournament) => {
-              const { count } = await supabase
-                .from('tournament_participants')
-                .select('*', { count: 'exact', head: true })
-                .eq('tournament_id', tournament.id);
-              
-              const { data: userParticipation } = await supabase
-                .from('tournament_participants')
-                .select('id')
-                .eq('tournament_id', tournament.id)
-                .eq('user_id', userId || '')
-                .single();
-              
-              return {
-                ...tournament,
-                participant_count: count || 0,
-                is_registered: !!userParticipation
-              };
-            })
-          );
-          
-          tournamentsData = tournamentsWithCounts;
-        } else {
-          // Process direct query data
-          tournamentsData = directData?.map(t => ({
-            ...t,
-            participant_count: (t.tournament_participants as any)?.count || 0,
-            is_registered: false // We'll check this separately if needed
-          })) || [];
-        }
-      }
-
-      if (!tournamentsData) throw new Error('No tournament data received');
+      console.log('Tournaments loaded successfully:', tournamentsData.length);
 
       setTournaments(tournamentsData);
       
