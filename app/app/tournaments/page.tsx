@@ -266,10 +266,20 @@ export default function TournamentsPage() {
   useEffect(() => {
     loadTournaments();
     
-    // Check for tournament status updates every 60 seconds
+    // Check for tournament status updates and trigger global transitions every 60 seconds
     const interval = setInterval(() => {
-      console.log('Auto-refreshing tournaments list...');
-      loadTournaments();
+      console.log('Auto-refreshing tournaments list and checking for status transitions...');
+      
+      // First trigger global tournament status transitions
+      supabase.rpc('process_tournament_status_transitions').then((result) => {
+        console.log('Tournament status transitions result:', result.data);
+        // Then reload tournaments to reflect any changes
+        loadTournaments();
+      }).catch(err => {
+        console.log('Tournament status transitions not available yet:', err.message);
+        // Fallback to just loading tournaments
+        loadTournaments();
+      });
     }, 60000);
 
     return () => clearInterval(interval);
@@ -401,18 +411,39 @@ export default function TournamentsPage() {
                 </div>
               </div>
               
-              <Button
-                onClick={() => {
-                  console.log('CREATE_TOURNAMENT_BUTTON_CLICKED');
-                  console.log('Modal state before:', isCreateModalOpen);
-                  setIsCreateModalOpen(true);
-                  console.log('Modal state after setIsCreateModalOpen(true)');
-                }}
-                className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Tournament
-              </Button>
+              <div className="flex items-center space-x-3">
+                <Button
+                  onClick={() => {
+                    console.log('Manual tournament status check triggered');
+                    supabase.rpc('process_tournament_status_transitions').then((result) => {
+                      console.log('Manual tournament status transitions result:', result.data);
+                      toast.success(`Processed ${result.data?.tournaments_started || 0} started, ${result.data?.tournaments_cancelled || 0} cancelled`);
+                      loadTournaments();
+                    }).catch(err => {
+                      toast.error('Tournament status function not available yet. Apply SQL first.');
+                      console.error('Status transitions error:', err);
+                    });
+                  }}
+                  variant="outline" 
+                  className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Check Status
+                </Button>
+                
+                <Button
+                  onClick={() => {
+                    console.log('CREATE_TOURNAMENT_BUTTON_CLICKED');
+                    console.log('Modal state before:', isCreateModalOpen);
+                    setIsCreateModalOpen(true);
+                    console.log('Modal state after setIsCreateModalOpen(true)');
+                  }}
+                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Tournament
+                </Button>
+              </div>
             </div>
           </div>
         </div>

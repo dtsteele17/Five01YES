@@ -134,27 +134,32 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     loadCurrentUser();
   }, [tournamentId]);
 
-  // Auto-refresh tournament status every 2 minutes (less aggressive, no blinking)
+  // Auto-refresh tournament status every 30 seconds for tournaments that should be starting
   useEffect(() => {
     const interval = setInterval(() => {
       if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
         console.log('Auto-checking tournament status...');
-        checkAndUpdateTournamentStatus().then(() => {
-          // Only reload if status actually changed
-          const currentStatus = tournament.status;
-          setTimeout(() => {
-            if (currentStatus !== tournament?.status) {
-              loadTournament();
-            }
-          }, 1000);
+        
+        // Also run global tournament status transitions to catch tournaments that should start/cancel
+        supabase.rpc('process_tournament_status_transitions').then(() => {
+          checkAndUpdateTournamentStatus().then(() => {
+            loadTournament();
+          });
+        }).catch(err => {
+          console.log('Tournament status transitions not available yet:', err.message);
+          // Fallback to individual tournament check
+          checkAndUpdateTournamentStatus().then(() => {
+            loadTournament();
+          });
         });
+        
       } else if (tournament?.status === 'in_progress') {
-        // Check for new matches and ready-up requirements less frequently
+        // Check for new matches and ready-up requirements
         loadTournamentMatches().then(() => {
           checkForReadyUpMatch();
         });
       }
-    }, 120000); // Check every 2 minutes to avoid blinking
+    }, 30000); // Check every 30 seconds for tournaments that should be transitioning
 
     return () => clearInterval(interval);
   }, [tournament?.status, tournamentId]);
