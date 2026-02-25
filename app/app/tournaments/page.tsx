@@ -272,8 +272,7 @@ export default function TournamentsPage() {
         .from('tournaments')
         .select(`
           *,
-          tournament_participants!inner(count),
-          user_participation:tournament_participants!left(user_id)
+          tournament_participants(user_id)
         `)
         .order('created_at', { ascending: false });
 
@@ -282,8 +281,8 @@ export default function TournamentsPage() {
       // Process tournaments and add participant counts + user registration status
       const processedTournaments = tournamentsData?.map(t => ({
         ...t,
-        participant_count: t.tournament_participants?.[0]?.count || 0,
-        is_registered: t.user_participation?.some((p: any) => p.user_id === currentUserId) || false
+        participant_count: (t.tournament_participants as any[])?.length || 0,
+        is_registered: (t.tournament_participants as any[])?.some((p: any) => p.user_id === currentUserId) || false
       })) || [];
 
       setTournaments(processedTournaments);
