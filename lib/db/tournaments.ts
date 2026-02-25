@@ -83,7 +83,9 @@ export async function createTournament(input: CreateTournamentInput) {
 
   console.log('CREATE_TOURNAMENT_DB_RESPONSE', { 
     data: tournament, 
-    error: tournamentError 
+    error: tournamentError,
+    expectedStatus: 'registration',
+    actualStatus: tournament?.status
   });
 
   if (tournamentError) {
