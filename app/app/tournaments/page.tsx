@@ -269,17 +269,20 @@ export default function TournamentsPage() {
     // Check for tournament status updates and trigger global transitions every 60 seconds
     const interval = setInterval(() => {
       console.log('Auto-refreshing tournaments list and checking for status transitions...');
-      
+
       // First trigger global tournament status transitions
-      supabase.rpc('process_tournament_status_transitions').then((result) => {
-        console.log('Tournament status transitions result:', result.data);
-        // Then reload tournaments to reflect any changes
-        loadTournaments();
-      }).catch(err => {
-        console.log('Tournament status transitions not available yet:', err.message);
-        // Fallback to just loading tournaments
-        loadTournaments();
-      });
+      (async () => {
+        try {
+          const result = await supabase.rpc('process_tournament_status_transitions');
+          console.log('Tournament status transitions result:', result.data);
+          // Then reload tournaments to reflect any changes
+          loadTournaments();
+        } catch (err: any) {
+          console.log('Tournament status transitions not available yet:', err?.message);
+          // Fallback to just loading tournaments
+          loadTournaments();
+        }
+      })();
     }, 60000);
 
     return () => clearInterval(interval);
@@ -413,18 +416,19 @@ export default function TournamentsPage() {
               
               <div className="flex items-center space-x-3">
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     console.log('Manual tournament status check triggered');
-                    supabase.rpc('process_tournament_status_transitions').then((result) => {
+                    try {
+                      const result = await supabase.rpc('process_tournament_status_transitions');
                       console.log('Manual tournament status transitions result:', result.data);
                       toast.success(`Processed ${result.data?.tournaments_started || 0} started, ${result.data?.tournaments_cancelled || 0} cancelled`);
                       loadTournaments();
-                    }).catch(err => {
+                    } catch (err: any) {
                       toast.error('Tournament status function not available yet. Apply SQL first.');
                       console.error('Status transitions error:', err);
-                    });
+                    }
                   }}
-                  variant="outline" 
+                  variant="outline"
                   className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
                 >
                   <Zap className="w-4 h-4 mr-2" />

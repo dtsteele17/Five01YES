@@ -139,20 +139,21 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     const interval = setInterval(() => {
       if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
         console.log('Auto-checking tournament status...');
-        
+
         // Also run global tournament status transitions to catch tournaments that should start/cancel
-        supabase.rpc('process_tournament_status_transitions').then(() => {
-          checkAndUpdateTournamentStatus().then(() => {
+        (async () => {
+          try {
+            await supabase.rpc('process_tournament_status_transitions');
+            await checkAndUpdateTournamentStatus();
             loadTournament();
-          });
-        }).catch(err => {
-          console.log('Tournament status transitions not available yet:', err.message);
-          // Fallback to individual tournament check
-          checkAndUpdateTournamentStatus().then(() => {
+          } catch (err: any) {
+            console.log('Tournament status transitions not available yet:', err?.message);
+            // Fallback to individual tournament check
+            await checkAndUpdateTournamentStatus();
             loadTournament();
-          });
-        });
-        
+          }
+        })();
+
       } else if (tournament?.status === 'in_progress') {
         // Check for new matches and ready-up requirements
         loadTournamentMatches().then(() => {
