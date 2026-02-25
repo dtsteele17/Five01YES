@@ -218,27 +218,26 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
         
         setOpponentProfile(oppProf || { username: 'Opponent' });
       } else if (userMatchData.match_format === 'dartbot') {
-        // For dartbot matches, show opponent as Dartbot(X) where X is the bot average
+        // For dartbot matches, show opponent as Dartbot(X) where X is the bot level
         setOpponentProfile({ username: `Dartbot(${userMatchData.bot_level || '?'})` });
         
-        // Extract bot stats from metadata (stored by record_dartbot_match_completion)
-        const botStats = (userMatchData as any).metadata?.bot_stats || {};
+        // Bot stats are stored in opponent_* columns by record_dartbot_match_completion
         const botLegsWon = userMatchData.legs_lost || 0;
         
         setOpponentStats({
-          three_dart_average: botStats.three_dart_avg || botStats.avg || 0,
-          first_9_dart_avg: botStats.first9_avg || 0,
-          highest_checkout: botStats.highest_checkout || 0,
-          checkout_percentage: botStats.checkout_pct || 0,
+          three_dart_average: userMatchData.opponent_three_dart_avg || 0,
+          first_9_dart_avg: userMatchData.opponent_first9_avg || 0,
+          highest_checkout: userMatchData.opponent_highest_checkout || 0,
+          checkout_percentage: userMatchData.opponent_checkout_percentage || 0,
           checkout_hits: botLegsWon, // Bot wins legs via checkout
-          checkout_attempts: botStats.darts_at_double || botLegsWon * 3,
-          count_100_plus: botStats.visits_100_plus || 0,
-          count_140_plus: botStats.visits_140_plus || 0,
-          count_180: botStats.visits_180 || 0,
+          checkout_attempts: Math.max(userMatchData.opponent_darts_thrown || 0, botLegsWon * 3),
+          count_100_plus: userMatchData.opponent_visits_100_plus || 0,
+          count_140_plus: userMatchData.opponent_visits_140_plus || 0,
+          count_180: userMatchData.opponent_visits_180 || 0,
           legs_won: botLegsWon,
           legs_lost: userMatchData.legs_won || 0,
-          darts_thrown: botStats.total_darts || 0,
-          total_score: botStats.total_score || 0,
+          darts_thrown: userMatchData.opponent_darts_thrown || 0,
+          total_score: 0, // Bot score not stored separately
         });
       }
     } catch (error) {
