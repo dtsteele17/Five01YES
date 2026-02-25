@@ -251,9 +251,11 @@ export function TournamentBracket({ tournamentId, isCreator, tournamentStatus }:
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadMatches();
+    loadCurrentUser();
     
     // Subscribe to match updates
     const matchSubscription = supabase
@@ -303,12 +305,32 @@ export function TournamentBracket({ tournamentId, isCreator, tournamentStatus }:
     }
   };
 
+  const loadCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id || null);
+  };
+
   const handleMatchClick = (match: TournamentMatch) => {
     setSelectedMatch(match);
     
+    // Check if current user is a participant in this match
+    const isParticipant = currentUserId && (
+      match.player1_id === currentUserId || 
+      match.player2_id === currentUserId
+    );
+    
     if (match.match_room_id && match.status === 'in_progress') {
       // Navigate to live match
-      router.push(`/app/play/quick-match/match/${match.match_room_id}`);
+      const matchUrl = `/app/play/quick-match/match?room=${match.match_room_id}&tournament=${tournamentId}&tournamentMatch=${match.id}`;
+      router.push(matchUrl);
+    } else if (match.status === 'ready' && isParticipant) {
+      // Navigate to ready-up page for this match
+      router.push(`/app/tournaments/${tournamentId}/match/${match.id}`);
+    } else if (match.status === 'completed' && match.winner_id) {
+      // Show match details
+      toast.info(`Match completed. Winner: ${match.winner_id === match.player1_id ? match.player1?.username : match.player2?.username}`);
+    } else {
+      toast.info(`Match status: ${match.status}`);
     }
   };
 
