@@ -59,7 +59,7 @@ export async function createTournament(input: CreateTournamentInput) {
     game_mode: input.startingScore || 501,
     legs_per_match: input.legsPerMatch,
     double_out: input.doubleOut ?? true,
-    status: 'scheduled',
+    status: 'registration',
     created_by: user.id,
   };
 
