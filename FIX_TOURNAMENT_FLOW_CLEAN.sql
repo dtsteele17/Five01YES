@@ -1,15 +1,9 @@
 -- =======================================================
--- COMPLETE TOURNAMENT FLOW FIX - 503 ERRORS & END-TO-END FLOW
+-- CLEAN TOURNAMENT FLOW FIX - NO DUPLICATE POLICY ERRORS
 -- =======================================================
 
--- This SQL fixes the 503 errors and ensures the complete tournament flow works:
--- 1. Users can join tournament and appear in players tab
--- 2. At tournament start time: create bracket + stop joins
--- 3. 1-minute countdown timer shows up
--- 4. After countdown: users put into bracket matches
-
--- Fix 1: Create missing view causing 503 errors
-DROP VIEW IF EXISTS v_tournament_match_ready_status;
+-- Fix 1: Create missing view causing 503 errors (drop first to avoid conflicts)
+DROP VIEW IF EXISTS v_tournament_match_ready_status CASCADE;
 
 CREATE VIEW v_tournament_match_ready_status AS
 SELECT 
@@ -42,10 +36,9 @@ LEFT JOIN tournament_match_ready current_user_ready ON (
 )
 WHERE tm.status IN ('ready', 'ready_check', 'in_progress');
 
--- Grant access to the view
 GRANT SELECT ON v_tournament_match_ready_status TO authenticated;
 
--- Fix 2: Ensure tournament_participants table has proper RLS
+-- Fix 2: Clean tournament_participants RLS policies
 DROP POLICY IF EXISTS "Users can view all tournament participants" ON tournament_participants;
 DROP POLICY IF EXISTS "Users can join tournaments" ON tournament_participants;
 DROP POLICY IF EXISTS "Users can manage their own participation" ON tournament_participants;
@@ -63,8 +56,20 @@ FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can leave tournaments" ON tournament_participants
 FOR DELETE USING (auth.uid() = user_id);
 
--- Fix 3: Enhanced tournament status transitions - OPEN → LIVE → COMPLETE
-DROP FUNCTION IF EXISTS complete_tournament_flow_progression(UUID);
+-- Fix 3: Add missing columns to tournaments table
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'winner_id') THEN
+    ALTER TABLE tournaments ADD COLUMN winner_id UUID REFERENCES auth.users(id);
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'completed_at') THEN
+    ALTER TABLE tournaments ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$;
+
+-- Fix 4: Tournament progression function - OPEN → LIVE → COMPLETE
+DROP FUNCTION IF EXISTS complete_tournament_flow_progression(UUID) CASCADE;
 
 CREATE OR REPLACE FUNCTION complete_tournament_flow_progression(p_tournament_id UUID)
 RETURNS JSON
@@ -202,8 +207,8 @@ BEGIN
 END;
 $$;
 
--- Fix 4: Enhanced bracket generation with proper match setup
-DROP FUNCTION IF EXISTS generate_tournament_bracket(UUID);
+-- Fix 5: Enhanced bracket generation
+DROP FUNCTION IF EXISTS generate_tournament_bracket(UUID) CASCADE;
 
 CREATE OR REPLACE FUNCTION generate_tournament_bracket(p_tournament_id UUID)
 RETURNS JSON
@@ -220,31 +225,22 @@ DECLARE
   v_match_id UUID;
   v_total_matches INTEGER := 0;
 BEGIN
-  -- Get tournament details
   SELECT * INTO v_tournament FROM tournaments WHERE id = p_tournament_id;
   
   IF NOT FOUND THEN
     RETURN json_build_object('success', false, 'error', 'Tournament not found');
   END IF;
   
-  -- Check if bracket already generated
   IF v_tournament.bracket_generated_at IS NOT NULL THEN
-    RETURN json_build_object(
-      'success', true,
-      'message', 'Bracket already generated',
-      'tournament_id', p_tournament_id
-    );
+    RETURN json_build_object('success', true, 'message', 'Bracket already generated');
   END IF;
   
-  -- Get participants in random order for fair bracket seeding
   SELECT ARRAY_AGG(user_id ORDER BY RANDOM()) INTO v_participants
   FROM tournament_participants
-  WHERE tournament_id = p_tournament_id
-  AND status_type = 'confirmed';
+  WHERE tournament_id = p_tournament_id AND status_type = 'confirmed';
   
   v_participant_count := array_length(v_participants, 1);
   
-  -- Validate minimum participants
   IF v_participant_count < 2 THEN
     RETURN json_build_object('success', false, 'error', 'Need at least 2 participants');
   END IF;
@@ -263,21 +259,10 @@ BEGIN
     v_match_id := gen_random_uuid();
     
     INSERT INTO tournament_matches (
-      id,
-      tournament_id,
-      round,
-      match_number,
-      match_index,
-      player1_id,
-      player2_id,
-      status,
-      ready_deadline
+      id, tournament_id, round, match_number, match_index,
+      player1_id, player2_id, status, ready_deadline
     ) VALUES (
-      v_match_id,
-      p_tournament_id,
-      v_round,
-      i,
-      v_match_index,
+      v_match_id, p_tournament_id, v_round, i, v_match_index,
       CASE WHEN i * 2 - 1 <= v_participant_count THEN v_participants[i * 2 - 1] ELSE NULL END,
       CASE WHEN i * 2 <= v_participant_count THEN v_participants[i * 2] ELSE NULL END,
       CASE 
@@ -285,7 +270,6 @@ BEGIN
         WHEN i * 2 - 1 <= v_participant_count THEN 'bye'
         ELSE 'pending'
       END,
-      -- Set ready deadline to 3 minutes after tournament start
       CASE 
         WHEN i * 2 <= v_participant_count THEN v_tournament.start_at + INTERVAL '3 minutes'
         ELSE NULL
@@ -305,19 +289,9 @@ BEGIN
       v_match_id := gen_random_uuid();
       
       INSERT INTO tournament_matches (
-        id,
-        tournament_id,
-        round,
-        match_number,
-        match_index,
-        status
+        id, tournament_id, round, match_number, match_index, status
       ) VALUES (
-        v_match_id,
-        p_tournament_id,
-        v_round,
-        i,
-        v_match_index,
-        'pending'
+        v_match_id, p_tournament_id, v_round, i, v_match_index, 'pending'
       );
       
       v_match_index := v_match_index + 1;
@@ -327,64 +301,20 @@ BEGIN
     v_round := v_round + 1;
   END LOOP;
   
-  -- Update bracket_generated_at timestamp
-  UPDATE tournaments
-  SET bracket_generated_at = NOW()
-  WHERE id = p_tournament_id;
+  UPDATE tournaments SET bracket_generated_at = NOW() WHERE id = p_tournament_id;
   
   RETURN json_build_object(
     'success', true,
     'message', 'Tournament bracket generated successfully',
     'tournament_id', p_tournament_id,
     'participants', v_participant_count,
-    'total_matches', v_total_matches,
-    'bracket_size', v_participant_count
+    'total_matches', v_total_matches
   );
 END;
 $$;
 
--- Fix 5: Add winner_id and completed_at columns to tournaments table
-DO $$ 
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'winner_id') THEN
-    ALTER TABLE tournaments ADD COLUMN winner_id UUID REFERENCES auth.users(id);
-  END IF;
-  
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name = 'completed_at') THEN
-    ALTER TABLE tournaments ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE;
-  END IF;
-END $$;
-
--- Fix 6: Ensure tournament_match_ready table has proper structure and RLS
-CREATE TABLE IF NOT EXISTS tournament_match_ready (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  match_id UUID NOT NULL REFERENCES tournament_matches(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  ready_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(match_id, user_id)
-);
-
--- RLS policies for tournament_match_ready
-ALTER TABLE tournament_match_ready ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can view ready status" ON tournament_match_ready;
-DROP POLICY IF EXISTS "Users can ready up" ON tournament_match_ready;
-
-CREATE POLICY "Users can view ready status" ON tournament_match_ready
-FOR SELECT USING (true);
-
-CREATE POLICY "Users can ready up" ON tournament_match_ready
-FOR INSERT WITH CHECK (auth.uid() = user_id);
-
--- Fix 7: Grant execute permissions on functions
-GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO service_role;
-GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO service_role;
-
--- Fix 8: Update process_tournament_status_transitions to use the enhanced progression
-DROP FUNCTION IF EXISTS process_tournament_status_transitions();
+-- Fix 6: Global tournament status transitions
+DROP FUNCTION IF EXISTS process_tournament_status_transitions() CASCADE;
 
 CREATE OR REPLACE FUNCTION process_tournament_status_transitions()
 RETURNS JSON
@@ -397,24 +327,19 @@ DECLARE
   v_tournament_result JSON;
   v_started_count INTEGER := 0;
   v_cancelled_count INTEGER := 0;
+  v_deleted_count INTEGER := 0;
 BEGIN
-  -- Process all tournaments that might need status updates
   FOR v_tournament IN 
-    SELECT t.*
-    FROM tournaments t 
-    WHERE t.status IN ('registration', 'scheduled', 'checkin') 
-    AND t.start_at <= NOW()
+    SELECT t.* FROM tournaments t 
+    WHERE t.status IN ('registration', 'scheduled', 'checkin', 'in_progress') 
     ORDER BY t.start_at ASC
   LOOP
-    
-    -- Use the enhanced progression function
     SELECT complete_tournament_flow_progression(v_tournament.id) INTO v_tournament_result;
     
-    -- Count results
-    IF (v_tournament_result->>'action') = 'tournament_started' THEN
+    IF (v_tournament_result->>'action') = 'tournament_live' THEN
       v_started_count := v_started_count + 1;
-    ELSIF (v_tournament_result->>'action') = 'tournament_cancelled' THEN  
-      v_cancelled_count := v_cancelled_count + 1;
+    ELSIF (v_tournament_result->>'action') = 'tournament_deleted' THEN  
+      v_deleted_count := v_deleted_count + 1;
     END IF;
     
     v_results := v_results || v_tournament_result;
@@ -424,18 +349,33 @@ BEGIN
     'success', true,
     'processed_at', NOW(),
     'tournaments_started', v_started_count,
-    'tournaments_cancelled', v_cancelled_count,
-    'total_processed', v_started_count + v_cancelled_count,
+    'tournaments_deleted', v_deleted_count,
+    'total_processed', v_started_count + v_deleted_count,
     'details', v_results
   );
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticated;
-GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
+-- Fix 7: Tournament match ready table
+CREATE TABLE IF NOT EXISTS tournament_match_ready (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  match_id UUID NOT NULL REFERENCES tournament_matches(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  ready_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(match_id, user_id)
+);
 
--- Fix 9: Create RPC function for ready-up that's properly accessible
-DROP FUNCTION IF EXISTS ready_up_tournament_match(UUID);
+ALTER TABLE tournament_match_ready ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view ready status" ON tournament_match_ready;
+DROP POLICY IF EXISTS "Users can ready up" ON tournament_match_ready;
+
+CREATE POLICY "Users can view ready status" ON tournament_match_ready FOR SELECT USING (true);
+CREATE POLICY "Users can ready up" ON tournament_match_ready FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Fix 8: Ready-up function
+DROP FUNCTION IF EXISTS ready_up_tournament_match(UUID) CASCADE;
 
 CREATE OR REPLACE FUNCTION ready_up_tournament_match(p_match_id UUID)
 RETURNS JSON
@@ -447,7 +387,6 @@ DECLARE
   v_current_user_id UUID;
   v_ready_count INTEGER;
   v_match_room_id TEXT;
-  v_result JSON;
 BEGIN
   v_current_user_id := auth.uid();
   
@@ -455,56 +394,41 @@ BEGIN
     RETURN json_build_object('success', false, 'error', 'User not authenticated');
   END IF;
   
-  -- Get match details
   SELECT * INTO v_match FROM tournament_matches WHERE id = p_match_id;
   
   IF NOT FOUND THEN
     RETURN json_build_object('success', false, 'error', 'Match not found');
   END IF;
   
-  -- Check if user is a participant in this match
   IF v_current_user_id != v_match.player1_id AND v_current_user_id != v_match.player2_id THEN
-    RETURN json_build_object('success', false, 'error', 'User not a participant in this match');
+    RETURN json_build_object('success', false, 'error', 'User not a participant');
   END IF;
   
-  -- Insert or update ready status
   INSERT INTO tournament_match_ready (match_id, user_id)
   VALUES (p_match_id, v_current_user_id)
   ON CONFLICT (match_id, user_id) DO NOTHING;
   
-  -- Check how many players are ready
-  SELECT COUNT(*) INTO v_ready_count
-  FROM tournament_match_ready
-  WHERE match_id = p_match_id;
+  SELECT COUNT(*) INTO v_ready_count FROM tournament_match_ready WHERE match_id = p_match_id;
   
-  -- If both players are ready, create match room
   IF v_ready_count = 2 THEN
-    -- Generate match room ID
     v_match_room_id := 'tournament_' || p_match_id::text || '_' || extract(epoch from now())::text;
     
-    -- Update match with room ID and status
     UPDATE tournament_matches
-    SET match_room_id = v_match_room_id,
-        status = 'in_progress',
-        started_at = NOW()
+    SET match_room_id = v_match_room_id, status = 'in_progress', started_at = NOW()
     WHERE id = p_match_id;
     
-    v_result := json_build_object(
-      'success', true,
-      'ready_count', v_ready_count,
-      'match_room_id', v_match_room_id,
-      'status', 'match_starting'
-    );
+    RETURN json_build_object('success', true, 'ready_count', v_ready_count, 'match_room_id', v_match_room_id, 'status', 'match_starting');
   ELSE
-    v_result := json_build_object(
-      'success', true,
-      'ready_count', v_ready_count,
-      'status', 'waiting_for_opponent'
-    );
+    RETURN json_build_object('success', true, 'ready_count', v_ready_count, 'status', 'waiting_for_opponent');
   END IF;
-  
-  RETURN v_result;
 END;
 $$;
 
+-- Grant permissions
+GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticated;
+GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
 GRANT EXECUTE ON FUNCTION ready_up_tournament_match(UUID) TO authenticated;
