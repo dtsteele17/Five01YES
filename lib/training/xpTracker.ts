@@ -188,7 +188,7 @@ export async function awardXP(
     console.log('[XP Tracker] XP Breakdown:', xpBreakdown);
 
     // Call the database function to record match with XP
-    const { data, error } = await supabase.rpc('record_training_match', {
+    const rpcParams = {
       p_player_id: user.id,
       p_training_mode: mode,
       p_game_mode: options?.sessionData?.gameMode || 501,
@@ -197,7 +197,10 @@ export async function awardXP(
       p_won: options?.won ?? true,
       p_session_data: options?.sessionData || {},
       p_xp_earned: xpBreakdown.total,
-    });
+    };
+    console.log('[XP Tracker] RPC params:', rpcParams);
+    
+    const { data, error } = await supabase.rpc('record_training_match', rpcParams);
 
     if (error) {
       console.error('[XP Tracker] Error recording XP:', error);
