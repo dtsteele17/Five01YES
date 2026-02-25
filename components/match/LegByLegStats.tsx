@@ -128,11 +128,17 @@ export function LegByLegStats({ legStats, playerName, opponentName }: LegByLegSt
       <div className="text-center mb-4">
         {currentStats.playerStats.won ? (
           <div className="text-emerald-400 font-bold">
-            🏆 {playerName} won this leg
+            <div>🏆 {playerName} won this leg</div>
+            <div className="text-sm text-emerald-300 mt-1">
+              {currentStats.playerStats.darts} darts thrown
+            </div>
           </div>
         ) : currentStats.opponentStats.won ? (
           <div className="text-blue-400 font-bold">
-            🏆 {opponentName} won this leg
+            <div>🏆 {opponentName} won this leg</div>
+            <div className="text-sm text-blue-300 mt-1">
+              {currentStats.opponentStats.darts} darts thrown
+            </div>
           </div>
         ) : (
           <div className="text-slate-500">Leg in progress...</div>
