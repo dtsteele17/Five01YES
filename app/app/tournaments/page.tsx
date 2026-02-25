@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { CreateTournamentModal } from '@/components/app/CreateTournamentModal';
-import { Plus, Search, Filter, Trophy, Users, Clock, Calendar, Target, Zap, Crown, Star, PlayCircle } from 'lucide-react';
+import { Plus, Search, Filter, Trophy, Users, Clock, Calendar, Target, Zap, Crown, Star, PlayCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -101,8 +101,8 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
                 {tournament.game_mode} • Best of {tournament.legs_per_match}
               </CardDescription>
             </div>
-            <Badge 
-              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${statusInfo.pulse ? 'animate-pulse' : ''} shadow-sm`}
+            <Badge
+              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''} shadow-sm`}
             >
               <StatusIcon className="w-3 h-3 mr-1.5" />
               {statusInfo.label}
@@ -356,7 +356,7 @@ export default function TournamentsPage() {
           </div>
         </div>
 
-        <div className="px-6 py-6 space-y-8")
+        <div className="px-6 py-6 space-y-8">
 
           {/* Featured Tournaments */}
           {featuredTournaments.length > 0 && (
@@ -511,9 +511,8 @@ export default function TournamentsPage() {
               )}
             </div>
           )}
-      </div>
-
         </div>
+
       </div>
 
       {/* Create Tournament Modal */}
