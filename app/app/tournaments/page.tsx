@@ -271,10 +271,16 @@ export default function TournamentsPage() {
       const userId = user?.id;
       setCurrentUserId(userId || null);
       
-      // Simple direct query to avoid relationship ambiguity
+      // Query tournaments with proper date filtering
       const { data: directData, error: directError } = await supabase
         .from('tournaments')
         .select('*')
+        .or(
+          // Always show registration, ready, and in_progress tournaments
+          `status.in.(registration,ready,in_progress),` +
+          // Show completed tournaments from last 30 days only
+          `and(status.eq.completed,completed_at.gte.${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()})`
+        )
         .order('created_at', { ascending: false });
       
       if (directError) throw directError;
@@ -306,7 +312,16 @@ export default function TournamentsPage() {
       
       const tournamentsData = tournamentsWithCounts;
 
-      console.log('Tournaments loaded successfully:', tournamentsData.length);
+      console.log('Tournaments loaded successfully:', {
+        count: tournamentsData.length,
+        tournaments: tournamentsData.map(t => ({
+          id: t.id,
+          name: t.name,
+          status: t.status,
+          start_at: t.start_at,
+          created_at: t.created_at
+        }))
+      });
 
       setTournaments(tournamentsData);
       
@@ -369,7 +384,12 @@ export default function TournamentsPage() {
               </div>
               
               <Button
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => {
+                  console.log('CREATE_TOURNAMENT_BUTTON_CLICKED');
+                  console.log('Modal state before:', isCreateModalOpen);
+                  setIsCreateModalOpen(true);
+                  console.log('Modal state after setIsCreateModalOpen(true)');
+                }}
                 className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -541,8 +561,12 @@ export default function TournamentsPage() {
       {/* Create Tournament Modal */}
       <CreateTournamentModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          console.log('TOURNAMENT_MODAL_CLOSE_CALLED');
+          setIsCreateModalOpen(false);
+        }}
         onTournamentCreated={(tournamentId: string) => {
+          console.log('TOURNAMENT_CREATED_CALLBACK', { tournamentId });
           setIsCreateModalOpen(false);
           toast.success('Tournament created successfully!');
           // Navigate directly to the new tournament
