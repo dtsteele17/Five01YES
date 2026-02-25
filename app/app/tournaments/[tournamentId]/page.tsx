@@ -253,11 +253,20 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (tournamentError) throw tournamentError;
       if (!tournamentData) throw new Error('Tournament not found');
 
-      console.log('Tournament data loaded:', {
-        tournamentData,
-        status: tournamentData.status,
-        start_at: tournamentData.start_at,
-        current_time: new Date().toISOString(),
+      // REAL-TIME STATUS CHECK: Compare database status vs actual time
+      const now = new Date();
+      const startTime = tournamentData.start_at ? new Date(tournamentData.start_at) : null;
+      const isBeforeStartTime = startTime ? now < startTime : true;
+      const timeUntilStart = startTime ? startTime.getTime() - now.getTime() : null;
+      const minutesUntilStart = timeUntilStart ? Math.round(timeUntilStart / (1000 * 60)) : null;
+
+      console.log('🕐 TOURNAMENT TIMING ANALYSIS:', {
+        database_status: tournamentData.status,
+        start_time: tournamentData.start_at,
+        current_time: now.toISOString(),
+        is_before_start_time: isBeforeStartTime,
+        minutes_until_start: minutesUntilStart,
+        should_be_open: isBeforeStartTime && !['cancelled', 'completed'].includes(tournamentData.status),
         created_by: tournamentData.created_by,
         currentUserId
       });
@@ -664,7 +673,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-white">
-                        {tournament.status === 'registration' ? 'Open' :
+                        {['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'Open' :
                          tournament.status === 'ready' ? 'Starting' :
                          tournament.status === 'in_progress' ? 'Live' : 'Complete'}
                       </div>
@@ -931,6 +940,23 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               </TabsContent>
             </Tabs>
           </div>
+
+          {/* DEBUG: Real-time Status Panel (REMOVE AFTER TESTING) */}
+          {tournament && (
+            <Card className="bg-red-900/20 border-red-500/30">
+              <CardContent className="p-4">
+                <h3 className="text-red-400 font-semibold mb-2">🐛 DEBUG STATUS</h3>
+                <div className="text-xs text-red-300 space-y-1">
+                  <div><strong>DB Status:</strong> {tournament.status}</div>
+                  <div><strong>Start Time:</strong> {tournament.start_at}</div>
+                  <div><strong>Current Time:</strong> {new Date().toISOString()}</div>
+                  <div><strong>Is Before Start:</strong> {tournament.start_at ? (new Date() < new Date(tournament.start_at) ? 'YES' : 'NO') : 'N/A'}</div>
+                  <div><strong>Display Status:</strong> {['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'Open' : tournament.status === 'ready' ? 'Starting' : tournament.status === 'in_progress' ? 'Live' : 'Complete'}</div>
+                  <div><strong>Join Allowed:</strong> {['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'YES' : 'NO'}</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Right Sidebar */}
           <div className="space-y-6">
