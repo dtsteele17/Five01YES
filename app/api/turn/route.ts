@@ -47,10 +47,11 @@ export async function GET() {
       );
     }
 
-    // Xirsys returns iceServers in various formats
-    const iceServers = data?.v?.iceServers || data?.iceServers || data?.v?.ice_servers || [];
+    // Xirsys returns iceServers as a single object { urls, username, credential }
+    // We need to normalize it to an array for RTCPeerConnection
+    const raw = data?.v?.iceServers || data?.iceServers || data?.v?.ice_servers;
 
-    if (!iceServers || iceServers.length === 0) {
+    if (!raw) {
       console.error('[TURN API] No iceServers in response:', data);
       return NextResponse.json({
         iceServers: [
@@ -59,6 +60,9 @@ export async function GET() {
         ]
       });
     }
+
+    // Normalize: if it's a single object with urls/username/credential, wrap in array
+    const iceServers = Array.isArray(raw) ? raw : [raw];
 
     console.log('[TURN API] Returning', iceServers.length, 'ICE servers');
     return NextResponse.json({ iceServers });
