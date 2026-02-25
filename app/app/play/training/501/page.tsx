@@ -39,6 +39,7 @@ import { computeMatchStats } from '@/lib/stats/computeMatchStats';
 import Link from 'next/link';
 import { DartbotWinnerPopup } from '@/components/game/DartbotWinnerPopup';
 import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
+import { calculateDartbotLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
 
 interface Visit {
   player: 'player1' | 'player2';
@@ -574,6 +575,7 @@ export default function DartbotMatchPage() {
     player2FullStats: any;
     winnerId: string;
   } | null>(null);
+  const [matchLegStats, setMatchLegStats] = useState<LegStats[]>([]);
 
   const botName = config?.botAverage ? `DartBot (${config.botAverage})` : 'DartBot';
   const legsToWin = config ? getLegsToWin(config.bestOf) : 1;
@@ -885,6 +887,10 @@ export default function DartbotMatchPage() {
         player2FullStats: p2FullStats,
         winnerId: currentMatchWinner === 'player1' ? 'player1' : 'player2',
       });
+
+      // Calculate leg-by-leg stats for dartbot match
+      const legStats = await calculateDartbotLegByLegStats(config.mode, completedLegs, currentLeg);
+      setMatchLegStats(legStats);
 
       // Store the actual bot average (25, 35, 45, 55, 65, 75, 85, 95) for display
       const botAvg = config?.botAverage || 50;
@@ -1447,6 +1453,7 @@ export default function DartbotMatchPage() {
     completedLegsRef.current = [];
     clearBotTimer();
     setMatchEndStats(null);
+    setMatchLegStats([]);
     const s = config ? getStartScore(config.mode) : 501;
     setPlayer1Score(s);
     setPlayer2Score(s);
@@ -1788,6 +1795,7 @@ export default function DartbotMatchPage() {
           bestOf={legsToWin * 2 - 1}
           onRematch={handleRematch}
           onReturn={handleReturnToPlay}
+          legStats={matchLegStats}
         />
       )}
 

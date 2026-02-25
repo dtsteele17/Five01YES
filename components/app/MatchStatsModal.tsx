@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Target, Trophy, TrendingUp, Award, Camera, Zap, Crosshair, Crown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { motion } from 'framer-motion';
+import { LegByLegStats } from '@/components/match/LegByLegStats';
+import { calculateLegByLegStats, calculateDartbotLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
 
 interface MatchStatsModalProps {
   isOpen: boolean;
@@ -103,6 +105,7 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
   const [userProfile, setUserProfile] = useState<{ username: string } | null>(null);
   const [opponentProfile, setOpponentProfile] = useState<{ username: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [legStats, setLegStats] = useState<LegStats[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -239,6 +242,25 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
           darts_thrown: userMatchData.opponent_darts_thrown || 0,
           total_score: 0, // Bot score not stored separately
         });
+      }
+
+      // Load leg-by-leg stats
+      try {
+        if (userMatchData.match_format === 'dartbot') {
+          // For dartbot matches, we don't have visit data, so create empty leg stats
+          setLegStats([]);
+        } else if (userMatchData.room_id && userMatchData.opponent_id) {
+          // For quick matches, calculate from visit data
+          const legData = await calculateLegByLegStats(
+            userMatchData.room_id,
+            userMatchData.user_id,
+            userMatchData.opponent_id
+          );
+          setLegStats(legData);
+        }
+      } catch (error) {
+        console.error('[MatchStats] Error loading leg stats:', error);
+        setLegStats([]);
       }
     } catch (error) {
       console.error('[MatchStats] Error fetching stats:', error);
@@ -452,6 +474,17 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
                   </div>
                 </div>
               </Card>
+            )}
+
+            {/* Leg-by-Leg Stats */}
+            {legStats.length > 0 && userProfile && opponentProfile && (
+              <div className="mb-6">
+                <LegByLegStats
+                  legStats={legStats}
+                  playerName={userProfile.username}
+                  opponentName={opponentProfile.username}
+                />
+              </div>
             )}
 
             <div className="flex justify-end">

@@ -7,6 +7,8 @@ import { Trophy, Target, TrendingUp, Award, RotateCcw, Loader2, Check, Zap, Undo
 import { Button } from '@/components/ui/button';
 import type { SafetyGrade } from '@/lib/safety/safetyService';
 import { GRADE_COLORS } from '@/lib/safety/safetyService';
+import { LegByLegStats } from '@/components/match/LegByLegStats';
+import type { LegStats } from '@/lib/stats/legByLegStats';
 
 interface PlayerStats {
   id: string;
@@ -53,6 +55,8 @@ interface WinnerPopupProps {
   onRateOpponent?: (grade: SafetyGrade) => void;
   hasRated?: boolean;
   isQuickMatch?: boolean;
+  // Leg-by-leg stats
+  legStats?: LegStats[];
 }
 
 export function WinnerPopup({
@@ -74,6 +78,7 @@ export function WinnerPopup({
   onRateOpponent,
   hasRated = false,
   isQuickMatch = false,
+  legStats = [],
 }: WinnerPopupProps) {
   const [selectedGrade, setSelectedGrade] = useState<SafetyGrade | null>(null);
   const [submitted, setSubmitted] = useState(hasRated);
@@ -334,6 +339,17 @@ export function WinnerPopup({
             </div>
           </div>
         </div>
+
+        {/* Leg-by-Leg Stats */}
+        {legStats && legStats.length > 0 && (
+          <div className="px-4 pb-2">
+            <LegByLegStats 
+              legStats={legStats}
+              playerName={player1.name}
+              opponentName={player2.name}
+            />
+          </div>
+        )}
 
         {/* Trust Rating Section - Only for QuickMatch */}
         {isQuickMatch && !submitted && (
