@@ -386,7 +386,9 @@ export default function TournamentsPage() {
               <Button
                 onClick={() => {
                   console.log('CREATE_TOURNAMENT_BUTTON_CLICKED');
+                  console.log('Modal state before:', isCreateModalOpen);
                   setIsCreateModalOpen(true);
+                  console.log('Modal state after setIsCreateModalOpen(true)');
                 }}
                 className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0"
               >
@@ -560,8 +562,12 @@ export default function TournamentsPage() {
       {/* Create Tournament Modal */}
       <CreateTournamentModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          console.log('TOURNAMENT_MODAL_CLOSE_CALLED');
+          setIsCreateModalOpen(false);
+        }}
         onTournamentCreated={(tournamentId: string) => {
+          console.log('TOURNAMENT_CREATED_CALLBACK', { tournamentId });
           setIsCreateModalOpen(false);
           toast.success('Tournament created successfully!');
           // Navigate directly to the new tournament
