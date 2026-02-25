@@ -170,9 +170,20 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
     );
   }
 
+  // Handle different match states
+  if (tournamentMatch.status === 'ready' && tournamentMatch.player1_id && tournamentMatch.player2_id) {
+    // Show ready-up screen
+    const TournamentMatchReadyUp = dynamic(
+      () => import('@/components/app/TournamentMatchReadyUp').then(mod => ({ default: mod.TournamentMatchReadyUp })),
+      { ssr: false }
+    );
+    
+    return <TournamentMatchReadyUp matchId={matchId} tournamentId={tournamentId} />;
+  }
+  
   // Redirect to the actual match room if it exists
-  if (tournamentMatch.match_room_id && tournamentMatch.status === 'in_progress') {
-    router.push(`/app/play/quick-match/match?roomId=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}`);
+  if (tournamentMatch.match_room_id && (tournamentMatch.status === 'in_progress' || tournamentMatch.status === 'starting')) {
+    router.push(`/app/play/quick-match/match?roomId=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}&tournamentId=${tournamentId}`);
     return null;
   }
 
