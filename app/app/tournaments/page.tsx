@@ -489,9 +489,11 @@ export default function TournamentsPage() {
       <CreateTournamentModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => {
+        onTournamentCreated={(tournamentId: string) => {
           setIsCreateModalOpen(false);
-          loadTournaments();
+          toast.success('Tournament created successfully!');
+          // Navigate directly to the new tournament
+          router.push(`/app/tournaments/${tournamentId}`);
         }}
       />
     </div>
