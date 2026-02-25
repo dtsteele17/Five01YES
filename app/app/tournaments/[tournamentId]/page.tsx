@@ -140,64 +140,76 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     loadCurrentUser();
   }, [tournamentId]);
 
-  // Auto-refresh tournament status every 30 seconds for tournaments that should be starting
+  // SMART TOURNAMENT TIMER: Checks more frequently as start time approaches
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
-        console.log('Auto-checking tournament status...');
-
-        // Run both global and specific tournament progression
-        (async () => {
-          try {
-            // Global tournament status transitions
-            let globalResult: any = { data: null };
-            try {
-              globalResult = await supabase.rpc('process_tournament_status_transitions');
-            } catch (err: any) {
-              console.log('Global tournament transitions not available:', err?.message);
-            }
-
-            // Specific tournament progression
-            let specificResult: any = { data: null };
-            try {
-              specificResult = await supabase.rpc('complete_tournament_flow_progression', {
-                p_tournament_id: tournamentId
-              });
-            } catch (err: any) {
-              console.log('Tournament flow progression not available:', err?.message);
-            }
-
-            console.log('Tournament progression results:', { globalResult, specificResult });
-
-            // Check for tournament status changes
-            if (specificResult?.data?.action === 'tournament_live') {
-              toast.success('Tournament has started! Generating bracket...');
-            } else if (specificResult?.data?.action === 'tournament_cancelled') {
-              toast.error('Tournament cancelled - insufficient participants');
-            }
-            
-            // Always check status and reload
-            await checkAndUpdateTournamentStatus();
-            loadTournament();
-            
-          } catch (err: any) {
-            console.log('Tournament status transitions error:', err?.message);
-            // Fallback to individual tournament check
-            await checkAndUpdateTournamentStatus();
-            loadTournament();
-          }
-        })();
-
-      } else if (tournament?.status === 'in_progress') {
-        // Check for new matches and ready-up requirements
-        loadTournamentMatches().then(() => {
-          checkForReadyUpMatch();
-        });
+    if (!tournament?.start_at) return;
+    if (!['registration', 'scheduled', 'checkin'].includes(tournament?.status || '')) {
+      // If already in_progress, check for ready-up matches every 10s
+      if (tournament?.status === 'in_progress') {
+        const matchInterval = setInterval(() => {
+          loadTournamentMatches().then(() => checkForReadyUpMatch());
+        }, 10000);
+        return () => clearInterval(matchInterval);
       }
-    }, 60000); // Check every 60 seconds for tournaments that should be transitioning (reduced frequency)
+      return;
+    }
 
+    const checkTournamentTiming = async () => {
+      const now = new Date();
+      const startTime = new Date(tournament.start_at!);
+      const msUntilStart = startTime.getTime() - now.getTime();
+      const secondsUntilStart = Math.ceil(msUntilStart / 1000);
+
+      console.log(`⏱️ Tournament timing: ${secondsUntilStart}s until start`);
+
+      // START TIME REACHED - trigger bracket generation!
+      if (msUntilStart <= 0) {
+        console.log('🏆 START TIME REACHED! Generating bracket...');
+        
+        // Show the countdown popup (1-minute countdown before matches begin)
+        setShowCountdownPopup(true);
+
+        // Call RPC to transition tournament to in_progress + generate bracket
+        try {
+          const { data: result } = await supabase.rpc('complete_tournament_flow_progression', {
+            p_tournament_id: tournamentId
+          });
+          console.log('Tournament progression result:', result);
+
+          if (result?.action === 'tournament_cancelled') {
+            toast.error('Tournament cancelled - not enough players');
+            setShowCountdownPopup(false);
+            loadTournament();
+            return;
+          }
+
+          if (result?.action === 'tournament_live') {
+            toast.success('🏆 Tournament is LIVE! Bracket generated!');
+          }
+        } catch (err: any) {
+          console.log('Progression RPC error:', err?.message);
+        }
+
+        // Reload tournament data to get updated status
+        loadTournament();
+        return; // Stop checking, countdown popup handles the rest
+      }
+    };
+
+    // Check every 5 seconds when within 2 minutes of start, otherwise every 30 seconds
+    const now = new Date();
+    const startTime = new Date(tournament.start_at);
+    const msUntilStart = startTime.getTime() - now.getTime();
+    const checkInterval = msUntilStart <= 120000 ? 5000 : 30000;
+
+    console.log(`⏱️ Tournament check interval: ${checkInterval / 1000}s (${Math.round(msUntilStart / 1000)}s until start)`);
+
+    // Run immediately once
+    checkTournamentTiming();
+
+    const interval = setInterval(checkTournamentTiming, checkInterval);
     return () => clearInterval(interval);
-  }, [tournament?.status, tournamentId]);
+  }, [tournament?.status, tournament?.start_at, tournamentId]);
 
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -340,18 +352,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         }
       }
 
-      // Check if tournament is about to start (within 60 seconds)
-      if (tournamentData.status === 'scheduled' && tournamentData.start_at) {
-        const startTime = new Date(tournamentData.start_at);
-        const now = new Date();
-        const timeDiff = startTime.getTime() - now.getTime();
-        const secondsUntilStart = Math.ceil(timeDiff / 1000);
-        
-        // Show countdown if tournament starts in next 60 seconds
-        if (secondsUntilStart > 0 && secondsUntilStart <= 60) {
-          setShowCountdownPopup(true);
-        }
-      }
+      // Countdown popup is now handled by the SMART TOURNAMENT TIMER useEffect
+      // It only triggers at EXACT start time, not before
 
       // Skip activities for now - causing 400 errors
       setActivities([]);

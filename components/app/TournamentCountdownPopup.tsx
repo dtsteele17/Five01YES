@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
   Trophy, 
   Timer,
   Users,
-  Zap,
-  Target,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
@@ -32,47 +30,50 @@ export function TournamentCountdownPopup({
 }: TournamentCountdownPopupProps) {
   const [timeLeft, setTimeLeft] = useState(60); // 1 minute countdown
   const [bracketGenerated, setBracketGenerated] = useState(false);
+  const [phase, setPhase] = useState<'generating' | 'countdown' | 'starting'>('generating');
   const supabase = createClient();
 
   useEffect(() => {
     if (!isVisible) return;
 
-    // Calculate actual time left
-    const startTimeMs = new Date(startTime).getTime();
-    const now = Date.now();
-    const actualTimeLeft = Math.max(0, Math.ceil((startTimeMs - now) / 1000));
-    
-    setTimeLeft(actualTimeLeft);
+    // Phase 1: Generate bracket
+    generateBracket();
+
+    return () => {};
+  }, [isVisible]);
+
+  // Phase 2: Countdown timer (starts after bracket is generated)
+  useEffect(() => {
+    if (phase !== 'countdown') return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          onComplete();
+          setPhase('starting');
+          // Give a brief pause then trigger match ready-up
+          setTimeout(() => onComplete(), 1500);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
-    // Generate bracket when countdown starts
-    generateTournamentBracket();
-
     return () => clearInterval(timer);
-  }, [isVisible, startTime, onComplete]);
+  }, [phase, onComplete]);
 
-  const generateTournamentBracket = async () => {
+  const generateBracket = async () => {
     try {
-      console.log('Generating tournament bracket...');
+      console.log('🏗️ Generating tournament bracket...');
+      setPhase('generating');
       
-      // Try RPC function first
       const { data, error } = await supabase.rpc('generate_tournament_bracket', {
         p_tournament_id: tournamentId
       });
 
       if (error) {
-        console.error('Error generating bracket:', error);
-        // Fallback to status update if RPC fails
+        console.error('Bracket generation error:', error);
+        // Fallback: update status directly
         await supabase
           .from('tournaments')
           .update({ 
@@ -82,96 +83,113 @@ export function TournamentCountdownPopup({
           })
           .eq('id', tournamentId);
       } else {
-        console.log('Bracket generated successfully:', data);
+        console.log('✅ Bracket generated:', data);
       }
       
       setBracketGenerated(true);
+      // Move to countdown phase
+      setPhase('countdown');
+      setTimeLeft(60);
     } catch (error) {
       console.error('Exception generating bracket:', error);
+      setBracketGenerated(true);
+      setPhase('countdown');
+      setTimeLeft(60);
     }
   };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const progress = Math.max(0, ((60 - timeLeft) / 60) * 100);
 
   if (!isVisible) return null;
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 50 }}
+        initial={{ opacity: 0, y: 100 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
-        className="fixed bottom-6 right-6 z-50"
+        exit={{ opacity: 0, y: 100 }}
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
       >
-        <Card className="bg-slate-900/95 backdrop-blur-xl border-emerald-500/30 shadow-2xl shadow-emerald-500/25 w-80">
+        <Card className="bg-slate-900/95 backdrop-blur-xl border-emerald-500/40 shadow-2xl shadow-emerald-500/20 w-96">
           <CardContent className="p-6">
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-white" />
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <Trophy className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-white truncate">Tournament Starting!</h3>
+                  <h3 className="font-bold text-white text-lg">🏆 Tournament Starting!</h3>
                   <p className="text-sm text-slate-400 truncate">{tournamentName}</p>
                 </div>
               </div>
 
-              {/* Countdown Display */}
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-2 text-emerald-400">
-                  <Timer className="w-5 h-5" />
-                  <span className="text-sm font-medium">Tournament starts in</span>
-                </div>
-                
-                <div className="text-4xl font-black text-white tabular-nums">
-                  {formatTime(timeLeft)}
-                </div>
-                
-                <Progress 
-                  value={progress} 
-                  className="h-2 bg-slate-800"
-                  style={{
-                    background: 'linear-gradient(to right, #1e293b 0%, #0f172a 100%)'
-                  }}
-                />
-              </div>
+              {/* Phase: Generating Bracket */}
+              {phase === 'generating' && (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }}
+                  className="text-center py-4 space-y-3"
+                >
+                  <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mx-auto" />
+                  <div>
+                    <p className="text-white font-semibold">Creating bracket...</p>
+                    <p className="text-sm text-slate-400">Generating matchups from registered players</p>
+                  </div>
+                </motion.div>
+              )}
 
-              {/* Status Updates */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  {bracketGenerated ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  ) : (
-                    <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                  )}
-                  <span className={bracketGenerated ? 'text-emerald-400' : 'text-slate-400'}>
-                    {bracketGenerated ? 'Bracket Generated' : 'Generating Bracket...'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="w-4 h-4 text-blue-400" />
-                  <span className="text-slate-400">Players will be notified for ready-up</span>
-                </div>
-              </div>
+              {/* Phase: Countdown */}
+              {phase === 'countdown' && (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }}
+                  className="space-y-4"
+                >
+                  {/* Bracket created confirmation */}
+                  <div className="flex items-center gap-2 text-sm bg-emerald-500/10 rounded-lg p-2">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                    <span className="text-emerald-400 font-medium">Bracket created! Check the Bracket tab</span>
+                  </div>
 
-              {/* Action Hint */}
-              <div className="bg-slate-800/50 rounded-lg p-3 text-center">
-                <div className="flex items-center justify-center gap-2 text-amber-400 mb-1">
-                  <Target className="w-4 h-4" />
-                  <span className="text-xs font-medium">Get Ready!</span>
-                </div>
-                <p className="text-xs text-slate-400">
-                  You'll need to ready-up when the tournament begins
-                </p>
-              </div>
+                  {/* Big countdown */}
+                  <div className="text-center space-y-2">
+                    <div className="flex items-center justify-center gap-2 text-slate-300">
+                      <Timer className="w-5 h-5" />
+                      <span className="font-medium">Matches begin in</span>
+                    </div>
+                    
+                    <div className={`text-5xl font-black tabular-nums ${
+                      timeLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-white'
+                    }`}>
+                      {timeLeft}s
+                    </div>
+                    
+                    <Progress 
+                      value={((60 - timeLeft) / 60) * 100} 
+                      className="h-2"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-slate-400 justify-center">
+                    <Users className="w-4 h-4" />
+                    <span>Get ready for your first match!</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Phase: Starting matches */}
+              {phase === 'starting' && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }} 
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-4 space-y-3"
+                >
+                  <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                    <Trophy className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <p className="text-emerald-400 font-bold text-lg">🎯 Tournament is LIVE!</p>
+                  <p className="text-sm text-slate-400">Loading your first match...</p>
+                </motion.div>
+              )}
             </div>
           </CardContent>
         </Card>
