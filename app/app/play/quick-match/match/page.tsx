@@ -868,10 +868,11 @@ export default function QuickMatchRoomPage() {
 
   const cleanupMatchRef = useRef<() => void>();
 
-  // WebRTC
+  // WebRTC — auto-start camera for 301/501 quick matches
   const webrtc = useMatchWebRTC({
     roomId: matchId,
     myUserId: currentUserId,
+    autoStartCamera: true,
   });
   const {
     localStream,
@@ -881,6 +882,7 @@ export default function QuickMatchRoomPage() {
     cameraError,
     toggleCamera,
     stopCamera,
+    refreshConnection,
   } = webrtc;
 
   cleanupMatchRef.current = () => {
@@ -1712,8 +1714,10 @@ export default function QuickMatchRoomPage() {
           callStatus={callStatus}
           cameraError={cameraError}
           toggleCamera={toggleCamera}
+          refreshConnection={refreshConnection}
           myName={myPlayer.name}
           opponentName={opponentPlayer.name}
+          isMyTurn={isMyTurn}
         />
 
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}

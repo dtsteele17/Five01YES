@@ -2,17 +2,25 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+/**
+ * GET /api/turn
+ * Fetches fresh TURN credentials from Xirsys.
+ * Credentials are time-limited and should be fetched per-session.
+ */
 export async function GET() {
   const ident = process.env.XIRSYS_IDENT;
   const secret = process.env.XIRSYS_SECRET;
-  const channel = process.env.XIRSYS_CHANNEL;
+  const channel = process.env.XIRSYS_CHANNEL || 'FIVE01';
 
-  if (!ident || !secret || !channel) {
+  if (!ident || !secret) {
     console.error('[TURN API] Missing Xirsys credentials');
-    return NextResponse.json(
-      { error: 'Xirsys credentials not configured' },
-      { status: 500 }
-    );
+    // Return fallback STUN-only config so WebRTC can still attempt P2P
+    return NextResponse.json({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ]
+    });
   }
 
   try {
@@ -33,20 +41,28 @@ export async function GET() {
 
     if (!response.ok) {
       console.error('[TURN API] Xirsys error:', data);
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    let iceServers = data?.v?.iceServers || data?.iceServers || data?.v?.ice_servers || data?.ice_servers;
-
-    if (!iceServers) {
-      console.error('[TURN API] No iceServers found in response:', data);
       return NextResponse.json(
-        { error: 'No iceServers returned', raw: data },
-        { status: 500 }
+        { error: 'Xirsys error', details: data },
+        { status: response.status }
       );
     }
 
+    // Xirsys returns iceServers in various formats
+    const iceServers = data?.v?.iceServers || data?.iceServers || data?.v?.ice_servers || [];
+
+    if (!iceServers || iceServers.length === 0) {
+      console.error('[TURN API] No iceServers in response:', data);
+      return NextResponse.json({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ]
+      });
+    }
+
+    console.log('[TURN API] Returning', iceServers.length, 'ICE servers');
     return NextResponse.json({ iceServers });
+
   } catch (error: any) {
     console.error('[TURN API] Exception:', error);
     return NextResponse.json(
