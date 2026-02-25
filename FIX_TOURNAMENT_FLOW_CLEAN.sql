@@ -424,6 +424,81 @@ BEGIN
 END;
 $$;
 
+-- Fix 10: Join tournament function (MISSING - needed for join functionality)
+DROP FUNCTION IF EXISTS join_tournament(UUID, UUID) CASCADE;
+
+CREATE OR REPLACE FUNCTION join_tournament(
+  p_tournament_id UUID,
+  p_user_id UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_tournament RECORD;
+  v_participant_count INTEGER;
+  v_result JSON;
+BEGIN
+  -- Get tournament details
+  SELECT * INTO v_tournament FROM tournaments WHERE id = p_tournament_id;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'Tournament not found');
+  END IF;
+  
+  -- Check if tournament accepts new participants
+  IF v_tournament.status NOT IN ('registration', 'scheduled', 'checkin') THEN
+    RETURN json_build_object('success', false, 'error', 'Tournament registration is closed');
+  END IF;
+  
+  -- Check if tournament is full
+  SELECT COUNT(*) INTO v_participant_count
+  FROM tournament_participants
+  WHERE tournament_id = p_tournament_id;
+  
+  IF v_participant_count >= v_tournament.max_participants THEN
+    RETURN json_build_object('success', false, 'error', 'Tournament is full');
+  END IF;
+  
+  -- Check if user is already registered
+  IF EXISTS (
+    SELECT 1 FROM tournament_participants 
+    WHERE tournament_id = p_tournament_id AND user_id = p_user_id
+  ) THEN
+    RETURN json_build_object('success', false, 'error', 'Already registered for this tournament');
+  END IF;
+  
+  -- Add participant
+  INSERT INTO tournament_participants (
+    tournament_id,
+    user_id,
+    role,
+    status_type,
+    joined_at
+  ) VALUES (
+    p_tournament_id,
+    p_user_id,
+    'participant',
+    'confirmed',
+    NOW()
+  );
+  
+  RETURN json_build_object(
+    'success', true,
+    'message', 'Successfully joined tournament!',
+    'tournament_id', p_tournament_id,
+    'user_id', p_user_id
+  );
+  
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN json_build_object('success', false, 'error', 'Already registered for this tournament');
+  WHEN OTHERS THEN
+    RETURN json_build_object('success', false, 'error', 'Failed to join tournament: ' || SQLERRM);
+END;
+$$;
+
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO service_role;
@@ -432,3 +507,4 @@ GRANT EXECUTE ON FUNCTION generate_tournament_bracket(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticated;
 GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
 GRANT EXECUTE ON FUNCTION ready_up_tournament_match(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION join_tournament(UUID, UUID) TO authenticated;

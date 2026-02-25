@@ -51,6 +51,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
 
   const staleRoomIdsRef = useRef<Set<string>>(new Set());
   const processingRoomsRef = useRef<Set<string>>(new Set());
+  const processedNotificationsRef = useRef<Set<string>>(new Set()); // FIXED: Track processed notifications to prevent infinite loop
 
   const handleAcceptInvite = async (notification: any, e?: React.MouseEvent) => {
     if (e) {
@@ -487,9 +488,14 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
     };
 
     // Check existing notifications for accepted invites
+    // FIXED: Add tracking to prevent infinite loop
     notifications.forEach(notification => {
       if (isPrivateMatchAccepted(notification) && !notification.read) {
-        handleAcceptedNotification(notification);
+        // Prevent processing the same notification multiple times
+        if (!processedNotificationsRef.current.has(notification.id)) {
+          processedNotificationsRef.current.add(notification.id);
+          handleAcceptedNotification(notification);
+        }
       }
     });
   }, [notifications, supabase, router, markAsRead]);
