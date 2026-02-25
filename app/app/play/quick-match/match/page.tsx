@@ -37,6 +37,8 @@ import { MatchCameraPanel } from '@/components/match/MatchCameraPanel';
 import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
+import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { calculateLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -854,6 +856,10 @@ export default function QuickMatchRoomPage() {
   const [selectedRating, setSelectedRating] = useState<string | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
 
+  // Match completion data
+  const [matchStats, setMatchStats] = useState<any>(null);
+  const [legStats, setLegStats] = useState<LegStats[]>([]);
+
   // Chat
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
@@ -973,6 +979,81 @@ export default function QuickMatchRoomPage() {
     return true;
   }
 
+  async function loadMatchCompletionStats() {
+    if (!room || !currentUserId) return;
+    
+    try {
+      // Load match history record for this completed match
+      const { data: matchHistory } = await supabase
+        .from('match_history')
+        .select('*')
+        .eq('room_id', matchId)
+        .eq('user_id', currentUserId)
+        .single();
+
+      if (matchHistory) {
+        const opponentId = room.player1_id === currentUserId ? room.player2_id : room.player1_id;
+        const playerProfile = profiles.find(p => p.user_id === currentUserId);
+        const opponentProfile = profiles.find(p => p.user_id === opponentId);
+
+        // Format stats for WinnerPopup
+        const player1Stats = {
+          id: currentUserId,
+          name: playerProfile?.username || 'You',
+          legsWon: matchHistory.legs_won,
+          threeDartAverage: matchHistory.three_dart_avg,
+          first9Average: matchHistory.first9_avg,
+          highestCheckout: matchHistory.highest_checkout,
+          checkoutPercentage: matchHistory.checkout_percentage,
+          totalDartsThrown: matchHistory.darts_thrown,
+          bestLegDarts: 0, // Not stored in match_history
+          bestLegNum: 0, // Not stored in match_history
+          totalScore: matchHistory.total_score,
+          checkouts: matchHistory.total_checkouts,
+          checkoutAttempts: matchHistory.checkout_attempts,
+          count100Plus: matchHistory.visits_100_plus,
+          count140Plus: matchHistory.visits_140_plus,
+          oneEighties: matchHistory.visits_180,
+        };
+
+        const player2Stats = {
+          id: opponentId,
+          name: opponentProfile?.username || 'Opponent',
+          legsWon: matchHistory.legs_lost, // Opponent's legs won = my legs lost
+          threeDartAverage: matchHistory.opponent_three_dart_avg,
+          first9Average: matchHistory.opponent_first9_avg,
+          highestCheckout: matchHistory.opponent_highest_checkout,
+          checkoutPercentage: matchHistory.opponent_checkout_percentage,
+          totalDartsThrown: matchHistory.opponent_darts_thrown,
+          bestLegDarts: 0,
+          bestLegNum: 0,
+          totalScore: 0, // Not stored for opponent
+          checkouts: 0, // Not stored separately for opponent
+          checkoutAttempts: 0, // Not stored separately for opponent
+          count100Plus: matchHistory.opponent_visits_100_plus,
+          count140Plus: matchHistory.opponent_visits_140_plus,
+          oneEighties: matchHistory.opponent_visits_180,
+        };
+
+        setMatchStats({
+          player1: { id: currentUserId, name: playerProfile?.username || 'You', legs: matchHistory.legs_won },
+          player2: { id: opponentId, name: opponentProfile?.username || 'Opponent', legs: matchHistory.legs_lost },
+          player1Stats,
+          player2Stats,
+          winnerId: matchHistory.result === 'win' ? currentUserId : opponentId,
+          gameMode: `${room.game_mode}`,
+          bestOf: (room.legs_to_win || 3) * 2 - 1,
+        });
+
+        // Load leg-by-leg stats
+        const legData = await calculateLegByLegStats(matchId, currentUserId, opponentId);
+        setLegStats(legData);
+      }
+    } catch (error) {
+      console.error('Failed to load match completion stats:', error);
+    }
+  }
+
   useEffect(() => {
     if (room && profiles.length > 0) {
       const eventsFromVisits = visits.map(v => ({
@@ -1016,6 +1097,7 @@ export default function QuickMatchRoomPage() {
             if (updatedRoom.status === 'forfeited' && !didIForfeit) {
               setShowOpponentForfeitModal(true);
             } else if (updatedRoom.status === 'finished') {
+              loadMatchCompletionStats();
               setShowMatchCompleteModal(true);
             }
             setTimeout(() => cleanupMatchRef.current?.(), 100);
@@ -1842,6 +1924,31 @@ export default function QuickMatchRoomPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Match Complete Modal */}
+      {showMatchCompleteModal && matchStats && (
+        <WinnerPopup
+          player1={matchStats.player1}
+          player2={matchStats.player2}
+          player1Stats={matchStats.player1Stats}
+          player2Stats={matchStats.player2Stats}
+          winnerId={matchStats.winnerId}
+          gameMode={matchStats.gameMode}
+          bestOf={matchStats.bestOf}
+          onRematch={() => {
+            // TODO: Implement rematch logic
+            setShowMatchCompleteModal(false);
+            router.push('/app/play');
+          }}
+          onReturn={() => {
+            setShowMatchCompleteModal(false);
+            router.push('/app/play');
+          }}
+          legStats={legStats}
+          isQuickMatch={true}
+          matchId={matchId}
+        />
       )}
     </div>
   );

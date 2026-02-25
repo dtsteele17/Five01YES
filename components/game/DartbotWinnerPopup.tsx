@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Trophy, Target, TrendingUp, Award, RotateCcw, Undo2, Crown, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LegByLegStats } from '@/components/match/LegByLegStats';
+import type { LegStats } from '@/lib/stats/legByLegStats';
 
 interface PlayerStats {
   id: string;
@@ -40,6 +42,7 @@ interface DartbotWinnerPopupProps {
   bestOf: number;
   onRematch: () => void;
   onReturn: () => void;
+  legStats?: LegStats[];
 }
 
 export function DartbotWinnerPopup({
@@ -52,6 +55,7 @@ export function DartbotWinnerPopup({
   bestOf,
   onRematch,
   onReturn,
+  legStats = [],
 }: DartbotWinnerPopupProps) {
   const isPlayer1Winner = player1.id === winnerId;
   const winnerName = isPlayer1Winner ? player1.name : player2.name;
@@ -226,6 +230,17 @@ export function DartbotWinnerPopup({
             </div>
           </div>
         </div>
+
+        {/* Leg-by-Leg Stats */}
+        {legStats && legStats.length > 0 && (
+          <div className="px-4 pb-2">
+            <LegByLegStats 
+              legStats={legStats}
+              playerName={player1.name}
+              opponentName={player2.name}
+            />
+          </div>
+        )}
 
         {/* Action Buttons - SIMPLIFIED for Dartbot (no waiting for opponent) */}
         <div className="px-4 pb-4 pt-3">
