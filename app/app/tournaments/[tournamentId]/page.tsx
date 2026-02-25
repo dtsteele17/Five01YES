@@ -119,6 +119,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [justJoined, setJustJoined] = useState(false);
@@ -262,18 +263,18 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         setIsRegistered(true);
       }
 
-      // Load participants
+      // Load participants - FIXED: Proper join with profiles table
       const { data: participantsData, error: participantsError } = await supabase
         .from('tournament_participants')
         .select(`
           *,
-          profiles:user_id (
-            id,
+          user_profile:user_id!inner (
             username,
             avatar_url
           )
         `)
         .eq('tournament_id', tournamentId)
+        .eq('status_type', 'confirmed')
         .order('joined_at', { ascending: true });
 
       if (participantsError) throw participantsError;
@@ -304,6 +305,29 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         if (secondsUntilStart > 0 && secondsUntilStart <= 60) {
           setShowCountdownPopup(true);
         }
+      }
+
+      // Load tournament activities for Recent Activity section
+      try {
+        const { data: activitiesData, error: activitiesError } = await supabase
+          .from('tournament_activities')
+          .select(`
+            *,
+            user_profile:user_id (
+              username,
+              avatar_url
+            )
+          `)
+          .eq('tournament_id', tournamentId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!activitiesError) {
+          setActivities(activitiesData || []);
+        }
+      } catch (error) {
+        console.log('Activities not available yet:', error);
+        setActivities([]);
       }
 
       // If tournament is in progress, load matches and check for ready-up
@@ -409,18 +433,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
       toast.success('Successfully joined tournament!');
       
-      // P1.2 FIX: Optimistic update using centralized logic
-      const updatedParticipants = updateParticipantStateOptimistically(
-        participants, 
-        currentUserId, 
-        'register'
-      );
-      setParticipants(updatedParticipants);
+      // Force immediate reload to show user in participants
       setIsRegistered(true);
       setJustJoined(true);
       
-      // Reload tournament data to confirm changes
-      setTimeout(() => loadTournament(), 1000);
+      // Reload tournament data immediately to get updated participant list
+      await loadTournament(true);
 
     } catch (error: any) {
       console.error('Error joining tournament:', error);
@@ -770,9 +788,9 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {participants.slice(-3).reverse().map((participant, index) => (
+                      {activities.slice(0, 5).map((activity, index) => (
                         <motion.div
-                          key={participant.id}
+                          key={activity.id}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
@@ -780,23 +798,27 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         >
                           <Avatar className="w-8 h-8">
                             <AvatarFallback className="bg-slate-700 text-slate-300">
-                              {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                              {activity.user_profile?.username?.[0]?.toUpperCase() || activity.activity_data?.username?.[0]?.toUpperCase() || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <span className="text-white font-medium">
-                              {participant.profiles?.username || 'Unknown Player'}
+                              {activity.user_profile?.username || activity.activity_data?.username || 'Unknown Player'}
                             </span>
-                            <span className="text-slate-400"> joined the tournament</span>
+                            <span className="text-slate-400">
+                              {activity.activity_type === 'user_joined' && ' joined the tournament'}
+                              {activity.activity_type === 'match_completed' && ' completed a match'}
+                              {activity.activity_type === 'tournament_started' && ' - tournament started!'}
+                            </span>
                           </div>
                           <span className="text-xs text-slate-500">
-                            {new Date(participant.joined_at).toLocaleDateString()}
+                            {new Date(activity.created_at).toLocaleDateString()}
                           </span>
                         </motion.div>
                       ))}
 
-                      {participants.length === 0 && (
-                        <p className="text-slate-400 text-center py-4">No players have joined yet</p>
+                      {activities.length === 0 && (
+                        <p className="text-slate-400 text-center py-4">No recent activity</p>
                       )}
                     </div>
                   </CardContent>
@@ -842,12 +864,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         >
                           <Avatar className="w-10 h-10">
                             <AvatarFallback className="bg-slate-700 text-white font-semibold">
-                              {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                              {participant.user_profile?.username?.[0]?.toUpperCase() || 'U'}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="text-white font-medium truncate">
-                              {participant.profiles?.username || 'Unknown Player'}
+                              {participant.user_profile?.username || 'Unknown Player'}
                             </div>
                             <div className="text-xs text-slate-400">
                               Joined {new Date(participant.joined_at).toLocaleDateString()}

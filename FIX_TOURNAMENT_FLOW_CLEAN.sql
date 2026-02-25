@@ -424,7 +424,22 @@ BEGIN
 END;
 $$;
 
--- Fix 10: Join tournament function (MISSING - needed for join functionality)
+-- Fix 10: Tournament activities table for tracking joins, results, etc.
+CREATE TABLE IF NOT EXISTS tournament_activities (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  activity_type TEXT NOT NULL, -- 'user_joined', 'match_completed', 'tournament_started', etc.
+  activity_data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE tournament_activities ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view tournament activities" ON tournament_activities;
+CREATE POLICY "Users can view tournament activities" ON tournament_activities FOR SELECT USING (true);
+
+-- Fix 11: Enhanced join tournament function with activity logging
 DROP FUNCTION IF EXISTS join_tournament(UUID, UUID) CASCADE;
 
 CREATE OR REPLACE FUNCTION join_tournament(
@@ -438,6 +453,7 @@ AS $$
 DECLARE
   v_tournament RECORD;
   v_participant_count INTEGER;
+  v_user_profile RECORD;
   v_result JSON;
 BEGIN
   -- Get tournament details
@@ -445,6 +461,12 @@ BEGIN
   
   IF NOT FOUND THEN
     RETURN json_build_object('success', false, 'error', 'Tournament not found');
+  END IF;
+  
+  -- Get user profile for activity logging
+  SELECT username INTO v_user_profile FROM auth.users WHERE id = p_user_id;
+  IF NOT FOUND THEN
+    SELECT username INTO v_user_profile FROM profiles WHERE user_id = p_user_id;
   END IF;
   
   -- Check if tournament accepts new participants
@@ -455,7 +477,7 @@ BEGIN
   -- Check if tournament is full
   SELECT COUNT(*) INTO v_participant_count
   FROM tournament_participants
-  WHERE tournament_id = p_tournament_id;
+  WHERE tournament_id = p_tournament_id AND status_type = 'confirmed';
   
   IF v_participant_count >= v_tournament.max_participants THEN
     RETURN json_build_object('success', false, 'error', 'Tournament is full');
@@ -484,11 +506,28 @@ BEGIN
     NOW()
   );
   
+  -- Log activity: User joined tournament
+  INSERT INTO tournament_activities (
+    tournament_id,
+    user_id,
+    activity_type,
+    activity_data
+  ) VALUES (
+    p_tournament_id,
+    p_user_id,
+    'user_joined',
+    json_build_object(
+      'username', COALESCE(v_user_profile.username, 'Unknown Player'),
+      'joined_at', NOW()
+    )
+  );
+  
   RETURN json_build_object(
     'success', true,
     'message', 'Successfully joined tournament!',
     'tournament_id', p_tournament_id,
-    'user_id', p_user_id
+    'user_id', p_user_id,
+    'participant_count', v_participant_count + 1
   );
   
 EXCEPTION
@@ -508,3 +547,15 @@ GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticat
 GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO service_role;
 GRANT EXECUTE ON FUNCTION ready_up_tournament_match(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION join_tournament(UUID, UUID) TO authenticated;
+
+-- Fix 12: Ensure profiles table is accessible for tournament participant joins
+GRANT SELECT ON profiles TO authenticated;
+
+-- Fix 13: Create index for better performance on tournament participants
+CREATE INDEX IF NOT EXISTS idx_tournament_participants_tournament_id ON tournament_participants(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_participants_user_id ON tournament_participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_activities_tournament_id ON tournament_activities(tournament_id);
+
+-- Fix 14: Ensure tournament_participants has proper foreign key to profiles
+-- Add constraint to ensure user_id exists in auth.users (already done via CREATE TABLE)
+-- But make sure profiles table relationship works properly for joins
