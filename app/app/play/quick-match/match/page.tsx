@@ -848,6 +848,7 @@ export default function QuickMatchRoomPage() {
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
+  const [showTournamentWinnerModal, setShowTournamentWinnerModal] = useState(false);
 
   // Tournament match completion handler
   const handleTournamentMatchCompletion = async (winnerId: string | null) => {
@@ -1197,11 +1198,13 @@ export default function QuickMatchRoomPage() {
               setShowOpponentForfeitModal(true);
             } else if (updatedRoom.status === 'finished') {
               loadMatchCompletionStats();
-              setShowMatchCompleteModal(true);
               
-              // Handle tournament match progression
+              // Show appropriate completion modal based on match type
               if (isTournamentMatch && tournamentMatchId) {
+                setShowTournamentWinnerModal(true);
                 handleTournamentMatchCompletion(updatedRoom.winner_id);
+              } else {
+                setShowMatchCompleteModal(true);
               }
             }
             setTimeout(() => cleanupMatchRef.current?.(), 100);
@@ -2052,6 +2055,39 @@ export default function QuickMatchRoomPage() {
           legStats={legStats}
           isQuickMatch={true}
           matchId={matchId}
+        />
+      )}
+
+      {/* Tournament Winner Modal */}
+      {showTournamentWinnerModal && matchStats && tournamentMatchId && tournamentId && (
+        <TournamentWinnerPopup
+          isOpen={showTournamentWinnerModal}
+          onClose={() => {
+            setShowTournamentWinnerModal(false);
+            router.push(getReturnPath());
+          }}
+          winner={{
+            id: matchStats.winnerId === matchStats.player1.id ? matchStats.player1.id : matchStats.player2.id,
+            username: matchStats.winnerId === matchStats.player1.id ? matchStats.player1.name : matchStats.player2.name,
+            score: matchStats.winnerId === matchStats.player1.id ? matchStats.player1Stats.legs : matchStats.player2Stats.legs
+          }}
+          loser={{
+            id: matchStats.winnerId === matchStats.player1.id ? matchStats.player2.id : matchStats.player1.id,
+            username: matchStats.winnerId === matchStats.player1.id ? matchStats.player2.name : matchStats.player1.name,
+            score: matchStats.winnerId === matchStats.player1.id ? matchStats.player2Stats.legs : matchStats.player1Stats.legs
+          }}
+          matchStats={{
+            legs_to_win: matchStats.bestOf,
+            dartboard_type: 'standard',
+            match_format: `best_of_${matchStats.bestOf}`
+          }}
+          legStats={legStats}
+          tournamentId={tournamentId}
+          tournamentMatchId={tournamentMatchId}
+          currentUserId={currentUserId || ''}
+          isWinner={matchStats.winnerId === currentUserId}
+          tournamentName={tournamentInfo?.name}
+          nextRound={tournamentInfo?.round ? tournamentInfo.round + 1 : undefined}
         />
       )}
     </div>
