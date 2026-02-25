@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 interface TournamentMatchReadyUpProps {
   matchId: string;
   tournamentId: string;
+  onComplete?: (matchRoomId?: string) => void;
+  onCancel?: () => void;
 }
 
 interface MatchData {
@@ -49,7 +51,7 @@ interface ReadyUpData {
   user_is_participant: boolean;
 }
 
-export function TournamentMatchReadyUp({ matchId, tournamentId }: TournamentMatchReadyUpProps) {
+export function TournamentMatchReadyUp({ matchId, tournamentId, onComplete, onCancel }: TournamentMatchReadyUpProps) {
   const router = useRouter();
   const supabase = createClient();
   
@@ -85,8 +87,10 @@ export function TournamentMatchReadyUp({ matchId, tournamentId }: TournamentMatc
     // Timer countdown
     const timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 0) {
+        if (prev <= 1) {
           clearInterval(timer);
+          // Handle timeout
+          handleTimeout();
           return 0;
         }
         return prev - 1;
@@ -169,10 +173,8 @@ export function TournamentMatchReadyUp({ matchId, tournamentId }: TournamentMatc
       toast.success(result.message);
       
       if (result.both_ready) {
-        // Both players ready, will redirect via loadMatchStatus
-        setTimeout(() => {
-          loadMatchStatus();
-        }, 1000);
+        // Both players ready, create match room and start match
+        await createMatchRoom();
       }
 
     } catch (error: any) {
@@ -180,6 +182,69 @@ export function TournamentMatchReadyUp({ matchId, tournamentId }: TournamentMatc
       toast.error(error.message || 'Failed to ready up');
     } finally {
       setReadyUpLoading(false);
+    }
+  };
+
+  const handleTimeout = async () => {
+    if (!readyUpData || !currentUserId) return;
+
+    try {
+      if (isReady && !opponentReady) {
+        // Current user is ready, opponent is not - auto-advance current user
+        toast.success('Your opponent did not ready up in time. You advance to the next round!');
+        
+        await supabase.rpc('progress_tournament_bracket', {
+          p_tournament_match_id: matchId,
+          p_winner_id: currentUserId
+        });
+
+        onComplete?.();
+      } else if (!isReady) {
+        // Current user is not ready - they forfeit
+        toast.error('You did not ready up in time and have been eliminated from the tournament.');
+        
+        const opponentId = readyUpData.match.player1_id === currentUserId 
+          ? readyUpData.match.player2_id 
+          : readyUpData.match.player1_id;
+
+        await supabase.rpc('progress_tournament_bracket', {
+          p_tournament_match_id: matchId,
+          p_winner_id: opponentId
+        });
+
+        onComplete?.();
+      }
+    } catch (error) {
+      console.error('Error handling timeout:', error);
+      onCancel?.();
+    }
+  };
+
+  const createMatchRoom = async () => {
+    if (!readyUpData) return;
+
+    try {
+      const { data, error } = await supabase.rpc('create_tournament_match_room', {
+        p_tournament_match_id: matchId,
+        p_player1_id: readyUpData.match.player1_id,
+        p_player2_id: readyUpData.match.player2_id,
+        p_tournament_id: tournamentId,
+        p_game_mode: 501,
+        p_legs_per_match: 3
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; room_id: string };
+      
+      if (result.success) {
+        toast.success('Match starting! Good luck!');
+        onComplete?.(result.room_id);
+      }
+    } catch (error) {
+      console.error('Error creating match room:', error);
+      toast.error('Failed to start match');
+      onCancel?.();
     }
   };
 

@@ -30,6 +30,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import TournamentBracketTab from '@/components/app/TournamentBracketTab';
 import { TournamentInviteModal } from '@/components/app/TournamentInviteModal';
+import { TournamentCountdownPopup } from '@/components/app/TournamentCountdownPopup';
+import { TournamentMatchReadyUp } from '@/components/app/TournamentMatchReadyUp';
 
 interface Tournament {
   id: string;
@@ -121,26 +123,34 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [loading, setLoading] = useState(true);
   const [joinLoading, setJoinLoading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCountdownPopup, setShowCountdownPopup] = useState(false);
+  const [showReadyUpModal, setShowReadyUpModal] = useState(false);
+  const [currentMatchId, setCurrentMatchId] = useState<string | null>(null);
+  const [matches, setMatches] = useState<any[]>([]);
 
   useEffect(() => {
     loadTournament();
     loadCurrentUser();
   }, [tournamentId]);
 
-  // Auto-refresh tournament status every 30 seconds
+  // Auto-refresh tournament status every 10 seconds (more responsive for tournament start)
   useEffect(() => {
     const interval = setInterval(() => {
       if (tournament?.status && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
         console.log('Auto-checking tournament status...');
         checkAndUpdateTournamentStatus().then(() => {
-          // Reload tournament data after status check
           loadTournament();
         });
+      } else if (tournament?.status === 'in_progress') {
+        // Check for new matches and ready-up requirements
+        loadTournamentMatches().then(() => {
+          checkForReadyUpMatch();
+        });
       }
-    }, 30000); // Check every 30 seconds
+    }, 10000); // Check every 10 seconds for tournament timing
 
     return () => clearInterval(interval);
-  }, [tournament?.status, tournamentId]);
+  }, [tournament?.status, tournamentId, matches, currentUserId]);
 
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -212,11 +222,76 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       setParticipants(participantsData || []);
       setIsRegistered(participantsData?.some(p => p.user_id === currentUserId) || false);
 
+      // Check if tournament is about to start (within 60 seconds)
+      if (tournamentData.status === 'scheduled' && tournamentData.start_at) {
+        const startTime = new Date(tournamentData.start_at);
+        const now = new Date();
+        const timeDiff = startTime.getTime() - now.getTime();
+        const secondsUntilStart = Math.ceil(timeDiff / 1000);
+        
+        // Show countdown if tournament starts in next 60 seconds
+        if (secondsUntilStart > 0 && secondsUntilStart <= 60) {
+          setShowCountdownPopup(true);
+        }
+      }
+
+      // If tournament is in progress, load matches and check for ready-up
+      if (tournamentData.status === 'in_progress') {
+        await loadTournamentMatches();
+        await checkForReadyUpMatch();
+      }
+
     } catch (error) {
       console.error('Error loading tournament:', error);
       toast.error('Failed to load tournament');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTournamentMatches = async () => {
+    try {
+      const { data: matchesData, error } = await supabase
+        .from('tournament_matches')
+        .select(`
+          *,
+          player1:player1_id (
+            id,
+            username
+          ),
+          player2:player2_id (
+            id,
+            username
+          )
+        `)
+        .eq('tournament_id', tournamentId)
+        .order('round')
+        .order('match_index');
+
+      if (error) throw error;
+      setMatches(matchesData || []);
+    } catch (error) {
+      console.error('Error loading matches:', error);
+    }
+  };
+
+  const checkForReadyUpMatch = async () => {
+    if (!currentUserId) return;
+
+    try {
+      // Find matches where current user is a participant and match is ready
+      const userMatches = matches.filter(match => 
+        (match.player1_id === currentUserId || match.player2_id === currentUserId) &&
+        match.status === 'ready'
+      );
+
+      if (userMatches.length > 0) {
+        const match = userMatches[0];
+        setCurrentMatchId(match.id);
+        setShowReadyUpModal(true);
+      }
+    } catch (error) {
+      console.error('Error checking for ready-up match:', error);
     }
   };
 
@@ -256,7 +331,25 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (error) throw error;
 
       toast.success('Successfully joined tournament!');
-      loadTournament(); // Reload to update UI
+      
+      // Update UI immediately for better UX
+      setIsRegistered(true);
+      setParticipants(prev => [...prev, {
+        id: `temp-${Date.now()}`,
+        tournament_id: tournamentId,
+        user_id: currentUserId,
+        role: 'participant',
+        status_type: 'confirmed',
+        joined_at: new Date().toISOString(),
+        profiles: {
+          id: currentUserId,
+          username: 'You',
+          avatar_url: null
+        }
+      }]);
+      
+      // Reload to get accurate data
+      setTimeout(() => loadTournament(), 500);
 
     } catch (error: any) {
       console.error('Error joining tournament:', error);
@@ -849,6 +942,53 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
             tournamentId={tournament.id}
             tournamentName={tournament.name}
           />
+        )}
+
+        {/* Tournament Countdown Popup */}
+        {tournament && (
+          <TournamentCountdownPopup
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            startTime={tournament.start_at}
+            isVisible={showCountdownPopup}
+            onComplete={() => {
+              setShowCountdownPopup(false);
+              // Check for ready-up after countdown
+              setTimeout(() => {
+                loadTournament();
+                loadTournamentMatches().then(() => {
+                  checkForReadyUpMatch();
+                });
+              }, 1000);
+            }}
+          />
+        )}
+
+        {/* Tournament Ready-Up Modal */}
+        {showReadyUpModal && currentMatchId && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <TournamentMatchReadyUp
+              matchId={currentMatchId}
+              tournamentId={tournamentId}
+              onComplete={(matchRoomId) => {
+                setShowReadyUpModal(false);
+                setCurrentMatchId(null);
+                if (matchRoomId) {
+                  // Navigate to match room
+                  router.push(`/app/play/quick-match/match?room=${matchRoomId}&tournament=${tournamentId}`);
+                } else {
+                  // Stay on tournament page and refresh
+                  loadTournament();
+                  loadTournamentMatches();
+                }
+              }}
+              onCancel={() => {
+                setShowReadyUpModal(false);
+                setCurrentMatchId(null);
+                loadTournament();
+              }}
+            />
+          </div>
         )}
       </div>
     </div>
