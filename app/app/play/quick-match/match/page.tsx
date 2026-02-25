@@ -1621,7 +1621,7 @@ export default function QuickMatchRoomPage() {
 
     setRatingLoading(true);
     try {
-      const { error } = await supabase.rpc('rpc_submit_trust_rating', {
+      const { error } = await supabase.rpc('rpc_set_trust_rating', {
         p_rated_user_id: opponentId,
         p_rating: rating,
       });

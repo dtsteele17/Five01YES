@@ -223,7 +223,7 @@ export async function getUserSafetyStats(userId: string): Promise<{
     const supabase = createClient();
     // Get the basic rating info
     const { data: ratingData, error: ratingError } = await supabase
-      .rpc('get_user_trust_rating', {
+      .rpc('get_user_trust_rating_v2', {
         p_user_id: userId
       });
 
