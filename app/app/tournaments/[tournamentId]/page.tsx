@@ -945,7 +945,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         )}
 
         {/* Tournament Countdown Popup */}
-        {tournament && (
+        {tournament && tournament.start_at && (
           <TournamentCountdownPopup
             tournamentId={tournament.id}
             tournamentName={tournament.name}
