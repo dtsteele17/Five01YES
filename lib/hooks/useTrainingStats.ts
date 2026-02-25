@@ -125,7 +125,7 @@ export function useTrainingStats() {
       // Get all training_stats to sum up XP
       const { data: trainingStats, error: statsError } = await supabase
         .from('training_stats')
-        .select('xp_earned, created_at, mode')
+        .select('xp_earned, created_at, training_mode')
         .eq('player_id', user.id);
 
       if (statsError) {
@@ -135,7 +135,7 @@ export function useTrainingStats() {
       // Calculate total XP from training_stats
       const totalXpFromStats = trainingStats?.reduce((sum, stat) => sum + (stat.xp_earned || 0), 0) || 0;
       console.log('[useTrainingStats] Total XP from training_stats:', totalXpFromStats, 'rows:', trainingStats?.length || 0);
-      console.log('[useTrainingStats] Training stats breakdown:', trainingStats?.map(s => ({ mode: s.mode, xp: s.xp_earned })) || []);
+      console.log('[useTrainingStats] Training stats breakdown:', trainingStats?.map(s => ({ mode: s.training_mode, xp: s.xp_earned })) || []);
 
       // Get start of today
       const today = new Date();
