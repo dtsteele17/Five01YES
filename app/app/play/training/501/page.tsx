@@ -594,7 +594,7 @@ export default function DartbotMatchPage() {
 
   useEffect(() => {
     if (!config || (config.mode !== '301' && config.mode !== '501')) {
-      router.push('/app/play');
+      router.push('/app/play/training');
     }
     if (config) {
       const s = getStartScore(config.mode);
@@ -1476,7 +1476,7 @@ export default function DartbotMatchPage() {
     setBotPerformanceTracker(null);
   };
 
-  const handleReturnToPlay = () => { router.push('/app/play'); };
+  const handleReturnToPlay = () => { router.push('/app/play/training'); };
 
   const handleDartClick = (type: 'single' | 'double' | 'triple' | 'bull', number: number) => {
     if (currentVisit.length >= 3 || currentPlayer !== 'player1') return;
@@ -1848,3 +1848,4 @@ export default function DartbotMatchPage() {
     </div>
   );
 }
+

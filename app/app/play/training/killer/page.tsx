@@ -493,7 +493,7 @@ export default function KillerTrainingPage() {
   };
 
   const handleReturn = () => {
-    router.push('/app/play');
+    router.push('/app/play/training');
   };
 
   const handleMiss = () => {
@@ -975,3 +975,4 @@ export default function KillerTrainingPage() {
     </div>
   );
 }
+

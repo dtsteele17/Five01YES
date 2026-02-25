@@ -69,7 +69,7 @@ function FinishTrainingContent() {
   useEffect(() => {
     if (!sessionId) {
       toast.error('No session ID found');
-      router.push('/app/play');
+      router.push('/app/play/training');
       return;
     }
 
@@ -89,7 +89,7 @@ function FinishTrainingContent() {
       if (error || !data?.ok) {
         console.error('[Finish Training] Failed to load session:', error);
         toast.error('Failed to load session');
-        router.push('/app/play');
+        router.push('/app/play/training');
         return;
       }
 
@@ -116,7 +116,7 @@ function FinishTrainingContent() {
     } catch (err) {
       console.error('[Finish Training] Exception loading session:', err);
       toast.error('Failed to load session');
-      router.push('/app/play');
+      router.push('/app/play/training');
     }
   };
 
@@ -521,8 +521,23 @@ function FinishTrainingContent() {
     await getNewTarget();
   };
 
-  const handleReturn = () => {
-    router.push('/app/play');
+  const awardSessionXP = async () => {
+    if (xpAwarded || sessionXP <= 0) return;
+    setXpAwarded(true);
+    const successRate = totalAttempts > 0 ? Math.round((successfulCheckouts / totalAttempts) * 100) : 0;
+    const result = await awardXP('finish-training', successRate, {
+      completed: true,
+      xpOverride: sessionXP,
+      sessionData: { totalDarts, totalAttempts, successfulCheckouts, successRate, finishesHit },
+    });
+    if (result.levelUp) {
+      triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
+    }
+  };
+
+  const handleReturn = async () => {
+    await awardSessionXP();
+    router.push('/app/play/training');
   };
 
   if (loading) {
@@ -921,26 +936,8 @@ function FinishTrainingContent() {
           >
             <Button
               onClick={async () => {
+                await awardSessionXP();
                 setShowStatsModal(true);
-                // Award XP on end session (only once)
-                if (!xpAwarded && sessionXP > 0) {
-                  setXpAwarded(true);
-                  const successRate = totalAttempts > 0 ? Math.round((successfulCheckouts / totalAttempts) * 100) : 0;
-                  const result = await awardXP('finish-training', successRate, {
-                    completed: true,
-                    xpOverride: sessionXP,
-                    sessionData: {
-                      totalDarts,
-                      totalAttempts,
-                      successfulCheckouts,
-                      successRate,
-                      finishesHit,
-                    },
-                  });
-                  if (result.levelUp) {
-                    triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
-                  }
-                }
               }}
               className="h-14 px-12 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/25"
             >
@@ -1051,7 +1048,7 @@ function FinishTrainingContent() {
               Continue
             </Button>
             <Button
-              onClick={() => router.push('/app/play')}
+              onClick={() => router.push('/app/play/training')}
               className="flex-1 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold"
             >
               Back to Play
@@ -1076,3 +1073,4 @@ export default function FinishTrainingPage() {
     </Suspense>
   );
 }
+

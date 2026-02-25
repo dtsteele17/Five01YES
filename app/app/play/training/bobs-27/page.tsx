@@ -245,7 +245,7 @@ export default function Bobs27Page() {
                 Play Again
               </button>
               <button
-                onClick={() => router.push('/app/play')}
+                onClick={() => router.push('/app/play/training')}
                 disabled={saving}
                 className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-500 transition-colors disabled:opacity-50"
               >
@@ -267,7 +267,7 @@ export default function Bobs27Page() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push('/app/play')}
+                onClick={() => router.push('/app/play/training')}
                 className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5 text-slate-400" />
@@ -427,3 +427,4 @@ export default function Bobs27Page() {
     </div>
   );
 }
+
