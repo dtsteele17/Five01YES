@@ -10,6 +10,7 @@ import { Zap, ArrowLeft, Trophy, Heart, HeartCrack, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 interface DartThrow {
   score: number;
@@ -34,6 +35,7 @@ export default function Bobs27Page() {
   const [currentDarts, setCurrentDarts] = useState<DartThrow[]>([]);
   const [roundResults, setRoundResults] = useState<RoundResult[]>([]);
   const [saving, setSaving] = useState(false);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   const handleDartInput = (score: number, multiplier: 1 | 2 | 3, segment: string) => {
     if (currentDarts.length >= 3 || gameState === 'completed') return;
@@ -133,7 +135,7 @@ export default function Bobs27Page() {
       });
 
       // Award XP
-      await awardXP('bobs-27', finalScore, {
+      const xpResult = await awardXP('bobs-27', finalScore, {
         completed: survived,
         won: survived,
         sessionData: {
@@ -144,6 +146,9 @@ export default function Bobs27Page() {
           livesRemaining: lives,
         },
       });
+      if (xpResult.levelUp) {
+        triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
+      }
 
       if (survived) {
         toast.success(`Bob's 27 Complete! Final Score: ${finalScore}`);
@@ -255,6 +260,7 @@ export default function Bobs27Page() {
 
   return (
     <div className="min-h-screen bg-slate-950">
+      {LevelUpToastComponent}
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4">

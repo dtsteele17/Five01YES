@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 interface DartThrow {
   score: number;
@@ -54,6 +55,7 @@ export default function JDCChallengePage() {
   const [completedRounds, setCompletedRounds] = useState<RoundResult[]>([]);
   const [saving, setSaving] = useState(false);
   const [xpResult, setXpResult] = useState<XPResult | null>(null);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   const currentTarget = JDC_TARGETS[currentRound - 1];
 
@@ -170,7 +172,7 @@ export default function JDCChallengePage() {
       });
 
       // Award XP via unified tracker (records to match_history too)
-      await awardXP('jdc-challenge', totalScore, {
+      const xpAwarded = await awardXP('jdc-challenge', totalScore, {
         completed: true,
         won: totalScore >= 350,
         sessionData: {
@@ -180,6 +182,9 @@ export default function JDCChallengePage() {
           rounds: rounds.length,
         },
       });
+      if (xpAwarded.levelUp) {
+        triggerLevelUp(xpAwarded.levelUp.oldLevel, xpAwarded.levelUp.newLevel);
+      }
 
       toast.success(`JDC Challenge Complete! +${xp.totalXP} XP earned!`);
     } catch (error) {
@@ -432,6 +437,7 @@ export default function JDCChallengePage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
+      {LevelUpToastComponent}
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -553,3 +559,4 @@ export default function JDCChallengePage() {
     </div>
   );
 }
+

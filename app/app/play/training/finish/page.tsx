@@ -19,6 +19,8 @@ import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp, Zap, Crosshair, Ch
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateCheckoutXP, CHECKOUT_XP_TIERS } from '@/lib/training/xpSystem';
+import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DartHit {
@@ -61,6 +63,8 @@ function FinishTrainingContent() {
   const [finishesHit, setFinishesHit] = useState<number[]>([]);
   const [sessionXP, setSessionXP] = useState(0);
   const [lastCheckoutXP, setLastCheckoutXP] = useState(0);
+  const [xpAwarded, setXpAwarded] = useState(false);
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
 
   useEffect(() => {
     if (!sessionId) {
@@ -531,6 +535,7 @@ function FinishTrainingContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+      {LevelUpToastComponent}
       <div className="max-w-4xl mx-auto flex flex-col gap-4">
           {/* Animated Header */}
           <motion.div 
@@ -915,7 +920,28 @@ function FinishTrainingContent() {
             className="flex justify-center shrink-0 pb-2"
           >
             <Button
-              onClick={() => setShowStatsModal(true)}
+              onClick={async () => {
+                setShowStatsModal(true);
+                // Award XP on end session (only once)
+                if (!xpAwarded && sessionXP > 0) {
+                  setXpAwarded(true);
+                  const successRate = totalAttempts > 0 ? Math.round((successfulCheckouts / totalAttempts) * 100) : 0;
+                  const result = await awardXP('finish-training', successRate, {
+                    completed: true,
+                    xpOverride: sessionXP,
+                    sessionData: {
+                      totalDarts,
+                      totalAttempts,
+                      successfulCheckouts,
+                      successRate,
+                      finishesHit,
+                    },
+                  });
+                  if (result.levelUp) {
+                    triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
+                  }
+                }
+              }}
               className="h-14 px-12 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/25"
             >
               <TrendingUp className="mr-2 h-5 w-5" />
