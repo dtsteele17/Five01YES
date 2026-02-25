@@ -337,7 +337,7 @@ export default function TournamentsPage() {
       
       // Featured tournaments - prioritize live/starting soon tournaments
       const featured = tournamentsData
-        .filter(t => ['in_progress', 'ready', 'registration'].includes(t.status))
+        .filter(t => ['in_progress', 'ready', 'registration', 'scheduled', 'checkin'].includes(t.status))
         .slice(0, 3);
       setFeaturedTournaments(featured);
       
@@ -579,8 +579,10 @@ export default function TournamentsPage() {
           console.log('TOURNAMENT_CREATED_CALLBACK', { tournamentId });
           setIsCreateModalOpen(false);
           toast.success('Tournament created successfully!');
-          // Navigate directly to the new tournament
-          router.push(`/app/tournaments/${tournamentId}`);
+          // Refresh tournament list to show new tournament
+          loadTournaments();
+          // Navigate directly to the new tournament after a brief delay
+          setTimeout(() => router.push(`/app/tournaments/${tournamentId}`), 1000);
         }}
       />
     </div>
