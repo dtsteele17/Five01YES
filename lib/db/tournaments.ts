@@ -99,16 +99,63 @@ export async function joinTournament(tournamentId: string) {
     throw new Error('User must be authenticated to join tournaments');
   }
 
+  // Get tournament details and check eligibility
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('id, name, status, max_participants')
+    .eq('id', tournamentId)
+    .single();
+
+  if (tournamentError || !tournament) {
+    throw new Error('Tournament not found');
+  }
+
+  // Check if tournament is still accepting registrations
+  if (tournament.status !== 'registration') {
+    throw new Error('Tournament registration is closed');
+  }
+
+  // Check if user is already registered
+  const { data: existingParticipation } = await supabase
+    .from('tournament_participants')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (existingParticipation) {
+    throw new Error('You are already registered for this tournament');
+  }
+
+  // Check if tournament is full
+  const { count: participantCount, error: countError } = await supabase
+    .from('tournament_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('tournament_id', tournamentId);
+
+  if (countError) {
+    throw new Error('Failed to check tournament capacity');
+  }
+
+  if (participantCount && participantCount >= tournament.max_participants) {
+    throw new Error('Tournament is full');
+  }
+
+  // Register for tournament
   const { error } = await supabase
     .from('tournament_participants')
-    .upsert({
+    .insert({
       tournament_id: tournamentId,
       user_id: user.id,
-    }, {
-      onConflict: 'tournament_id,user_id'
+      role: 'participant',
+      status_type: 'confirmed',
+      joined_at: new Date().toISOString()
     });
 
   if (error) {
+    if (error.code === '23505') {
+      throw new Error('You are already registered for this tournament');
+    }
     throw new Error(error.message || 'Failed to register for tournament');
   }
 }
