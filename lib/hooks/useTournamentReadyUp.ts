@@ -308,11 +308,6 @@ export function useTournamentReadyUp() {
         match_id: matchData.id
       };
 
-      if (error) {
-        console.error('[TOURNAMENT READY] Error refetching match:', error);
-        return;
-      }
-
       if (!data) {
         console.log('[TOURNAMENT READY] No data returned from refetch');
         return;
@@ -443,11 +438,6 @@ export function useTournamentReadyUp() {
               my_ready: (myReadyData && myReadyData.length > 0),
               match_id: matchData.id
             };
-
-            if (error) {
-              console.error('[TOURNAMENT READY] Error fetching updated match:', error);
-              return;
-            }
 
             if (!data) return;
 

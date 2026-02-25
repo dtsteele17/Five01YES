@@ -150,21 +150,25 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         (async () => {
           try {
             // Global tournament status transitions
-            const globalResult = await supabase.rpc('process_tournament_status_transitions').catch(err => {
+            let globalResult: any = { data: null };
+            try {
+              globalResult = await supabase.rpc('process_tournament_status_transitions');
+            } catch (err: any) {
               console.log('Global tournament transitions not available:', err?.message);
-              return { data: null };
-            });
-            
+            }
+
             // Specific tournament progression
-            const specificResult = await supabase.rpc('complete_tournament_flow_progression', { 
-              p_tournament_id: tournamentId 
-            }).catch(err => {
+            let specificResult: any = { data: null };
+            try {
+              specificResult = await supabase.rpc('complete_tournament_flow_progression', {
+                p_tournament_id: tournamentId
+              });
+            } catch (err: any) {
               console.log('Tournament flow progression not available:', err?.message);
-              return { data: null };
-            });
-            
+            }
+
             console.log('Tournament progression results:', { globalResult, specificResult });
-            
+
             // Check for tournament status changes
             if (specificResult?.data?.action === 'tournament_started') {
               toast.success('Tournament has started! Generating bracket...');
