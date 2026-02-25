@@ -170,7 +170,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
             console.log('Tournament progression results:', { globalResult, specificResult });
 
             // Check for tournament status changes
-            if (specificResult?.data?.action === 'tournament_started') {
+            if (specificResult?.data?.action === 'tournament_live') {
               toast.success('Tournament has started! Generating bracket...');
             } else if (specificResult?.data?.action === 'tournament_cancelled') {
               toast.error('Tournament cancelled - insufficient participants');
@@ -260,13 +260,17 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       const timeUntilStart = startTime ? startTime.getTime() - now.getTime() : null;
       const minutesUntilStart = timeUntilStart ? Math.round(timeUntilStart / (1000 * 60)) : null;
 
+      // CRITICAL: If tournament start time has passed but status is still 'scheduled', it should NOT show as "Open"
+      const shouldActuallyBeOpen = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournamentData.status);
+
       console.log('🕐 TOURNAMENT TIMING ANALYSIS:', {
         database_status: tournamentData.status,
         start_time: tournamentData.start_at,
         current_time: now.toISOString(),
         is_before_start_time: isBeforeStartTime,
         minutes_until_start: minutesUntilStart,
-        should_be_open: isBeforeStartTime && !['cancelled', 'completed'].includes(tournamentData.status),
+        should_be_open: shouldActuallyBeOpen,
+        time_passed_but_still_scheduled: !isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournamentData.status),
         created_by: tournamentData.created_by,
         currentUserId
       });
@@ -673,9 +677,26 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-white">
-                        {['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'Open' :
-                         tournament.status === 'ready' ? 'Starting' :
-                         tournament.status === 'in_progress' ? 'Live' : 'Complete'}
+                        {(() => {
+                          // Real-time status check
+                          const now = new Date();
+                          const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
+                          const isBeforeStartTime = startTime ? now < startTime : true;
+                          const shouldBeOpen = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
+                          
+                          if (shouldBeOpen) return 'Open';
+                          if (tournament.status === 'ready') return 'Starting';
+                          if (tournament.status === 'in_progress') return 'Live';
+                          if (tournament.status === 'cancelled') return 'Cancelled';
+                          if (tournament.status === 'completed') return 'Complete';
+                          
+                          // If time has passed but tournament is still 'scheduled', it should be processed
+                          if (!isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
+                            return 'Processing';
+                          }
+                          
+                          return 'Complete';
+                        })()}
                       </div>
                       <div className="text-sm text-slate-400">Status</div>
                     </div>
@@ -951,8 +972,27 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                   <div><strong>Start Time:</strong> {tournament.start_at}</div>
                   <div><strong>Current Time:</strong> {new Date().toISOString()}</div>
                   <div><strong>Is Before Start:</strong> {tournament.start_at ? (new Date() < new Date(tournament.start_at) ? 'YES' : 'NO') : 'N/A'}</div>
-                  <div><strong>Display Status:</strong> {['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'Open' : tournament.status === 'ready' ? 'Starting' : tournament.status === 'in_progress' ? 'Live' : 'Complete'}</div>
-                  <div><strong>Join Allowed:</strong> {['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'YES' : 'NO'}</div>
+                  <div><strong>Minutes Until Start:</strong> {tournament.start_at ? Math.round((new Date(tournament.start_at).getTime() - new Date().getTime()) / (1000 * 60)) : 'N/A'}</div>
+                  <div><strong>Should Be Open:</strong> {(() => {
+                    const now = new Date();
+                    const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
+                    const isBeforeStartTime = startTime ? now < startTime : true;
+                    return isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status) ? 'YES' : 'NO';
+                  })()}</div>
+                  <div><strong>Display Status:</strong> {(() => {
+                    const now = new Date();
+                    const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
+                    const isBeforeStartTime = startTime ? now < startTime : true;
+                    const shouldBeOpen = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
+                    
+                    if (shouldBeOpen) return 'Open';
+                    if (tournament.status === 'ready') return 'Starting';
+                    if (tournament.status === 'in_progress') return 'Live';
+                    if (tournament.status === 'cancelled') return 'Cancelled';
+                    if (tournament.status === 'completed') return 'Complete';
+                    if (!isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) return 'Processing';
+                    return 'Complete';
+                  })()}</div>
                 </div>
               </CardContent>
             </Card>
@@ -977,8 +1017,19 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
                     <Button
                       onClick={handleJoinTournament}
-                      disabled={joinLoading || participants.length >= tournament.max_participants || !['registration', 'scheduled', 'checkin'].includes(tournament.status) || justJoined}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      disabled={(() => {
+                        // Real-time join availability check
+                        const now = new Date();
+                        const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
+                        const isBeforeStartTime = startTime ? now < startTime : true;
+                        const canJoin = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
+                        
+                        return joinLoading || 
+                               participants.length >= tournament.max_participants || 
+                               !canJoin || 
+                               justJoined;
+                      })()}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {joinLoading ? (
                         <>

@@ -144,14 +144,15 @@ BEGIN
       );
       
     ELSE
-      -- DELETE tournament - not enough players
-      DELETE FROM tournament_participants WHERE tournament_id = p_tournament_id;
-      DELETE FROM tournaments WHERE id = p_tournament_id;
+      -- CANCEL tournament - not enough players (DON'T DELETE!)
+      UPDATE tournaments 
+      SET status = 'cancelled'
+      WHERE id = p_tournament_id;
       
       v_result := json_build_object(
         'success', true,
-        'action', 'tournament_deleted',
-        'message', 'Not enough players - tournament deleted',
+        'action', 'tournament_cancelled',
+        'message', 'Not enough players - tournament cancelled',
         'participant_count', v_participant_count
       );
     END IF;
@@ -338,8 +339,8 @@ BEGIN
     
     IF (v_tournament_result->>'action') = 'tournament_live' THEN
       v_started_count := v_started_count + 1;
-    ELSIF (v_tournament_result->>'action') = 'tournament_deleted' THEN  
-      v_deleted_count := v_deleted_count + 1;
+    ELSIF (v_tournament_result->>'action') = 'tournament_cancelled' THEN  
+      v_cancelled_count := v_cancelled_count + 1;
     END IF;
     
     v_results := v_results || v_tournament_result;
