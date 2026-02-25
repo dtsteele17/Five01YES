@@ -39,6 +39,16 @@ const statusConfig = {
     color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
     icon: Users
   },
+  scheduled: { 
+    label: 'Open', 
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    icon: Users
+  },
+  checkin: { 
+    label: 'Open', 
+    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    icon: Users
+  },
   ready: { 
     label: 'Starting Soon', 
     color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
@@ -271,16 +281,11 @@ export default function TournamentsPage() {
       const userId = user?.id;
       setCurrentUserId(userId || null);
       
-      // Query tournaments with proper date filtering
+      // Get all recent tournaments - let frontend handle filtering
       const { data: directData, error: directError } = await supabase
         .from('tournaments')
         .select('*')
-        .or(
-          // Always show registration, ready, and in_progress tournaments
-          `status.in.(registration,ready,in_progress),` +
-          // Show completed tournaments from last 30 days only
-          `and(status.eq.completed,completed_at.gte.${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()})`
-        )
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false });
       
       if (directError) throw directError;
@@ -320,7 +325,12 @@ export default function TournamentsPage() {
           status: t.status,
           start_at: t.start_at,
           created_at: t.created_at
-        }))
+        })),
+        allStatuses: [...new Set(tournamentsData.map(t => t.status))],
+        statusCounts: tournamentsData.reduce((acc, t) => {
+          acc[t.status] = (acc[t.status] || 0) + 1;
+          return acc;
+        }, {})
       });
 
       setTournaments(tournamentsData);
@@ -350,7 +360,7 @@ export default function TournamentsPage() {
     // Filter based on active tab
     switch (activeTab) {
       case 'open':
-        return matchesSearch && ['registration', 'ready'].includes(tournament.status);
+        return matchesSearch && ['registration', 'ready', 'scheduled', 'checkin'].includes(tournament.status);
       case 'live':
         return matchesSearch && tournament.status === 'in_progress';
       case 'completed':
@@ -361,7 +371,7 @@ export default function TournamentsPage() {
   });
 
   // Get counts for tab badges
-  const openCount = tournaments.filter(t => ['registration', 'ready'].includes(t.status)).length;
+  const openCount = tournaments.filter(t => ['registration', 'ready', 'scheduled', 'checkin'].includes(t.status)).length;
   const liveCount = tournaments.filter(t => t.status === 'in_progress').length;
   const completedCount = tournaments.filter(t => t.status === 'completed').length;
 
