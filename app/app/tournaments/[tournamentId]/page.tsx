@@ -32,6 +32,8 @@ import TournamentBracketTab from '@/components/app/TournamentBracketTab';
 import { TournamentInviteModal } from '@/components/app/TournamentInviteModal';
 import { TournamentCountdownPopup } from '@/components/app/TournamentCountdownPopup';
 import { TournamentMatchReadyUp } from '@/components/app/TournamentMatchReadyUp';
+import { findActiveUserMatch, getMatchRedirect } from '@/lib/utils/tournament-match-status';
+import { getParticipantState, updateParticipantStateOptimistically } from '@/lib/utils/tournament-participant-state';
 
 interface Tournament {
   id: string;
@@ -128,9 +130,13 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [showReadyUpModal, setShowReadyUpModal] = useState(false);
   const [currentMatchId, setCurrentMatchId] = useState<string | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
+  
+  // P1.1 FIX: Debounce tournament loading to prevent reload storms
+  const [lastLoadTime, setLastLoadTime] = useState(0);
+  const LOAD_DEBOUNCE_MS = 3000; // Don't reload more than once per 3 seconds
 
   useEffect(() => {
-    loadTournament();
+    loadTournament(true); // Force initial load
     loadCurrentUser();
   }, [tournamentId]);
 
@@ -196,7 +202,15 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     }
   };
 
-  const loadTournament = async () => {
+  const loadTournament = async (force = false) => {
+    // P1.1 FIX: Debounce frequent reloads to prevent storm
+    const now = Date.now();
+    if (!force && (now - lastLoadTime) < LOAD_DEBOUNCE_MS) {
+      console.log('Tournament detail reload debounced - too frequent');
+      return;
+    }
+    setLastLoadTime(now);
+    
     try {
       setLoading(true);
 
@@ -237,12 +251,15 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
       setParticipants(participantsData || []);
       
+      // P1.2 FIX: Use centralized participant state logic
+      const participantState = getParticipantState(participantsData || [], currentUserId);
+      
       // Only update registration status if user didn't just join
       if (!justJoined) {
-        setIsRegistered(participantsData?.some(p => p.user_id === currentUserId) || false);
+        setIsRegistered(participantState.isRegistered);
       } else {
         // User just joined - verify they're in the participant list, if so clear the flag
-        if (participantsData?.some(p => p.user_id === currentUserId)) {
+        if (participantState.isRegistered) {
           setJustJoined(false); // Registration confirmed in database
         }
       }
@@ -304,16 +321,22 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     if (!currentUserId) return;
 
     try {
-      // Find matches where current user is a participant and match is ready
-      const userMatches = matches.filter(match => 
-        (match.player1_id === currentUserId || match.player2_id === currentUserId) &&
-        match.status === 'ready'
-      );
-
-      if (userMatches.length > 0) {
-        const match = userMatches[0];
-        setCurrentMatchId(match.id);
-        setShowReadyUpModal(true);
+      // Use canonical logic to find active match requiring action
+      const activeMatch = findActiveUserMatch(matches, currentUserId);
+      
+      if (activeMatch) {
+        const matchStatus = getMatchRedirect(activeMatch, tournamentId, currentUserId);
+        
+        if (matchStatus.canRedirect) {
+          if (matchStatus.shouldShowReadyUp) {
+            // Show ready-up modal
+            setCurrentMatchId(activeMatch.id);
+            setShowReadyUpModal(true);
+          } else if (matchStatus.redirectUrl) {
+            // Redirect to live match
+            router.push(matchStatus.redirectUrl);
+          }
+        }
       }
     } catch (error) {
       console.error('Error checking for ready-up match:', error);
@@ -357,12 +380,18 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
       toast.success('Successfully joined tournament!');
       
-      // Update UI state immediately and set flag to prevent override
+      // P1.2 FIX: Optimistic update using centralized logic
+      const updatedParticipants = updateParticipantStateOptimistically(
+        participants, 
+        currentUserId, 
+        'register'
+      );
+      setParticipants(updatedParticipants);
       setIsRegistered(true);
       setJustJoined(true);
       
-      // Reload tournament data to get accurate participant list
-      loadTournament();
+      // Reload tournament data to confirm changes
+      setTimeout(() => loadTournament(), 1000);
 
     } catch (error: any) {
       console.error('Error joining tournament:', error);

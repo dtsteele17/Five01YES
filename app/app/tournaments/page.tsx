@@ -262,9 +262,13 @@ export default function TournamentsPage() {
   const [featuredTournaments, setFeaturedTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // P1.1 FIX: Debounce tournament loading to prevent reload storms
+  const [lastLoadTime, setLastLoadTime] = useState(0);
+  const LOAD_DEBOUNCE_MS = 5000; // Don't reload more than once per 5 seconds
 
   useEffect(() => {
-    loadTournaments();
+    loadTournaments(true); // Force initial load
     
     // Check for tournament status updates and trigger global transitions every 60 seconds
     const interval = setInterval(() => {
@@ -273,24 +277,32 @@ export default function TournamentsPage() {
       // First trigger global tournament status transitions
       supabase.rpc('process_tournament_status_transitions').then((result) => {
         console.log('Tournament status transitions result:', result.data);
-        // Then reload tournaments to reflect any changes
+        // Then reload tournaments (debounced)
         loadTournaments();
       }).catch(err => {
         console.log('Tournament status transitions not available yet:', err.message);
-        // Fallback to just loading tournaments
+        // Fallback to just loading tournaments (debounced)
         loadTournaments();
       });
     }, 60000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [lastLoadTime]);
 
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUserId(user?.id || null);
   };
 
-  const loadTournaments = async () => {
+  const loadTournaments = async (force = false) => {
+    // P1.1 FIX: Debounce frequent reloads to prevent storm
+    const now = Date.now();
+    if (!force && (now - lastLoadTime) < LOAD_DEBOUNCE_MS) {
+      console.log('Tournament reload debounced - too frequent');
+      return;
+    }
+    setLastLoadTime(now);
+    
     try {
       setLoading(true);
       

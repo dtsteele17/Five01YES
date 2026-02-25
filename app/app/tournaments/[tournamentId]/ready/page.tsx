@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isMatchStarted, getMatchRedirect } from '@/lib/utils/tournament-match-status';
 
 interface TournamentMatch {
   id: string;
@@ -179,14 +180,19 @@ export default function TournamentReadyUpPage() {
         return;
       }
 
+      // Use canonical match status logic
+      const matchStatus = getMatchRedirect(matchData, tournamentId, user.id);
+      
+      if (matchStatus.canRedirect && !matchStatus.shouldShowReadyUp) {
+        if (matchStatus.redirectUrl) {
+          router.push(matchStatus.redirectUrl);
+          return;
+        }
+      }
+
       if (matchData.status === 'completed') {
         toast.info('Match already completed');
         router.push(`/app/tournaments/${tournamentId}`);
-        return;
-      }
-
-      if (matchData.match_room_id) {
-        router.push(`/app/match/online/${matchData.match_room_id}`);
         return;
       }
 
@@ -221,40 +227,11 @@ export default function TournamentReadyUpPage() {
     if (!match || !currentUserId) return;
 
     try {
-      // REVERTING TO WORKING VERSION: tournament_match_ready.user_id stores profiles.id
-      // Get current user's profile ID
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', currentUserId)
-        .single();
+      // CANONICAL IDENTITY: Use auth user IDs consistently
+      // tournament_match_ready.user_id should store auth.user.id (not profiles.id)
+      const opponentAuthId = match.player1_id === currentUserId ? match.player2_id : match.player1_id;
 
-      if (profileError) {
-        console.error('[TOURNAMENT READY PAGE] Error fetching profile:', profileError);
-        return;
-      }
-
-      const currentProfileId = profileData?.id;
-
-      // Get opponent's profile ID
-      const opponentAuthId =
-        match.player1_id === currentUserId
-          ? match.player2_id
-          : match.player1_id;
-
-      const { data: opponentProfileData, error: opponentProfileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', opponentAuthId)
-        .single();
-
-      if (opponentProfileError) {
-        console.error('[TOURNAMENT READY PAGE] Error fetching opponent profile:', opponentProfileError);
-      }
-
-      const opponentProfileId = opponentProfileData?.id;
-
-      // Fetch ready status using profile IDs (as the working version did)
+      // Fetch ready status using auth user IDs
       const { data, error } = await supabase
         .from('tournament_match_ready')
         .select('user_id')
@@ -262,20 +239,18 @@ export default function TournamentReadyUpPage() {
 
       if (error) throw error;
 
-      const readyProfileIds = data.map((r) => r.user_id);
+      const readyUserIds = data.map((r) => r.user_id);
       
-      // Check if current user (by profile ID) is ready
-      setIsReady(currentProfileId ? readyProfileIds.includes(currentProfileId) : false);
-      
-      // Check if opponent (by profile ID) is ready
-      setOpponentReady(opponentProfileId ? readyProfileIds.includes(opponentProfileId) : false);
+      // Check ready status using auth user IDs consistently
+      setIsReady(readyUserIds.includes(currentUserId));
+      setOpponentReady(readyUserIds.includes(opponentAuthId));
 
-      console.log('[TOURNAMENT READY PAGE] Ready status loaded:', {
-        currentProfileId,
-        opponentProfileId,
-        readyProfileIds,
-        isReady: currentProfileId ? readyProfileIds.includes(currentProfileId) : false,
-        opponentReady: opponentProfileId ? readyProfileIds.includes(opponentProfileId) : false,
+      console.log('[TOURNAMENT READY PAGE] Ready status loaded (canonical):', {
+        currentUserId,
+        opponentAuthId,
+        readyUserIds,
+        isReady: readyUserIds.includes(currentUserId),
+        opponentReady: readyUserIds.includes(opponentAuthId),
       });
     } catch (error: any) {
       console.error('Error loading ready status:', error);

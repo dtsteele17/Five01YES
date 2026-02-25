@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Tournament, TournamentParticipant } from '@/lib/types/tournament';
+import { createClient } from '@/lib/supabase/client';
 
 type TabType = 'settings' | 'schedule' | 'bracket' | 'players' | 'rules';
 
@@ -76,6 +77,8 @@ export default function ManageTournamentPage() {
   const [banRounds, setBanRounds] = useState<number>(1);
   const [bracketGenerated, setBracketGenerated] = useState(false);
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
+  
+  const supabase = createClient();
 
   const isCreator = tournament?.createdByUserId === state.currentUserId;
   const isAdmin = tournament?.participants.some(
@@ -103,37 +106,66 @@ export default function ManageTournamentPage() {
       setRulesText('Standard tournament rules apply. All matches must be completed on time. Camera verification is recommended for all matches.');
 
       if (tournament.status !== 'Open') {
-        generateMockMatches();
+        // P0.3 FIX: Load real matches from DB instead of generating mock ones
+        loadRealMatches();
       }
     }
   }, [tournament]);
 
-  const generateMockMatches = () => {
+  // P0.3 FIX: Load real matches from DB instead of generating mock ones
+  const loadRealMatches = async () => {
     if (!tournament) return;
 
-    const mockMatches: TournamentMatch[] = [];
-    const roundCount = Math.log2(tournament.maxParticipants);
+    try {
+      const { data: matchesData, error } = await supabase
+        .from('tournament_matches')
+        .select(`
+          *,
+          player1:player1_id (
+            id,
+            username
+          ),
+          player2:player2_id (
+            id,
+            username
+          )
+        `)
+        .eq('tournament_id', tournamentId)
+        .order('round', { ascending: true })
+        .order('match_number', { ascending: true });
 
-    for (let round = 1; round <= roundCount; round++) {
-      const matchesInRound = tournament.maxParticipants / Math.pow(2, round);
-      const roundName = getRoundName(round, tournament.maxParticipants);
+      if (error) throw error;
 
-      for (let match = 1; match <= matchesInRound; match++) {
-        mockMatches.push({
-          id: `match-${round}-${match}`,
-          roundNumber: round,
-          matchNumber: match,
-          roundName,
+      if (matchesData && matchesData.length > 0) {
+        // Convert DB matches to expected format
+        const formattedMatches: TournamentMatch[] = matchesData.map(match => ({
+          id: match.id,
+          roundNumber: match.round,
+          matchNumber: match.match_number || match.match_index || 1,
+          roundName: getRoundName(match.round, tournament.maxParticipants),
           scheduledDate: tournament.startDateISO,
           scheduledTime: tournament.startTime,
-          status: 'scheduled',
-          player1Score: 0,
-          player2Score: 0,
-        });
+          status: match.status as any,
+          player1Score: 0, // TODO: Get real scores if available
+          player2Score: 0, // TODO: Get real scores if available
+          player1: match.player1 as any,
+          player2: match.player2 as any,
+          winnerId: match.winner_id,
+        }));
+        
+        setMatches(formattedMatches);
+        setBracketGenerated(true);
+      } else {
+        // No matches found - bracket not generated yet
+        setMatches([]);
+        setBracketGenerated(false);
       }
+    } catch (error: any) {
+      console.error('Error loading real matches:', error);
+      // Fallback to empty state - don't generate mock data
+      setMatches([]);
+      setBracketGenerated(false);
     }
-
-    setMatches(mockMatches);
   };
 
   const getRoundName = (round: number, maxParticipants: number): string => {
@@ -258,10 +290,27 @@ export default function ManageTournamentPage() {
     toast.success('Participant removed from tournament');
   };
 
-  const handleGenerateBracket = () => {
-    setBracketGenerated(true);
-    generateMockMatches();
-    toast.success('Tournament bracket generated successfully');
+  const handleGenerateBracket = async () => {
+    // P0.3 FIX: Remove mock bracket - use real DB bracket generation
+    // This should call actual bracket generation RPC, not generate mock data
+    try {
+      const { data, error } = await supabase.rpc('generate_tournament_bracket', {
+        p_tournament_id: tournamentId
+      });
+      
+      if (error) throw error;
+      
+      setBracketGenerated(true);
+      // Load real matches from DB instead of generating mock ones
+      await loadRealMatches();
+      toast.success('Tournament bracket generated successfully');
+    } catch (error: any) {
+      console.error('Error generating bracket:', error);
+      toast.error(error.message || 'Failed to generate bracket - DB function may not be available');
+      
+      // Fallback: Show message that bracket generation is not available
+      toast.error('Real bracket generation not yet available. Please use bracket tab for live tournaments.');
+    }
   };
 
   const handleRegenerateBracket = () => {
