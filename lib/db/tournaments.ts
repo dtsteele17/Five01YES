@@ -44,13 +44,26 @@ export async function createTournament(input: CreateTournamentInput) {
 
   console.log('CREATE_TOURNAMENT_FUNCTION_CALLED', input);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.error('CREATE_TOURNAMENT_NO_USER');
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error('CREATE_TOURNAMENT_NO_USER', { userError, user });
     throw new Error('User must be authenticated to create tournaments');
   }
 
-  console.log('CREATE_TOURNAMENT_USER_AUTHENTICATED', { userId: user.id });
+  console.log('CREATE_TOURNAMENT_USER_AUTHENTICATED', { 
+    userId: user.id,
+    userEmail: user.email 
+  });
+
+  // Test auth context in database
+  const { data: authTest, error: authTestError } = await supabase
+    .rpc('test_auth_context');
+  
+  console.log('CREATE_TOURNAMENT_AUTH_CONTEXT_TEST', { 
+    authTest,
+    authTestError,
+    clientUserId: user.id
+  });
 
   // Test if user can access tournaments table at all
   const { count: testCount, error: testError } = await supabase
@@ -86,57 +99,12 @@ export async function createTournament(input: CreateTournamentInput) {
 
   console.log('CREATE_TOURNAMENT_DATA_PREPARED', tournamentData);
 
-  // First try a minimal insert to test basic permissions
-  const minimalData = {
-    name: input.name,
-    start_at: startDateTime.toISOString(),
-    max_participants: input.maxParticipants,
-    status: 'scheduled',
-    created_by: user.id,
-    game_mode: 501,
-    legs_per_match: 5,
-    double_out: true
-  };
-
-  console.log('CREATE_TOURNAMENT_TRYING_MINIMAL_INSERT', minimalData);
-
-  let tournament, tournamentError;
-  
-  // First try a minimal insert to test basic permissions
-  const { data: minimalTournament, error: minimalError } = await supabase
+  // Direct insert with full data
+  const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .insert([minimalData])
+    .insert(tournamentData)
     .select()
     .single();
-    
-  // If minimal insert works, we know it's a field issue
-  if (!minimalError) {
-    console.log('CREATE_TOURNAMENT_MINIMAL_SUCCESS - now trying full data');
-    // Delete the test record and insert the full data
-    await supabase.from('tournaments').delete().eq('id', minimalTournament.id);
-    
-    const { data: fullTournament, error: fullError } = await supabase
-      .from('tournaments')
-      .insert([tournamentData])
-      .select()
-      .single();
-    
-    if (fullError) {
-      console.log('CREATE_TOURNAMENT_FULL_FAILED_BUT_MINIMAL_WORKED', {
-        minimalWorked: true,
-        fullError: fullError,
-        problematicData: tournamentData
-      });
-    }
-    
-    // Use the full result for the rest of the function
-    tournament = fullTournament;
-    tournamentError = fullError;
-  } else {
-    // Minimal insert failed - use those results
-    tournament = minimalTournament;
-    tournamentError = minimalError;
-  }
 
   console.log('CREATE_TOURNAMENT_DB_RESPONSE', { 
     data: tournament, 
