@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
     const { data: tournamentsForBrackets, error: bracketQueryError } = await supabase
       .from("tournaments")
       .select("id, name, start_at")
-      .eq("status", "scheduled")
+      .eq("status", "registration")
       .is("bracket_generated_at", null)
       .lte("start_at", new Date(Date.now() + 5 * 60 * 1000).toISOString());
 
@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
     const { data: tournamentsToStart, error: startQueryError } = await supabase
       .from("tournaments")
       .select("id, name, start_at")
-      .eq("status", "scheduled")
+      .eq("status", "registration")
       .is("started_at", null)
       .lte("start_at", new Date().toISOString());
 
