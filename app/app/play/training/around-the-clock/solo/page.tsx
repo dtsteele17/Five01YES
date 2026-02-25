@@ -154,7 +154,7 @@ export default function SoloAroundTheClockPage() {
   };
 
   const handleReturn = () => {
-    router.push('/app/play');
+    router.push('/app/play/training');
   };
 
   const getTargetLabel = (): string => {
@@ -399,3 +399,4 @@ export default function SoloAroundTheClockPage() {
     </div>
   );
 }
+

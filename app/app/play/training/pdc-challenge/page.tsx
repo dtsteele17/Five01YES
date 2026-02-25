@@ -287,7 +287,7 @@ export default function PDCChallengePage() {
                 Play Again
               </button>
               <button
-                onClick={() => router.push('/app/play')}
+                onClick={() => router.push('/app/play/training')}
                 disabled={saving}
                 className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium disabled:opacity-50"
               >
@@ -309,7 +309,7 @@ export default function PDCChallengePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push('/app/play')}
+                onClick={() => router.push('/app/play/training')}
                 className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5 text-slate-400" />
@@ -497,4 +497,5 @@ export default function PDCChallengePage() {
     </div>
   );
 }
+
 

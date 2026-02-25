@@ -62,7 +62,7 @@ export default function AroundTheClockPage() {
   useEffect(() => {
     if (!config || config.mode !== 'around-the-clock' || !config.atcSettings) {
       console.error('[ATC] No valid training config found, redirecting to Play');
-      router.push('/app/play');
+      router.push('/app/play/training');
       return;
     }
 
@@ -238,7 +238,7 @@ export default function AroundTheClockPage() {
   };
 
   const handleReturn = () => {
-    router.push('/app/play');
+    router.push('/app/play/training');
   };
 
   const renderThrowButtons = () => {
@@ -784,3 +784,4 @@ export default function AroundTheClockPage() {
     </div>
   );
 }
+
