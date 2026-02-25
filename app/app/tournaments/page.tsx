@@ -255,7 +255,6 @@ export default function TournamentsPage() {
 
   useEffect(() => {
     loadTournaments();
-    loadCurrentUser();
   }, []);
 
   const loadCurrentUser = async () => {
@@ -267,28 +266,52 @@ export default function TournamentsPage() {
     try {
       setLoading(true);
       
-      // Get tournaments with participant counts and user registration status
-      const { data: tournamentsData, error } = await supabase
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      setCurrentUserId(userId || null);
+      
+      // Simple direct query to avoid relationship ambiguity
+      const { data: directData, error: directError } = await supabase
         .from('tournaments')
-        .select(`
-          *,
-          tournament_participants(user_id)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
+      
+      if (directError) throw directError;
+      
+      // Get participant counts and user registration status separately
+      const tournamentsWithCounts = await Promise.all(
+        (directData || []).map(async (tournament) => {
+          // Get participant count
+          const { count } = await supabase
+            .from('tournament_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id);
+          
+          // Check if current user is registered
+          const { data: userParticipation } = userId ? await supabase
+            .from('tournament_participants')
+            .select('id')
+            .eq('tournament_id', tournament.id)
+            .eq('user_id', userId)
+            .maybeSingle() : { data: null };
+          
+          return {
+            ...tournament,
+            participant_count: count || 0,
+            is_registered: !!userParticipation
+          };
+        })
+      );
+      
+      const tournamentsData = tournamentsWithCounts;
 
-      if (error) throw error;
+      console.log('Tournaments loaded successfully:', tournamentsData.length);
 
-      // Process tournaments and add participant counts + user registration status
-      const processedTournaments = tournamentsData?.map(t => ({
-        ...t,
-        participant_count: (t.tournament_participants as any[])?.length || 0,
-        is_registered: (t.tournament_participants as any[])?.some((p: any) => p.user_id === currentUserId) || false
-      })) || [];
-
-      setTournaments(processedTournaments);
+      setTournaments(tournamentsData);
       
       // Featured tournaments - prioritize live/starting soon tournaments
-      const featured = processedTournaments
+      const featured = tournamentsData
         .filter(t => ['in_progress', 'ready', 'registration'].includes(t.status))
         .slice(0, 3);
       setFeaturedTournaments(featured);
@@ -296,6 +319,7 @@ export default function TournamentsPage() {
     } catch (error) {
       console.error('Error loading tournaments:', error);
       toast.error('Failed to load tournaments');
+      setTournaments([]); // Set empty array so UI doesn't break
     } finally {
       setLoading(false);
     }
