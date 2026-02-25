@@ -9,14 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { 
-  ArrowLeft, 
-  Users, 
-  Trophy, 
-  Calendar, 
-  Clock, 
-  Target, 
-  UserPlus, 
+import {
+  ArrowLeft,
+  Users,
+  Trophy,
+  Calendar,
+  Clock,
+  Target,
+  UserPlus,
   Settings,
   PlayCircle,
   Crown,
@@ -62,27 +62,27 @@ interface Participant {
 }
 
 const statusConfig = {
-  registration: { 
-    label: 'Registration Open', 
+  registration: {
+    label: 'Registration Open',
     color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
     description: 'Players can join this tournament',
     icon: Users
   },
-  ready: { 
-    label: 'Starting Soon', 
+  ready: {
+    label: 'Starting Soon',
     color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
     description: 'Tournament will begin shortly',
     icon: Clock
   },
-  in_progress: { 
-    label: 'Live Tournament', 
+  in_progress: {
+    label: 'Live Tournament',
     color: 'bg-red-500/20 text-red-400 border-red-500/30',
     description: 'Matches are in progress',
     icon: PlayCircle,
     pulse: true
   },
-  completed: { 
-    label: 'Tournament Complete', 
+  completed: {
+    label: 'Tournament Complete',
     color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     description: 'Tournament has finished',
     icon: Crown
@@ -116,7 +116,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const loadTournament = async () => {
     try {
       setLoading(true);
-      
+
       const { data: tournamentData, error: tournamentError } = await supabase
         .from('tournaments')
         .select('*')
@@ -164,7 +164,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
     try {
       setJoinLoading(true);
-      
+
       const { error } = await supabase.rpc('join_tournament', {
         p_tournament_id: tournamentId,
         p_user_id: currentUserId
@@ -174,7 +174,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
       toast.success('Successfully joined tournament!');
       loadTournament(); // Reload to update UI
-      
+
     } catch (error: any) {
       console.error('Error joining tournament:', error);
       toast.error(error.message || 'Failed to join tournament');
@@ -185,7 +185,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -238,18 +238,13 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const StatusIcon = statusInfo.icon;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
-        {/* Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Premium Header Section */}
+      <div className="bg-slate-900/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => router.push('/app/tournaments')}
               className="text-slate-400 hover:text-white"
@@ -257,148 +252,260 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-slate-500 font-medium">
               / Tournaments / {tournament.name}
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl flex items-center justify-center">
-                  <Trophy className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-black text-white">{tournament.name}</h1>
-                  <div className="flex items-center gap-4 text-slate-400">
-                    <span>{tournament.game_mode} Darts</span>
-                    <span>•</span>
-                    <span>Best of {tournament.legs_per_match}</span>
-                    <span>•</span>
-                    <span>{tournament.max_participants} Players</span>
-                    <span>•</span>
-                    <span className="capitalize">{tournament.entry_type}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <Badge
-                className={`${statusInfo.color} text-base font-semibold border px-3 py-1 w-fit ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
-              >
-                <StatusIcon className="w-4 h-4 mr-2" />
-                {statusInfo.label}
-              </Badge>
-            </div>
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
 
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-              
-              {isCreator && (
-                <Button variant="outline" size="sm">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </Button>
-              )}
-            </div>
-          </div>
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
 
-          {/* Status Card */}
-          <Card className="bg-slate-900/50 border-white/10">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Registration Progress */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-white">Registration</span>
-                    <span className="text-sm text-slate-400">{participants.length}/{tournament.max_participants}</span>
-                  </div>
-                  <Progress 
-                    value={getRegistrationProgress()} 
-                    className="h-2 bg-slate-800"
-                  />
-                  <div className="text-xs text-slate-500">
-                    {getRegistrationProgress()}% Full
-                  </div>
-                </div>
-
-                {/* Start Time */}
-                {tournament.start_at && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                      <Calendar className="w-4 h-4" />
-                      <span>Tournament Start</span>
+          {/* Premium Tournament Header Card */}
+          <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-2xl shadow-slate-900/25">
+            <CardContent className="p-8">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 via-emerald-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                      <Trophy className="w-8 h-8 text-white" />
                     </div>
-                    <div className="text-sm font-medium text-white">
-                      {formatDate(tournament.start_at)}
+                    <div>
+                      <h1 className="text-4xl font-black text-white tracking-tight">{tournament.name}</h1>
+                      <div className="flex items-center gap-4 text-slate-400 mt-2">
+                        <div className="flex items-center gap-1">
+                          <Target className="w-4 h-4" />
+                          <span>{tournament.game_mode} Darts</span>
+                        </div>
+                        <span>•</span>
+                        <span>Best of {tournament.legs_per_match}</span>
+                        <span>•</span>
+                        <span>{tournament.max_participants} Players</span>
+                        <span>•</span>
+                        <span className="capitalize">{tournament.entry_type}</span>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {/* Format */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <Target className="w-4 h-4" />
-                    <span>Format</span>
+                  <div className="flex items-center gap-4">
+                    <Badge
+                      className={`${statusInfo.color} text-base font-semibold border px-4 py-2 w-fit shadow-sm ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
+                    >
+                      <StatusIcon className="w-5 h-5 mr-2" />
+                      {statusInfo.label}
+                    </Badge>
+
+                    {tournament.start_at && (
+                      <div className="flex items-center gap-2 text-slate-300 bg-slate-800/30 px-4 py-2 rounded-xl">
+                        <Calendar className="w-4 h-4" />
+                        <span className="font-medium">{formatDate(tournament.start_at)}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-sm font-medium text-white">
-                    {tournament.round_scheduling === 'singleDay' ? 'Single Day' : 'Multi-Day'} Tournament
-                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" className="bg-slate-800/30 border-white/20 text-white hover:bg-slate-700">
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+
+                  {isCreator && (
+                    <Button variant="outline" size="sm" className="bg-slate-800/30 border-white/20 text-white hover:bg-slate-700">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Settings
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Premium Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Registration Progress */}
+            <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                      <Users className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-white">{participants.length}/{tournament.max_participants}</div>
+                      <div className="text-sm text-slate-400">Players Registered</div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Progress
+                      value={getRegistrationProgress()}
+                      className="h-3 bg-slate-800"
+                    />
+                    <div className="text-xs text-slate-500 font-medium">
+                      {getRegistrationProgress()}% Full
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tournament Format */}
+            <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                      <Target className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-white">Best of {tournament.legs_per_match}</div>
+                      <div className="text-sm text-slate-400">Match Format</div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    {tournament.round_scheduling === 'singleDay' ? 'Single Day' : 'Multi-Day'} • {tournament.game_mode} Darts
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tournament Timing */}
+            <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-white">
+                        {tournament.status === 'registration' ? 'Open' :
+                         tournament.status === 'ready' ? 'Starting' :
+                         tournament.status === 'in_progress' ? 'Live' : 'Complete'}
+                      </div>
+                      <div className="text-sm text-slate-400">Status</div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    {tournament.entry_type === 'open' ? 'Open Entry' : 'Invite Only'}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </motion.div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-3">
-            <Tabs defaultValue="overview" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border-white/10">
-                <TabsTrigger value="overview" className="data-[state=active]:bg-emerald-600">
-                  🎯 Overview
-                </TabsTrigger>
-                <TabsTrigger value="players" className="data-[state=active]:bg-emerald-600">
-                  👥 Players ({participants.length})
-                </TabsTrigger>
-                <TabsTrigger value="bracket" className="data-[state=active]:bg-emerald-600">
-                  🏆 Bracket
-                </TabsTrigger>
-              </TabsList>
+            <Tabs defaultValue="overview" className="space-y-8">
+              <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10 p-2">
+                <TabsList className="grid w-full grid-cols-3 bg-transparent">
+                  <TabsTrigger
+                    value="overview"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/25 rounded-xl py-3 px-6 font-medium transition-all duration-200"
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="players"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 rounded-xl py-3 px-6 font-medium transition-all duration-200"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Players ({participants.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="bracket"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-xl py-3 px-6 font-medium transition-all duration-200"
+                  >
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Bracket
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* Overview Tab */}
               <TabsContent value="overview" className="space-y-6">
-                <Card className="bg-slate-900/50 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white">About This Tournament</CardTitle>
+                <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                        <Target className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <CardTitle className="text-white text-xl">About This Tournament</CardTitle>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     {tournament.description ? (
-                      <p className="text-slate-300 leading-relaxed">{tournament.description}</p>
+                      <div className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
+                        <p className="text-slate-300 leading-relaxed">{tournament.description}</p>
+                      </div>
                     ) : (
-                      <p className="text-slate-400 italic">No description provided for this tournament.</p>
+                      <div className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
+                        <p className="text-slate-400 italic">No description provided for this tournament.</p>
+                      </div>
                     )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-700">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-white">Tournament Rules</h4>
-                        <ul className="space-y-1 text-sm text-slate-300">
-                          <li>• {tournament.game_mode} starting score</li>
-                          <li>• Best of {tournament.legs_per_match} legs per match</li>
-                          <li>• Double out finish required</li>
-                          <li>• Standard tournament bracket elimination</li>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-slate-800/30 rounded-xl p-4 space-y-3">
+                        <h4 className="font-semibold text-white flex items-center gap-2">
+                          <div className="w-6 h-6 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                            <Trophy className="w-3 h-3 text-emerald-400" />
+                          </div>
+                          Tournament Rules
+                        </h4>
+                        <ul className="space-y-2 text-sm text-slate-300">
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                            {tournament.game_mode} starting score
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                            Best of {tournament.legs_per_match} legs per match
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                            Double out finish required
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                            Single elimination bracket
+                          </li>
                         </ul>
                       </div>
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-white">Format Details</h4>
-                        <ul className="space-y-1 text-sm text-slate-300">
-                          <li>• {tournament.max_participants} player maximum</li>
-                          <li>• {tournament.entry_type === 'open' ? 'Open registration' : 'Invite only'}</li>
-                          <li>• {tournament.round_scheduling === 'singleDay' ? 'Single day' : 'Multi-day'} event</li>
-                          <li>• Real-time match progression</li>
+                      <div className="bg-slate-800/30 rounded-xl p-4 space-y-3">
+                        <h4 className="font-semibold text-white flex items-center gap-2">
+                          <div className="w-6 h-6 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                            <Users className="w-3 h-3 text-blue-400" />
+                          </div>
+                          Format Details
+                        </h4>
+                        <ul className="space-y-2 text-sm text-slate-300">
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                            {tournament.max_participants} player maximum
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                            {tournament.entry_type === 'open' ? 'Open registration' : 'Invite only'}
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                            {tournament.round_scheduling === 'singleDay' ? 'Single day' : 'Multi-day'} event
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                            Real-time match progression
+                          </li>
                         </ul>
                       </div>
                     </div>
@@ -436,7 +543,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                           </span>
                         </motion.div>
                       ))}
-                      
+
                       {participants.length === 0 && (
                         <p className="text-slate-400 text-center py-4">No players have joined yet</p>
                       )}
@@ -447,22 +554,24 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
               {/* Players Tab */}
               <TabsContent value="players" className="space-y-6">
-                <Card className="bg-slate-900/50 border-white/10">
-                  <CardHeader>
+                <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
+                  <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-white flex items-center gap-3">
-                        Registered Players
-                        <Badge variant="outline" className="text-slate-400 border-slate-600">
-                          {participants.length}/{tournament.max_participants}
-                        </Badge>
-                      </CardTitle>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                          <Users className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-white text-xl">Tournament Players</CardTitle>
+                          <p className="text-slate-400 text-sm">{participants.length} of {tournament.max_participants} registered</p>
+                        </div>
+                      </div>
                       
                       {/* Invite Button - Only for tournament creators */}
                       {isCreator && tournament.status === 'registration' && (
                         <Button
                           onClick={() => setShowInviteModal(true)}
-                          size="sm"
-                          className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-semibold"
+                          className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-semibold shadow-lg shadow-emerald-500/25"
                         >
                           <UserPlus className="w-4 h-4 mr-2" />
                           Invite Players
@@ -499,7 +608,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         </motion.div>
                       ))}
                     </div>
-                    
+
                     {participants.length === 0 && (
                       <div className="text-center py-8">
                         <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
@@ -516,7 +625,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                   <CardHeader>
                     <CardTitle className="text-white">Tournament Bracket</CardTitle>
                     <CardDescription className="text-slate-400">
-                      {tournament.bracket_generated_at 
+                      {tournament.bracket_generated_at
                         ? 'Interactive tournament bracket - click matches for details'
                         : 'Bracket will be generated when tournament starts'
                       }
@@ -555,13 +664,13 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     <div className="text-center">
                       <h3 className="text-lg font-semibold text-white mb-2">Join Tournament</h3>
                       <p className="text-sm text-slate-400 mb-4">
-                        {participants.length === tournament.max_participants 
+                        {participants.length === tournament.max_participants
                           ? 'Tournament is full!'
                           : `${tournament.max_participants - participants.length} spots remaining`
                         }
                       </p>
                     </div>
-                    
+
                     <Button
                       onClick={handleJoinTournament}
                       disabled={joinLoading || participants.length >= tournament.max_participants || tournament.status !== 'registration'}

@@ -38,6 +38,7 @@ import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { TournamentWinnerPopup } from '@/components/game/TournamentWinnerPopup';
 import { calculateLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
 
 interface Dart {
@@ -896,6 +897,48 @@ export default function QuickMatchRoomPage() {
       return `/app/tournaments`;
     }
     return '/app/play';
+  };
+
+  // Get tournament info if this is a tournament match
+  const [tournamentInfo, setTournamentInfo] = useState<{
+    id: string;
+    name: string;
+    round: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isTournamentMatch && tournamentMatchId) {
+      loadTournamentInfo();
+    }
+  }, [isTournamentMatch, tournamentMatchId]);
+
+  const loadTournamentInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tournament_matches')
+        .select(`
+          tournament_id,
+          round,
+          tournaments:tournament_id (
+            id,
+            name
+          )
+        `)
+        .eq('id', tournamentMatchId)
+        .single();
+
+      if (error) throw error;
+
+      if (data && data.tournaments) {
+        setTournamentInfo({
+          id: (data.tournaments as any).id,
+          name: (data.tournaments as any).name,
+          round: data.round
+        });
+      }
+    } catch (error) {
+      console.error('Error loading tournament info:', error);
+    }
   };
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
   const [showOpponentForfeitSignalModal, setShowOpponentForfeitSignalModal] = useState(false);
