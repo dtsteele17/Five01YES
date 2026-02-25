@@ -59,8 +59,7 @@ interface Participant {
   role: string;
   status_type: string;
   joined_at: string;
-  profiles: {
-    id: string;
+  user_profile: {
     username: string | null;
     avatar_url: string | null;
   } | null;
