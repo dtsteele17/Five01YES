@@ -1125,46 +1125,65 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
             tournamentName={tournament.name}
             startTime={tournament.start_at}
             isVisible={showCountdownPopup}
-            onComplete={() => {
+            onComplete={async () => {
               setShowCountdownPopup(false);
-              setCountdownComplete(true); // NOW ready-up can show
-              // Check for ready-up after countdown completes
-              setTimeout(() => {
-                loadTournament();
-                loadTournamentMatches().then(() => {
-                  checkForReadyUpMatch();
-                });
-              }, 1000);
+              setCountdownComplete(true);
+              
+              // Find user's match and go DIRECTLY to match screen (like quick match)
+              // The quick match screen already has ready-up, coin toss, and full game flow
+              if (currentUserId) {
+                try {
+                  // Get user's first round match
+                  const { data: myMatch } = await supabase
+                    .from('tournament_matches')
+                    .select('*')
+                    .eq('tournament_id', tournamentId)
+                    .eq('round', 1)
+                    .or(`player1_id.eq.${currentUserId},player2_id.eq.${currentUserId}`)
+                    .limit(1)
+                    .single();
+
+                  if (myMatch) {
+                    console.log('🎯 Found user match, creating match room...', myMatch);
+                    
+                    // Create a match room and redirect to quick match screen
+                    try {
+                      const { data: roomResult } = await supabase.rpc('create_tournament_match_room', {
+                        p_tournament_match_id: myMatch.id,
+                        p_player1_id: myMatch.player1_id,
+                        p_player2_id: myMatch.player2_id,
+                        p_tournament_id: tournamentId,
+                        p_game_mode: 501,
+                        p_legs_per_match: 3
+                      });
+
+                      if (roomResult?.success && roomResult?.room_id) {
+                        console.log('🎮 Match room created, redirecting...', roomResult.room_id);
+                        router.push(`/app/play/quick-match/match?room=${roomResult.room_id}&tournamentId=${tournamentId}&tournamentMatch=${myMatch.id}`);
+                        return;
+                      }
+                    } catch (roomErr) {
+                      console.log('Room creation RPC not available, using match ID directly');
+                    }
+
+                    // Fallback: redirect with tournament match ID (no room)
+                    router.push(`/app/play/quick-match/match?tournamentId=${tournamentId}&tournamentMatch=${myMatch.id}`);
+                  } else {
+                    console.log('No match found for user, reloading tournament...');
+                    loadTournament();
+                    loadTournamentMatches();
+                  }
+                } catch (err) {
+                  console.error('Error finding user match:', err);
+                  loadTournament();
+                  loadTournamentMatches();
+                }
+              }
             }}
           />
         )}
 
-        {/* Tournament Ready-Up Modal */}
-        {showReadyUpModal && currentMatchId && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <TournamentMatchReadyUp
-              matchId={currentMatchId}
-              tournamentId={tournamentId}
-              onComplete={(matchRoomId) => {
-                setShowReadyUpModal(false);
-                setCurrentMatchId(null);
-                if (matchRoomId) {
-                  // Navigate to match room
-                  router.push(`/app/play/quick-match/match?room=${matchRoomId}&tournament=${tournamentId}`);
-                } else {
-                  // Stay on tournament page and refresh
-                  loadTournament();
-                  loadTournamentMatches();
-                }
-              }}
-              onCancel={() => {
-                setShowReadyUpModal(false);
-                setCurrentMatchId(null);
-                loadTournament();
-              }}
-            />
-          </div>
-        )}
+        {/* Ready-up is now handled by the quick match screen directly */}
       </div>
     </div>
   );
