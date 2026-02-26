@@ -276,28 +276,33 @@ export default function DashboardPage() {
           });
         }
 
-        // Check registered tournaments (not yet started)
-        const { data: registeredTournaments } = await supabase
+        // Check registered tournaments
+        const { data: myParticipations } = await supabase
           .from('tournament_participants')
-          .select(`
-            tournament_id,
-            tournaments!inner (id, name, start_time, status)
-          `)
+          .select('tournament_id')
           .eq('user_id', profile.id)
-          .in('tournaments.status', ['scheduled', 'checkin', 'in_progress']);
+          .in('status_type', ['registered', 'checked-in']);
 
-        if (registeredTournaments) {
-          registeredTournaments.forEach((tp: any) => {
-            const t = tp.tournaments;
-            if (t && t.start_time) {
-              upcoming.push({
-                id: t.id,
-                type: 'tournament',
-                name: t.name || 'Tournament',
-                scheduled_at: t.start_time,
-              });
-            }
-          });
+        if (myParticipations && myParticipations.length > 0) {
+          const tournamentIds = myParticipations.map((p: any) => p.tournament_id);
+          const { data: myTournaments } = await supabase
+            .from('tournaments')
+            .select('id, name, start_time, status')
+            .in('id', tournamentIds)
+            .in('status', ['scheduled', 'checkin', 'in_progress']);
+
+          if (myTournaments) {
+            myTournaments.forEach((t: any) => {
+              if (t.start_time) {
+                upcoming.push({
+                  id: t.id,
+                  type: 'tournament',
+                  name: t.name || 'Tournament',
+                  scheduled_at: t.start_time,
+                });
+              }
+            });
+          }
         }
 
         // Check league matches
