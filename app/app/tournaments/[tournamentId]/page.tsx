@@ -1156,85 +1156,78 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                       return;
                     }
 
-                    // Only player1 creates the room to avoid duplicates
-                    // Player2 waits and polls for the room to appear
-                    const isPlayer1 = myMatch.player1_id === currentUserId;
-
-                    if (isPlayer1) {
-                      // Player 1: Create the room
-                      try {
-                        const { data: roomResult } = await supabase.rpc('create_tournament_match_room', {
-                          p_tournament_match_id: myMatch.id,
-                          p_player1_id: myMatch.player1_id,
-                          p_player2_id: myMatch.player2_id,
-                          p_tournament_id: tournamentId,
-                          p_game_mode: 501,
-                          p_legs_per_match: 3
-                        });
-
-                        if (roomResult?.success && roomResult?.room_id) {
-                          goToGame(roomResult.room_id);
-                          return;
-                        }
-                      } catch (rpcErr) {
-                        console.log('RPC failed, trying direct insert...');
+                    // Both players try to create/find the room
+                    // SQL function prevents duplicates by checking if room already exists
+                    
+                    // Step 1: Try RPC (handles dedup server-side)
+                    try {
+                      const { data: roomResult, error: rpcErr } = await supabase.rpc('create_tournament_match_room', {
+                        p_tournament_match_id: myMatch.id,
+                        p_player1_id: myMatch.player1_id,
+                        p_player2_id: myMatch.player2_id,
+                        p_tournament_id: tournamentId,
+                        p_game_mode: 501,
+                        p_legs_per_match: 3
+                      });
+                      console.log('Room RPC result:', roomResult, rpcErr);
+                      if (roomResult?.success && roomResult?.room_id) {
+                        goToGame(roomResult.room_id);
+                        return;
                       }
-
-                      // Fallback: direct insert
-                      try {
-                        const { data: roomData } = await supabase
-                          .from('match_rooms')
-                          .insert({
-                            player1_id: myMatch.player1_id,
-                            player2_id: myMatch.player2_id,
-                            game_mode: 501,
-                            match_format: 'best-of-3',
-                            status: 'active',
-                            current_leg: 1,
-                            legs_to_win: 2,
-                            player1_remaining: 501,
-                            player2_remaining: 501,
-                            current_turn: myMatch.player1_id,
-                            source: 'tournament',
-                            match_type: 'tournament',
-                            tournament_match_id: myMatch.id
-                          })
-                          .select('id')
-                          .single();
-
-                        if (roomData?.id) {
-                          await supabase
-                            .from('tournament_matches')
-                            .update({ match_room_id: roomData.id, status: 'in_progress' })
-                            .eq('id', myMatch.id);
-                          goToGame(roomData.id);
-                          return;
-                        }
-                      } catch (insertErr) {
-                        console.error('Direct insert failed:', insertErr);
-                      }
-                    } else {
-                      // Player 2: Wait for Player 1 to create the room, then join it
-                      console.log('⏳ Player 2 waiting for room to be created...');
-                      for (let attempt = 0; attempt < 15; attempt++) {
-                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
-                        
-                        const { data: updatedMatch } = await supabase
-                          .from('tournament_matches')
-                          .select('match_room_id')
-                          .eq('id', myMatch.id)
-                          .single();
-
-                        if (updatedMatch?.match_room_id) {
-                          console.log('🎮 Room found! Joining:', updatedMatch.match_room_id);
-                          goToGame(updatedMatch.match_room_id);
-                          return;
-                        }
-                        console.log(`⏳ Attempt ${attempt + 1}/15 - waiting for room...`);
-                      }
-                      console.error('Room was never created after 30 seconds');
-                      toast.error('Match room not ready. Please try refreshing.');
+                    } catch (err) {
+                      console.log('RPC failed:', err);
                     }
+
+                    // Step 2: Check if room was created by other player
+                    for (let attempt = 0; attempt < 10; attempt++) {
+                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      const { data: check } = await supabase
+                        .from('tournament_matches')
+                        .select('match_room_id')
+                        .eq('id', myMatch.id)
+                        .single();
+                      if (check?.match_room_id) {
+                        goToGame(check.match_room_id);
+                        return;
+                      }
+                      console.log(`⏳ Attempt ${attempt + 1}/10 - waiting for room...`);
+                    }
+
+                    // Step 3: Last resort - direct insert
+                    try {
+                      const { data: roomData } = await supabase
+                        .from('match_rooms')
+                        .insert({
+                          player1_id: myMatch.player1_id,
+                          player2_id: myMatch.player2_id,
+                          game_mode: 501,
+                          match_format: 'best-of-3',
+                          status: 'active',
+                          current_leg: 1,
+                          legs_to_win: 2,
+                          player1_remaining: 501,
+                          player2_remaining: 501,
+                          current_turn: myMatch.player1_id,
+                          source: 'tournament',
+                          match_type: 'tournament',
+                          tournament_match_id: myMatch.id
+                        })
+                        .select('id')
+                        .single();
+
+                      if (roomData?.id) {
+                        await supabase
+                          .from('tournament_matches')
+                          .update({ match_room_id: roomData.id, status: 'in_progress' })
+                          .eq('id', myMatch.id);
+                        goToGame(roomData.id);
+                        return;
+                      }
+                    } catch (insertErr) {
+                      console.error('Direct insert failed:', insertErr);
+                    }
+
+                    toast.error('Could not create match room. Try refreshing.');
                   } else {
                     console.log('No match found for user, reloading...');
                     loadTournament();
