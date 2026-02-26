@@ -81,14 +81,42 @@ export default function GlobalTournamentMonitor() {
         if (dismissedTournamentsRef.current.has(t.id)) continue;
 
         const startMs = new Date(t.start_time).getTime();
+        const msSinceStart = now - startMs;
         const msUntilStart = startMs - now;
 
-        // Tournament starting within 90 seconds or already started but no countdown shown
-        if (msUntilStart <= 90000 && !showCountdown && !countdownComplete) {
+        // Auto-cancel stale tournaments: live for >4 min with no active matches
+        if (t.status === 'in_progress' && msSinceStart > 240000) {
+          try {
+            const { data: activeMatches } = await supabase
+              .from('tournament_matches')
+              .select('id')
+              .eq('tournament_id', t.id)
+              .in('status', ['in_progress', 'ready'])
+              .limit(1);
+            if (!activeMatches?.length) {
+              await supabase
+                .from('tournaments')
+                .update({ status: 'cancelled' })
+                .eq('id', t.id);
+              console.log('[GlobalTournamentMonitor] Auto-cancelled stale tournament:', t.name);
+              dismissedTournamentsRef.current.add(t.id);
+              continue;
+            }
+          } catch {}
+        }
+
+        // Only show popup if tournament is starting within 60s OR just started (within 60s ago)
+        // Never show for tournaments that started more than 60s ago
+        if (msUntilStart <= 60000 && msSinceStart <= 60000 && !showCountdown && !countdownComplete) {
           setActiveTournament({ id: t.id, name: t.name, startTime: t.start_time });
           setShowCountdown(true);
           dismissedTournamentsRef.current.add(t.id);
           return; // Only show one at a time
+        }
+
+        // If tournament started more than 60s ago, just dismiss it silently
+        if (msSinceStart > 60000) {
+          dismissedTournamentsRef.current.add(t.id);
         }
       }
 

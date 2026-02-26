@@ -360,11 +360,15 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       // Skip activities for now - causing 400 errors
       setActivities([]);
 
-      // If tournament is in progress, load matches (but only check ready-up after countdown)
+      // If tournament is in progress, load matches and check for ready-up
       if (tournamentData.status === 'in_progress') {
         await loadTournamentMatches();
-        // ONLY show ready-up if countdown has already completed
-        if (countdownComplete) {
+        // Check for ready-up matches — either after countdown or if navigated here mid-tournament
+        const startTime = new Date(tournamentData.start_at || tournamentData.start_time || '');
+        const msSinceStart = Date.now() - startTime.getTime();
+        if (countdownComplete || msSinceStart > 60000) {
+          // Tournament started more than 60s ago or countdown done — safe to check ready-up
+          setCountdownComplete(true);
           await checkForReadyUpMatch();
         }
       }

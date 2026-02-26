@@ -184,6 +184,15 @@ BEGIN
     END LOOP;
   END;
 
+  -- Mark round 2 matches as 'ready' if both players are filled (from byes)
+  UPDATE tournament_matches
+  SET status = 'ready'
+  WHERE tournament_id = p_tournament_id
+    AND round = 2
+    AND player1_id IS NOT NULL
+    AND player2_id IS NOT NULL
+    AND status = 'pending';
+
   -- Update tournament status
   UPDATE tournaments
   SET status = 'in_progress', started_at = NOW(), bracket_generated_at = NOW()

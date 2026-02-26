@@ -55,18 +55,26 @@ export function TournamentCountdownPopup({
     try {
       setPhase('generating');
 
-      // Generate bracket
-      const { data, error } = await supabase.rpc('generate_tournament_bracket', {
-        p_tournament_id: tournamentId
-      });
+      // Check if bracket already generated (another user may have triggered it)
+      const { data: tCheck } = await supabase
+        .from('tournaments')
+        .select('bracket_generated_at')
+        .eq('id', tournamentId)
+        .single();
 
-      if (error) {
-        console.error('Bracket generation error:', error);
-        // Fallback: just update status
-        await supabase
-          .from('tournaments')
-          .update({ status: 'in_progress', started_at: new Date().toISOString(), bracket_generated_at: new Date().toISOString() })
-          .eq('id', tournamentId);
+      if (!tCheck?.bracket_generated_at) {
+        // Generate bracket
+        const { data, error } = await supabase.rpc('generate_tournament_bracket', {
+          p_tournament_id: tournamentId
+        });
+
+        console.log('[TournamentCountdown] Bracket generation result:', data, error?.message);
+
+        if (error) {
+          console.error('Bracket generation error:', error);
+        }
+      } else {
+        console.log('[TournamentCountdown] Bracket already generated, skipping');
       }
 
       setBracketGenerated(true);
