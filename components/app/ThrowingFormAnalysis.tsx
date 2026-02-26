@@ -8,6 +8,7 @@ import { Camera, Trash2, Activity, Loader2, ArrowLeft, Star } from 'lucide-react
 import { PoseLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision';
 import { toast } from 'sonner';
 import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 interface HandTrail {
   points: { x: number; y: number; phase: 'setup' | 'drawback' | 'release' }[];
@@ -34,6 +35,7 @@ const THROW_COLORS = [
 
 export default function ThrowingFormAnalysis() {
   const router = useRouter();
+  const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trailCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,7 +73,7 @@ export default function ThrowingFormAnalysis() {
     if (sessionXP <= 0) return;
 
     const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
-    await awardXP('form-analysis', throwCount, {
+    const result = await awardXP('form-analysis', throwCount, {
       completed: true,
       sessionData: {
         throwsDetected: throwCount,
@@ -79,6 +81,9 @@ export default function ThrowingFormAnalysis() {
         xpEarned: sessionXP,
       },
     });
+    if (result.levelUp) {
+      triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
+    }
   };
 
   useEffect(() => {
@@ -731,6 +736,7 @@ export default function ThrowingFormAnalysis() {
           </div>
         </Card>
       </div>
+      {LevelUpToastComponent}
     </div>
   );
 }
