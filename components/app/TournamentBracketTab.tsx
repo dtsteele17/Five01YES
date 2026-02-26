@@ -97,7 +97,7 @@ export default function TournamentBracketTab({ tournamentId }: TournamentBracket
   }
 
   // Show bracket generation option if bracket hasn't been generated
-  if (!tournament.bracket_generated_at && tournament.status === 'registration') {
+  if (!tournament.bracket_generated_at && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
     return (
       <div className="space-y-6">
         <Card className="bg-slate-800/30 border-slate-700">

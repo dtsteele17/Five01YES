@@ -374,25 +374,47 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
   const loadTournamentMatches = async () => {
     try {
+      // Load matches WITHOUT foreign key joins (avoids PGRST200 error)
       const { data: matchesData, error } = await supabase
         .from('tournament_matches')
-        .select(`
-          *,
-          player1:player1_id (
-            id,
-            username
-          ),
-          player2:player2_id (
-            id,
-            username
-          )
-        `)
+        .select('*')
         .eq('tournament_id', tournamentId)
         .order('round')
         .order('match_index');
 
       if (error) throw error;
-      setMatches(matchesData || []);
+
+      // Get unique player IDs from matches
+      const playerIds = new Set<string>();
+      (matchesData || []).forEach(m => {
+        if (m.player1_id) playerIds.add(m.player1_id);
+        if (m.player2_id) playerIds.add(m.player2_id);
+      });
+
+      // Fetch all player profiles in one query
+      let playerProfiles: Record<string, { username: string | null; avatar_url: string | null }> = {};
+      if (playerIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, username, avatar_url')
+          .in('user_id', Array.from(playerIds));
+
+        if (profiles) {
+          profiles.forEach(p => {
+            playerProfiles[p.user_id] = { username: p.username, avatar_url: p.avatar_url };
+          });
+        }
+      }
+
+      // Attach profile data to matches
+      const matchesWithProfiles = (matchesData || []).map(match => ({
+        ...match,
+        player1_profile: match.player1_id ? playerProfiles[match.player1_id] || null : null,
+        player2_profile: match.player2_id ? playerProfiles[match.player2_id] || null : null,
+      }));
+
+      console.log('📊 Tournament matches loaded:', matchesWithProfiles);
+      setMatches(matchesWithProfiles);
     } catch (error) {
       console.error('Error loading matches:', error);
     }
