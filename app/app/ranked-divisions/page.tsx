@@ -286,12 +286,12 @@ function CurrentRankCard({
               <div className="w-56 bg-slate-900/60 rounded-2xl p-4 border border-amber-500/30 backdrop-blur-sm">
                 <div className="flex justify-between text-sm mb-3">
                   <span className="text-amber-400 font-bold">Placement Matches</span>
-                  <span className="text-white font-black">{5 - playerState.provisional_games_remaining}/5</span>
+                  <span className="text-white font-black">{Math.max(0, 5 - Math.min(5, playerState.provisional_games_remaining))}/5</span>
                 </div>
                 <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 transition-all duration-500"
-                    style={{ width: `${(5 - playerState.provisional_games_remaining) * 20}%` }}
+                    style={{ width: `${Math.max(0, 5 - Math.min(5, playerState.provisional_games_remaining)) * 20}%` }}
                   />
                 </div>
                 <p className="text-slate-400 text-xs mt-2 text-center">Complete placements to get your rank</p>

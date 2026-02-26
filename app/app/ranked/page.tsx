@@ -213,7 +213,7 @@ export default function RankedPage() {
     : 0;
 
   const isPlacement = playerState ? playerState.provisional_games_remaining > 0 : true;
-  const placementsDone = playerState ? 5 - playerState.provisional_games_remaining : 0;
+  const placementsDone = playerState ? Math.max(0, 5 - Math.min(5, playerState.provisional_games_remaining)) : 0;
 
   if (loading) {
     return (
