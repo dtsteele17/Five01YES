@@ -54,7 +54,7 @@ const MATCH_TYPES = [
   { value: 'private', label: 'Private Match' },
   { value: 'local', label: 'Local Match' },
   { value: 'dartbot', label: 'Training (vs Bot)' },
-  { value: 'tournament', label: 'Tournament' },
+  { value: 'tournament', label: 'Tournaments' },
 ];
 
 // Main Stat Card Component
@@ -118,6 +118,7 @@ export default function StatsPage() {
   const [gameModeFilter, setGameModeFilter] = useState<string>('all');
   const [matchTypeFilter, setMatchTypeFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [tournamentWins, setTournamentWins] = useState<number>(0);
   const [totalMatchesFromHistory, setTotalMatchesFromHistory] = useState<number>(0);
   
   const { overallStats, loading: overallLoading, error: overallError, refetch: refetchOverall } = usePlayerStats();
@@ -134,6 +135,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     fetchTotalMatchesCount();
+    fetchTournamentWins();
   }, []);
 
   async function fetchTotalMatchesCount() {
@@ -151,6 +153,21 @@ export default function StatsPage() {
       }
     } catch (err) {
       console.error('Error:', err);
+    }
+  }
+
+  async function fetchTournamentWins() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { count, error } = await supabase
+        .from('tournaments')
+        .select('*', { count: 'exact', head: true })
+        .eq('winner_id', user.id)
+        .eq('status', 'completed');
+      if (!error) setTournamentWins(count || 0);
+    } catch (err) {
+      console.error('Error fetching tournament wins:', err);
     }
   }
 
@@ -347,6 +364,22 @@ export default function StatsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Tournament Wins - show when tournament filter active */}
+      {matchTypeFilter === 'tournament' && (
+        <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-amber-500/20 flex items-center justify-center">
+              <Trophy className="w-7 h-7 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-3xl font-black text-amber-400">{tournamentWins}</p>
+              <p className="text-slate-300 text-sm font-medium">Tournament Wins</p>
+              <p className="text-slate-500 text-xs">Tournaments won overall</p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Detailed Stats Section */}
       {displayStats && displayStats.total_matches > 0 ? (
