@@ -128,6 +128,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCountdownPopup, setShowCountdownPopup] = useState(false);
   const [showReadyUpModal, setShowReadyUpModal] = useState(false);
+  const [countdownComplete, setCountdownComplete] = useState(false); // Guard: only show ready-up AFTER countdown
   const [currentMatchId, setCurrentMatchId] = useState<string | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
   
@@ -144,8 +145,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   useEffect(() => {
     if (!tournament?.start_at) return;
     if (!['registration', 'scheduled', 'checkin'].includes(tournament?.status || '')) {
-      // If already in_progress, check for ready-up matches every 10s
-      if (tournament?.status === 'in_progress') {
+      // If already in_progress AND countdown is done, check for ready-up matches every 10s
+      if (tournament?.status === 'in_progress' && countdownComplete) {
         const matchInterval = setInterval(() => {
           loadTournamentMatches().then(() => checkForReadyUpMatch());
         }, 10000);
@@ -162,8 +163,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
       console.log(`⏱️ Tournament timing: ${secondsUntilStart}s until start`);
 
-      // START TIME REACHED - trigger bracket generation!
-      if (msUntilStart <= 0) {
+      // START TIME REACHED - trigger bracket generation! (strict: must be past start time, not just close)
+      if (msUntilStart <= 0 && !showCountdownPopup && !countdownComplete) {
         console.log('🏆 START TIME REACHED! Generating bracket...');
         
         // Show the countdown popup (1-minute countdown before matches begin)
@@ -358,10 +359,13 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       // Skip activities for now - causing 400 errors
       setActivities([]);
 
-      // If tournament is in progress, load matches and check for ready-up
+      // If tournament is in progress, load matches (but only check ready-up after countdown)
       if (tournamentData.status === 'in_progress') {
         await loadTournamentMatches();
-        await checkForReadyUpMatch();
+        // ONLY show ready-up if countdown has already completed
+        if (countdownComplete) {
+          await checkForReadyUpMatch();
+        }
       }
 
     } catch (error) {
@@ -1123,7 +1127,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
             isVisible={showCountdownPopup}
             onComplete={() => {
               setShowCountdownPopup(false);
-              // Check for ready-up after countdown
+              setCountdownComplete(true); // NOW ready-up can show
+              // Check for ready-up after countdown completes
               setTimeout(() => {
                 loadTournament();
                 loadTournamentMatches().then(() => {
