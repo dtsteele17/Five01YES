@@ -1129,7 +1129,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               setShowCountdownPopup(false);
               setCountdownComplete(true);
               
-              // Find user's match and redirect to the tournament match page
+              // Find user's match, create room, and go DIRECTLY to game screen
               if (currentUserId) {
                 try {
                   const { data: myMatch } = await supabase
@@ -1142,7 +1142,77 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     .single();
 
                   if (myMatch) {
-                    console.log('🎯 Found user match, redirecting to tournament match page...', myMatch.id);
+                    console.log('🎯 Found user match:', myMatch.id);
+
+                    // If room already exists, go straight to game
+                    if (myMatch.match_room_id) {
+                      console.log('🎮 Room exists, going to game:', myMatch.match_room_id);
+                      router.push(`/app/play/quick-match/match/${myMatch.match_room_id}?tournamentMatch=${myMatch.id}&tournamentId=${tournamentId}`);
+                      return;
+                    }
+
+                    // Create room directly via RPC
+                    try {
+                      const { data: roomResult, error: roomError } = await supabase.rpc('create_tournament_match_room', {
+                        p_tournament_match_id: myMatch.id,
+                        p_player1_id: myMatch.player1_id,
+                        p_player2_id: myMatch.player2_id,
+                        p_tournament_id: tournamentId,
+                        p_game_mode: 501,
+                        p_legs_per_match: 3
+                      });
+
+                      console.log('Room creation result:', roomResult, roomError);
+
+                      if (roomResult?.success && roomResult?.room_id) {
+                        console.log('🎮 Room created! Going to game:', roomResult.room_id);
+                        router.push(`/app/play/quick-match/match/${roomResult.room_id}?tournamentMatch=${myMatch.id}&tournamentId=${tournamentId}`);
+                        return;
+                      }
+                    } catch (rpcErr) {
+                      console.log('RPC failed, trying direct insert...', rpcErr);
+                    }
+
+                    // Fallback: Create room via direct insert into match_rooms
+                    try {
+                      const { data: roomData, error: insertError } = await supabase
+                        .from('match_rooms')
+                        .insert({
+                          player1_id: myMatch.player1_id,
+                          player2_id: myMatch.player2_id,
+                          game_mode: 501,
+                          match_format: 'best-of-3',
+                          status: 'active',
+                          current_leg: 1,
+                          legs_to_win: 2,
+                          player1_remaining: 501,
+                          player2_remaining: 501,
+                          current_turn: myMatch.player1_id,
+                          source: 'tournament',
+                          match_type: 'tournament',
+                          tournament_match_id: myMatch.id
+                        })
+                        .select('id')
+                        .single();
+
+                      if (insertError) throw insertError;
+
+                      if (roomData?.id) {
+                        // Update tournament match with room ID
+                        await supabase
+                          .from('tournament_matches')
+                          .update({ match_room_id: roomData.id, status: 'in_progress' })
+                          .eq('id', myMatch.id);
+
+                        console.log('🎮 Room created via direct insert! Going to game:', roomData.id);
+                        router.push(`/app/play/quick-match/match/${roomData.id}?tournamentMatch=${myMatch.id}&tournamentId=${tournamentId}`);
+                        return;
+                      }
+                    } catch (insertErr) {
+                      console.error('Direct insert also failed:', insertErr);
+                    }
+
+                    // Last resort: go to tournament match page
                     router.push(`/app/tournaments/${tournamentId}/match/${myMatch.id}`);
                   } else {
                     console.log('No match found for user, reloading...');
