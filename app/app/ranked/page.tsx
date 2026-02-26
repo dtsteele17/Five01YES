@@ -155,21 +155,25 @@ export default function RankedPage() {
               .maybeSingle();
 
             if (!existing) {
-              await supabase.from('match_rooms').insert({
-                id: rankedRoom.id,
-                player1_id: rankedRoom.player1_id,
-                player2_id: rankedRoom.player2_id,
-                game_mode: rankedRoom.game_mode || 501,
-                match_format: rankedRoom.match_format || 'best_of_5',
-                status: 'waiting',
-                current_leg: 1,
-                legs_to_win: 3,
-                player1_remaining: rankedRoom.game_mode || 501,
-                player2_remaining: rankedRoom.game_mode || 501,
-                current_turn: rankedRoom.player1_id,
-                source: 'ranked',
-                match_type: 'ranked',
-              }).catch(() => {});  // Other player may have just inserted
+              try {
+                await supabase.from('match_rooms').insert({
+                  id: rankedRoom.id,
+                  player1_id: rankedRoom.player1_id,
+                  player2_id: rankedRoom.player2_id,
+                  game_mode: rankedRoom.game_mode || 501,
+                  match_format: rankedRoom.match_format || 'best_of_5',
+                  status: 'waiting',
+                  current_leg: 1,
+                  legs_to_win: 3,
+                  player1_remaining: rankedRoom.game_mode || 501,
+                  player2_remaining: rankedRoom.game_mode || 501,
+                  current_turn: rankedRoom.player1_id,
+                  source: 'ranked',
+                  match_type: 'ranked',
+                });
+              } catch (insertErr) {
+                // Other player may have just inserted, ignore error
+              }
             }
           }
         } catch (err) {

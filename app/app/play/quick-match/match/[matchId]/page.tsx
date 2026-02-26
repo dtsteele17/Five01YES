@@ -2151,8 +2151,8 @@ export default function QuickMatchRoomPage() {
           p_match_room_id: matchId,
           p_winner_id: winnerId,
           p_game_mode: room?.game_mode || 501,
-          p_legs_p1: isPlayer1Winner ? finalWinnerLegs : finalLoserLegs,
-          p_legs_p2: isPlayer1Winner ? finalLoserLegs : finalWinnerLegs,
+          p_legs_p1: p1Legs,
+          p_legs_p2: p2Legs,
         });
         if (!rpError && rpData) {
           const result = Array.isArray(rpData) ? rpData[0] : rpData;
