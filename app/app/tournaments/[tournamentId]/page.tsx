@@ -1087,15 +1087,6 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     <div className="text-lg font-bold text-emerald-400">{participants.length}</div>
                     <div className="text-xs text-slate-400">Players</div>
                   </div>
-                  <div className="p-3 bg-slate-800/30 rounded-lg">
-                    <div className="text-lg font-bold text-blue-400">
-                      {tournament.max_participants === 4 ? '2' :
-                       tournament.max_participants === 8 ? '3' :
-                       tournament.max_participants === 16 ? '4' :
-                       tournament.max_participants === 32 ? '5' : '6'}
-                    </div>
-                    <div className="text-xs text-slate-400">Rounds</div>
-                  </div>
                 </div>
 
                 <div className="text-xs text-slate-500 space-y-1">

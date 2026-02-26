@@ -1149,14 +1149,29 @@ export default function QuickMatchRoomPage() {
         .from('tournament_matches')
         .update({ status: 'completed', winner_id: winnerId })
         .eq('id', tournamentMatchId);
-      // Try to progress bracket (non-critical)
-      try {
-        await supabase.rpc('progress_tournament_bracket', {
-          p_tournament_match_id: tournamentMatchId,
-          p_winner_id: winnerId,
-        });
-      } catch (bracketErr) {
-        // Ignore bracket progression errors
+      // Try to progress bracket
+      await supabase.rpc('progress_tournament_bracket', {
+        p_tournament_match_id: tournamentMatchId,
+        p_winner_id: winnerId,
+      }).catch(() => {});
+
+      // Check if this was the final match — if so, complete the tournament
+      if (tournamentId) {
+        const { data: pendingMatches } = await supabase
+          .from('tournament_matches')
+          .select('id')
+          .eq('tournament_id', tournamentId)
+          .in('status', ['pending', 'ready', 'in_progress'])
+          .neq('id', tournamentMatchId)
+          .limit(1);
+
+        if (!pendingMatches || pendingMatches.length === 0) {
+          await supabase
+            .from('tournaments')
+            .update({ status: 'completed', winner_id: winnerId })
+            .eq('id', tournamentId);
+          console.log('[Tournament] Tournament completed! Winner:', winnerId);
+        }
       }
     } catch (err) {
       console.error('[Tournament] Error completing match:', err);
@@ -4458,11 +4473,10 @@ export default function QuickMatchRoomPage() {
       )}
 
       {/* Tournament Winner Popup - shows instead of WinnerPopup for tournament matches */}
-      {matchEndStats && room?.status === 'finished' && isTournamentMatch && showTournamentWinnerModal && tournamentMatchId && tournamentId && (
+      {matchEndStats && room?.status === 'finished' && isTournamentMatch && !showTournamentChampionScreen && tournamentMatchId && tournamentId && (
         <TournamentWinnerPopup
-          isOpen={showTournamentWinnerModal}
+          isOpen={true}
           onClose={() => {
-            setShowTournamentWinnerModal(false);
             router.push(`/app/tournaments/${tournamentId}`);
           }}
           player1={matchEndStats.player1}

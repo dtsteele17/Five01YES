@@ -284,7 +284,7 @@ export default function DashboardPage() {
             tournaments!inner (id, name, start_time, status)
           `)
           .eq('user_id', profile.id)
-          .in('tournaments.status', ['scheduled', 'checkin']);
+          .in('tournaments.status', ['scheduled', 'checkin', 'in_progress']);
 
         if (registeredTournaments) {
           registeredTournaments.forEach((tp: any) => {
