@@ -1143,11 +1143,15 @@ export default function QuickMatchRoomPage() {
         .from('tournament_matches')
         .update({ status: 'completed', winner_id: winnerId })
         .eq('id', tournamentMatchId);
-      // Try to progress bracket
-      await supabase.rpc('progress_tournament_bracket', {
-        p_tournament_match_id: tournamentMatchId,
-        p_winner_id: winnerId,
-      }).catch(() => {}); // Non-critical
+      // Try to progress bracket (non-critical)
+      try {
+        await supabase.rpc('progress_tournament_bracket', {
+          p_tournament_match_id: tournamentMatchId,
+          p_winner_id: winnerId,
+        });
+      } catch (bracketErr) {
+        // Ignore bracket progression errors
+      }
     } catch (err) {
       console.error('[Tournament] Error completing match:', err);
     }
