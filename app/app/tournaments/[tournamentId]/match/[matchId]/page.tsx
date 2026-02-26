@@ -74,7 +74,7 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
       if (matchData) {
         const { data: tournamentData } = await supabase
           .from('tournaments')
-          .select('id, name, legs_per_match, game_type, starting_score')
+          .select('*')
           .eq('id', tournamentId)
           .single();
 
@@ -181,10 +181,18 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
     );
   }
 
-  // If match room exists, redirect to the game screen with tournament context
   if (tournamentMatch.match_room_id) {
-    router.push(`/app/play/quick-match/match?room=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}&tournamentId=${tournamentId}`);
-    return null;
+    router.push(`/app/play/quick-match/match?matchId=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}&tournamentId=${tournamentId}`);
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-white mb-2">Loading Match</h2>
+          <p className="text-slate-400">Entering the game...</p>
+        </div>
+      </div>
+    );
   }
 
   // Match waiting room - before players are ready
