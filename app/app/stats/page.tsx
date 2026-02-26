@@ -54,6 +54,7 @@ const MATCH_TYPES = [
   { value: 'private', label: 'Private Match' },
   { value: 'local', label: 'Local Match' },
   { value: 'dartbot', label: 'Training (vs Bot)' },
+  { value: 'tournament', label: 'Tournament' },
 ];
 
 // Main Stat Card Component
