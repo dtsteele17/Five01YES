@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import TournamentBracketTab from '@/components/app/TournamentBracketTab';
 import { TournamentInviteModal } from '@/components/app/TournamentInviteModal';
 import { TournamentCountdownPopup } from '@/components/app/TournamentCountdownPopup';
+import { TournamentReadyUpModal } from '@/components/app/TournamentReadyUpModal';
 import { TournamentMatchReadyUp } from '@/components/app/TournamentMatchReadyUp';
 import { findActiveUserMatch, getMatchRedirect } from '@/lib/utils/tournament-match-status';
 import { getParticipantState, updateParticipantStateOptimistically } from '@/lib/utils/tournament-participant-state';
@@ -1129,7 +1130,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               setShowCountdownPopup(false);
               setCountdownComplete(true);
               
-              // Find user's match, create room, and go DIRECTLY to game screen
+              // Find user's match and show ready-up popup
               if (currentUserId) {
                 try {
                   const { data: myMatch } = await supabase
@@ -1142,108 +1143,39 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     .single();
 
                   if (myMatch) {
-                    console.log('🎯 Found user match:', myMatch.id);
-
-                    // Helper: go to game with this room ID
-                    const goToGame = (roomId: string) => {
-                      console.log('🎮 Going to game room:', roomId);
-                      router.push(`/app/play/quick-match/match/${roomId}?tournamentMatch=${myMatch.id}&tournamentId=${tournamentId}`);
-                    };
-
-                    // If room already exists (other player may have created it), go straight to game
-                    if (myMatch.match_room_id) {
-                      goToGame(myMatch.match_room_id);
-                      return;
-                    }
-
-                    // Both players try to create/find the room
-                    // SQL function prevents duplicates by checking if room already exists
-                    
-                    // Step 1: Try RPC (handles dedup server-side)
-                    try {
-                      const { data: roomResult, error: rpcErr } = await supabase.rpc('create_tournament_match_room', {
-                        p_tournament_match_id: myMatch.id,
-                        p_player1_id: myMatch.player1_id,
-                        p_player2_id: myMatch.player2_id,
-                        p_tournament_id: tournamentId,
-                        p_game_mode: 501,
-                        p_legs_per_match: 3
-                      });
-                      console.log('Room RPC result:', roomResult, rpcErr);
-                      if (roomResult?.success && roomResult?.room_id) {
-                        goToGame(roomResult.room_id);
-                        return;
-                      }
-                    } catch (err) {
-                      console.log('RPC failed:', err);
-                    }
-
-                    // Step 2: Check if room was created by other player
-                    for (let attempt = 0; attempt < 10; attempt++) {
-                      await new Promise(resolve => setTimeout(resolve, 2000));
-                      const { data: check } = await supabase
-                        .from('tournament_matches')
-                        .select('match_room_id')
-                        .eq('id', myMatch.id)
-                        .single();
-                      if (check?.match_room_id) {
-                        goToGame(check.match_room_id);
-                        return;
-                      }
-                      console.log(`⏳ Attempt ${attempt + 1}/10 - waiting for room...`);
-                    }
-
-                    // Step 3: Last resort - direct insert
-                    try {
-                      const { data: roomData } = await supabase
-                        .from('match_rooms')
-                        .insert({
-                          player1_id: myMatch.player1_id,
-                          player2_id: myMatch.player2_id,
-                          game_mode: 501,
-                          match_format: 'best-of-3',
-                          status: 'active',
-                          current_leg: 1,
-                          legs_to_win: 2,
-                          player1_remaining: 501,
-                          player2_remaining: 501,
-                          current_turn: myMatch.player1_id,
-                          source: 'tournament',
-                          match_type: 'tournament',
-                          tournament_match_id: myMatch.id
-                        })
-                        .select('id')
-                        .single();
-
-                      if (roomData?.id) {
-                        await supabase
-                          .from('tournament_matches')
-                          .update({ match_room_id: roomData.id, status: 'in_progress' })
-                          .eq('id', myMatch.id);
-                        goToGame(roomData.id);
-                        return;
-                      }
-                    } catch (insertErr) {
-                      console.error('Direct insert failed:', insertErr);
-                    }
-
-                    toast.error('Could not create match room. Try refreshing.');
+                    console.log('🎯 Found match, showing ready-up:', myMatch.id);
+                    setCurrentMatchId(myMatch.id);
+                    setShowReadyUpModal(true);
                   } else {
-                    console.log('No match found for user, reloading...');
                     loadTournament();
                     loadTournamentMatches();
                   }
                 } catch (err) {
-                  console.error('Error finding user match:', err);
+                  console.error('Error finding match:', err);
                   loadTournament();
-                  loadTournamentMatches();
                 }
               }
             }}
           />
         )}
 
-        {/* Ready-up is now handled by the quick match screen directly */}
+        {/* Tournament Ready-Up Modal */}
+        {showReadyUpModal && currentMatchId && (
+          <TournamentReadyUpModal
+            matchId={currentMatchId}
+            tournamentId={tournamentId}
+            currentUserId={currentUserId || ''}
+            onBothReady={async (roomId) => {
+              setShowReadyUpModal(false);
+              router.push(`/app/play/quick-match/match/${roomId}?tournamentMatch=${currentMatchId}&tournamentId=${tournamentId}`);
+            }}
+            onTimeout={() => {
+              setShowReadyUpModal(false);
+              toast.error('Ready-up timed out');
+              loadTournament();
+            }}
+          />
+        )}
       </div>
     </div>
   );
