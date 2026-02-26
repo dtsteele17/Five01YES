@@ -136,9 +136,8 @@ export default function RankedPage() {
       if (poll.status === 'matched' && poll.match_room_id) {
         cleanup();
         toast.success('Match found!');
-        // Small delay to ensure room is fully created before navigating
-        await new Promise(r => setTimeout(r, 500));
-        router.push(`/app/ranked/match/${poll.match_room_id}`);
+        // Navigate to the ranked match page (uses ranked_match_rooms table)
+        router.push(`/app/match/ranked/${poll.match_room_id}`);
       } else if (poll.status === 'not_found' || poll.status === 'cancelled') {
         cleanup();
       }
