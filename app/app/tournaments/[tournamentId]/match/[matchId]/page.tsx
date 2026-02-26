@@ -62,20 +62,31 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
     try {
       setLoading(true);
       
+      // Load match without foreign key joins (avoids PGRST200 errors)
       const { data: matchData, error } = await supabase
         .from('tournament_matches')
-        .select(`
-          *,
-          tournament:tournament_id (
-            id,
-            name,
-            legs_per_match,
-            game_mode
-          )
-        `)
+        .select('*')
         .eq('id', matchId)
         .eq('tournament_id', tournamentId)
         .single();
+
+      // Load tournament data separately
+      if (matchData) {
+        const { data: tournamentData } = await supabase
+          .from('tournaments')
+          .select('id, name, legs_per_match, game_type, starting_score')
+          .eq('id', tournamentId)
+          .single();
+
+        if (tournamentData) {
+          matchData.tournament = {
+            id: tournamentData.id,
+            name: tournamentData.name,
+            legs_per_match: tournamentData.legs_per_match || 3,
+            game_mode: tournamentData.starting_score || 501,
+          };
+        }
+      }
 
       if (error) throw error;
       if (!matchData) throw new Error('Tournament match not found');
@@ -170,20 +181,9 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
     );
   }
 
-  // Handle different match states
-  if (tournamentMatch.status === 'ready' && tournamentMatch.player1_id && tournamentMatch.player2_id) {
-    // Show ready-up screen
-    const TournamentMatchReadyUp = dynamic(
-      () => import('@/components/app/TournamentMatchReadyUp').then(mod => ({ default: mod.TournamentMatchReadyUp })),
-      { ssr: false }
-    );
-    
-    return <TournamentMatchReadyUp matchId={matchId} tournamentId={tournamentId} />;
-  }
-  
-  // Redirect to the actual match room if it exists
-  if (tournamentMatch.match_room_id && (tournamentMatch.status === 'in_progress' || tournamentMatch.status === 'starting')) {
-    router.push(`/app/play/quick-match/match?roomId=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}&tournamentId=${tournamentId}`);
+  // If match room exists, redirect to the game screen with tournament context
+  if (tournamentMatch.match_room_id) {
+    router.push(`/app/play/quick-match/match?room=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}&tournamentId=${tournamentId}`);
     return null;
   }
 

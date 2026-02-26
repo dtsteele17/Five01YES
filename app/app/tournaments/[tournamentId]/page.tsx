@@ -1129,11 +1129,9 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               setShowCountdownPopup(false);
               setCountdownComplete(true);
               
-              // Find user's match and go DIRECTLY to match screen (like quick match)
-              // The quick match screen already has ready-up, coin toss, and full game flow
+              // Find user's match and redirect to the tournament match page
               if (currentUserId) {
                 try {
-                  // Get user's first round match
                   const { data: myMatch } = await supabase
                     .from('tournament_matches')
                     .select('*')
@@ -1144,32 +1142,10 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     .single();
 
                   if (myMatch) {
-                    console.log('🎯 Found user match, creating match room...', myMatch);
-                    
-                    // Create a match room and redirect to quick match screen
-                    try {
-                      const { data: roomResult } = await supabase.rpc('create_tournament_match_room', {
-                        p_tournament_match_id: myMatch.id,
-                        p_player1_id: myMatch.player1_id,
-                        p_player2_id: myMatch.player2_id,
-                        p_tournament_id: tournamentId,
-                        p_game_mode: 501,
-                        p_legs_per_match: 3
-                      });
-
-                      if (roomResult?.success && roomResult?.room_id) {
-                        console.log('🎮 Match room created, redirecting...', roomResult.room_id);
-                        router.push(`/app/play/quick-match/match?room=${roomResult.room_id}&tournamentId=${tournamentId}&tournamentMatch=${myMatch.id}`);
-                        return;
-                      }
-                    } catch (roomErr) {
-                      console.log('Room creation RPC not available, using match ID directly');
-                    }
-
-                    // Fallback: redirect with tournament match ID (no room)
-                    router.push(`/app/play/quick-match/match?tournamentId=${tournamentId}&tournamentMatch=${myMatch.id}`);
+                    console.log('🎯 Found user match, redirecting to tournament match page...', myMatch.id);
+                    router.push(`/app/tournaments/${tournamentId}/match/${myMatch.id}`);
                   } else {
-                    console.log('No match found for user, reloading tournament...');
+                    console.log('No match found for user, reloading...');
                     loadTournament();
                     loadTournamentMatches();
                   }
