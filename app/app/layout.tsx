@@ -9,6 +9,7 @@ import { TournamentsProvider } from '@/lib/context/TournamentsContext';
 import { TrainingProvider } from '@/lib/context/TrainingContext';
 import { NotificationsProvider } from '@/lib/context/NotificationsContext';
 import TournamentMatchMonitor from '@/components/app/TournamentMatchMonitor';
+import GlobalTournamentMonitor from '@/components/app/GlobalTournamentMonitor';
 
 export default function AppLayout({
   children,
@@ -55,9 +56,8 @@ export default function AppLayout({
                 <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-900/50 to-slate-950 pointer-events-none" />
 
                 <TopBar />
-                {/* TournamentMatchMonitor DISABLED - was triggering ready-up popup before start time.
-                    Tournament detail page now handles ready-up with proper countdown timing. */}
-                {/* <TournamentMatchMonitor /> */}
+                {/* Global tournament monitor - shows countdown/ready-up from any page */}
+                <GlobalTournamentMonitor />
 
                 <main className="relative pt-20 pb-12 px-4 sm:px-6 lg:px-8">
                   <div className="container mx-auto max-w-7xl">
