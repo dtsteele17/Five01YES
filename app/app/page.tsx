@@ -588,10 +588,10 @@ export default function DashboardPage() {
                     <div className="w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-amber-400 font-medium">Placement</span>
-                        <span className="text-white font-bold">{5 - rankedState.provisional_games_remaining}/5</span>
+                        <span className="text-white font-bold">{Math.max(0, 5 - Math.min(5, rankedState.provisional_games_remaining))}/5</span>
                       </div>
                       <Progress 
-                        value={(5 - rankedState.provisional_games_remaining) * 20} 
+                        value={Math.max(0, 5 - Math.min(5, rankedState.provisional_games_remaining)) * 20} 
                         className="h-2 bg-slate-700"
                       />
                     </div>
