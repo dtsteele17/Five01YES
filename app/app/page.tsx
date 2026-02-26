@@ -289,7 +289,7 @@ export default function DashboardPage() {
             .from('tournaments')
             .select('id, name, start_time, status')
             .in('id', tournamentIds)
-            .in('status', ['scheduled', 'checkin', 'in_progress']);
+            .in('status', ['scheduled', 'checkin']);
 
           if (myTournaments) {
             myTournaments.forEach((t: any) => {
