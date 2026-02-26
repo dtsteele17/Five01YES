@@ -2,24 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, Loader2, X, Trophy, Users, Clock } from 'lucide-react';
+import { Shield, Loader2, X, Trophy, Clock, Target, Swords, ChevronRight, Crown, TrendingUp, Zap, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getRankImageUrl } from '@/lib/rank-badge-helpers';
 import {
   validateRoomBeforeNavigation,
   clearStaleMatchState,
 } from '@/lib/utils/stale-state-cleanup';
-
-interface EnqueueResponse {
-  queue_id: string;
-  status: string;
-  match_room_id?: string;
-  message: string;
-}
+import Link from 'next/link';
 
 interface PollResponse {
   ok: boolean;
@@ -30,7 +25,16 @@ interface PollResponse {
   message?: string;
 }
 
-// Helper to normalize Supabase RPC return shapes
+interface PlayerState {
+  rp: number;
+  mmr: number;
+  games_played: number;
+  wins: number;
+  losses: number;
+  provisional_games_remaining: number;
+  division_name: string;
+}
+
 function normalizePollResult(data: any): PollResponse | null {
   if (!data) return null;
   if (Array.isArray(data)) return data[0] ?? null;
@@ -39,406 +43,362 @@ function normalizePollResult(data: any): PollResponse | null {
 
 export default function RankedPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [userId, setUserId] = useState<string | null>(null);
   const [queueId, setQueueId] = useState<string | null>(null);
-  const [queueData, setQueueData] = useState<PollResponse | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchTime, setSearchTime] = useState(0);
+  const [playerState, setPlayerState] = useState<PlayerState | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pollTickRef = useRef(0);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    checkAuth();
-
-    // Resume polling if we have a stored queue_id
-    const storedQueueId = localStorage.getItem('ranked_queue_id');
-    if (storedQueueId) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Ranked] Resuming polling with stored queueId:', storedQueueId);
-      }
-      setQueueId(storedQueueId);
+    loadPlayerData();
+    const stored = localStorage.getItem('ranked_queue_id');
+    if (stored) {
+      setQueueId(stored);
       setIsSearching(true);
-      startPolling(storedQueueId);
-      startSearchTimer();
+      startPolling(stored);
+      startTimer();
     }
-
-    return () => {
-      stopPolling();
-      stopSearchTimer();
-    };
+    return () => { stopPolling(); stopTimer(); };
   }, []);
 
-  const checkAuth = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+  const loadPlayerData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
       setUserId(user.id);
-    } else {
-      router.push('/login');
+
+      const { data, error } = await supabase.rpc('rpc_ranked_get_my_state');
+      if (!error && data) {
+        const state = Array.isArray(data) ? data[0] : data;
+        setPlayerState(state);
+      }
+    } catch (err) {
+      console.error('[Ranked] Error loading data:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const findMatch = async () => {
-    // Prevent duplicate enqueue if already searching
-    if (isSearching && queueId) {
-      console.log('[Ranked] Already searching with queueId:', queueId);
-      return;
-    }
-
-    const supabase = createClient();
-    setError(null);
+    if (isSearching && queueId) return;
     setIsSearching(true);
     setSearchTime(0);
 
     try {
-      console.log('[Ranked] Calling rpc_ranked_enqueue (no params)');
-      // rpc_ranked_enqueue returns a single UUID string, not a JSON object
-      const { data: newQueueId, error: rpcError } = await supabase.rpc('rpc_ranked_enqueue');
-
-      if (rpcError) {
-        console.error('[Ranked] Error enqueuing:', rpcError);
-        setError(`Failed to join queue: ${rpcError.message}`);
-        setIsSearching(false);
+      const { data: newQueueId, error } = await supabase.rpc('rpc_ranked_enqueue');
+      if (error || !newQueueId) {
         toast.error('Failed to join ranked queue');
+        setIsSearching(false);
         return;
       }
-
-      if (!newQueueId) {
-        console.error('[Ranked] No queue ID returned from enqueue');
-        setError('Failed to join queue: No queue ID returned');
-        setIsSearching(false);
-        toast.error('Failed to join ranked queue');
-        return;
-      }
-
-      console.log('[Ranked] Enqueue response - queueId:', newQueueId);
-
-      // Store queue ID in state and localStorage
       setQueueId(newQueueId);
       localStorage.setItem('ranked_queue_id', newQueueId);
-
-      toast.success('Joined ranked queue');
-
-      // Start polling to check status
+      toast.success('Searching for opponent...');
       startPolling(newQueueId);
-      startSearchTimer();
-    } catch (err: any) {
-      console.error('[Ranked] Unexpected error:', err);
-      setError(err.message || 'An unexpected error occurred');
-      setIsSearching(false);
-      toast.error('Failed to start search');
-    }
-  };
-
-  const startPolling = (qId: string) => {
-    stopPolling();
-
-    pollingIntervalRef.current = setInterval(async () => {
-      await pollQueue(qId);
-      pollTickRef.current++;
-    }, 1000);
-  };
-
-  const pollQueue = async (qId: string) => {
-    const supabase = createClient();
-
-    // Safety check: don't poll if no queue ID
-    if (!qId) {
-      console.warn('[Ranked] pollQueue called without queueId, skipping');
-      return;
-    }
-
-    try {
-      // Poll for status update - MUST pass p_queue_id parameter
-      const { data, error } = await supabase.rpc('rpc_ranked_poll', {
-        p_queue_id: qId,
-      });
-
-      if (error) {
-        console.error('[Ranked] Error polling queue:', error);
-        setError(`Polling error: ${error.message}`);
-        stopPolling();
-        stopSearchTimer();
-        setIsSearching(false);
-        clearStoredQueue();
-        return;
-      }
-
-      // Normalize the response (handles plain object, array, or null)
-      const poll = normalizePollResult(data);
-
-      // Defensive guard: if poll is null or invalid, treat as still searching
-      if (!poll || typeof poll.status !== 'string') {
-        console.warn('[Ranked] Poll returned null/invalid data, treating as still searching');
-        return;
-      }
-
-      // Check ok field
-      if (poll.ok !== true) {
-        console.error('[Ranked] Poll returned ok=false:', poll);
-        setError(poll.message || 'Polling failed');
-        stopPolling();
-        stopSearchTimer();
-        setIsSearching(false);
-        clearStoredQueue();
-        return;
-      }
-
-      console.log('[Ranked] Poll result:', { status: poll.status, matchRoomId: poll.match_room_id });
-
-      setQueueData(poll);
-
-      // Check if matched and navigate to match room
-      if (poll.status === 'matched' && poll.match_room_id) {
-        console.log('[RESUME] Ranked match found, validating room:', poll.match_room_id);
-
-        if (!userId) {
-          console.error('[RESUME] No userId available for validation');
-          stopPolling();
-          stopSearchTimer();
-          clearStoredQueue();
-          setIsSearching(false);
-          return;
-        }
-
-        // Validate room before navigation
-        const validation = await validateRoomBeforeNavigation(poll.match_room_id, userId);
-
-        if (!validation.valid) {
-          console.log('[RESUME] invalid -> cleared room:', validation.reason);
-          await clearStaleMatchState();
-          stopPolling();
-          stopSearchTimer();
-          clearStoredQueue();
-          setIsSearching(false);
-          toast.error(`Match room unavailable: ${validation.reason}`);
-          return;
-        }
-
-        console.log('[RESUME] ok -> navigating to:', poll.match_room_id);
-        stopPolling();
-        stopSearchTimer();
-        toast.success('Match found!');
-        clearStoredQueue();
-        router.push(`/app/ranked/match/${poll.match_room_id}`);
-        return;
-      }
-
-      // Handle not_found or cancelled status
-      if (poll.status === 'not_found' || poll.status === 'cancelled') {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Ranked] Status changed to:', poll.status);
-        }
-        stopPolling();
-        stopSearchTimer();
-        setIsSearching(false);
-        clearStoredQueue();
-        if (poll.status === 'cancelled') {
-          toast.info('Search was cancelled');
-        } else {
-          toast.error('Queue entry not found');
-        }
-        return;
-      }
-
-      // If status === 'searching', keep polling (do nothing, let interval continue)
+      startTimer();
     } catch (err) {
-      console.error('[Ranked] Error in poll:', err);
+      toast.error('Failed to start search');
+      setIsSearching(false);
     }
   };
 
   const cancelSearch = async () => {
-    if (!queueId) {
-      console.log('[Ranked] Cancel called but no queueId, resetting UI');
-      setIsSearching(false);
-      clearStoredQueue();
-      return;
+    if (queueId) {
+      await supabase.rpc('rpc_ranked_cancel', { p_queue_id: queueId }).catch(() => {});
     }
-
-    console.log('[Ranked] Cancelling search for queueId:', queueId);
-    const supabase = createClient();
     stopPolling();
-    stopSearchTimer();
+    stopTimer();
+    setIsSearching(false);
+    setQueueId(null);
+    localStorage.removeItem('ranked_queue_id');
+    toast.info('Search cancelled');
+  };
 
+  const startPolling = (qId: string) => {
+    stopPolling();
+    pollingRef.current = setInterval(() => pollQueue(qId), 1000);
+  };
+
+  const pollQueue = async (qId: string) => {
+    if (!qId) return;
     try {
-      const { error: cancelError } = await supabase.rpc('rpc_ranked_cancel', {
-        p_queue_id: queueId,
-      });
+      const { data, error } = await supabase.rpc('rpc_ranked_poll', { p_queue_id: qId });
+      if (error) { cleanup(); return; }
+      const poll = normalizePollResult(data);
+      if (!poll || poll.ok !== true) return;
 
-      if (cancelError) {
-        console.error('[Ranked] Error cancelling queue:', cancelError);
-        setError(`Failed to cancel: ${cancelError.message}`);
-        toast.error('Failed to cancel search');
-      } else {
-        console.log('[Ranked] Successfully cancelled');
-        toast.info('Search cancelled');
+      if (poll.status === 'matched' && poll.match_room_id) {
+        if (userId) {
+          const validation = await validateRoomBeforeNavigation(poll.match_room_id, userId);
+          if (!validation.valid) {
+            await clearStaleMatchState();
+            cleanup();
+            toast.error('Match room unavailable');
+            return;
+          }
+        }
+        cleanup();
+        toast.success('Match found!');
+        router.push(`/app/ranked/match/${poll.match_room_id}`);
+      } else if (poll.status === 'not_found' || poll.status === 'cancelled') {
+        cleanup();
       }
     } catch (err) {
-      console.error('[Ranked] Unexpected error during cancel:', err);
-    } finally {
-      setIsSearching(false);
-      setQueueId(null);
-      setQueueData(null);
-      clearStoredQueue();
+      console.error('[Ranked] Poll error:', err);
     }
   };
 
-  const startSearchTimer = () => {
-    stopSearchTimer();
-    setSearchTime(0);
-    searchTimerRef.current = setInterval(() => {
-      setSearchTime(prev => prev + 1);
-    }, 1000);
-  };
-
-  const stopSearchTimer = () => {
-    if (searchTimerRef.current) {
-      clearInterval(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-  };
-
-  const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  };
-
-  const clearStoredQueue = () => {
+  const cleanup = () => {
+    stopPolling();
+    stopTimer();
+    setIsSearching(false);
+    setQueueId(null);
     localStorage.removeItem('ranked_queue_id');
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const startTimer = () => {
+    stopTimer();
+    setSearchTime(0);
+    timerRef.current = setInterval(() => setSearchTime(p => p + 1), 1000);
   };
+  const stopPolling = () => { if (pollingRef.current) clearInterval(pollingRef.current); pollingRef.current = null; };
+  const stopTimer = () => { if (timerRef.current) clearInterval(timerRef.current); timerRef.current = null; };
 
-  const getStatusBadge = () => {
-    if (!queueData) return null;
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-    const statusConfig = {
-      searching: { label: 'Searching', variant: 'default' as const },
-      matched: { label: 'Matched', variant: 'default' as const },
-      cancelled: { label: 'Cancelled', variant: 'destructive' as const },
-      not_found: { label: 'Not Found', variant: 'destructive' as const },
-    };
+  const winRate = playerState && playerState.games_played > 0
+    ? Math.round((playerState.wins / playerState.games_played) * 100)
+    : 0;
 
-    const config = statusConfig[queueData.status] || { label: 'Unknown', variant: 'secondary' as const };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
+  const isPlacement = playerState ? playerState.provisional_games_remaining > 0 : true;
+  const placementsDone = playerState ? 10 - playerState.provisional_games_remaining : 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Shield className="h-8 w-8 text-blue-500" />
-        <div>
-          <h1 className="text-3xl font-bold">Ranked Matchmaking</h1>
-          <p className="text-muted-foreground">Compete in ranked matches to climb the ladder</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 left-1/4 w-[600px] h-[300px] bg-purple-600/10 rounded-full blur-[100px]" />
       </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center gap-3">
+            <Shield className="w-10 h-10 text-blue-400" />
+            <h1 className="text-4xl font-black text-white tracking-tight">Ranked Arena</h1>
+          </div>
+          <p className="text-slate-400 text-lg">501 • Best of 5 • Double Out</p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5" />
-            Find Ranked Match
-          </CardTitle>
-          <CardDescription>
-            Join the ranked queue and compete against players of similar skill
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!isSearching ? (
-            <Button
-              size="lg"
-              className="w-full"
-              onClick={findMatch}
-              disabled={!userId}
-            >
-              <Shield className="h-5 w-5 mr-2" />
-              Find Match
-            </Button>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center gap-4 p-6 border rounded-lg bg-muted/50">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <div className="text-center">
-                  <div className="text-lg font-semibold">Searching for opponent...</div>
-                  <div className="flex items-center gap-2 justify-center mt-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{formatTime(searchTime)}</span>
+        {/* Rank Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/80 via-slate-900/90 to-slate-950 border border-white/10 shadow-2xl"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent" />
+
+          <div className="relative p-8">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              {/* Rank Badge */}
+              <div className="relative flex-shrink-0">
+                <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-3xl" />
+                {playerState?.division_name ? (
+                  <img
+                    src={getRankImageUrl(playerState.division_name)}
+                    alt={playerState.division_name}
+                    className="relative w-36 h-36 object-contain"
+                  />
+                ) : (
+                  <div className="relative w-36 h-36 rounded-full bg-slate-700/50 border-2 border-dashed border-slate-600 flex items-center justify-center">
+                    <span className="text-slate-500 text-4xl font-black">?</span>
                   </div>
-                  {queueData && (
-                    <div className="mt-2">
-                      {getStatusBadge()}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
 
-              <Button
-                variant="destructive"
-                size="lg"
-                className="w-full"
-                onClick={cancelSearch}
+              {/* Rank Info */}
+              <div className="flex-1 text-center md:text-left space-y-3">
+                {isPlacement ? (
+                  <>
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs uppercase tracking-wider">
+                      Placement Matches
+                    </Badge>
+                    <h2 className="text-3xl font-black text-white">Unranked</h2>
+                    <div className="space-y-2 max-w-xs">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">Progress</span>
+                        <span className="text-white font-bold">{placementsDone}/10</span>
+                      </div>
+                      <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${placementsDone * 10}%` }}
+                          transition={{ duration: 0.8 }}
+                        />
+                      </div>
+                      <p className="text-slate-500 text-xs">{10 - placementsDone} games until your rank is revealed</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-blue-400 text-sm font-bold uppercase tracking-wider">Current Rank</p>
+                    <h2 className="text-4xl font-black text-white">{playerState?.division_name}</h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400">
+                        {playerState?.rp}
+                      </span>
+                      <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">RP</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                  <p className="text-2xl font-black text-white">{playerState?.games_played || 0}</p>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider">Played</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                  <p className="text-2xl font-black text-emerald-400">{playerState?.wins || 0}</p>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider">Wins</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                  <p className="text-2xl font-black text-white">{winRate}%</p>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider">Win Rate</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Find Match Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <AnimatePresence mode="wait">
+            {!isSearching ? (
+              <motion.div key="find" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Button
+                  onClick={findMatch}
+                  disabled={!userId}
+                  className="w-full h-20 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 hover:from-blue-500 hover:via-blue-400 hover:to-blue-500 text-white text-xl font-black rounded-2xl shadow-2xl shadow-blue-500/30 border border-blue-400/30 transition-all hover:shadow-blue-500/50 hover:scale-[1.01]"
+                >
+                  <Swords className="w-7 h-7 mr-3" />
+                  FIND MATCH
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="searching"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-blue-500/30 p-8"
               >
-                <X className="h-5 w-5 mr-2" />
-                Cancel Search
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                {/* Animated border pulse */}
+                <div className="absolute inset-0 rounded-2xl border-2 border-blue-500/20 animate-pulse" />
+                
+                <div className="relative flex flex-col items-center gap-5">
+                  {/* Spinning ring */}
+                  <div className="relative w-20 h-20">
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-4 border-blue-500/20"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                    />
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-400"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Swords className="w-8 h-8 text-blue-400" />
+                    </div>
+                  </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            How Ranked Works
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <div className="flex items-start gap-2">
-            <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-              1
-            </div>
-            <div>
-              <div className="font-semibold text-foreground">Join the Queue</div>
-              <div>Click Find Match to join the ranked matchmaking queue</div>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-              2
-            </div>
-            <div>
-              <div className="font-semibold text-foreground">Get Matched</div>
-              <div>The system finds an opponent with similar ranking</div>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-              3
-            </div>
-            <div>
-              <div className="font-semibold text-foreground">Compete</div>
-              <div>Play your match and earn or lose Ranking Points based on the result</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                  <div className="text-center">
+                    <h3 className="text-xl font-black text-white">Searching for opponent...</h3>
+                    <div className="flex items-center justify-center gap-2 mt-2 text-blue-400">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-lg font-mono font-bold">{formatTime(searchTime)}</span>
+                    </div>
+                    <p className="text-slate-500 text-sm mt-2">Finding a player near your skill level</p>
+                  </div>
 
+                  <Button
+                    onClick={cancelSearch}
+                    variant="outline"
+                    className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 px-8"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Info Cards */}
+        <div className="grid md:grid-cols-3 gap-4">
+          <Card className="bg-slate-800/30 border-white/5 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <Target className="w-5 h-5 text-blue-400" />
+              </div>
+              <h3 className="text-white font-bold">501 Double Out</h3>
+            </div>
+            <p className="text-slate-400 text-sm">Every ranked match is 501 Best of 5 legs with double out finish. Pure skill.</p>
+          </Card>
+
+          <Card className="bg-slate-800/30 border-white/5 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-emerald-400" />
+              </div>
+              <h3 className="text-white font-bold">ELO Rating</h3>
+            </div>
+            <p className="text-slate-400 text-sm">Win to gain RP, lose to drop. Climb through Bronze, Silver, Gold, Platinum, Champion and Grand Champion.</p>
+          </Card>
+
+          <Card className="bg-slate-800/30 border-white/5 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <Crown className="w-5 h-5 text-amber-400" />
+              </div>
+              <h3 className="text-white font-bold">Placements</h3>
+            </div>
+            <p className="text-slate-400 text-sm">Play 10 placement matches to calibrate your rank. Your hidden MMR determines your starting division.</p>
+          </Card>
+        </div>
+
+        {/* View Divisions Link */}
+        <Link href="/app/ranked-divisions">
+          <div className="flex items-center justify-center gap-2 text-blue-400 hover:text-blue-300 transition-colors cursor-pointer py-4">
+            <Trophy className="w-5 h-5" />
+            <span className="font-semibold">View All Divisions & Rankings</span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }
