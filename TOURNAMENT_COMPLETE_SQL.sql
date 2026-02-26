@@ -267,7 +267,14 @@ DECLARE
   v_room_id UUID;
   v_tournament RECORD;
   v_legs_to_win INTEGER;
+  v_existing_room TEXT;
 BEGIN
+  -- Check if room already exists (prevents duplicate rooms for same match)
+  SELECT match_room_id INTO v_existing_room FROM tournament_matches WHERE id = p_tournament_match_id;
+  IF v_existing_room IS NOT NULL THEN
+    RETURN json_build_object('success', true, 'room_id', v_existing_room::uuid, 'message', 'Room already exists');
+  END IF;
+
   SELECT * INTO v_tournament FROM tournaments WHERE id = p_tournament_id;
   v_legs_to_win := CEIL(COALESCE(v_tournament.legs_per_match, p_legs_per_match)::numeric / 2);
 

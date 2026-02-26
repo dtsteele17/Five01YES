@@ -12,7 +12,13 @@ interface TournamentMatch {
   player1_id: string | null;
   player2_id: string | null;
   winner_id: string | null;
+  match_room_id: string | null;
   status: string;
+}
+
+interface MatchScore {
+  player1_legs: number;
+  player2_legs: number;
 }
 
 interface TournamentBracketProps {
@@ -32,6 +38,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
   const [profiles, setProfiles] = useState<Record<string, PlayerProfile>>({});
   const [loading, setLoading] = useState(true);
   const [totalRounds, setTotalRounds] = useState(0);
+  const [liveScores, setLiveScores] = useState<Record<string, MatchScore>>({});
 
   useEffect(() => {
     loadBracket();
@@ -83,6 +90,39 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
           profileMap[p.user_id] = { username: p.username, avatar_url: p.avatar_url };
         });
         setProfiles(profileMap);
+      }
+
+      // Fetch live scores for active matches (matches with match_room_id)
+      const activeRoomIds = matchesData
+        .filter(m => m.match_room_id && m.status !== 'completed')
+        .map(m => m.match_room_id!);
+
+      const completedRoomIds = matchesData
+        .filter(m => m.match_room_id && m.status === 'completed')
+        .map(m => m.match_room_id!);
+
+      const allRoomIds = [...activeRoomIds, ...completedRoomIds];
+
+      if (allRoomIds.length > 0) {
+        const { data: roomData } = await supabase
+          .from('match_rooms')
+          .select('id, player1_legs_won, player2_legs_won')
+          .in('id', allRoomIds);
+
+        if (roomData) {
+          const scores: Record<string, MatchScore> = {};
+          roomData.forEach(room => {
+            // Find the tournament match that uses this room
+            const tmMatch = matchesData.find(m => m.match_room_id === room.id);
+            if (tmMatch) {
+              scores[tmMatch.id] = {
+                player1_legs: room.player1_legs_won || 0,
+                player2_legs: room.player2_legs_won || 0,
+              };
+            }
+          });
+          setLiveScores(scores);
+        }
       }
     } catch (error) {
       console.error('Error loading bracket:', error);
@@ -181,10 +221,20 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                               : 'bg-slate-800/60 border-slate-700/50 text-slate-300'
                         }
                       `}>
-                        <span className="truncate">{getPlayerName(match.player1_id)}</span>
-                        {match.winner_id === match.player1_id && (
-                          <Crown className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 ml-1" />
-                        )}
+                        <span className="truncate flex-1">{getPlayerName(match.player1_id)}</span>
+                        <div className="flex items-center gap-1 ml-2">
+                          {/* Live leg score */}
+                          {(liveScores[match.id] || match.status === 'in_progress' || match.status === 'completed') && liveScores[match.id] && (
+                            <span className={`text-xs font-bold min-w-[16px] text-center ${
+                              match.winner_id === match.player1_id ? 'text-emerald-300' : 'text-white'
+                            }`}>
+                              {liveScores[match.id].player1_legs}
+                            </span>
+                          )}
+                          {match.winner_id === match.player1_id && (
+                            <Crown className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                          )}
+                        </div>
                       </div>
                       
                       {/* Player 2 */}
@@ -199,10 +249,20 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                               : 'bg-slate-800/60 border-slate-700/50 text-slate-300'
                         }
                       `}>
-                        <span className="truncate">{getPlayerName(match.player2_id)}</span>
-                        {match.winner_id === match.player2_id && (
-                          <Crown className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 ml-1" />
-                        )}
+                        <span className="truncate flex-1">{getPlayerName(match.player2_id)}</span>
+                        <div className="flex items-center gap-1 ml-2">
+                          {/* Live leg score */}
+                          {(liveScores[match.id] || match.status === 'in_progress' || match.status === 'completed') && liveScores[match.id] && (
+                            <span className={`text-xs font-bold min-w-[16px] text-center ${
+                              match.winner_id === match.player2_id ? 'text-emerald-300' : 'text-white'
+                            }`}>
+                              {liveScores[match.id].player2_legs}
+                            </span>
+                          )}
+                          {match.winner_id === match.player2_id && (
+                            <Crown className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                          )}
+                        </div>
                       </div>
                     </div>
 
