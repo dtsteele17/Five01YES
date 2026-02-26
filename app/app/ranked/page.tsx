@@ -136,8 +136,48 @@ export default function RankedPage() {
       if (poll.status === 'matched' && poll.match_room_id) {
         cleanup();
         toast.success('Match found!');
-        // Navigate to the ranked match page (uses ranked_match_rooms table)
-        router.push(`/app/match/ranked/${poll.match_room_id}`);
+
+        // Copy ranked room data into match_rooms so the full quick-match
+        // game screen works (pregame lobby, coin toss, scoring, stats)
+        try {
+          const { data: rankedRoom } = await supabase
+            .from('ranked_match_rooms')
+            .select('*')
+            .eq('id', poll.match_room_id)
+            .maybeSingle();
+
+          if (rankedRoom) {
+            // Check if match_rooms entry already exists (other player may have created it)
+            const { data: existing } = await supabase
+              .from('match_rooms')
+              .select('id')
+              .eq('id', rankedRoom.id)
+              .maybeSingle();
+
+            if (!existing) {
+              await supabase.from('match_rooms').insert({
+                id: rankedRoom.id,
+                player1_id: rankedRoom.player1_id,
+                player2_id: rankedRoom.player2_id,
+                game_mode: rankedRoom.game_mode || 501,
+                match_format: rankedRoom.match_format || 'best_of_5',
+                status: 'waiting',
+                current_leg: 1,
+                legs_to_win: 3,
+                player1_remaining: rankedRoom.game_mode || 501,
+                player2_remaining: rankedRoom.game_mode || 501,
+                current_turn: rankedRoom.player1_id,
+                source: 'ranked',
+                match_type: 'ranked',
+              }).catch(() => {});  // Other player may have just inserted
+            }
+          }
+        } catch (err) {
+          console.error('[Ranked] Error syncing room:', err);
+        }
+
+        // Use the full quick-match game screen with pregame lobby + coin toss
+        router.push(`/app/play/quick-match/match/${poll.match_room_id}`);
       } else if (poll.status === 'not_found' || poll.status === 'cancelled') {
         cleanup();
       }

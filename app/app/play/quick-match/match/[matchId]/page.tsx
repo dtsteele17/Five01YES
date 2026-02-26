@@ -1042,6 +1042,12 @@ export default function QuickMatchRoomPage() {
   const tournamentId = searchParams.get('tournamentId');
   const isTournamentMatch = Boolean(tournamentMatchId);
 
+  // Ranked match detection (set after room loads)
+  const [isRankedMatch, setIsRankedMatch] = useState(false);
+  const [rankedRpChange, setRankedRpChange] = useState<number | undefined>();
+  const [rankedRpAfter, setRankedRpAfter] = useState<number | undefined>();
+  const [rankedDivision, setRankedDivision] = useState<string | undefined>();
+
   const [room, setRoom] = useState<MatchRoom | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [visits, setVisits] = useState<QuickMatchVisit[]>([]);
@@ -2133,6 +2139,34 @@ export default function QuickMatchRoomPage() {
         setShowTournamentWinnerModal(true);
       }
     }
+
+    // Handle ranked match finalization
+    if (isRankedMatch && winnerId) {
+      try {
+        const { data: rpData, error: rpError } = await supabase.rpc('rpc_ranked_finalize_match', {
+          p_match_room_id: matchId,
+          p_winner_id: winnerId,
+          p_game_mode: room?.game_mode || 501,
+          p_legs_p1: isPlayer1Winner ? finalWinnerLegs : finalLoserLegs,
+          p_legs_p2: isPlayer1Winner ? finalLoserLegs : finalWinnerLegs,
+        });
+        if (!rpError && rpData) {
+          const result = Array.isArray(rpData) ? rpData[0] : rpData;
+          // Find current user's RP change
+          if (result?.player1_id === currentUserId) {
+            setRankedRpChange(result.player1_delta);
+            setRankedRpAfter(result.player1_rp_after);
+            setRankedDivision(result.player1_division);
+          } else if (result?.player2_id === currentUserId) {
+            setRankedRpChange(result.player2_delta);
+            setRankedRpAfter(result.player2_rp_after);
+            setRankedDivision(result.player2_division);
+          }
+        }
+      } catch (err) {
+        console.error('[Ranked] Error finalizing match:', err);
+      }
+    }
     
     // Track achievements for both players
     const winnerStats = isPlayer1Winner ? wStats : lStats;
@@ -2199,6 +2233,11 @@ export default function QuickMatchRoomPage() {
     });
     
     setRoom(roomData as MatchRoom);
+
+    // Detect ranked match
+    if (roomData.match_type === 'ranked' || roomData.source === 'ranked') {
+      setIsRankedMatch(true);
+    }
 
     // Load visits for ALL legs ordered by leg and turn_no
     const { data: visitsData, error: visitsError } = await supabase
@@ -3792,6 +3831,12 @@ export default function QuickMatchRoomPage() {
 
   // Handle rematch button click - directly request rematch
   const handleRematch = async () => {
+    // For ranked matches, "Next Match" goes back to ranked queue
+    if (isRankedMatch) {
+      cleanupMatchRef.current?.();
+      router.push('/app/ranked');
+      return;
+    }
     if (rematchLoading) {
       console.log('[REMATCH] Button clicked but already loading');
       return;
@@ -3854,7 +3899,7 @@ export default function QuickMatchRoomPage() {
 
   const handleReturn = () => {
     cleanupMatchRef.current?.();
-    router.push('/app/play');
+    router.push(isRankedMatch ? '/app' : '/app/play');
   };
 
   // Handle camera refresh - restarts camera to try to fix connection issues
@@ -4400,7 +4445,11 @@ export default function QuickMatchRoomPage() {
           matchId={matchId}
           onRateOpponent={handleTrustRating}
           hasRated={hasSubmittedRating}
-          isQuickMatch={true}
+          isQuickMatch={!isRankedMatch}
+          isRankedMatch={isRankedMatch}
+          rpChange={rankedRpChange}
+          rpAfter={rankedRpAfter}
+          divisionName={rankedDivision}
         />
       )}
 

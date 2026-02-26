@@ -57,6 +57,11 @@ interface WinnerPopupProps {
   isQuickMatch?: boolean;
   // Leg-by-leg stats
   legStats?: LegStats[];
+  // Ranked match props
+  isRankedMatch?: boolean;
+  rpChange?: number;  // RP gained or lost
+  rpAfter?: number;   // New RP total
+  divisionName?: string;
 }
 
 export function WinnerPopup({
@@ -79,6 +84,10 @@ export function WinnerPopup({
   hasRated = false,
   isQuickMatch = false,
   legStats = [],
+  isRankedMatch = false,
+  rpChange,
+  rpAfter,
+  divisionName,
 }: WinnerPopupProps) {
   const [selectedGrade, setSelectedGrade] = useState<SafetyGrade | null>(null);
   const [submitted, setSubmitted] = useState(hasRated);
@@ -419,42 +428,82 @@ export function WinnerPopup({
           </div>
         )}
 
+        {/* Ranked RP Change */}
+        {isRankedMatch && rpChange !== undefined && (
+          <div className="px-4 pb-2">
+            <div className={`text-center p-4 rounded-xl border ${
+              rpChange >= 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'
+            }`}>
+              <p className="text-slate-400 text-xs mb-1 uppercase tracking-wider">Rating Change</p>
+              <span className={`text-4xl font-black ${rpChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {rpChange > 0 ? '+' : ''}{rpChange} RP
+              </span>
+              {rpAfter !== undefined && (
+                <p className="text-slate-400 text-sm mt-1">
+                  New Rating: <span className="text-white font-bold">{rpAfter} RP</span>
+                  {divisionName && <span className="ml-2 text-amber-400">({divisionName})</span>}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="px-4 pb-4 pt-3">
-          <div className="flex gap-3">
-            <Button
-              onClick={onRematch}
-              disabled={youReady || readyCount >= 2}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold disabled:opacity-70"
-            >
-              {getRematchButtonContent()}
-            </Button>
-            <Button
-              onClick={onReturn}
-              variant="outline"
-              className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
-            >
-              <Undo2 className="w-4 h-4 mr-1" />
-              Return
-            </Button>
-          </div>
-          
-          {/* Always show ready status during rematch */}
-          <div className="mt-3 flex items-center justify-center gap-6 text-xs bg-slate-800/50 rounded p-2">
-            <div className={`flex items-center gap-1 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-              <div className={`w-2 h-2 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-              <span>You{youReady ? ' ✓' : ''}</span>
+          {isRankedMatch ? (
+            <div className="flex gap-3">
+              <Button
+                onClick={onReturn}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 h-auto text-sm font-semibold"
+              >
+                <Undo2 className="w-4 h-4 mr-1" />
+                Return to Menu
+              </Button>
+              <Button
+                onClick={onRematch}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold"
+              >
+                Next Match
+              </Button>
             </div>
-            <div className="text-slate-600">|</div>
-            <div className={`flex items-center gap-1 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-              <div className={`w-2 h-2 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-              <span>Opponent{opponentRematchReady ? ' ✓' : ''}</span>
-            </div>
-            <div className="text-slate-600">|</div>
-            <div className="text-slate-400">
-              <span className={readyCount >= 1 ? 'text-emerald-400' : ''}>{readyCount}</span>/2 Ready
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex gap-3">
+                <Button
+                  onClick={onRematch}
+                  disabled={youReady || readyCount >= 2}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold disabled:opacity-70"
+                >
+                  {getRematchButtonContent()}
+                </Button>
+                <Button
+                  onClick={onReturn}
+                  variant="outline"
+                  className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
+                >
+                  <Undo2 className="w-4 h-4 mr-1" />
+                  Return
+                </Button>
+              </div>
+              
+              {/* Always show ready status during rematch */}
+              <div className="mt-3 flex items-center justify-center gap-6 text-xs bg-slate-800/50 rounded p-2">
+                <div className={`flex items-center gap-1 ${youReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <div className={`w-2 h-2 rounded-full ${youReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                  <span>You{youReady ? ' ✓' : ''}</span>
+                </div>
+                <div className="text-slate-600">|</div>
+                <div className={`flex items-center gap-1 ${opponentRematchReady ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <div className={`w-2 h-2 rounded-full ${opponentRematchReady ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                  <span>Opponent{opponentRematchReady ? ' ✓' : ''}</span>
+                </div>
+                <div className="text-slate-600">|</div>
+                <div className="text-slate-400">
+                  <span className={readyCount >= 1 ? 'text-emerald-400' : ''}>{readyCount}</span>/2 Ready
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
