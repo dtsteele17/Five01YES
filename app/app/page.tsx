@@ -417,9 +417,12 @@ export default function DashboardPage() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             {/* Player Info */}
             <div className="flex items-center gap-6">
-              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-3xl font-black text-white shadow-2xl shadow-emerald-500/20">
-                {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'P'}
-              </div>
+              <Avatar className="w-24 h-24 rounded-2xl shadow-2xl shadow-emerald-500/20">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" className="rounded-2xl object-cover" />}
+                <AvatarFallback className="w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-3xl font-black text-white">
+                  {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'P'}
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
