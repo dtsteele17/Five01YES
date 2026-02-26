@@ -134,6 +134,18 @@ export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, o
       return;
     }
 
+    // Load tournament settings
+    const { data: tData } = await supabase
+      .from('tournaments')
+      .select('game_mode, best_of, match_format')
+      .eq('id', tournamentId)
+      .single();
+
+    const gameMode = tData?.game_mode || 501;
+    const bestOf = tData?.best_of || 5;
+    const legsToWin = Math.ceil(bestOf / 2);
+    const matchFormat = tData?.match_format || `best-of-${bestOf}`;
+
     // Create room via RPC
     try {
       const { data: result } = await supabase.rpc('create_tournament_match_room', {
@@ -141,8 +153,8 @@ export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, o
         p_player1_id: player1Id,
         p_player2_id: player2Id,
         p_tournament_id: tournamentId,
-        p_game_mode: 501,
-        p_legs_per_match: 3
+        p_game_mode: gameMode,
+        p_legs_per_match: bestOf
       });
       if (result?.success && result?.room_id) {
         onBothReady(result.room_id);
@@ -157,13 +169,13 @@ export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, o
         .insert({
           player1_id: player1Id,
           player2_id: player2Id,
-          game_mode: 501,
-          match_format: 'best-of-3',
+          game_mode: gameMode,
+          match_format: matchFormat,
           status: 'active',
           current_leg: 1,
-          legs_to_win: 2,
-          player1_remaining: 501,
-          player2_remaining: 501,
+          legs_to_win: legsToWin,
+          player1_remaining: gameMode,
+          player2_remaining: gameMode,
           current_turn: player1Id,
           source: 'tournament',
           match_type: 'tournament',
