@@ -10,10 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRankImageUrl } from '@/lib/rank-badge-helpers';
-import {
-  validateRoomBeforeNavigation,
-  clearStaleMatchState,
-} from '@/lib/utils/stale-state-cleanup';
+// Room validation removed — ranked RPC is trusted source of match_room_id
 import Link from 'next/link';
 
 interface PollResponse {
@@ -137,17 +134,10 @@ export default function RankedPage() {
       if (!poll || poll.ok !== true) return;
 
       if (poll.status === 'matched' && poll.match_room_id) {
-        if (userId) {
-          const validation = await validateRoomBeforeNavigation(poll.match_room_id, userId);
-          if (!validation.valid) {
-            await clearStaleMatchState();
-            cleanup();
-            toast.error('Match room unavailable');
-            return;
-          }
-        }
         cleanup();
         toast.success('Match found!');
+        // Small delay to ensure room is fully created before navigating
+        await new Promise(r => setTimeout(r, 500));
         router.push(`/app/ranked/match/${poll.match_room_id}`);
       } else if (poll.status === 'not_found' || poll.status === 'cancelled') {
         cleanup();
@@ -180,7 +170,7 @@ export default function RankedPage() {
     : 0;
 
   const isPlacement = playerState ? playerState.provisional_games_remaining > 0 : true;
-  const placementsDone = playerState ? 10 - playerState.provisional_games_remaining : 0;
+  const placementsDone = playerState ? 5 - playerState.provisional_games_remaining : 0;
 
   if (loading) {
     return (
@@ -245,17 +235,17 @@ export default function RankedPage() {
                     <div className="space-y-2 max-w-xs">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-400">Progress</span>
-                        <span className="text-white font-bold">{placementsDone}/10</span>
+                        <span className="text-white font-bold">{placementsDone}/5</span>
                       </div>
                       <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
                         <motion.div
                           className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full"
                           initial={{ width: 0 }}
-                          animate={{ width: `${placementsDone * 10}%` }}
+                          animate={{ width: `${placementsDone * 20}%` }}
                           transition={{ duration: 0.8 }}
                         />
                       </div>
-                      <p className="text-slate-500 text-xs">{10 - placementsDone} games until your rank is revealed</p>
+                      <p className="text-slate-500 text-xs">{5 - placementsDone} games until your rank is revealed</p>
                     </div>
                   </>
                 ) : (
@@ -390,7 +380,7 @@ export default function RankedPage() {
               </div>
               <h3 className="text-white font-bold">Placements</h3>
             </div>
-            <p className="text-slate-400 text-sm">Play 10 placement matches to calibrate your rank. Your hidden MMR determines your starting division.</p>
+            <p className="text-slate-400 text-sm">Play 5 placement matches to calibrate your rank. Your hidden MMR determines your starting division.</p>
           </Card>
         </div>
 
