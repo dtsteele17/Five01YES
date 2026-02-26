@@ -135,6 +135,7 @@ export default function RankedPage() {
 
       if (poll.status === 'matched' && poll.match_room_id) {
         cleanup();
+        console.log('[Ranked] Match found! Room ID:', poll.match_room_id);
         toast.success('Match found!');
 
         // Copy ranked room data into match_rooms so the full quick-match
@@ -146,6 +147,7 @@ export default function RankedPage() {
             .eq('id', poll.match_room_id)
             .maybeSingle();
 
+          console.log('[Ranked] Fetched ranked_match_rooms:', rankedRoom?.id, 'p1:', rankedRoom?.player1_id, 'p2:', rankedRoom?.player2_id);
           if (rankedRoom) {
             // Check if match_rooms entry already exists (other player may have created it)
             const { data: existing } = await supabase
@@ -155,25 +157,28 @@ export default function RankedPage() {
               .maybeSingle();
 
             if (!existing) {
-              try {
-                await supabase.from('match_rooms').insert({
-                  id: rankedRoom.id,
-                  player1_id: rankedRoom.player1_id,
-                  player2_id: rankedRoom.player2_id,
-                  game_mode: rankedRoom.game_mode || 501,
-                  match_format: rankedRoom.match_format || 'best_of_5',
-                  status: 'waiting',
-                  current_leg: 1,
-                  legs_to_win: 3,
-                  player1_remaining: rankedRoom.game_mode || 501,
-                  player2_remaining: rankedRoom.game_mode || 501,
-                  current_turn: rankedRoom.player1_id,
-                  source: 'ranked',
-                  match_type: 'ranked',
-                });
-              } catch (insertErr) {
-                // Other player may have just inserted, ignore error
+              const { error: insertErr } = await supabase.from('match_rooms').insert({
+                id: rankedRoom.id,
+                player1_id: rankedRoom.player1_id,
+                player2_id: rankedRoom.player2_id,
+                game_mode: rankedRoom.game_mode || 501,
+                match_format: 'best-of-5',
+                status: 'waiting',
+                current_leg: 1,
+                legs_to_win: 3,
+                player1_remaining: rankedRoom.game_mode || 501,
+                player2_remaining: rankedRoom.game_mode || 501,
+                current_turn: rankedRoom.player1_id,
+                source: 'ranked',
+                match_type: 'ranked',
+              });
+              if (insertErr) {
+                console.error('[Ranked] match_rooms insert error:', insertErr.message, insertErr.details);
+              } else {
+                console.log('[Ranked] match_rooms created:', rankedRoom.id);
               }
+            } else {
+              console.log('[Ranked] match_rooms already exists:', rankedRoom.id);
             }
           }
         } catch (err) {

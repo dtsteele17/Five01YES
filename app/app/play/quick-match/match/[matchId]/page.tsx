@@ -41,6 +41,7 @@ import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { TournamentWinnerPopup } from '@/components/game/TournamentWinnerPopup';
 import { TournamentChampionScreen } from '@/components/game/TournamentChampionScreen';
+import { RankedWinnerPopup } from '@/components/game/RankedWinnerPopup';
 import { RematchPopup } from '@/components/game/RematchPopup';
 import { HeadToHeadHistoryPopup } from '@/components/game/HeadToHeadHistoryPopup';
 import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
@@ -4448,8 +4449,25 @@ export default function QuickMatchRoomPage() {
         />
       )}
 
-      {/* Winner Popup - shows when match is finished */}
-      {matchEndStats && room?.status === 'finished' && !isTournamentMatch && (
+      {/* Ranked Winner Popup - premium end-game for ranked matches */}
+      {matchEndStats && room?.status === 'finished' && !isTournamentMatch && isRankedMatch && (
+        <RankedWinnerPopup
+          isOpen={true}
+          onClose={() => {}}
+          player1={matchEndStats.player1}
+          player2={matchEndStats.player2}
+          player1Stats={matchEndStats.player1FullStats}
+          player2Stats={matchEndStats.player2FullStats}
+          winnerId={matchEndStats.winnerId}
+          currentUserId={currentUserId || ''}
+          rpChange={rankedRpChange}
+          rpAfter={rankedRpAfter}
+          divisionName={rankedDivision}
+        />
+      )}
+
+      {/* Winner Popup - shows when match is finished (quick match only) */}
+      {matchEndStats && room?.status === 'finished' && !isTournamentMatch && !isRankedMatch && (
         <WinnerPopup
           player1={matchEndStats.player1}
           player2={matchEndStats.player2}
@@ -4468,11 +4486,7 @@ export default function QuickMatchRoomPage() {
           matchId={matchId}
           onRateOpponent={handleTrustRating}
           hasRated={hasSubmittedRating}
-          isQuickMatch={!isRankedMatch}
-          isRankedMatch={isRankedMatch}
-          rpChange={rankedRpChange}
-          rpAfter={rankedRpAfter}
-          divisionName={rankedDivision}
+          isQuickMatch={true}
         />
       )}
 
