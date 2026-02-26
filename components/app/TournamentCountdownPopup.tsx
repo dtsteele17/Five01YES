@@ -31,21 +31,25 @@ export function TournamentCountdownPopup({
     generateBracketAndFindOpponent();
   }, [isVisible]);
 
+  // Sync countdown to server timestamp so all users finish at the same time
+  const [matchStartTime, setMatchStartTime] = useState<Date | null>(null);
+
   useEffect(() => {
-    if (phase !== 'countdown') return;
+    if (phase !== 'countdown' || !matchStartTime) return;
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setPhase('starting');
-          setTimeout(() => onComplete(), 1500);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const now = new Date();
+      const remaining = Math.ceil((matchStartTime.getTime() - now.getTime()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTimeLeft(0);
+        setPhase('starting');
+        setTimeout(() => onComplete(), 1500);
+      } else {
+        setTimeLeft(remaining);
+      }
+    }, 500); // Check every 500ms for accuracy
     return () => clearInterval(timer);
-  }, [phase, onComplete]);
+  }, [phase, matchStartTime, onComplete]);
 
   const generateBracketAndFindOpponent = async () => {
     try {
@@ -66,6 +70,21 @@ export function TournamentCountdownPopup({
       }
 
       setBracketGenerated(true);
+
+      // Get the server-side started_at timestamp so all users sync to the same countdown
+      const { data: tournamentData } = await supabase
+        .from('tournaments')
+        .select('started_at')
+        .eq('id', tournamentId)
+        .single();
+
+      if (tournamentData?.started_at) {
+        // All users count down to started_at + 60 seconds
+        setMatchStartTime(new Date(new Date(tournamentData.started_at).getTime() + 60000));
+      } else {
+        // Fallback: 60s from now
+        setMatchStartTime(new Date(Date.now() + 60000));
+      }
 
       // Find current user's first match and opponent
       const { data: { user } } = await supabase.auth.getUser();
@@ -93,12 +112,11 @@ export function TournamentCountdownPopup({
       }
 
       setPhase('countdown');
-      setTimeLeft(60);
     } catch (error) {
       console.error('Exception:', error);
       setBracketGenerated(true);
+      setMatchStartTime(new Date(Date.now() + 60000));
       setPhase('countdown');
-      setTimeLeft(60);
     }
   };
 
