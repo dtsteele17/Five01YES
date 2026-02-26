@@ -391,5 +391,14 @@ CREATE INDEX IF NOT EXISTS idx_tournament_matches_round ON tournament_matches(ro
 CREATE INDEX IF NOT EXISTS idx_tournament_match_ready_match_id ON tournament_match_ready(match_id);
 
 -- ============================================
+-- 12. ONE-TIME CLEANUP: Cancel all currently "live" tournaments
+-- ============================================
+UPDATE tournaments SET status = 'cancelled' WHERE status = 'in_progress';
+
+-- Also clean up any 'scheduled' tournaments whose start_at has passed
+UPDATE tournaments SET status = 'cancelled' 
+WHERE status IN ('scheduled', 'checkin', 'registration') AND start_at < NOW();
+
+-- ============================================
 -- DONE! Tournament system is ready.
 -- ============================================

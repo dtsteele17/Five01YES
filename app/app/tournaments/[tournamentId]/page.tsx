@@ -1169,9 +1169,16 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               setShowReadyUpModal(false);
               router.push(`/app/play/quick-match/match/${roomId}?tournamentMatch=${currentMatchId}&tournamentId=${tournamentId}`);
             }}
-            onTimeout={() => {
+            onTimeout={async () => {
               setShowReadyUpModal(false);
-              toast.error('Ready-up timed out');
+              // Cancel tournament if not all players readied up
+              try {
+                await supabase
+                  .from('tournaments')
+                  .update({ status: 'cancelled' })
+                  .eq('id', tournamentId);
+                toast.error('Tournament cancelled - not all players readied up');
+              } catch {}
               loadTournament();
             }}
           />
