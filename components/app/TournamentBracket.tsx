@@ -42,9 +42,18 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
 
   useEffect(() => {
     loadBracket();
-    // Refresh bracket every 15s during tournament
-    const interval = setInterval(loadBracket, 15000);
-    return () => clearInterval(interval);
+    // Refresh bracket every 5s for live scores
+    const interval = setInterval(loadBracket, 5000);
+
+    // Subscribe to tournament match updates for instant bracket progression
+    const sub = supabase
+      .channel(`bracket-${tournamentId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tournament_matches', filter: `tournament_id=eq.${tournamentId}` }, () => {
+        loadBracket();
+      })
+      .subscribe();
+
+    return () => { clearInterval(interval); sub.unsubscribe(); };
   }, [tournamentId]);
 
   const loadBracket = async () => {
@@ -106,18 +115,17 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
       if (allRoomIds.length > 0) {
         const { data: roomData } = await supabase
           .from('match_rooms')
-          .select('id, player1_legs_won, player2_legs_won')
+          .select('id, player1_legs, player2_legs')
           .in('id', allRoomIds);
 
         if (roomData) {
           const scores: Record<string, MatchScore> = {};
           roomData.forEach(room => {
-            // Find the tournament match that uses this room
             const tmMatch = matchesData.find(m => m.match_room_id === room.id);
             if (tmMatch) {
               scores[tmMatch.id] = {
-                player1_legs: room.player1_legs_won || 0,
-                player2_legs: room.player2_legs_won || 0,
+                player1_legs: room.player1_legs || 0,
+                player2_legs: room.player2_legs || 0,
               };
             }
           });
@@ -294,7 +302,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                 {champion ? (
                   <>
                     <Trophy className="w-5 h-5 text-yellow-400" />
-                    <span>{champion}</span>
+                    <span>{champion} Wins!</span>
                   </>
                 ) : (
                   <span>TBD</span>
