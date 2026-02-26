@@ -4040,9 +4040,16 @@ export default function QuickMatchRoomPage() {
             {isConnected ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
             {matchState.matchFormat.replace('best-of-', 'Best of ')}
           </Badge>
+          {isRankedMatch && (
+            <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 font-black tracking-wider">
+              <Shield className="w-3 h-3 mr-1" />
+              RANKED
+            </Badge>
+          )}
         </div>
 
         <h2 className="text-xl font-bold text-white">
+          {isRankedMatch && <span className="text-amber-400 mr-2">⚔️</span>}
           Leg {room.current_leg} of {room.legs_to_win * 2 - 1}
         </h2>
 
