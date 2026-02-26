@@ -14,8 +14,9 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Allow authenticated users to upload their own avatars
-CREATE POLICY IF NOT EXISTS "Users can upload own avatar"
+-- Drop and recreate storage policies (safe to run multiple times)
+DROP POLICY IF EXISTS "Users can upload own avatar" ON storage.objects;
+CREATE POLICY "Users can upload own avatar"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
@@ -23,8 +24,8 @@ WITH CHECK (
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
--- Allow authenticated users to update their own avatars
-CREATE POLICY IF NOT EXISTS "Users can update own avatar"
+DROP POLICY IF EXISTS "Users can update own avatar" ON storage.objects;
+CREATE POLICY "Users can update own avatar"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (
@@ -32,8 +33,8 @@ USING (
   AND (storage.foldername(name))[1] = auth.uid()::text
 );
 
--- Allow public read access to avatars
-CREATE POLICY IF NOT EXISTS "Public avatar read access"
+DROP POLICY IF EXISTS "Public avatar read access" ON storage.objects;
+CREATE POLICY "Public avatar read access"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'avatars');
