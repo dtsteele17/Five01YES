@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
 import {
@@ -188,7 +188,8 @@ export default function ProfilePage() {
             {/* Avatar */}
             <div className="relative">
               <Avatar className="w-32 h-32 rounded-2xl border-4 border-slate-700 shadow-2xl">
-                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-5xl font-black">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" className="rounded-2xl object-cover" />}
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-5xl font-black rounded-2xl">
                   {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
