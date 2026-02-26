@@ -1009,7 +1009,8 @@ export default function DartbotMatchPage() {
     // Strip MISS padding darts — only animate darts the bot physically threw
     // The engine adds MISS placeholders on bust so the stat counter reaches 3,
     // but we must NOT animate them or it looks like the bot kept throwing after busting.
-    const thrownDarts = darts.filter(d => d.label !== 'MISS');
+    // Real misses have actual x,y coords; padding darts have x=1.5
+    const thrownDarts = darts.filter(d => !(d.label === 'MISS' && d.x === 1.5));
     const visitTotal = thrownDarts.reduce((sum, d) => sum + d.score, 0);
 
     for (let i = 0; i < thrownDarts.length; i++) {
@@ -1096,7 +1097,8 @@ export default function DartbotMatchPage() {
       }
       
       // Only include darts the bot actually threw — strip MISS padding used for stat counting
-      const visitDisplayDarts = visualVisit.darts.filter(d => d.label !== 'MISS');
+      // Real misses have actual x,y coords; padding darts have x=1.5
+      const visitDisplayDarts = visualVisit.darts.filter(d => !(d.label === 'MISS' && d.x === 1.5));
 
       const visit: Visit = {
         player: 'player2',
