@@ -97,7 +97,17 @@ export default function GlobalTournamentMonitor() {
         for (const t of liveTournaments) {
           if (t.status !== 'in_progress' || !t.bracket_generated_at) continue;
 
-          const { data: myMatch }: { data: any } = await supabase
+          const matchResponse: {
+            data: {
+              id: string;
+              round: number;
+              match_index: number;
+              player1_id: string | null;
+              player2_id: string | null;
+              status: string;
+            } | null;
+            error: any;
+          } = await supabase
             .from('tournament_matches')
             .select('id, round, match_index, player1_id, player2_id, status')
             .eq('tournament_id', t.id)
@@ -106,6 +116,8 @@ export default function GlobalTournamentMonitor() {
             .gt('round', 1)
             .limit(1)
             .maybeSingle();
+
+          const myMatch = matchResponse.data;
 
           if (myMatch && !dismissedMatchesRef.current.has(myMatch.id)) {
             const opponentId = myMatch.player1_id === userId ? myMatch.player2_id : myMatch.player1_id;
