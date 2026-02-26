@@ -39,6 +39,8 @@ import { MatchChatDrawer } from '@/components/match/MatchChatDrawer';
 import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
+import { TournamentWinnerPopup } from '@/components/game/TournamentWinnerPopup';
+import { TournamentChampionScreen } from '@/components/game/TournamentChampionScreen';
 import { RematchPopup } from '@/components/game/RematchPopup';
 import { HeadToHeadHistoryPopup } from '@/components/game/HeadToHeadHistoryPopup';
 import { SafetyRatingToast } from '@/components/safety/SafetyRatingToast';
@@ -1034,6 +1036,12 @@ export default function QuickMatchRoomPage() {
   const matchId = params.matchId as string;
   const supabase = createClient();
 
+  // Tournament context from URL search params
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const tournamentMatchId = searchParams.get('tournamentMatch');
+  const tournamentId = searchParams.get('tournamentId');
+  const isTournamentMatch = Boolean(tournamentMatchId);
+
   const [room, setRoom] = useState<MatchRoom | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [visits, setVisits] = useState<QuickMatchVisit[]>([]);
@@ -1055,6 +1063,9 @@ export default function QuickMatchRoomPage() {
   // Modals
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
+  const [showTournamentWinnerModal, setShowTournamentWinnerModal] = useState(false);
+  const [showTournamentChampionScreen, setShowTournamentChampionScreen] = useState(false);
+  const [tournamentInfo, setTournamentInfo] = useState<{ name?: string; round?: number } | null>(null);
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
@@ -1100,6 +1111,47 @@ export default function QuickMatchRoomPage() {
     player2FullStats: any;
     winnerId: string;
   } | null>(null);
+
+  // Load tournament info if this is a tournament match
+  useEffect(() => {
+    if (isTournamentMatch && tournamentMatchId) {
+      (async () => {
+        try {
+          const { data: tmData } = await supabase
+            .from('tournament_matches')
+            .select('round, tournament_id, tournaments!inner(name)')
+            .eq('id', tournamentMatchId)
+            .maybeSingle();
+          if (tmData) {
+            setTournamentInfo({
+              name: (tmData as any).tournaments?.name,
+              round: tmData.round,
+            });
+          }
+        } catch (err) {
+          console.error('[Tournament] Error loading tournament info:', err);
+        }
+      })();
+    }
+  }, [isTournamentMatch, tournamentMatchId]);
+
+  // Handle tournament match completion (update bracket)
+  const handleTournamentMatchCompletion = async (winnerId: string | null) => {
+    if (!tournamentMatchId || !winnerId) return;
+    try {
+      await supabase
+        .from('tournament_matches')
+        .update({ status: 'completed', winner_id: winnerId })
+        .eq('id', tournamentMatchId);
+      // Try to progress bracket
+      await supabase.rpc('progress_tournament_bracket', {
+        p_tournament_match_id: tournamentMatchId,
+        p_winner_id: winnerId,
+      }).catch(() => {}); // Non-critical
+    } catch (err) {
+      console.error('[Tournament] Error completing match:', err);
+    }
+  };
 
   // New simplified rematch system
   const isPlayer1 = room ? room.player1_id === currentUserId : false;
@@ -2063,6 +2115,24 @@ export default function QuickMatchRoomPage() {
       wStats,
       lStats
     );
+
+    // Handle tournament match completion
+    if (isTournamentMatch && tournamentMatchId && winnerId) {
+      handleTournamentMatchCompletion(winnerId);
+      // Check if this was the final match
+      const { data: nextMatches } = await supabase
+        .from('tournament_matches')
+        .select('id')
+        .eq('tournament_id', tournamentId)
+        .in('status', ['pending', 'ready', 'in_progress'])
+        .neq('id', tournamentMatchId)
+        .limit(1);
+      if (!nextMatches || nextMatches.length === 0) {
+        setShowTournamentChampionScreen(true);
+      } else {
+        setShowTournamentWinnerModal(true);
+      }
+    }
     
     // Track achievements for both players
     const winnerStats = isPlayer1Winner ? wStats : lStats;
@@ -3265,6 +3335,23 @@ export default function QuickMatchRoomPage() {
           const finalWinnerLegs = isPlayer1Winner ? finalP1Legs : finalP2Legs;
           const finalLoserLegs = isPlayer1Winner ? finalP2Legs : finalP1Legs;
           await saveMatchStats(matchId, winnerId, loserId, finalWinnerLegs, finalLoserLegs, room.game_mode, wStats, lStats);
+
+          // Handle tournament match completion
+          if (isTournamentMatch && tournamentMatchId && winnerId) {
+            handleTournamentMatchCompletion(winnerId);
+            const { data: nextMatches } = await supabase
+              .from('tournament_matches')
+              .select('id')
+              .eq('tournament_id', tournamentId)
+              .in('status', ['pending', 'ready', 'in_progress'])
+              .neq('id', tournamentMatchId)
+              .limit(1);
+            if (!nextMatches || nextMatches.length === 0) {
+              setShowTournamentChampionScreen(true);
+            } else {
+              setShowTournamentWinnerModal(true);
+            }
+          }
           
           // Track achievements for the winner
           const winnerStats = isPlayer1Winner ? wStats : lStats;
@@ -4294,7 +4381,7 @@ export default function QuickMatchRoomPage() {
       )}
 
       {/* Winner Popup - shows when match is finished */}
-      {matchEndStats && room?.status === 'finished' && (
+      {matchEndStats && room?.status === 'finished' && !isTournamentMatch && (
         <WinnerPopup
           player1={matchEndStats.player1}
           player2={matchEndStats.player2}
@@ -4314,6 +4401,43 @@ export default function QuickMatchRoomPage() {
           onRateOpponent={handleTrustRating}
           hasRated={hasSubmittedRating}
           isQuickMatch={true}
+        />
+      )}
+
+      {/* Tournament Winner Popup - shows instead of WinnerPopup for tournament matches */}
+      {matchEndStats && room?.status === 'finished' && isTournamentMatch && showTournamentWinnerModal && tournamentMatchId && tournamentId && (
+        <TournamentWinnerPopup
+          isOpen={showTournamentWinnerModal}
+          onClose={() => {
+            setShowTournamentWinnerModal(false);
+            router.push(`/app/tournaments/${tournamentId}`);
+          }}
+          player1={matchEndStats.player1}
+          player2={matchEndStats.player2}
+          player1Stats={matchEndStats.player1FullStats}
+          player2Stats={matchEndStats.player2FullStats}
+          winnerId={matchEndStats.winnerId}
+          gameMode={room?.game_mode?.toString() || '501'}
+          bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
+          currentUserId={currentUserId || ''}
+          tournamentId={tournamentId}
+          tournamentMatchId={tournamentMatchId}
+          tournamentName={tournamentInfo?.name}
+        />
+      )}
+
+      {/* Tournament Champion Screen - full page for tournament final */}
+      {matchEndStats && room?.status === 'finished' && isTournamentMatch && showTournamentChampionScreen && tournamentId && (
+        <TournamentChampionScreen
+          tournamentName={tournamentInfo?.name || 'Tournament'}
+          tournamentId={tournamentId}
+          winner={matchEndStats.winnerId === matchEndStats.player1.id ? matchEndStats.player1 : matchEndStats.player2}
+          loser={matchEndStats.winnerId === matchEndStats.player1.id ? matchEndStats.player2 : matchEndStats.player1}
+          winnerStats={matchEndStats.winnerId === matchEndStats.player1.id ? matchEndStats.player1FullStats : matchEndStats.player2FullStats}
+          loserStats={matchEndStats.winnerId === matchEndStats.player1.id ? matchEndStats.player2FullStats : matchEndStats.player1FullStats}
+          gameMode={room?.game_mode?.toString() || '501'}
+          bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
+          currentUserId={currentUserId || ''}
         />
       )}
 
