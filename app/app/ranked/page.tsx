@@ -162,7 +162,7 @@ export default function RankedPage() {
                 player1_id: rankedRoom.player1_id,
                 player2_id: rankedRoom.player2_id,
                 game_mode: rankedRoom.game_mode || 501,
-                match_format: rankedRoom.match_format || 'best_of_5',
+                match_format: 'best-of-5',
                 status: 'waiting',
                 current_leg: 1,
                 legs_to_win: 3,
