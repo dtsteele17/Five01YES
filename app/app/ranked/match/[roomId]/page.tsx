@@ -1041,178 +1041,134 @@ export default function RankedMatchPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Results Modal */}
+      {/* Results Modal - Premium Ranked */}
       <Dialog open={showResultsModal} onOpenChange={setShowResultsModal}>
-        <DialogContent className="bg-slate-900 border-amber-500/30 text-white max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-3xl font-bold text-center">
-              <Shield className="w-12 h-12 text-amber-500 mx-auto mb-2" />
-              Ranked Match Complete
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 text-white max-w-2xl p-0 overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()}>
+          {rankedResults && (() => {
+            const myPlayer = rankedResults.player1.id === currentUserId ? rankedResults.player1 : rankedResults.player2;
+            const theirPlayer = rankedResults.player1.id === currentUserId ? rankedResults.player2 : rankedResults.player1;
+            const isWin = rankedResults.winner_id === currentUserId;
+            const winnerLegs = rankedResults.winner_id === rankedResults.player1.id ? rankedResults.player1.legs_won : rankedResults.player2.legs_won;
+            const loserLegs = rankedResults.winner_id === rankedResults.player1.id ? rankedResults.player2.legs_won : rankedResults.player1.legs_won;
 
-          {rankedResults && (
-            <div className="space-y-6 py-4">
-              <div className="text-center">
-                <Trophy className="w-16 h-16 text-amber-500 mx-auto mb-3" />
-                <p className="text-2xl font-bold">
-                  {rankedResults.winner_id === currentUserId ? 'Victory!' : 'Defeat'}
-                </p>
-                <p className="text-gray-400 mt-1">
-                  {getPlayerName(rankedResults.winner_id)} wins{' '}
-                  {rankedResults.winner_id === rankedResults.player1.id
-                    ? `${rankedResults.player1.legs_won}-${rankedResults.player2.legs_won}`
-                    : `${rankedResults.player2.legs_won}-${rankedResults.player1.legs_won}`}
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {[rankedResults.player1, rankedResults.player2].map((player) => {
-                  const isMe = player.id === currentUserId;
-                  const isWinner = player.id === rankedResults.winner_id;
-
-                  return (
-                    <Card
-                      key={player.id}
-                      className={`p-6 ${
-                        isWinner
-                          ? 'bg-gradient-to-br from-amber-600/20 to-orange-600/20 border-amber-500/30'
-                          : 'bg-slate-800/50 border-white/10'
-                      }`}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold text-white">
-                            {getPlayerName(player.id)} {isMe && '(You)'}
-                          </p>
-                          {isWinner && (
-                            <Trophy className="w-5 h-5 text-amber-500" />
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400">RP Change</span>
-                            <span className={`font-bold flex items-center ${
-                              player.delta > 0 ? 'text-emerald-400' : 'text-red-400'
-                            }`}>
-                              {player.delta > 0 ? (
-                                <ArrowUp className="w-4 h-4 mr-1" />
-                              ) : player.delta < 0 ? (
-                                <ArrowDown className="w-4 h-4 mr-1" />
-                              ) : (
-                                <Minus className="w-4 h-4 mr-1" />
-                              )}
-                              {Math.abs(player.delta)} RP
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400">New Rating</span>
-                            <span className="font-bold text-white">{player.rp_after} RP</span>
-                          </div>
-
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400">Division</span>
-                            <Badge className="bg-amber-500 text-white">
-                              {player.division}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-
-              <Separator className="my-4 bg-white/10" />
-
-              <Card className="p-6 bg-slate-800/50 border-white/10">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">Opponent Trust Rating</span>
-                    <div className="flex items-center space-x-2">
-                      <TrustRatingBadge
-                        letter={opponentTrustRating?.letter as any}
-                        count={opponentTrustRating?.count || 0}
-                        showTooltip={false}
-                      />
-                      <span className="text-xs text-gray-500">
-                        {opponentTrustRating?.letter ? `(${opponentTrustRating.count || 0})` : getUnratedLabel()}
-                      </span>
+            return (
+              <div>
+                {/* Header */}
+                <div className={`relative p-6 ${isWin ? 'bg-gradient-to-r from-emerald-600/30 via-emerald-500/20 to-emerald-600/30' : 'bg-gradient-to-r from-red-600/20 via-red-500/10 to-red-600/20'}`}>
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/5 to-transparent" />
+                  <div className="relative text-center space-y-2">
+                    <Badge className="bg-white/10 text-white border-white/20 text-xs uppercase tracking-widest">Ranked Match</Badge>
+                    <div className="flex items-center justify-center gap-3">
+                      {isWin ? <Trophy className="w-8 h-8 text-amber-400" /> : <Shield className="w-8 h-8 text-slate-400" />}
+                      <h2 className={`text-3xl font-black ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {isWin ? 'VICTORY' : 'DEFEAT'}
+                      </h2>
+                      {isWin ? <Trophy className="w-8 h-8 text-amber-400" /> : <Shield className="w-8 h-8 text-slate-400" />}
                     </div>
+                    <p className="text-slate-400">
+                      {getPlayerName(rankedResults.winner_id)} wins {winnerLegs}-{loserLegs}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* RP Change - Big and dramatic */}
+                  <div className={`text-center p-6 rounded-2xl border ${isWin ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                    <p className="text-slate-400 text-sm mb-1 uppercase tracking-wider">Rating Change</p>
+                    <div className="flex items-center justify-center gap-3">
+                      {myPlayer.delta > 0 ? <ArrowUp className="w-8 h-8 text-emerald-400" /> : <ArrowDown className="w-8 h-8 text-red-400" />}
+                      <span className={`text-6xl font-black ${myPlayer.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {myPlayer.delta > 0 ? '+' : ''}{myPlayer.delta}
+                      </span>
+                      <span className="text-slate-400 text-xl font-bold">RP</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-4 mt-3 text-sm">
+                      <span className="text-slate-500">{myPlayer.rp_before} RP</span>
+                      <span className="text-slate-600">→</span>
+                      <span className="text-white font-bold text-lg">{myPlayer.rp_after} RP</span>
+                    </div>
+                    <Badge className="mt-2 bg-amber-500/20 text-amber-400 border-amber-500/30">
+                      {myPlayer.division}
+                    </Badge>
                   </div>
 
-                  <div>
-                    <p className="text-xs text-gray-400 mb-2">Rate this player (optional):</p>
+                  {/* Opponent RP */}
+                  <div className="flex items-center justify-between bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
+                        <span className="text-white font-bold">{getPlayerName(theirPlayer.id).charAt(0)}</span>
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold">{getPlayerName(theirPlayer.id)}</p>
+                        <p className="text-slate-500 text-xs">{theirPlayer.division}</p>
+                      </div>
+                    </div>
+                    <span className={`font-bold ${theirPlayer.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {theirPlayer.delta > 0 ? '+' : ''}{theirPlayer.delta} RP
+                    </span>
+                  </div>
+
+                  {/* Trust Rating */}
+                  <div className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-sm text-gray-400">How was your experience with <span className="text-white font-semibold">{getPlayerName(theirPlayer.id)}</span>?</span>
+                      <TrustRatingBadge letter={opponentTrustRating?.letter as any} count={opponentTrustRating?.count || 0} showTooltip={false} />
+                    </div>
                     {!hasSubmittedRating ? (
-                      <>
+                      <div className="space-y-2">
                         <div className="grid grid-cols-5 gap-2">
-                          {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => {
-                            return (
-                              <button
-                                key={rating}
-                                onClick={() => handleTrustRating(rating)}
-                                disabled={ratingLoading || hasSubmittedRating}
-                                className={`
-                                  relative p-2 rounded-lg transition-all
-                                  bg-white/5 hover:bg-white/10
-                                  ${ratingLoading || hasSubmittedRating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                                `}
-                                title={getTrustRatingDescription(rating)}
-                              >
-                                <span className="text-sm font-bold text-gray-400">
-                                  {rating}
-                                </span>
-                              </button>
-                            );
-                          })}
+                          {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => (
+                            <button
+                              key={rating}
+                              onClick={() => handleTrustRating(rating)}
+                              disabled={ratingLoading || hasSubmittedRating}
+                              className={`p-2.5 rounded-lg transition-all font-bold text-sm ${
+                                rating === 'A' ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' :
+                                rating === 'B' ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' :
+                                rating === 'C' ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30' :
+                                rating === 'D' ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30' :
+                                'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
+                              } ${ratingLoading ? 'opacity-50' : ''}`}
+                              title={getTrustRatingDescription(rating)}
+                            >
+                              {rating}
+                            </button>
+                          ))}
                         </div>
-                        <button
-                          onClick={handleSkipRating}
-                          disabled={ratingLoading}
-                          className="mt-2 w-full text-xs text-gray-500 hover:text-gray-400 transition-colors disabled:opacity-50"
-                        >
-                          Skip
-                        </button>
-                      </>
+                        <button onClick={handleSkipRating} disabled={ratingLoading} className="w-full text-xs text-gray-500 hover:text-gray-400 py-1">Skip</button>
+                      </div>
                     ) : (
-                      <div className="flex items-center space-x-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                         <Check className="w-4 h-4 text-emerald-400" />
                         <span className="text-sm text-emerald-400">
-                          {selectedRating ? `Rated ${selectedRating}: ${getTrustRatingDescription(selectedRating as any)}` : 'Skipped rating'}
+                          {selectedRating ? `Rated ${selectedRating}` : 'Skipped'}
                         </span>
                       </div>
                     )}
                   </div>
-                </div>
-              </Card>
 
-              <div className="flex space-x-3">
-                <Button
-                  onClick={async () => {
-                    await clearMatchState(roomId);
-                    router.push('/app/ranked');
-                  }}
-                  className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Play Again
-                </Button>
-                <Button
-                  onClick={async () => {
-                    await clearMatchState(roomId);
-                    router.push('/app');
-                  }}
-                  variant="outline"
-                  className="flex-1 border-white/10 text-white hover:bg-white/5"
-                >
-                  <Home className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      onClick={async () => { await clearMatchState(roomId); router.push('/app/ranked'); }}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 h-auto"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Play Again
+                    </Button>
+                    <Button
+                      onClick={async () => { await clearMatchState(roomId); router.push('/app/ranked-divisions'); }}
+                      variant="outline"
+                      className="flex-1 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 py-3 h-auto font-semibold"
+                    >
+                      <Trophy className="w-4 h-4 mr-2" />
+                      View Rankings
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
