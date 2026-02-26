@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -461,9 +462,12 @@ function ATCLobbyModal({
                   className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                      {player.username.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar className="w-8 h-8 rounded-full">
+                      {player.avatar_url && <AvatarImage src={player.avatar_url} alt="" className="rounded-full object-cover" />}
+                      <AvatarFallback className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm font-bold">
+                        {player.username.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
                     <span className="text-white text-sm">{player.username}</span>
                     {player.id === lobby.created_by && (
                       <Badge className="bg-amber-500/20 text-amber-400 text-xs">Host</Badge>
@@ -506,9 +510,12 @@ function ATCLobbyModal({
                     className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg"
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold">
-                        {request.requester_username.charAt(0).toUpperCase()}
-                      </div>
+                      <Avatar className="w-10 h-10 rounded-full">
+                        {request.requester_avatar_url && <AvatarImage src={request.requester_avatar_url} alt="" className="rounded-full object-cover" />}
+                        <AvatarFallback className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold">
+                          {request.requester_username.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1">
                         <p className="text-white font-medium">{request.requester_username}</p>
                         <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
@@ -2190,9 +2197,12 @@ export default function QuickMatchLobbyPage() {
                       {/* Host Info Row */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                            {lobby.player1?.username?.charAt(0).toUpperCase() || 'P'}
-                          </div>
+                          <Avatar className="w-10 h-10 rounded-lg">
+                            {lobby.player1?.avatar_url && <AvatarImage src={lobby.player1.avatar_url} alt="" className="rounded-lg object-cover" />}
+                            <AvatarFallback className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white font-bold">
+                              {lobby.player1?.username?.charAt(0).toUpperCase() || 'P'}
+                            </AvatarFallback>
+                          </Avatar>
                           <div>
                             <h3 className="text-white font-bold">{lobby.player1?.username ?? 'Player'}</h3>
                             {/* Trust Rating */}
@@ -2340,9 +2350,12 @@ export default function QuickMatchLobbyPage() {
             <div className="p-6 space-y-6">
               {/* Player Info Card */}
               <div className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                  {currentJoinRequest.requester_username?.charAt(0).toUpperCase() || '?'}
-                </div>
+                <Avatar className="w-16 h-16 rounded-xl">
+                  {currentJoinRequest.requester_avatar_url && <AvatarImage src={currentJoinRequest.requester_avatar_url} alt="" className="rounded-xl object-cover" />}
+                  <AvatarFallback className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl font-bold">
+                    {currentJoinRequest.requester_username?.charAt(0).toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-white">{currentJoinRequest.requester_username}</h3>
                   
