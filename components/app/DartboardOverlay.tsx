@@ -145,45 +145,51 @@ export function DartboardOverlay({ hits = [], className = '', showDebugRings = f
             const containerSize = 100;
 
             if (hit.offboard) {
-              // Offboard hits: project to edge with X marker
+              // Offboard hits: show exactly where the dart missed, just outside the board
               // FLIP Y-AXIS: bot uses Y-up (math), CSS uses Y-down (screen)
+              // Calculate direction from center to the miss position
               const angle = Math.atan2(-hit.y, hit.x);
-              const edgeX = 1.15 * Math.cos(angle);
-              const edgeY = 1.15 * Math.sin(angle);
 
-              const pixelX = normalizedToPixel(edgeX, containerSize);
-              const pixelY = normalizedToPixel(edgeY, containerSize);
+              // Position the miss just outside the board boundary (R_BOARD = 0.85)
+              // Scale it slightly beyond the board edge so it's clearly visible as a miss
+              const missDistance = 0.95; // Just outside the board (R_BOARD = 0.85, so 0.95 is clearly off)
+              const missX = missDistance * Math.cos(angle);
+              const missY = missDistance * Math.sin(angle);
+
+              const pixelX = normalizedToPixel(missX, containerSize);
+              const pixelY = normalizedToPixel(missY, containerSize);
 
               return (
                 <div
                   key={`hit-${index}`}
-                  className="absolute animate-pulse"
+                  className="absolute"
                   style={{
                     left: `${pixelX}%`,
                     top: `${pixelY}%`,
                     transform: 'translate(-50%, -50%)',
-                    animation: 'fadeOut 2s ease-out forwards',
+                    animation: 'dartPop 0.3s ease-out, fadeOut 2.5s ease-out 0.3s forwards',
                   }}
                 >
-                  <div className="relative w-6 h-6">
+                  <div className="relative w-8 h-8">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <svg width="24" height="24" viewBox="0 0 24 24">
+                      {/* Red X marker for misses */}
+                      <svg width="32" height="32" viewBox="0 0 32 32">
                         <line
-                          x1="6"
-                          y1="6"
-                          x2="18"
-                          y2="18"
-                          stroke="#ff4444"
-                          strokeWidth="3"
+                          x1="8"
+                          y1="8"
+                          x2="24"
+                          y2="24"
+                          stroke="#ff0000"
+                          strokeWidth="4"
                           strokeLinecap="round"
                         />
                         <line
-                          x1="6"
-                          y1="18"
-                          x2="18"
-                          y2="6"
-                          stroke="#ff4444"
-                          strokeWidth="3"
+                          x1="8"
+                          y1="24"
+                          x2="24"
+                          y2="8"
+                          stroke="#ff0000"
+                          strokeWidth="4"
                           strokeLinecap="round"
                         />
                       </svg>
