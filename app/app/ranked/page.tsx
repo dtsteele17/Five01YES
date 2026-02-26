@@ -47,6 +47,13 @@ export default function RankedPage() {
   const [searchTime, setSearchTime] = useState(0);
   const [playerState, setPlayerState] = useState<PlayerState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [matchFound, setMatchFound] = useState<{
+    opponentName: string;
+    opponentRank: string;
+    opponentRp: number;
+    opponentRecord: string;
+    roomId: string;
+  } | null>(null);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -140,13 +147,15 @@ export default function RankedPage() {
 
         // Copy ranked room data into match_rooms so the full quick-match
         // game screen works (pregame lobby, coin toss, scoring, stats)
+        let rankedRoom: any = null;
         try {
-          const { data: rankedRoom } = await supabase
+          const { data: fetchedRoom } = await supabase
             .from('ranked_match_rooms')
             .select('*')
             .eq('id', poll.match_room_id)
             .maybeSingle();
 
+          rankedRoom = fetchedRoom;
           console.log('[Ranked] Fetched ranked_match_rooms:', rankedRoom?.id, 'p1:', rankedRoom?.player1_id, 'p2:', rankedRoom?.player2_id);
           if (rankedRoom) {
             // Check if match_rooms entry already exists (other player may have created it)
@@ -163,7 +172,7 @@ export default function RankedPage() {
                 player2_id: rankedRoom.player2_id,
                 game_mode: rankedRoom.game_mode || 501,
                 match_format: 'best-of-5',
-                status: 'waiting',
+                status: 'active',
                 current_leg: 1,
                 legs_to_win: 3,
                 player1_remaining: rankedRoom.game_mode || 501,
@@ -185,8 +194,37 @@ export default function RankedPage() {
           console.error('[Ranked] Error syncing room:', err);
         }
 
-        // Use the full quick-match game screen with pregame lobby + coin toss
-        router.push(`/app/play/quick-match/match/${poll.match_room_id}`);
+        // Show match found popup with opponent info, then navigate
+        if (rankedRoom) {
+          const opponentId = rankedRoom.player1_id === userId ? rankedRoom.player2_id : rankedRoom.player1_id;
+          try {
+            const { data: oppProfile } = await supabase.from('profiles').select('username').eq('user_id', opponentId).maybeSingle();
+            const { data: oppState } = await supabase.rpc('rpc_ranked_get_my_state').maybeSingle() as any;
+            // Get opponent's ranked state
+            const { data: oppRanked } = await supabase.from('ranked_players').select('rp, division_name, games_played, wins, losses').eq('user_id', opponentId).maybeSingle();
+            setMatchFound({
+              opponentName: oppProfile?.username || 'Opponent',
+              opponentRank: oppRanked?.division_name || 'Unranked',
+              opponentRp: oppRanked?.rp || 0,
+              opponentRecord: `${oppRanked?.wins || 0}W - ${oppRanked?.losses || 0}L`,
+              roomId: poll.match_room_id!,
+            });
+          } catch {
+            setMatchFound({
+              opponentName: 'Opponent',
+              opponentRank: 'Unranked',
+              opponentRp: 0,
+              opponentRecord: '0W - 0L',
+              roomId: poll.match_room_id!,
+            });
+          }
+          // Navigate after 3 seconds
+          setTimeout(() => {
+            router.push(`/app/play/quick-match/match/${poll.match_room_id}`);
+          }, 3000);
+        } else {
+          router.push(`/app/play/quick-match/match/${poll.match_room_id}`);
+        }
       } else if (poll.status === 'not_found' || poll.status === 'cancelled') {
         cleanup();
       }
@@ -441,6 +479,51 @@ export default function RankedPage() {
           </div>
         </Link>
       </div>
+
+      {/* Match Found Popup */}
+      <AnimatePresence>
+        {matchFound && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="bg-slate-900 border border-amber-500/30 rounded-2xl p-8 max-w-md w-full mx-4 text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', delay: 0.1 }}
+              >
+                <Swords className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+              </motion.div>
+              <h2 className="text-2xl font-black text-amber-400 mb-1">MATCH FOUND</h2>
+              <p className="text-slate-400 text-sm mb-6">501 • Best of 5 • Double Out</p>
+
+              <div className="bg-slate-800/60 rounded-xl p-5 border border-slate-700/50 mb-6">
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Your Opponent</div>
+                <div className="text-2xl font-black text-white mb-2">{matchFound.opponentName}</div>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <span className="text-amber-400 font-bold">{matchFound.opponentRank}</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-white font-semibold">{matchFound.opponentRp} RP</span>
+                </div>
+                <div className="text-slate-400 text-sm">{matchFound.opponentRecord}</div>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Loading match...</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
