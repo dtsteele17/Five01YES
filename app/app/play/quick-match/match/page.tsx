@@ -39,6 +39,7 @@ import { Separator } from '@/components/ui/separator';
 import { MessageCircle } from 'lucide-react';
 import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { TournamentWinnerPopup } from '@/components/game/TournamentWinnerPopup';
+import { TournamentChampionScreen } from '@/components/game/TournamentChampionScreen';
 import { calculateLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
 
 interface Dart {
@@ -849,6 +850,8 @@ export default function QuickMatchRoomPage() {
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [showTournamentWinnerModal, setShowTournamentWinnerModal] = useState(false);
+  const [showTournamentChampionScreen, setShowTournamentChampionScreen] = useState(false);
+  const [isTournamentFinal, setIsTournamentFinal] = useState(false);
 
   // Tournament match completion handler
   const handleTournamentMatchCompletion = async (winnerId: string | null) => {
@@ -1201,8 +1204,23 @@ export default function QuickMatchRoomPage() {
               
               // Show appropriate completion modal based on match type
               if (isTournamentMatch && tournamentMatchId) {
-                setShowTournamentWinnerModal(true);
                 handleTournamentMatchCompletion(updatedRoom.winner_id);
+                // Check if this was the final match
+                const supabaseClient = createClient();
+                const { data: nextMatches } = await supabaseClient
+                  .from('tournament_matches')
+                  .select('id')
+                  .eq('tournament_id', tournamentId)
+                  .in('status', ['pending', 'ready', 'in_progress'])
+                  .neq('id', tournamentMatchId)
+                  .limit(1);
+                if (!nextMatches || nextMatches.length === 0) {
+                  // No more matches — this was the final
+                  setIsTournamentFinal(true);
+                  setShowTournamentChampionScreen(true);
+                } else {
+                  setShowTournamentWinnerModal(true);
+                }
               } else {
                 setShowMatchCompleteModal(true);
               }
@@ -2058,36 +2076,41 @@ export default function QuickMatchRoomPage() {
         />
       )}
 
-      {/* Tournament Winner Modal */}
-      {showTournamentWinnerModal && matchStats && tournamentMatchId && tournamentId && (
+      {/* Tournament Winner Modal (non-final) */}
+      {showTournamentWinnerModal && !showTournamentChampionScreen && matchStats && tournamentMatchId && tournamentId && (
         <TournamentWinnerPopup
           isOpen={showTournamentWinnerModal}
           onClose={() => {
             setShowTournamentWinnerModal(false);
             router.push(getReturnPath());
           }}
-          winner={{
-            id: matchStats.winnerId === matchStats.player1.id ? matchStats.player1.id : matchStats.player2.id,
-            username: matchStats.winnerId === matchStats.player1.id ? matchStats.player1.name : matchStats.player2.name,
-            score: matchStats.winnerId === matchStats.player1.id ? matchStats.player1Stats.legs : matchStats.player2Stats.legs
-          }}
-          loser={{
-            id: matchStats.winnerId === matchStats.player1.id ? matchStats.player2.id : matchStats.player1.id,
-            username: matchStats.winnerId === matchStats.player1.id ? matchStats.player2.name : matchStats.player1.name,
-            score: matchStats.winnerId === matchStats.player1.id ? matchStats.player2Stats.legs : matchStats.player1Stats.legs
-          }}
-          matchStats={{
-            legs_to_win: matchStats.bestOf,
-            dartboard_type: 'standard',
-            match_format: `best_of_${matchStats.bestOf}`
-          }}
-          legStats={legStats}
+          player1={matchStats.player1}
+          player2={matchStats.player2}
+          player1Stats={matchStats.player1Stats}
+          player2Stats={matchStats.player2Stats}
+          winnerId={matchStats.winnerId}
+          gameMode={matchStats.gameMode}
+          bestOf={matchStats.bestOf}
+          currentUserId={currentUserId || ''}
           tournamentId={tournamentId}
           tournamentMatchId={tournamentMatchId}
-          currentUserId={currentUserId || ''}
-          isWinner={matchStats.winnerId === currentUserId}
           tournamentName={tournamentInfo?.name}
-          nextRound={tournamentInfo?.round ? tournamentInfo.round + 1 : undefined}
+          legStats={legStats}
+        />
+      )}
+
+      {/* Tournament Champion Screen (final match) */}
+      {showTournamentChampionScreen && matchStats && tournamentId && (
+        <TournamentChampionScreen
+          tournamentName={tournamentInfo?.name || 'Tournament'}
+          tournamentId={tournamentId}
+          winner={matchStats.winnerId === matchStats.player1.id ? matchStats.player1 : matchStats.player2}
+          loser={matchStats.winnerId === matchStats.player1.id ? matchStats.player2 : matchStats.player1}
+          winnerStats={matchStats.winnerId === matchStats.player1.id ? matchStats.player1Stats : matchStats.player2Stats}
+          loserStats={matchStats.winnerId === matchStats.player1.id ? matchStats.player2Stats : matchStats.player1Stats}
+          gameMode={matchStats.gameMode}
+          bestOf={matchStats.bestOf}
+          currentUserId={currentUserId || ''}
         />
       )}
     </div>

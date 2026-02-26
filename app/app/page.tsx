@@ -276,6 +276,30 @@ export default function DashboardPage() {
           });
         }
 
+        // Check registered tournaments (not yet started)
+        const { data: registeredTournaments } = await supabase
+          .from('tournament_participants')
+          .select(`
+            tournament_id,
+            tournaments!inner (id, name, start_time, status)
+          `)
+          .eq('user_id', profile.id)
+          .in('tournaments.status', ['scheduled', 'checkin']);
+
+        if (registeredTournaments) {
+          registeredTournaments.forEach((tp: any) => {
+            const t = tp.tournaments;
+            if (t && t.start_time) {
+              upcoming.push({
+                id: t.id,
+                type: 'tournament',
+                name: t.name || 'Tournament',
+                scheduled_at: t.start_time,
+              });
+            }
+          });
+        }
+
         // Check league matches
         const { data: leagueMatches } = await supabase
           .from('league_matches')
@@ -638,32 +662,36 @@ export default function DashboardPage() {
               {upcomingGames.length > 0 ? (
                 <div className="space-y-3">
                   {upcomingGames.map((game) => (
-                    <div
+                    <Link
                       key={game.id}
-                      className="flex items-center gap-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30 hover:border-slate-500/50 transition-colors"
+                      href={game.type === 'tournament' ? `/app/tournaments/${game.id}` : `/app/leagues`}
                     >
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        game.type === 'tournament' ? 'bg-amber-500/20' : 'bg-blue-500/20'
-                      }`}>
-                        {game.type === 'tournament' ? (
-                          <Trophy className="w-6 h-6 text-amber-400" />
-                        ) : (
-                          <Shield className="w-6 h-6 text-blue-400" />
-                        )}
+                      <div
+                        className="flex items-center gap-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/30 hover:border-slate-500/50 transition-colors cursor-pointer"
+                      >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          game.type === 'tournament' ? 'bg-amber-500/20' : 'bg-blue-500/20'
+                        }`}>
+                          {game.type === 'tournament' ? (
+                            <Trophy className="w-6 h-6 text-amber-400" />
+                          ) : (
+                            <Shield className="w-6 h-6 text-blue-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold truncate">{game.name}</p>
+                          {game.opponent && (
+                            <p className="text-slate-400 text-sm">vs {game.opponent}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {formatScheduledTime(game.scheduled_at)}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold truncate">{game.name}</p>
-                        {game.opponent && (
-                          <p className="text-slate-400 text-sm">vs {game.opponent}</p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {formatScheduledTime(game.scheduled_at)}
-                        </Badge>
-                      </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (

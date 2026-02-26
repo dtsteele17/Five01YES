@@ -3,119 +3,89 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Trophy, 
-  Crown, 
-  Target, 
-  TrendingUp, 
-  Zap,
-  ArrowRight,
-  Eye,
-  BarChart3,
-  Calendar,
-  Users
-} from 'lucide-react';
+import { Trophy, Crown, Target, ArrowRight, Eye, Home, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LegByLegStats } from '@/components/match/LegByLegStats';
 import type { LegStats } from '@/lib/stats/legByLegStats';
 
+interface PlayerStats {
+  id: string;
+  name: string;
+  legsWon: number;
+  threeDartAverage: number;
+  first9Average: number;
+  highestCheckout: number;
+  checkoutPercentage: number;
+  totalDartsThrown: number;
+  bestLegDarts: number;
+  bestLegNum: number;
+  totalScore: number;
+  checkouts: number;
+  checkoutAttempts: number;
+  count100Plus?: number;
+  count140Plus?: number;
+  oneEighties?: number;
+}
+
+interface SimplePlayer {
+  id: string;
+  name: string;
+  legs: number;
+}
+
 interface TournamentWinnerPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  winner: {
-    id: string;
-    username: string;
-    score: number;
-  };
-  loser: {
-    id: string;
-    username: string;
-    score: number;
-  };
-  matchStats?: {
-    legs_to_win: number;
-    dartboard_type: string;
-    match_format: string;
-  };
-  legStats?: LegStats[];
+  player1: SimplePlayer;
+  player2: SimplePlayer;
+  player1Stats: PlayerStats;
+  player2Stats: PlayerStats;
+  winnerId: string;
+  gameMode: string;
+  bestOf: number;
+  currentUserId: string;
   tournamentId: string;
   tournamentMatchId: string;
-  currentUserId: string;
-  isWinner: boolean;
   tournamentName?: string;
-  nextRound?: number;
+  legStats?: LegStats[];
 }
 
 export function TournamentWinnerPopup({
   isOpen,
   onClose,
-  winner,
-  loser,
-  matchStats,
-  legStats,
+  player1,
+  player2,
+  player1Stats,
+  player2Stats,
+  winnerId,
+  gameMode,
+  bestOf,
+  currentUserId,
   tournamentId,
   tournamentMatchId,
-  currentUserId,
-  isWinner,
   tournamentName,
-  nextRound
+  legStats = [],
 }: TournamentWinnerPopupProps) {
   const router = useRouter();
-  const supabase = createClient();
-  const [hasNextMatch, setHasNextMatch] = useState(false);
-  const [nextMatchId, setNextMatchId] = useState<string | null>(null);
-  const [loadingNext, setLoadingNext] = useState(false);
-  const [tournamentComplete, setTournamentComplete] = useState(false);
+  const isWinner = currentUserId === winnerId;
+  const isPlayer1Winner = player1.id === winnerId;
+  const winnerName = isPlayer1Winner ? player1.name : player2.name;
 
-  useEffect(() => {
-    if (isOpen && isWinner) {
-      checkNextMatch();
-    }
-  }, [isOpen, isWinner]);
+  const p1Color = isPlayer1Winner ? 'text-amber-400' : 'text-blue-400';
+  const p1Border = isPlayer1Winner ? 'border-amber-500/30' : 'border-blue-500/30';
+  const p1Bg = isPlayer1Winner ? 'from-amber-500/10 to-amber-600/10' : 'from-blue-500/10 to-blue-600/10';
+  const p2Color = isPlayer1Winner ? 'text-blue-400' : 'text-amber-400';
+  const p2Border = isPlayer1Winner ? 'border-blue-500/30' : 'border-amber-500/30';
+  const p2Bg = isPlayer1Winner ? 'from-blue-500/10 to-blue-600/10' : 'from-amber-500/10 to-amber-600/10';
 
-  const checkNextMatch = async () => {
-    try {
-      // Check if there's a next match for the winner
-      const { data: nextMatch, error } = await supabase
-        .from('tournament_matches')
-        .select('id, round, status')
-        .eq('tournament_id', tournamentId)
-        .or(`player1_id.eq.${currentUserId},player2_id.eq.${currentUserId}`)
-        .eq('status', 'ready')
-        .order('round', { ascending: true })
-        .limit(1)
-        .single();
+  const fmt = (v: number, suffix = '') => (v > 0 ? `${v.toFixed(1)}${suffix}` : '-');
+  const fmtInt = (v: number) => (v > 0 ? v.toString() : '-');
 
-      if (!error && nextMatch) {
-        setHasNextMatch(true);
-        setNextMatchId(nextMatch.id);
-      } else {
-        // Check if tournament is complete
-        const { data: tournament, error: tournamentError } = await supabase
-          .from('tournaments')
-          .select('status, winner_id')
-          .eq('id', tournamentId)
-          .single();
-
-        if (!tournamentError && tournament) {
-          setTournamentComplete(tournament.status === 'completed');
-        }
-      }
-    } catch (error) {
-      console.error('Error checking next match:', error);
-    }
-  };
-
-  const handleNextRound = async () => {
-    if (!hasNextMatch || !nextMatchId) return;
-    
-    setLoadingNext(true);
-    router.push(`/app/tournaments/${tournamentId}/match/${nextMatchId}`);
+  const handleNextRound = () => {
+    router.push(`/app/tournaments/${tournamentId}`);
+    onClose();
   };
 
   const handleViewTournament = () => {
@@ -123,242 +93,164 @@ export function TournamentWinnerPopup({
     onClose();
   };
 
-  const handleClose = () => {
+  const handleReturnToPlay = () => {
+    router.push('/app/play');
     onClose();
-    router.push(`/app/tournaments/${tournamentId}`);
-  };
-
-  const getMatchDescription = () => {
-    if (matchStats?.match_format) {
-      return matchStats.match_format.replace('best_of_', 'Best of ');
-    }
-    return `Best of ${(matchStats?.legs_to_win || 3) * 2 - 1}`;
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-white/10 max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="space-y-6">
-          {/* Tournament Header */}
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
-              <Trophy className="w-4 h-4" />
-              <span>{tournamentName}</span>
-              {nextRound && (
-                <>
-                  <span>•</span>
-                  <span>Round {nextRound}</span>
-                </>
-              )}
-            </div>
+    <Dialog open={isOpen} modal>
+      <DialogContent
+        className="bg-slate-900 border-slate-700 text-white w-full max-w-3xl p-0 overflow-hidden"
+        style={{ maxHeight: '90vh' }}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        {/* Winner Header */}
+        <div className={`relative border-b p-4 ${
+          isWinner
+            ? 'bg-gradient-to-r from-emerald-600/20 via-emerald-500/20 to-emerald-600/20 border-emerald-500/30'
+            : 'bg-gradient-to-r from-slate-700/30 via-slate-600/20 to-slate-700/30 border-slate-600/30'
+        }`}>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {[...Array(4)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute"
+                style={{ left: `${20 + i * 20}%`, top: `${20 + (i % 2) * 60}%` }}
+                animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5], rotate: [0, 180] }}
+                transition={{ duration: 2, repeat: Infinity, delay: i * 0.4 }}
+              >
+                <Sparkles className={`w-3 h-3 ${isWinner ? 'text-emerald-400' : 'text-slate-500'}`} />
+              </motion.div>
+            ))}
           </div>
 
-          {/* Winner Announcement */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className={`text-center space-y-4 p-8 rounded-2xl ${
-              isWinner 
-                ? 'bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-blue-500/20 border border-emerald-500/30'
-                : 'bg-gradient-to-br from-slate-800/50 to-slate-700/30 border border-white/10'
-            }`}
-          >
-            <motion.div
-              initial={{ rotate: -10, scale: 0.5 }}
-              animate={{ rotate: 0, scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 15 }}
-              className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${
-                isWinner ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' : 'bg-gradient-to-br from-slate-600 to-slate-700'
-              }`}
-            >
-              {isWinner ? (
-                <Crown className="w-10 h-10 text-white" />
-              ) : (
-                <Target className="w-10 h-10 text-slate-300" />
-              )}
-            </motion.div>
-
-            <div>
-              <h1 className={`text-3xl font-black ${isWinner ? 'text-emerald-400' : 'text-slate-300'}`}>
-                {isWinner ? 'Victory!' : 'Match Complete'}
-              </h1>
-              <p className="text-slate-400 text-lg mt-2">
-                {isWinner 
-                  ? `You defeated ${loser.username} ${winner.score}-${loser.score}`
-                  : `${winner.username} defeated you ${winner.score}-${loser.score}`
-                }
-              </p>
-            </div>
-          </motion.div>
-
-          {/* Match Summary */}
-          <Card className="bg-slate-800/30 border-white/10">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Match Details */}
-                <div className="space-y-3">
-                  <h3 className="text-white font-semibold flex items-center gap-2">
-                    <Target className="w-4 h-4 text-slate-400" />
-                    Match Details
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Format:</span>
-                      <span className="text-white">{getMatchDescription()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Final Score:</span>
-                      <span className="text-white font-semibold">{winner.score} - {loser.score}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Game:</span>
-                      <span className="text-white">501 Darts</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tournament Status */}
-                <div className="space-y-3">
-                  <h3 className="text-white font-semibold flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-slate-400" />
-                    Tournament
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    {isWinner && hasNextMatch && (
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <ArrowRight className="w-3 h-3" />
-                        <span>Advanced to next round!</span>
-                      </div>
-                    )}
-                    {isWinner && tournamentComplete && (
-                      <div className="flex items-center gap-2 text-yellow-400">
-                        <Crown className="w-3 h-3" />
-                        <span>Tournament Champion!</span>
-                      </div>
-                    )}
-                    {!isWinner && (
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <Users className="w-3 h-3" />
-                        <span>Tournament continues</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="space-y-3">
-                  <h3 className="text-white font-semibold flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-slate-400" />
-                    Performance
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Winner:</span>
-                      <span className="text-emerald-400 font-semibold">{winner.username}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Legs Won:</span>
-                      <span className="text-white">{winner.score}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Match Type:</span>
-                      <span className="text-white">Tournament</span>
-                    </div>
-                  </div>
-                </div>
+          <div className="relative text-center space-y-1">
+            {tournamentName && (
+              <div className="flex items-center justify-center gap-2 text-slate-400 text-xs">
+                <Trophy className="w-3 h-3" />
+                <span>{tournamentName}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Leg by Leg Stats */}
-          {legStats && legStats.length > 0 && (
-            <Card className="bg-slate-800/30 border-white/10">
-              <CardContent className="p-6">
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-slate-400" />
-                  Leg by Leg Breakdown
-                </h3>
-                <LegByLegStats
-                  legStats={legStats}
-                  playerName={winner.username}
-                  opponentName={loser.username}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            {isWinner ? (
-              <>
-                {/* Winner Buttons */}
-                {hasNextMatch ? (
-                  <Button
-                    onClick={handleNextRound}
-                    disabled={loadingNext}
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold shadow-lg shadow-emerald-500/25"
-                  >
-                    {loadingNext ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        Next Round
-                      </>
-                    )}
-                  </Button>
-                ) : tournamentComplete ? (
-                  <Button
-                    onClick={handleViewTournament}
-                    className="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-bold shadow-lg shadow-yellow-500/25"
-                  >
-                    <Crown className="w-4 h-4 mr-2" />
-                    View Championship
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleViewTournament}
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold shadow-lg shadow-emerald-500/25"
-                  >
-                    <Trophy className="w-4 h-4 mr-2" />
-                    View Tournament
-                  </Button>
-                )}
-                
-                <Button
-                  onClick={handleViewTournament}
-                  variant="outline"
-                  className="flex-1 border-white/20 text-white hover:bg-white/10"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Tournament
-                </Button>
-              </>
-            ) : (
-              <>
-                {/* Loser Buttons */}
-                <Button
-                  onClick={handleViewTournament}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold shadow-lg shadow-blue-500/25"
-                >
-                  <Trophy className="w-4 h-4 mr-2" />
-                  View Tournament
-                </Button>
-                
-                <Button
-                  onClick={handleClose}
-                  variant="outline"
-                  className="flex-1 border-white/20 text-white hover:bg-white/10"
-                >
-                  Leave Tournament
-                </Button>
-              </>
             )}
+            <div className="flex items-center justify-center gap-3">
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200 }}>
+                <Crown className={`w-6 h-6 ${isWinner ? 'text-emerald-400' : 'text-slate-500'}`} />
+              </motion.div>
+              <DialogHeader className="space-y-0">
+                <DialogTitle className={`text-xl font-black ${isWinner ? 'text-emerald-400' : 'text-slate-300'}`}>
+                  {isWinner ? 'Victory!' : 'Match Complete'}
+                </DialogTitle>
+              </DialogHeader>
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}>
+                <Trophy className={`w-6 h-6 ${isWinner ? 'text-emerald-400' : 'text-slate-500'}`} />
+              </motion.div>
+            </div>
+            <p className="text-slate-400 text-xs">{gameMode} • Best of {bestOf}</p>
           </div>
+        </div>
+
+        {/* Score */}
+        <div className="px-4 py-3">
+          <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
+            <div className="flex items-center justify-center gap-12">
+              <div className="text-center">
+                <div className={`${p1Color} text-sm font-bold mb-1`}>{player1.name}</div>
+                <div className={`text-5xl font-black ${p1Color}`}>{player1.legs}</div>
+              </div>
+              <div className="text-2xl font-bold text-slate-500">-</div>
+              <div className="text-center">
+                <div className={`${p2Color} text-sm font-bold mb-1`}>{player2.name}</div>
+                <div className={`text-5xl font-black ${p2Color}`}>{player2.legs}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats - Side by Side */}
+        <div className="px-4 flex gap-4">
+          {/* Player 1 */}
+          <div className={`flex-1 bg-gradient-to-b ${p1Bg} ${p1Border} border rounded-xl p-3`}>
+            <div className="text-center mb-3">
+              <div className={`font-bold ${p1Color} text-lg`}>{player1.name}</div>
+              {isPlayer1Winner && <div className="text-xs text-amber-400/70 font-medium">🏆 Winner</div>}
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">3-Dart Avg</span><span className={`font-bold ${p1Color} text-base`}>{fmt(player1Stats?.threeDartAverage)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">First 9</span><span className={`font-bold ${p1Color} text-base`}>{fmt(player1Stats?.first9Average)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">Best Checkout</span><span className={`font-bold ${p1Color} text-base`}>{(player1Stats?.checkouts || 0) > 0 ? fmtInt(player1Stats?.highestCheckout) : '-'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">Checkout %</span><span className={`font-bold ${p1Color} text-base`}>{fmt(player1Stats?.checkoutPercentage, '%')}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">Best Leg</span><span className={`font-bold ${p1Color} text-base`}>{player1Stats?.bestLegDarts > 0 ? `${player1Stats.bestLegDarts} darts` : '-'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">100+/140+/180</span><span className={`font-bold ${p1Color} text-sm`}>{player1Stats?.count100Plus || 0}/{player1Stats?.count140Plus || 0}/{player1Stats?.oneEighties || 0}</span></div>
+            </div>
+          </div>
+          {/* Player 2 */}
+          <div className={`flex-1 bg-gradient-to-b ${p2Bg} ${p2Border} border rounded-xl p-3`}>
+            <div className="text-center mb-3">
+              <div className={`font-bold ${p2Color} text-lg`}>{player2.name}</div>
+              {!isPlayer1Winner && <div className="text-xs text-amber-400/70 font-medium">🏆 Winner</div>}
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">3-Dart Avg</span><span className={`font-bold ${p2Color} text-base`}>{fmt(player2Stats?.threeDartAverage)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">First 9</span><span className={`font-bold ${p2Color} text-base`}>{fmt(player2Stats?.first9Average)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">Best Checkout</span><span className={`font-bold ${p2Color} text-base`}>{(player2Stats?.checkouts || 0) > 0 ? fmtInt(player2Stats?.highestCheckout) : '-'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">Checkout %</span><span className={`font-bold ${p2Color} text-base`}>{fmt(player2Stats?.checkoutPercentage, '%')}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">Best Leg</span><span className={`font-bold ${p2Color} text-base`}>{player2Stats?.bestLegDarts > 0 ? `${player2Stats.bestLegDarts} darts` : '-'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400 text-sm">100+/140+/180</span><span className={`font-bold ${p2Color} text-sm`}>{player2Stats?.count100Plus || 0}/{player2Stats?.count140Plus || 0}/{player2Stats?.oneEighties || 0}</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Leg-by-Leg Stats */}
+        {legStats && legStats.length > 0 && (
+          <div className="px-4 pb-2">
+            <LegByLegStats
+              legStats={legStats}
+              playerName={player1.name}
+              opponentName={player2.name}
+            />
+          </div>
+        )}
+
+        {/* Action Buttons - different for winner vs loser */}
+        <div className="px-4 pb-4 pt-3">
+          {isWinner ? (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleNextRound}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold"
+              >
+                <ArrowRight className="w-4 h-4 mr-1" />
+                Next Round
+              </Button>
+              <Button
+                onClick={handleViewTournament}
+                variant="outline"
+                className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                View Tournament
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleReturnToPlay}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 h-auto text-sm font-semibold"
+              >
+                <Home className="w-4 h-4 mr-1" />
+                Return to Play Menu
+              </Button>
+              <Button
+                onClick={handleViewTournament}
+                variant="outline"
+                className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                View Tournament
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
