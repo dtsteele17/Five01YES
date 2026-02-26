@@ -1201,26 +1201,28 @@ export default function QuickMatchRoomPage() {
               setShowOpponentForfeitModal(true);
             } else if (updatedRoom.status === 'finished') {
               loadMatchCompletionStats();
-              
+
               // Show appropriate completion modal based on match type
               if (isTournamentMatch && tournamentMatchId) {
                 handleTournamentMatchCompletion(updatedRoom.winner_id);
                 // Check if this was the final match
-                const supabaseClient = createClient();
-                const { data: nextMatches } = await supabaseClient
-                  .from('tournament_matches')
-                  .select('id')
-                  .eq('tournament_id', tournamentId)
-                  .in('status', ['pending', 'ready', 'in_progress'])
-                  .neq('id', tournamentMatchId)
-                  .limit(1);
-                if (!nextMatches || nextMatches.length === 0) {
-                  // No more matches — this was the final
-                  setIsTournamentFinal(true);
-                  setShowTournamentChampionScreen(true);
-                } else {
-                  setShowTournamentWinnerModal(true);
-                }
+                (async () => {
+                  const supabaseClient = createClient();
+                  const { data: nextMatches } = await supabaseClient
+                    .from('tournament_matches')
+                    .select('id')
+                    .eq('tournament_id', tournamentId)
+                    .in('status', ['pending', 'ready', 'in_progress'])
+                    .neq('id', tournamentMatchId)
+                    .limit(1);
+                  if (!nextMatches || nextMatches.length === 0) {
+                    // No more matches — this was the final
+                    setIsTournamentFinal(true);
+                    setShowTournamentChampionScreen(true);
+                  } else {
+                    setShowTournamentWinnerModal(true);
+                  }
+                })();
               } else {
                 setShowMatchCompleteModal(true);
               }
