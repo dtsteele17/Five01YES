@@ -109,7 +109,11 @@ export default function RankedPage() {
 
   const cancelSearch = async () => {
     if (queueId) {
-      await supabase.rpc('rpc_ranked_cancel', { p_queue_id: queueId }).catch(() => {});
+      try {
+        await supabase.rpc('rpc_ranked_cancel', { p_queue_id: queueId });
+      } catch (error) {
+        // Ignore errors during cancellation
+      }
     }
     stopPolling();
     stopTimer();
