@@ -97,7 +97,7 @@ export default function GlobalTournamentMonitor() {
         for (const t of liveTournaments) {
           if (t.status !== 'in_progress' || !t.bracket_generated_at) continue;
 
-          const { data: myMatch } = await supabase
+          const { data: myMatch }: { data: any } = await supabase
             .from('tournament_matches')
             .select('id, round, match_index, player1_id, player2_id, status')
             .eq('tournament_id', t.id)
