@@ -4193,9 +4193,16 @@ export default function QuickMatchRoomPage() {
           Leg {room.current_leg} of {room.legs_to_win * 2 - 1}
         </h2>
 
-        <Button variant="outline" size="sm" onClick={() => setShowChatDrawer(true)} className="border-white/10 text-white">
-          <MessageCircle className="w-4 h-4 mr-2" />
-          Chat
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={() => { setShowChatDrawer(true); setHasUnreadMessages(false); }} 
+          className={`relative border-white/10 text-white h-9 w-9 ${hasUnreadMessages ? 'border-emerald-500/50 text-emerald-400' : ''}`}
+        >
+          <MessageCircle className={`w-5 h-5 ${hasUnreadMessages ? 'text-emerald-400' : ''}`} />
+          {hasUnreadMessages && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50" />
+          )}
         </Button>
       </div>
 
