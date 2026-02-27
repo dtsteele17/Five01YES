@@ -66,6 +66,36 @@ interface Dart {
   is_double: boolean;
 }
 
+// Is a remaining score a valid double checkout? (even ≤40, or exactly 50 for bull)
+function isDoubleCheckoutScore(remaining: number): boolean {
+  if (remaining === 50) return true; // Bullseye
+  if (remaining >= 2 && remaining <= 40 && remaining % 2 === 0) return true;
+  return false;
+}
+
+// Impossible checkout scores (can't finish from these in 3 darts with double out)
+const IMPOSSIBLE_CHECKOUTS = new Set([169, 168, 166, 165, 163, 162, 159]);
+
+// Is a remaining score in checkout range? (≤170 and possible)
+function isInCheckoutRange(remaining: number): boolean {
+  if (remaining < 2 || remaining > 170) return false;
+  return !IMPOSSIBLE_CHECKOUTS.has(remaining);
+}
+
+// Calculate darts thrown at a double from button-entered darts
+// A dart is "at a double" if the remaining before that dart was a valid double finish
+function calcDartsAtDouble(darts: Dart[], remainingBefore: number): number {
+  let remaining = remainingBefore;
+  let dartsAtDouble = 0;
+  for (const dart of darts) {
+    if (isDoubleCheckoutScore(remaining)) {
+      dartsAtDouble++;
+    }
+    remaining -= dart.value;
+  }
+  return dartsAtDouble;
+}
+
 interface MatchRoom {
   id: string;
   player1_id: string;
@@ -1243,6 +1273,8 @@ export default function QuickMatchRoomPage() {
 
   // Checkout dialog state for typed scores
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [showDartsAtDoubleDialog, setShowDartsAtDoubleDialog] = useState(false);
+  const [pendingTypedScore, setPendingTypedScore] = useState<{ score: number; remaining: number } | null>(null);
   const [pendingCheckoutScore, setPendingCheckoutScore] = useState(0);
   const [pendingRemainingBefore, setPendingRemainingBefore] = useState(501);
 
@@ -1809,20 +1841,19 @@ export default function QuickMatchRoomPage() {
       ? Math.max(...checkouts.map(v => v.score))
       : 0;
     
-    // FIX: Calculate checkout percentage using darts_at_double
-    // Sum up all darts_at_double for visits in checkout range (<= 170)
-    const checkoutAttempts = playerVisits
-      .filter(v => v.remaining_before <= 170 && v.remaining_before > 0)
-      .reduce((sum, v) => sum + (v.darts_at_double || 1), 0);
+    // Checkout percentage = successful checkouts / total darts thrown at a double × 100
+    // "Darts at double" = any dart thrown when remaining was a valid double finish
+    const totalDartsAtDouble = playerVisits
+      .filter(v => v.remaining_before > 0 && isInCheckoutRange(v.remaining_before))
+      .reduce((sum, v) => sum + (v.darts_at_double || 0), 0);
     const successfulCheckouts = checkouts.length;
     
-    // Checkout percentage = successful checkouts / total darts at double
-    const checkoutPercentage = checkoutAttempts > 0 
-      ? (successfulCheckouts / checkoutAttempts) * 100 
+    const checkoutPercentage = totalDartsAtDouble > 0 
+      ? (successfulCheckouts / totalDartsAtDouble) * 100 
       : 0;
     
     console.log(`[STATS CALC] ${playerName} checkout calc:`, {
-      checkoutAttempts,
+      totalDartsAtDouble,
       successfulCheckouts,
       checkoutPercentage: checkoutPercentage.toFixed(1)
     });
@@ -1849,7 +1880,7 @@ export default function QuickMatchRoomPage() {
       bestLegNum: bestLeg.legNum,
       totalScore: totalScored,
       checkouts: successfulCheckouts,
-      checkoutAttempts,
+      totalDartsAtDouble,
       count100Plus,
       count140Plus,
       oneEighties,
@@ -1860,7 +1891,7 @@ export default function QuickMatchRoomPage() {
       checkoutPercentage: checkoutPercentage.toFixed(1) + '%',
       bestLegDarts: bestLeg.darts,
       checkouts: successfulCheckouts,
-      checkoutAttempts
+      totalDartsAtDouble
     });
     
     return result;
@@ -1923,13 +1954,13 @@ export default function QuickMatchRoomPage() {
       ? Math.max(...checkouts.map(v => v.score))
       : 0;
     
-    // FIX: Calculate checkout percentage using darts_at_double
-    const checkoutAttempts = playerVisits
-      .filter(v => v.remaining_before <= 170 && v.remaining_before > 0)
-      .reduce((sum, v) => sum + (v.darts_at_double || 1), 0);
+    // Checkout percentage = successful checkouts / total darts at double × 100
+    const totalDartsAtDouble = playerVisits
+      .filter(v => v.remaining_before > 0 && isInCheckoutRange(v.remaining_before))
+      .reduce((sum, v) => sum + (v.darts_at_double || 0), 0);
     const successfulCheckouts = checkouts.length;
-    const checkoutPercentage = checkoutAttempts > 0 
-      ? (successfulCheckouts / checkoutAttempts) * 100 
+    const checkoutPercentage = totalDartsAtDouble > 0 
+      ? (successfulCheckouts / totalDartsAtDouble) * 100 
       : 0;
     
     // Calculate BEST LEG (fewest darts to win a leg)
@@ -1958,7 +1989,7 @@ export default function QuickMatchRoomPage() {
       bestLegNum: bestLeg.legNum,
       totalScore: totalScored,
       checkouts: successfulCheckouts,
-      checkoutAttempts,
+      totalDartsAtDouble,
     };
   };
 
@@ -2682,7 +2713,24 @@ export default function QuickMatchRoomPage() {
   
   const handleMiss = () => {
     if (currentVisit.length >= 3) return;
-    setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
+    const newDarts = [...currentVisit, { type: 'single' as const, number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }];
+    setCurrentVisit(newDarts);
+    
+    // Auto-submit after 3 darts (same as handleDartClick)
+    if (newDarts.length === 3) {
+      setTimeout(() => {
+        if (!matchState || matchState.currentTurnPlayer !== matchState.youArePlayer || submitting) return;
+        
+        const visitTotal = newDarts.reduce((sum, dart) => sum + dart.value, 0);
+        const validation = validateCheckout(visitTotal, newDarts, false);
+        
+        if (validation.isBust) {
+          submitScore(0, true, newDarts, false, false);
+        } else {
+          submitScore(visitTotal, false, newDarts, validation.isCheckout, false);
+        }
+      }, 300);
+    }
   };
 
   const validateCheckout = (score: number, darts: Dart[], isTypedScore: boolean = false): { valid: boolean; error?: string; isCheckout: boolean; isBust: boolean } => {
@@ -2964,10 +3012,21 @@ export default function QuickMatchRoomPage() {
       return;
     }
     
-    // Normal score - assume 3 darts thrown, submit immediately
+    // Check if player was on a checkout before this visit (could have thrown at a double)
+    const wasOnCheckout = room.double_out !== false && isInCheckoutRange(currentRemaining);
+    
+    if (wasOnCheckout) {
+      // Ask how many darts were thrown at a double
+      console.log('[TYPED SCORE] Was on checkout (' + currentRemaining + '), asking darts at double');
+      setPendingTypedScore({ score, remaining: currentRemaining });
+      setShowDartsAtDoubleDialog(true);
+      // Lock stays held — released by dialog handler
+      return;
+    }
+    
+    // Normal score, not on checkout - assume 3 darts thrown, no darts at double
     console.log('[TYPED SCORE] Normal score - assuming 3 darts, remaining:', newRemaining);
     
-    // Create 3 darts for normal score
     const normalDarts: Dart[] = [
       { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false },
       { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
@@ -2977,13 +3036,92 @@ export default function QuickMatchRoomPage() {
     try {
       await submitScore(score, false, normalDarts, false, true);
     } finally {
-      // Release submission lock
       submitLockRef.current = false;
     }
     setScoreInput('');
   };
 
   // Handle checkout/bust details submission from dialog
+  // Handle "darts at double" dialog for typed scores when on a checkout
+  const handleDartsAtDoubleSubmit = async (dartsAtDouble: number) => {
+    setShowDartsAtDoubleDialog(false);
+    if (!pendingTypedScore || !room) {
+      submitLockRef.current = false;
+      return;
+    }
+
+    const { score } = pendingTypedScore;
+    
+    // Create darts — we don't know exact darts for typed scores, use generic
+    const normalDarts: Dart[] = [
+      { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }
+    ];
+
+    try {
+      // Submit with overridden darts_at_double
+      await submitScoreWithDartsAtDouble(score, normalDarts, dartsAtDouble);
+    } finally {
+      submitLockRef.current = false;
+    }
+    setPendingTypedScore(null);
+    setScoreInput('');
+  };
+
+  // Submit a typed score with a manually specified darts_at_double count
+  async function submitScoreWithDartsAtDouble(score: number, darts: Dart[], dartsAtDouble: number) {
+    if (!room || !matchState || !currentUserId) return;
+    if (matchState.currentTurnPlayer !== matchState.youArePlayer) return;
+
+    setSubmitting(true);
+    try {
+      const dartsArray = darts.map(dart => {
+        let mult: 'S' | 'D' | 'T' | 'SB' | 'DB' = 'S';
+        if (dart.type === 'bull') mult = dart.value === 50 ? 'DB' : 'SB';
+        else if (dart.type === 'double') mult = 'D';
+        else if (dart.type === 'triple') mult = 'T';
+        return { n: dart.number, mult };
+      });
+
+      const { data, error } = await supabase.rpc("rpc_quick_match_submit_visit_v3", {
+        p_room_id: matchId,
+        p_score: score,
+        p_darts: dartsArray,
+        p_is_bust: false,
+        p_darts_thrown: 3,
+        p_is_typed_score: true
+      });
+
+      if (error) { toast.error(error.message || 'Failed to submit'); return; }
+      if (!data?.ok) { toast.error(data?.error || 'Failed to submit visit'); return; }
+
+      // Now update the darts_at_double on the visit (the RPC may not support this param)
+      if (data.visit_id && dartsAtDouble > 0) {
+        await supabase
+          .from('quick_match_visits')
+          .update({ darts_at_double: dartsAtDouble })
+          .eq('id', data.visit_id);
+      }
+
+      setScoreInput('');
+      setCurrentVisit([]);
+
+      if (data.remaining_after !== undefined && room) {
+        const isPlayer1 = currentUserId === room.player1_id;
+        setRoom({
+          ...room,
+          player1_remaining: isPlayer1 ? data.remaining_after : room.player1_remaining,
+          player2_remaining: !isPlayer1 ? data.remaining_after : room.player2_remaining,
+        });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit visit');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const handleCheckoutDetailsSubmit = async (dartsThrown: number, dartsAtDouble: number) => {
     if (!pendingCheckoutInfo) {
       // Release lock if somehow called without pending info
@@ -3219,6 +3357,26 @@ export default function QuickMatchRoomPage() {
 
       console.log('[SUBMIT] RPC success:', data);
 
+      // Update darts_at_double on the visit (RPC doesn't set this correctly)
+      if (room && currentUserId && !isTypedScore) {
+        const isPlayer1 = currentUserId === room.player1_id;
+        const remainingBefore = isPlayer1 ? room.player1_remaining : room.player2_remaining;
+        const dartsAtDouble = calcDartsAtDouble(dartsToSubmit, remainingBefore);
+        // Update the most recent visit for this player in this room
+        supabase
+          .from('quick_match_visits')
+          .update({ darts_at_double: dartsAtDouble })
+          .eq('room_id', matchId)
+          .eq('player_id', currentUserId)
+          .eq('leg', room.current_leg)
+          .order('turn_no', { ascending: false })
+          .limit(1)
+          .then(({ error: updateErr }) => {
+            if (updateErr) console.error('[SUBMIT] darts_at_double update error:', updateErr);
+            else console.log('[SUBMIT] darts_at_double updated to', dartsAtDouble);
+          });
+      }
+
       // Track score achievements (180s, 100+, 26s, 69s)
       if (!isBust && score > 0 && currentUserId) {
         trackScoreAchievement(score, currentUserId, {
@@ -3326,7 +3484,7 @@ export default function QuickMatchRoomPage() {
             remaining_after: data.remaining_after,
             darts: darts.map(d => ({ n: d.number, mult: d.type === 'bull' ? (d.value === 50 ? 'DB' : 'SB') : d.type === 'double' ? 'D' : d.type === 'triple' ? 'T' : 'S' })),
             darts_thrown: darts.length,
-            darts_at_double: darts.filter(d => d.is_double).length,
+            darts_at_double: calcDartsAtDouble(darts, isPlayer1 ? room.player1_remaining : room.player2_remaining),
             is_bust: isBust,
             bust_reason: null,
             is_checkout: true,
@@ -3716,7 +3874,17 @@ export default function QuickMatchRoomPage() {
           score: finalScore,
           darts: newDarts,
           darts_thrown: newDarts.length,
-          darts_at_double: newDarts.filter((d: any) => d.mult === 'D' || d.mult === 'DB').length,
+          darts_at_double: (() => {
+            // Calculate darts at double from remaining_before and dart values
+            let rem = updatedVisit.remaining_before;
+            let atDouble = 0;
+            for (const d of newDarts) {
+              if (isDoubleCheckoutScore(rem)) atDouble++;
+              const val = d.mult === 'D' ? d.n * 2 : d.mult === 'T' ? d.n * 3 : d.mult === 'DB' ? 50 : d.mult === 'SB' ? 25 : d.n;
+              rem -= val;
+            }
+            return atDouble;
+          })(),
           remaining_after: isBust ? updatedVisit.remaining_before : newRemaining,
           is_bust: isBust,
           is_checkout: isCheckout,
@@ -4657,6 +4825,36 @@ export default function QuickMatchRoomPage() {
           isBust={pendingCheckoutInfo.isBust}
           onSubmit={handleCheckoutDetailsSubmit}
         />
+      )}
+
+      {/* Darts at Double Dialog — typed score when on a checkout but didn't finish */}
+      {showDartsAtDoubleDialog && pendingTypedScore && (
+        <AlertDialog open={showDartsAtDoubleDialog}>
+          <AlertDialogContent className="bg-slate-900 border-white/10 max-w-xs">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white text-center">
+                Darts at Double?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-400 text-center">
+                You were on {pendingTypedScore.remaining}. How many darts did you throw at a double?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex justify-center gap-3 py-4">
+              {[0, 1, 2, 3].map(n => (
+                <Button
+                  key={n}
+                  onClick={() => handleDartsAtDoubleSubmit(n)}
+                  variant={n === 0 ? 'outline' : 'default'}
+                  className={n === 0 
+                    ? 'border-white/10 text-white w-14 h-14 text-lg' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 text-lg'}
+                >
+                  {n}
+                </Button>
+              ))}
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {/* Ranked Winner Popup - premium end-game for ranked matches */}
