@@ -137,14 +137,14 @@ export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, o
     // Load tournament settings
     const { data: tData } = await supabase
       .from('tournaments')
-      .select('game_mode, best_of, match_format')
+      .select('game_mode, legs_per_match')
       .eq('id', tournamentId)
       .single();
 
     const gameMode = tData?.game_mode || 501;
-    const bestOf = tData?.best_of || 5;
+    const bestOf = tData?.legs_per_match || 5;
     const legsToWin = Math.ceil(bestOf / 2);
-    const matchFormat = tData?.match_format || `best-of-${bestOf}`;
+    const matchFormat = `best-of-${bestOf}`;
 
     // Create room via RPC
     try {
