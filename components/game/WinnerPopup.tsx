@@ -192,7 +192,7 @@ export function WinnerPopup({
   return (
     <Dialog open={true} modal>
       <DialogContent 
-        className="bg-slate-900 border-slate-700 text-white w-full max-w-3xl p-0 overflow-hidden"
+        className="bg-slate-900 border-slate-700 text-white w-full max-w-3xl p-0 flex flex-col"
         style={{ maxHeight: '90vh' }}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -242,6 +242,9 @@ export function WinnerPopup({
             {gameMode} • Best of {bestOf}
           </p>
         </div>
+
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto min-h-0">
 
         {/* Score Display */}
         <div className="px-4 py-3">
@@ -448,8 +451,10 @@ export function WinnerPopup({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="px-4 pb-4 pt-3">
+        </div>{/* End scrollable content */}
+
+        {/* Action Buttons — fixed at bottom */}
+        <div className="px-4 pb-4 pt-3 border-t border-slate-700/50 shrink-0">
           {isRankedMatch ? (
             <div className="flex gap-3">
               <Button

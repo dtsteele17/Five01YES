@@ -244,44 +244,37 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markAllAsRead = async () => {
     try {
-      const userId = currentUserId || (await supabase.auth.getUser()).data?.user?.id;
-      if (!userId) {
-        console.error('[NOTIFICATIONS] No user found when marking all as read');
-        return;
-      }
-
       const now = new Date().toISOString();
       
-      // Suppress realtime refetch for 3 seconds
-      skipRefetchUntilRef.current = Date.now() + 3000;
+      skipRefetchUntilRef.current = Date.now() + 5000;
 
-      // Update local state FIRST for instant UI feedback
+      // Update local state FIRST
       setNotifications((prev) => 
-        prev.map((n) => ({ 
-          ...n, 
-          read: true, 
-          read_at: n.read_at || now 
-        }))
+        prev.map((n) => ({ ...n, read: true, read_at: n.read_at || now }))
       );
 
-      // Then persist to DB
-      const { data, error } = await supabase
+      // Use RPC (SECURITY DEFINER) to bypass RLS
+      try {
+        const { error: rpcErr } = await supabase.rpc('rpc_mark_all_notifications_read');
+        if (!rpcErr) return;
+        console.warn('[NOTIFICATIONS] RPC mark read failed, trying direct:', rpcErr.message);
+      } catch {}
+
+      // Fallback: direct update
+      const userId = currentUserId || (await supabase.auth.getUser()).data?.user?.id;
+      if (!userId) return;
+      const { error } = await supabase
         .from('notifications')
         .update({ read_at: now })
         .eq('user_id', userId)
-        .is('read_at', null)
-        .select();
+        .is('read_at', null);
 
       if (error) {
         console.error('[NOTIFICATIONS] Error marking all as read:', error);
-        // Revert on failure — refetch from DB
         fetchNotifications();
-        throw error;
       }
-
-      console.log(`[NOTIFICATIONS] Marked ${data?.length || 0} notifications as read`);
     } catch (error) {
-      console.error('[NOTIFICATIONS] Error marking all notifications as read:', error);
+      console.error('[NOTIFICATIONS] Error marking all as read:', error);
     }
   };
 
@@ -341,23 +334,26 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const deleteAll = async () => {
     try {
-      const userId = currentUserId || (await supabase.auth.getUser()).data?.user?.id;
-      if (!userId) return;
-
-      skipRefetchUntilRef.current = Date.now() + 3000;
+      skipRefetchUntilRef.current = Date.now() + 5000;
       setNotifications([]);
 
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('user_id', userId);
+      // Use RPC (SECURITY DEFINER) to bypass RLS
+      try {
+        const { error: rpcErr } = await supabase.rpc('rpc_delete_all_notifications');
+        if (!rpcErr) return; // success
+        console.warn('[NOTIFICATIONS] RPC delete failed, trying direct:', rpcErr.message);
+      } catch {}
 
+      // Fallback: direct delete
+      const userId = currentUserId || (await supabase.auth.getUser()).data?.user?.id;
+      if (!userId) return;
+      const { error } = await supabase.from('notifications').delete().eq('user_id', userId);
       if (error) {
-        console.error('[NOTIFICATIONS] Error deleting all:', error);
-        fetchNotifications(); // revert
+        console.error('[NOTIFICATIONS] Delete failed:', error);
+        fetchNotifications();
       }
     } catch (error) {
-      console.error('[NOTIFICATIONS] Error deleting all notifications:', error);
+      console.error('[NOTIFICATIONS] Error deleting all:', error);
       fetchNotifications();
     }
   };
