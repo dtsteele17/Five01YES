@@ -94,6 +94,7 @@ interface MatchRoom {
   player2_rematch?: boolean;
   rematch_room_id?: string | null;
   rematch_of?: string | null;
+  updated_at?: string;
 }
 
 interface Profile {
@@ -1083,7 +1084,7 @@ export default function QuickMatchRoomPage() {
   // AFK / Turn Timer state
   const [showAfkWarning, setShowAfkWarning] = useState(false);
   const [showOpponentAfk, setShowOpponentAfk] = useState(false);
-  const [turnTimerKey, setTurnTimerKey] = useState(0); // increment to force reset
+  const [turnStartedAt, setTurnStartedAt] = useState<string | null>(null); // shared timestamp for synced timer
 
   // Camera refresh state
   const [isRefreshingCamera, setIsRefreshingCamera] = useState(false);
@@ -2263,6 +2264,11 @@ export default function QuickMatchRoomPage() {
     
     setRoom(roomData as MatchRoom);
 
+    // Initialize turn timer from room's updated_at (or now if not available)
+    if (roomData.status === 'active' && roomData.current_turn && !turnStartedAt) {
+      setTurnStartedAt(roomData.updated_at || new Date().toISOString());
+    }
+
     // Detect ranked match
     if (roomData.match_type === 'ranked' || roomData.source === 'ranked') {
       setIsRankedMatch(true);
@@ -2389,12 +2395,12 @@ export default function QuickMatchRoomPage() {
           // Update room state
           setRoom(updatedRoom);
           
-          // Reset AFK state when turn changes
+          // Reset AFK state when turn changes — use room's updated_at as shared timer reference
           if (oldRoom && updatedRoom.current_turn !== oldRoom.current_turn) {
-            console.log('[AFK] Turn changed, resetting timers');
+            console.log('[AFK] Turn changed, syncing timer to', updatedRoom.updated_at);
             setShowAfkWarning(false);
             setShowOpponentAfk(false);
-            setTurnTimerKey(prev => prev + 1);
+            setTurnStartedAt(updatedRoom.updated_at || new Date().toISOString());
           }
           
           // Handle coin toss completion
@@ -2536,6 +2542,10 @@ export default function QuickMatchRoomPage() {
           if (signal.type === 'afk_response' && signal.from_user_id !== currentUserId) {
             console.log('[AFK] Opponent responded - still here');
             setShowOpponentAfk(false);
+            // Sync timer — opponent reset their timer, so use the timestamp they sent
+            if (signal.payload?.reset_at) {
+              setTurnStartedAt(signal.payload.reset_at);
+            }
           }
           // Note: Rematch is now handled via database subscription (quick_match_rematch_requests table)
           // Handle player ready signal
@@ -3532,9 +3542,10 @@ export default function QuickMatchRoomPage() {
   const handleStillHere = useCallback(async () => {
     console.log('[AFK] Player confirmed still here');
     setShowAfkWarning(false);
-    setTurnTimerKey(prev => prev + 1); // reset timer
+    const resetAt = new Date().toISOString();
+    setTurnStartedAt(resetAt); // reset timer from now
     
-    // Notify opponent
+    // Notify opponent with the reset timestamp so their timer syncs
     if (room && matchState) {
       const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
       if (opponentId) {
@@ -3543,7 +3554,7 @@ export default function QuickMatchRoomPage() {
             p_room_id: matchId,
             p_to_user_id: opponentId,
             p_type: 'afk_response',
-            p_payload: { message: 'Player is still here' }
+            p_payload: { message: 'Player is still here', reset_at: resetAt }
           });
         } catch (err) {
           console.error('[AFK] Error sending afk_response signal:', err);
@@ -4220,10 +4231,9 @@ export default function QuickMatchRoomPage() {
                   {isMyTurn ? `🎯 ${myPlayer.name}'S TURN (You)` : `🎯 ${opponentPlayer.name}'S TURN`}
                 </span>
                 <TurnTimer
-                  key={turnTimerKey}
                   isMyTurn={isMyTurn}
                   isActive={room.status === 'active' && !showPreGameLobby && !showCoinToss}
-                  turnPlayerId={room.current_turn}
+                  turnStartedAt={turnStartedAt}
                   onTimerExpired={handleTurnTimerExpired}
                 />
               </div>

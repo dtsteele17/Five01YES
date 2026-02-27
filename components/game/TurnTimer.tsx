@@ -1,70 +1,73 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, AlertTriangle } from 'lucide-react';
 
+const TURN_DURATION = 60; // seconds
+
 interface TurnTimerProps {
   isMyTurn: boolean;
-  isActive: boolean; // room.status === 'active' and game in progress
-  turnPlayerId: string | null; // current_turn from room
-  onTimerExpired: () => void; // called when first 60s expires
+  isActive: boolean;
+  turnStartedAt: string | null; // ISO timestamp — both clients use same reference
+  onTimerExpired: () => void;
   className?: string;
 }
 
-export function TurnTimer({ isMyTurn, isActive, turnPlayerId, onTimerExpired, className = '' }: TurnTimerProps) {
-  const [secondsLeft, setSecondsLeft] = useState(60);
+export function TurnTimer({ isMyTurn, isActive, turnStartedAt, onTimerExpired, className = '' }: TurnTimerProps) {
+  const [secondsLeft, setSecondsLeft] = useState(TURN_DURATION);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasExpiredRef = useRef(false);
-  const prevTurnPlayerRef = useRef<string | null>(null);
+  const prevStartRef = useRef<string | null>(null);
 
-  // Reset timer when turn changes
+  // Compute seconds remaining from shared timestamp
+  const computeSecondsLeft = (startedAt: string): number => {
+    const elapsed = (Date.now() - new Date(startedAt).getTime()) / 1000;
+    return Math.max(0, Math.ceil(TURN_DURATION - elapsed));
+  };
+
+  // Reset when turn start timestamp changes
   useEffect(() => {
-    if (turnPlayerId !== prevTurnPlayerRef.current) {
-      prevTurnPlayerRef.current = turnPlayerId;
-      setSecondsLeft(60);
+    if (turnStartedAt !== prevStartRef.current) {
+      prevStartRef.current = turnStartedAt;
       hasExpiredRef.current = false;
+      if (turnStartedAt) {
+        setSecondsLeft(computeSecondsLeft(turnStartedAt));
+      } else {
+        setSecondsLeft(TURN_DURATION);
+      }
     }
-  }, [turnPlayerId]);
+  }, [turnStartedAt]);
 
-  // Reset externally (e.g., after "Still Here" click)
-  const resetTimer = useCallback(() => {
-    setSecondsLeft(60);
-    hasExpiredRef.current = false;
-  }, []);
-
-  // Countdown
+  // Countdown — recalculates from the shared timestamp each tick to stay in sync
   useEffect(() => {
-    if (!isActive || !turnPlayerId) {
+    if (!isActive || !turnStartedAt) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
 
     intervalRef.current = setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev <= 1) {
-          if (!hasExpiredRef.current) {
-            hasExpiredRef.current = true;
-            onTimerExpired();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const remaining = computeSecondsLeft(turnStartedAt);
+      setSecondsLeft(remaining);
+
+      if (remaining <= 0 && !hasExpiredRef.current) {
+        hasExpiredRef.current = true;
+        onTimerExpired();
+      }
+    }, 500); // tick every 500ms for smoother sync
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, turnPlayerId, onTimerExpired]);
+  }, [isActive, turnStartedAt, onTimerExpired]);
 
-  if (!isActive || !turnPlayerId) return null;
+  if (!isActive || !turnStartedAt) return null;
 
   const isLow = secondsLeft <= 15;
   const isCritical = secondsLeft <= 5;
   const color = isMyTurn
-    ? isCritical ? 'text-red-400 bg-red-500/20 border-red-500/40' 
-      : isLow ? 'text-amber-400 bg-amber-500/15 border-amber-500/30' 
+    ? isCritical ? 'text-red-400 bg-red-500/20 border-red-500/40'
+      : isLow ? 'text-amber-400 bg-amber-500/15 border-amber-500/30'
       : 'text-amber-300 bg-amber-500/10 border-amber-500/20'
     : isCritical ? 'text-red-400 bg-red-500/20 border-red-500/40'
       : isLow ? 'text-blue-300 bg-blue-500/15 border-blue-500/30'
@@ -75,13 +78,13 @@ export function TurnTimer({ isMyTurn, isActive, turnPlayerId, onTimerExpired, cl
       <motion.div
         key="turn-timer"
         initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ 
-          opacity: 1, 
+        animate={{
+          opacity: 1,
           scale: isCritical ? [1, 1.05, 1] : 1,
         }}
-        transition={{ 
+        transition={{
           duration: 0.2,
-          scale: isCritical ? { repeat: Infinity, duration: 0.5 } : undefined
+          scale: isCritical ? { repeat: Infinity, duration: 0.5 } : undefined,
         }}
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-mono font-bold ${color} ${className}`}
       >
@@ -95,8 +98,3 @@ export function TurnTimer({ isMyTurn, isActive, turnPlayerId, onTimerExpired, cl
     </AnimatePresence>
   );
 }
-
-// Export reset function via ref pattern
-export type TurnTimerHandle = {
-  reset: () => void;
-};
