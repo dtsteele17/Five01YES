@@ -709,17 +709,21 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                 return (
                   <div
                     key={notification.id}
-                    className="w-full px-4 py-3 hover:bg-white/5 transition-colors border-b border-slate-800/50 last:border-0"
+                    className={`w-full px-4 py-3 hover:bg-white/5 transition-colors border-b border-slate-800/50 last:border-0 ${link ? 'cursor-pointer' : ''}`}
                   >
                     <button
                       onClick={() => {
                         if (isFriendReq) {
-                          // Navigate to friends page requests tab for friend requests
                           setDropdownOpen(false);
                           markAsRead(notification.id);
                           router.push('/app/friends?tab=requests');
-                        } else {
+                        } else if (isInvite) {
                           handleInviteClick(notification);
+                        } else {
+                          // Generic click — mark read and navigate
+                          markAsRead(notification.id);
+                          setDropdownOpen(false);
+                          handleNotificationClick(notification);
                         }
                       }}
                       className="w-full text-left flex items-start space-x-3 group"
