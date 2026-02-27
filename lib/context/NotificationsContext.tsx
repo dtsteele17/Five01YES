@@ -54,6 +54,7 @@ interface NotificationsContextType {
   loading: boolean;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteAll: () => Promise<void>;
   handleNotificationClick: (notification: Notification) => Promise<void>;
   refreshNotifications: () => Promise<void>;
 }
@@ -338,6 +339,29 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteAll = async () => {
+    try {
+      const userId = currentUserId || (await supabase.auth.getUser()).data?.user?.id;
+      if (!userId) return;
+
+      skipRefetchUntilRef.current = Date.now() + 3000;
+      setNotifications([]);
+
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('[NOTIFICATIONS] Error deleting all:', error);
+        fetchNotifications(); // revert
+      }
+    } catch (error) {
+      console.error('[NOTIFICATIONS] Error deleting all notifications:', error);
+      fetchNotifications();
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -348,6 +372,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         loading,
         markAsRead,
         markAllAsRead,
+        deleteAll,
         handleNotificationClick,
         refreshNotifications: fetchNotifications,
       }}

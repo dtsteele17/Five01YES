@@ -41,10 +41,11 @@ interface NotificationDropdownProps {
 export function NotificationDropdown({ children }: NotificationDropdownProps) {
   const router = useRouter();
   const supabase = createClient();
-  const { notifications, unreadCount, markAllAsRead, markAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
+  const { notifications, unreadCount, markAllAsRead, deleteAll, markAsRead, handleNotificationClick, refreshNotifications } = useNotifications();
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
   const [processingFriendRequest, setProcessingFriendRequest] = useState<string | null>(null);
   const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedInvite, setSelectedInvite] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -666,28 +667,52 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
                 </Badge>
               )}
             </div>
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={markingAllAsRead}
-                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs h-auto py-1.5 px-3 rounded-lg disabled:opacity-50"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setMarkingAllAsRead(true);
-                  try {
-                    await markAllAsRead();
-                    toast.success('All notifications marked as read');
-                  } catch (err) {
-                    toast.error('Failed to mark notifications as read');
-                  } finally {
-                    setMarkingAllAsRead(false);
-                  }
-                }}
-              >
-                {markingAllAsRead ? 'Marking...' : 'Mark all as read'}
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {unreadCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={markingAllAsRead}
+                  className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-xs h-auto py-1.5 px-2 rounded-lg disabled:opacity-50"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setMarkingAllAsRead(true);
+                    try {
+                      await markAllAsRead();
+                      toast.success('All marked as read');
+                    } catch (err) {
+                      toast.error('Failed to mark as read');
+                    } finally {
+                      setMarkingAllAsRead(false);
+                    }
+                  }}
+                >
+                  {markingAllAsRead ? '...' : 'Read all'}
+                </Button>
+              )}
+              {deduplicatedNotifications.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={deletingAll}
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs h-auto py-1.5 px-2 rounded-lg disabled:opacity-50"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setDeletingAll(true);
+                    try {
+                      await deleteAll();
+                      toast.success('All notifications deleted');
+                    } catch (err) {
+                      toast.error('Failed to delete notifications');
+                    } finally {
+                      setDeletingAll(false);
+                    }
+                  }}
+                >
+                  {deletingAll ? '...' : 'Delete all'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -699,7 +724,7 @@ export function NotificationDropdown({ children }: NotificationDropdownProps) {
             <p className="text-slate-400 text-sm">No notifications at this moment</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[320px]">
+          <ScrollArea className="max-h-[400px]">
             <div className="py-2">
               {deduplicatedNotifications.map((notification) => {
                 const isInvite = isPrivateMatchInvite(notification);
