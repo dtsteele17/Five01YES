@@ -169,14 +169,25 @@ export function useMatchWebRTC({
           pc.restartIce();
           break;
         case 'disconnected':
-          setCallStatus('failed');
+          // Don't immediately set failed — ICE reconnect may recover
+          setCallStatus('connecting');
           break;
       }
     };
 
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'disconnected') {
+        // Temporary disconnection — wait 3s then restart ICE if still disconnected
+        setTimeout(() => {
+          if (peerConnectionRef.current === pc && pc.iceConnectionState === 'disconnected') {
+            console.log('[WebRTC] Still disconnected after 3s, restarting ICE...');
+            pc.restartIce();
+          }
+        }, 3000);
+      }
       if (pc.iceConnectionState === 'failed') {
+        console.log('[WebRTC] ICE failed, restarting...');
         pc.restartIce();
       }
     };

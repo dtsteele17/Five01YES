@@ -1123,7 +1123,13 @@ export default function QuickMatchRoomPage() {
     if (el && localStream) {
       console.log('[CAMERA] Attaching local stream to video element');
       el.srcObject = localStream;
-      el.play().catch(err => console.error('[CAMERA] Error playing local:', err));
+      el.play().catch(err => {
+        if (err.name === 'AbortError') {
+          setTimeout(() => { if (el.srcObject && el.parentNode) el.play().catch(() => {}); }, 100);
+        } else {
+          console.error('[CAMERA] Error playing local:', err);
+        }
+      });
     }
     localVideoRef.current = el;
   }, [localStream]);
@@ -1132,7 +1138,18 @@ export default function QuickMatchRoomPage() {
     if (el && remoteStream) {
       console.log('[CAMERA] Attaching remote stream to video element');
       el.srcObject = remoteStream;
-      el.play().catch(err => console.error('[CAMERA] Error playing remote:', err));
+      el.play().catch(err => {
+        if (err.name === 'AbortError') {
+          // Video element was removed during play — retry after a tick
+          setTimeout(() => {
+            if (el.srcObject && el.parentNode) {
+              el.play().catch(() => {});
+            }
+          }, 100);
+        } else {
+          console.error('[CAMERA] Error playing remote:', err);
+        }
+      });
     }
     remoteVideoRef.current = el;
   }, [remoteStream]);
