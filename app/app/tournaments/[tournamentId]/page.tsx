@@ -747,7 +747,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-3">
-            <Tabs defaultValue="overview" className="space-y-8">
+            <Tabs defaultValue={tournament.status === 'in_progress' || tournament.status === 'completed' ? 'bracket' : 'overview'} className="space-y-8">
               <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10 p-2">
                 <TabsList className="grid w-full grid-cols-3 bg-transparent">
                   <TabsTrigger

@@ -1150,15 +1150,12 @@ export default function QuickMatchRoomPage() {
         .from('tournament_matches')
         .update({ status: 'completed', winner_id: winnerId })
         .eq('id', tournamentMatchId);
-      // Try to progress bracket
-      try {
-        await supabase.rpc('progress_tournament_bracket', {
-          p_tournament_match_id: tournamentMatchId,
-          p_winner_id: winnerId,
-        });
-      } catch {
-        // Non-critical
-      }
+      // Progress bracket — advance winner to next round
+      const { data: progressResult, error: progressErr } = await supabase.rpc('progress_tournament_bracket', {
+        p_tournament_match_id: tournamentMatchId,
+        p_winner_id: winnerId,
+      });
+      console.log('[Tournament] Bracket progression:', progressResult, progressErr?.message);
 
       // Check if this was the final match — if so, complete the tournament
       if (tournamentId) {
@@ -4046,10 +4043,17 @@ export default function QuickMatchRoomPage() {
               RANKED
             </Badge>
           )}
+          {isTournamentMatch && (
+            <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+              <Trophy className="w-3 h-3 mr-1" />
+              {tournamentInfo?.name || 'TOURNAMENT'}
+            </Badge>
+          )}
         </div>
 
         <h2 className="text-xl font-bold text-white">
           {isRankedMatch && <span className="text-amber-400 mr-2">⚔️</span>}
+          {isTournamentMatch && <span className="text-emerald-400 mr-2">🏆</span>}
           Leg {room.current_leg} of {room.legs_to_win * 2 - 1}
         </h2>
 
