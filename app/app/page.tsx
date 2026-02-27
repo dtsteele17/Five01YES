@@ -89,6 +89,7 @@ interface UpcomingGame {
   name: string;
   opponent?: string;
   scheduled_at: string;
+  legs_per_match?: number;
 }
 
 // F1/FIFA Style Stat Card - Large format
@@ -287,7 +288,7 @@ export default function DashboardPage() {
           const tournamentIds = myParticipations.map((p: any) => p.tournament_id);
           const { data: myTournaments } = await supabase
             .from('tournaments')
-            .select('id, name, start_at, status')
+            .select('id, name, start_at, status, legs_per_match')
             .in('id', tournamentIds)
             .in('status', ['scheduled', 'checkin']);
 
@@ -299,6 +300,7 @@ export default function DashboardPage() {
                   type: 'tournament',
                   name: t.name || 'Tournament',
                   scheduled_at: t.start_at,
+                  legs_per_match: t.legs_per_match,
                 });
               }
             });
@@ -692,9 +694,10 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-semibold truncate">{game.name}</p>
-                          {game.opponent && (
-                            <p className="text-slate-400 text-sm">vs {game.opponent}</p>
-                          )}
+                          <p className="text-slate-400 text-sm">
+                            {game.opponent ? `vs ${game.opponent}` : ''}
+                            {game.legs_per_match ? `${game.opponent ? ' • ' : ''}Best of ${game.legs_per_match}` : ''}
+                          </p>
                         </div>
                         <div className="text-right">
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">

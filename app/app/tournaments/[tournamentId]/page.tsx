@@ -694,7 +694,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     </div>
                   </div>
                   <div className="text-sm text-slate-300">
-                    {tournament.round_scheduling === 'singleDay' ? 'Single Day' : 'Multi-Day'} • {tournament.game_mode} Darts
+                    {tournament.round_scheduling === 'multiDay' ? 'Multi-Day' : 'Single Day'} • {tournament.game_mode} Darts
                   </div>
                 </div>
               </CardContent>
@@ -841,7 +841,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                           </li>
                           <li className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                            {tournament.round_scheduling === 'singleDay' ? 'Single day' : 'Multi-day'} event
+                            {tournament.round_scheduling === 'multiDay' ? 'Multi-day' : 'Single day'} event
                           </li>
                           <li className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
