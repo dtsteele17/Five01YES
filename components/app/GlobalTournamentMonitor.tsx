@@ -105,9 +105,9 @@ export default function GlobalTournamentMonitor() {
           } catch {}
         }
 
-        // Only show popup if tournament is starting within 60s OR just started (within 60s ago)
-        // Never show for tournaments that started more than 60s ago
-        if (msUntilStart <= 60000 && msSinceStart <= 60000 && !showCountdown && !countdownComplete) {
+        // Only show popup AFTER start time has passed (within 60s window)
+        // Never show before start time or more than 60s after
+        if (msSinceStart >= 0 && msSinceStart <= 60000 && !showCountdown && !countdownComplete) {
           setActiveTournament({ id: t.id, name: t.name, startTime: t.start_at });
           setShowCountdown(true);
           dismissedTournamentsRef.current.add(t.id);
@@ -184,32 +184,15 @@ export default function GlobalTournamentMonitor() {
     };
   }, [userId, checkTournaments]);
 
-  // Handle countdown completion → trigger bracket gen + navigate
-  const handleCountdownComplete = useCallback(async () => {
+  // Handle countdown completion → navigate to tournament page
+  // (bracket generation is handled by TournamentCountdownPopup itself)
+  const handleCountdownComplete = useCallback(() => {
     setShowCountdown(false);
     setCountdownComplete(true);
     if (activeTournament) {
-      // Try to generate bracket (idempotent — if already generated, the tournament page will handle it)
-      try {
-        // First check if bracket already exists
-        const { data: existingMatches } = await supabase
-          .from('tournament_matches')
-          .select('id')
-          .eq('tournament_id', activeTournament.id)
-          .limit(1);
-
-        if (!existingMatches?.length) {
-          console.log('[GlobalTournamentMonitor] Generating bracket for', activeTournament.name);
-          await supabase.rpc('generate_tournament_bracket', {
-            p_tournament_id: activeTournament.id,
-          });
-        }
-      } catch (err) {
-        console.error('[GlobalTournamentMonitor] Bracket gen error:', err);
-      }
       router.push(`/app/tournaments/${activeTournament.id}`);
     }
-  }, [activeTournament, router, supabase]);
+  }, [activeTournament, router]);
 
   // Handle ready-up dismissal
   const handleReadyUpClose = useCallback(() => {

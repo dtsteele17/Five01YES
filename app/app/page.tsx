@@ -287,18 +287,18 @@ export default function DashboardPage() {
           const tournamentIds = myParticipations.map((p: any) => p.tournament_id);
           const { data: myTournaments } = await supabase
             .from('tournaments')
-            .select('id, name, start_time, status')
+            .select('id, name, start_at, status')
             .in('id', tournamentIds)
             .in('status', ['scheduled', 'checkin']);
 
           if (myTournaments) {
             myTournaments.forEach((t: any) => {
-              if (t.start_time) {
+              if (t.start_at) {
                 upcoming.push({
                   id: t.id,
                   type: 'tournament',
                   name: t.name || 'Tournament',
-                  scheduled_at: t.start_time,
+                  scheduled_at: t.start_at,
                 });
               }
             });
