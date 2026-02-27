@@ -4193,18 +4193,21 @@ export default function QuickMatchRoomPage() {
           Leg {room.current_leg} of {room.legs_to_win * 2 - 1}
         </h2>
 
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => { setShowChatDrawer(true); setHasUnreadMessages(false); }} 
-          className={`relative border-white/10 text-white h-9 w-9 ${hasUnreadMessages ? 'border-emerald-500/50 text-emerald-400' : ''}`}
-        >
-          <MessageCircle className={`w-5 h-5 ${hasUnreadMessages ? 'text-emerald-400' : ''}`} />
-          {hasUnreadMessages && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50" />
-          )}
-        </Button>
       </div>
+
+      {/* Floating Chat Button — bottom-right corner */}
+      <button
+        onClick={() => { setShowChatDrawer(true); setHasUnreadMessages(false); }}
+        className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all
+          ${hasUnreadMessages 
+            ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/40 scale-110' 
+            : 'bg-slate-800 hover:bg-slate-700 border border-white/10'}`}
+      >
+        <MessageCircle className={`w-5 h-5 ${hasUnreadMessages ? 'text-white' : 'text-slate-300'}`} />
+        {hasUnreadMessages && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse border-2 border-slate-950" />
+        )}
+      </button>
 
       {/* Main Content - Single camera (shows active player's camera to BOTH users) + game panel */}
       <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
