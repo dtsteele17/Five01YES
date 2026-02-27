@@ -375,17 +375,21 @@ export default function DashboardPage() {
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = date.getTime() - now.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0 && diffHrs < 24) {
-      return `in ${diffHrs}h`;
-    } else if (diffDays === 0) {
-      return 'Today';
+    if (diffMs < 0) {
+      return 'Live now';
+    } else if (diffMins < 60) {
+      return `in ${diffMins}m`;
+    } else if (diffHrs < 24) {
+      const mins = diffMins % 60;
+      return mins > 0 ? `in ${diffHrs}h ${mins}m` : `in ${diffHrs}h`;
     } else if (diffDays === 1) {
       return 'Tomorrow';
     } else {
-      return `${diffDays} days`;
+      return `in ${diffDays} days`;
     }
   };
 
