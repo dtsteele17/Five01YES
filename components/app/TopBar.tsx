@@ -20,7 +20,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+// Input no longer needed - GlobalSearch handles it
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MobileMenu } from './MobileMenu';
 import { NotificationDropdown } from './NotificationDropdown';
+import { GlobalSearch } from './GlobalSearch';
 import { useNotifications } from '@/lib/context/NotificationsContext';
 import { useProfile } from '@/lib/context/ProfileContext';
 import { createClient } from '@/lib/supabase/client';
@@ -123,14 +124,7 @@ export function TopBar() {
 
             <div className="flex items-center space-x-3">
               <div className="hidden md:flex items-center">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    type="search"
-                    placeholder="Search players, leagues..."
-                    className="pl-10 w-64 bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                  />
-                </div>
+                <GlobalSearch className="w-64" />
               </div>
 
               <Button
@@ -243,14 +237,10 @@ export function TopBar() {
 
           {searchOpen && (
             <div className="md:hidden pb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  type="search"
-                  placeholder="Search players, leagues..."
-                  className="pl-10 w-full bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                />
-              </div>
+              <GlobalSearch 
+                className="w-full" 
+                onNavigate={() => setSearchOpen(false)} 
+              />
             </div>
           )}
         </div>
