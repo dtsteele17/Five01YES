@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Trophy, Timer, CheckCircle, Loader2, Swords } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -72,6 +72,12 @@ export function TournamentCountdownPopup({
 
         if (error) {
           console.error('Bracket generation error:', error);
+          // Don't keep retrying on constraint errors — SQL needs updating
+          if (error.code === '23514') {
+            console.error('[TournamentCountdown] CHECK constraint error — SQL needs re-running');
+            setBracketGenerated(true); // stop retrying
+            return;
+          }
         }
       } else {
         console.log('[TournamentCountdown] Bracket already generated, skipping');
