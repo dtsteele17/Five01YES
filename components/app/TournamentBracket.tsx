@@ -220,9 +220,9 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                       {/* Player 1 */}
                       <div className={`
                         flex items-center justify-between px-3 py-2 border rounded-t-lg text-sm
-                        ${match.winner_id === match.player1_id 
+                        ${match.winner_id === match.player1_id && match.player1_id && match.player2_id
                           ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'
-                          : match.winner_id && match.winner_id !== match.player1_id
+                          : match.winner_id && match.winner_id !== match.player1_id && match.player1_id && match.player2_id
                             ? 'bg-slate-800/40 border-slate-700/50 text-slate-500 line-through'
                             : match.status === 'in_progress'
                               ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
@@ -239,7 +239,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                               {liveScores[match.id].player1_legs}
                             </span>
                           )}
-                          {match.winner_id === match.player1_id && (
+                          {match.winner_id === match.player1_id && match.player1_id && match.player2_id && (
                             <Crown className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
                           )}
                         </div>
@@ -248,9 +248,9 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                       {/* Player 2 */}
                       <div className={`
                         flex items-center justify-between px-3 py-2 border border-t-0 rounded-b-lg text-sm
-                        ${match.winner_id === match.player2_id 
+                        ${match.winner_id === match.player2_id && match.player1_id && match.player2_id
                           ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'
-                          : match.winner_id && match.winner_id !== match.player2_id
+                          : match.winner_id && match.winner_id !== match.player2_id && match.player1_id && match.player2_id
                             ? 'bg-slate-800/40 border-slate-700/50 text-slate-500 line-through'
                             : match.status === 'in_progress'
                               ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
@@ -267,7 +267,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                               {liveScores[match.id].player2_legs}
                             </span>
                           )}
-                          {match.winner_id === match.player2_id && (
+                          {match.winner_id === match.player2_id && match.player1_id && match.player2_id && (
                             <Crown className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
                           )}
                         </div>

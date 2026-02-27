@@ -110,15 +110,24 @@ export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, o
 
   const handleReadyUp = async () => {
     setMyReady(true);
-    // Insert into ready table
-    await supabase
-      .from('tournament_match_ready')
-      .upsert({ match_id: matchId, user_id: currentUserId }, { onConflict: 'match_id,user_id' });
     
-    // Also try RPC
+    // Try RPC first (uses auth.uid())
     try {
-      await supabase.rpc('ready_up_tournament_match', { p_match_id: matchId });
-    } catch {}
+      const { data, error } = await supabase.rpc('ready_up_tournament_match', { p_match_id: matchId });
+      console.log('[ReadyUp] RPC result:', data, error?.message);
+    } catch (err) {
+      console.error('[ReadyUp] RPC failed:', err);
+    }
+
+    // Also direct upsert as fallback
+    try {
+      const { error } = await supabase
+        .from('tournament_match_ready')
+        .upsert({ match_id: matchId, user_id: currentUserId }, { onConflict: 'match_id,user_id' });
+      if (error) console.error('[ReadyUp] Direct upsert error:', error);
+    } catch (err) {
+      console.error('[ReadyUp] Direct upsert failed:', err);
+    }
   };
 
   const createRoomAndStart = useCallback(async () => {

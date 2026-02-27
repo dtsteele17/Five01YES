@@ -110,6 +110,8 @@ export function findActiveUserMatch(
 
   return matches.find(match => {
     const isParticipant = match.player1_id === currentUserId || match.player2_id === currentUserId;
-    return isParticipant && (isMatchStarted(match) || needsReadyUp(match));
+    // Skip bye matches (one player is null)
+    const isByeMatch = !match.player1_id || !match.player2_id;
+    return isParticipant && !isByeMatch && (isMatchStarted(match) || needsReadyUp(match));
   });
 }

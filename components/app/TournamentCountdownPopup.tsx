@@ -23,6 +23,7 @@ export function TournamentCountdownPopup({
   const [timeLeft, setTimeLeft] = useState(60);
   const [bracketGenerated, setBracketGenerated] = useState(false);
   const [opponentName, setOpponentName] = useState<string | null>(null);
+  const [hasBye, setHasBye] = useState(false);
   const [phase, setPhase] = useState<'generating' | 'countdown' | 'starting'>('generating');
   const supabase = createClient();
 
@@ -121,6 +122,9 @@ export function TournamentCountdownPopup({
               .eq('user_id', opponentId)
               .single();
             setOpponentName(profile?.username || 'Unknown Player');
+          } else {
+            // No opponent = bye round
+            setHasBye(true);
           }
         }
       }
@@ -183,8 +187,16 @@ export function TournamentCountdownPopup({
                   </div>
                 </div>
 
-                {/* Center: Opponent matchup */}
-                {opponentName && (
+                {/* Center: Opponent matchup or bye */}
+                {hasBye ? (
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    <div className="text-center">
+                      <div className="text-xs text-slate-400 uppercase tracking-wider">Round 1</div>
+                      <div className="text-emerald-400 font-bold text-lg">BYE — You advance to Round 2!</div>
+                    </div>
+                  </div>
+                ) : opponentName ? (
                   <div className="flex items-center gap-3">
                     <Swords className="w-5 h-5 text-amber-400" />
                     <div className="text-center">
@@ -192,7 +204,7 @@ export function TournamentCountdownPopup({
                       <div className="text-white font-bold text-lg">{opponentName}</div>
                     </div>
                   </div>
-                )}
+                ) : null}
 
                 {/* Right: Countdown */}
                 <div className="flex items-center gap-3">
