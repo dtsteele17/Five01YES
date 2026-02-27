@@ -9,6 +9,8 @@
 -- 0. FIX CHECK CONSTRAINTS
 -- ============================================
 -- This MUST run first to avoid constraint violations in the functions below
+-- First clean up any rows with statuses that won't be in the new constraint
+UPDATE tournament_matches SET status = 'completed' WHERE status NOT IN ('pending', 'ready', 'ready_check', 'in_progress', 'completed', 'cancelled', 'forfeited', 'bye');
 ALTER TABLE tournament_matches DROP CONSTRAINT IF EXISTS tournament_matches_status_check;
 ALTER TABLE tournament_matches ADD CONSTRAINT tournament_matches_status_check
   CHECK (status IN ('pending', 'ready', 'ready_check', 'in_progress', 'completed', 'cancelled', 'forfeited', 'bye'));
