@@ -52,6 +52,9 @@ import { useQuickMatchRematch } from '@/lib/hooks/useQuickMatchRematch';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
 import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
 import { PreGameLobby } from '@/components/match/PreGameLobby';
+import { TurnTimer } from '@/components/game/TurnTimer';
+import { AfkWarningModal } from '@/components/game/AfkWarningModal';
+import { OpponentAfkNotice } from '@/components/game/OpponentAfkNotice';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -1076,6 +1079,11 @@ export default function QuickMatchRoomPage() {
   const [showOpponentForfeitModal, setShowOpponentForfeitModal] = useState(false);
   const [didIForfeit, setDidIForfeit] = useState(false);
   const [forfeitLoading, setForfeitLoading] = useState(false);
+
+  // AFK / Turn Timer state
+  const [showAfkWarning, setShowAfkWarning] = useState(false);
+  const [showOpponentAfk, setShowOpponentAfk] = useState(false);
+  const [turnTimerKey, setTurnTimerKey] = useState(0); // increment to force reset
 
   // Camera refresh state
   const [isRefreshingCamera, setIsRefreshingCamera] = useState(false);
@@ -2381,6 +2389,14 @@ export default function QuickMatchRoomPage() {
           // Update room state
           setRoom(updatedRoom);
           
+          // Reset AFK state when turn changes
+          if (oldRoom && updatedRoom.current_turn !== oldRoom.current_turn) {
+            console.log('[AFK] Turn changed, resetting timers');
+            setShowAfkWarning(false);
+            setShowOpponentAfk(false);
+            setTurnTimerKey(prev => prev + 1);
+          }
+          
           // Handle coin toss completion
           if (oldRoom && !oldRoom.coin_toss_completed && updatedRoom.coin_toss_completed) {
             console.log('[ROOM] Coin toss completed! Winner:', updatedRoom.coin_toss_winner_id);
@@ -2409,6 +2425,21 @@ export default function QuickMatchRoomPage() {
             // Just show the modal to notify this player they won by forfeit
             setShowOpponentForfeitModal(true);
             toast.success('You won by forfeit!');
+            
+            // Progress tournament bracket if this is a tournament match
+            if (isTournamentMatch && tournamentMatchId) {
+              (async () => {
+                try {
+                  const { error: progressErr } = await supabase.rpc('progress_tournament_bracket', {
+                    p_tournament_match_id: tournamentMatchId
+                  });
+                  if (progressErr) console.error('[Tournament] Bracket progression error on forfeit:', progressErr);
+                  else console.log('[Tournament] Bracket progressed after forfeit');
+                } catch (err) {
+                  console.error('[Tournament] Error progressing bracket on forfeit:', err);
+                }
+              })();
+            }
           }
           
           // Handle match finished - show winner popup
@@ -2495,6 +2526,16 @@ export default function QuickMatchRoomPage() {
           if (signal.type === 'coin_toss' && signal.from_user_id !== currentUserId) {
             console.log('[COIN TOSS] Received sync signal from Player 1');
             setCoinTossSyncStart(true);
+          }
+          // Handle AFK warning signal (opponent's timer expired)
+          if (signal.type === 'afk_warning' && signal.from_user_id !== currentUserId) {
+            console.log('[AFK] Opponent AFK warning received');
+            setShowOpponentAfk(true);
+          }
+          // Handle AFK response signal (opponent clicked "Still Here")
+          if (signal.type === 'afk_response' && signal.from_user_id !== currentUserId) {
+            console.log('[AFK] Opponent responded - still here');
+            setShowOpponentAfk(false);
           }
           // Note: Rematch is now handled via database subscription (quick_match_rematch_requests table)
           // Handle player ready signal
@@ -3461,6 +3502,101 @@ export default function QuickMatchRoomPage() {
     }
   }
 
+  // === AFK / Turn Timer handlers ===
+  const handleTurnTimerExpired = useCallback(async () => {
+    if (!room || !currentUserId || !matchState) return;
+    const isMyTurnNow = matchState.currentTurnPlayer === matchState.youArePlayer;
+    
+    if (isMyTurnNow) {
+      // My timer expired - show warning modal
+      console.log('[AFK] My turn timer expired, showing warning');
+      setShowAfkWarning(true);
+      
+      // Notify opponent that I might be AFK
+      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+      if (opponentId) {
+        try {
+          await supabase.rpc('rpc_send_match_signal', {
+            p_room_id: matchId,
+            p_to_user_id: opponentId,
+            p_type: 'afk_warning',
+            p_payload: { message: 'Player may be AFK' }
+          });
+        } catch (err) {
+          console.error('[AFK] Error sending afk_warning signal:', err);
+        }
+      }
+    }
+  }, [room, currentUserId, matchState, matchId, supabase]);
+
+  const handleStillHere = useCallback(async () => {
+    console.log('[AFK] Player confirmed still here');
+    setShowAfkWarning(false);
+    setTurnTimerKey(prev => prev + 1); // reset timer
+    
+    // Notify opponent
+    if (room && matchState) {
+      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+      if (opponentId) {
+        try {
+          await supabase.rpc('rpc_send_match_signal', {
+            p_room_id: matchId,
+            p_to_user_id: opponentId,
+            p_type: 'afk_response',
+            p_payload: { message: 'Player is still here' }
+          });
+        } catch (err) {
+          console.error('[AFK] Error sending afk_response signal:', err);
+        }
+      }
+    }
+  }, [room, matchState, matchId, supabase]);
+
+  const handleAfkAutoForfeit = useCallback(async () => {
+    console.log('[AFK] Auto-forfeiting due to inactivity');
+    setShowAfkWarning(false);
+    // Call the existing forfeit logic
+    forfeitMatchFromAfk();
+  }, []);
+
+  async function forfeitMatchFromAfk() {
+    if (!room || !matchState || !currentUserId) return;
+    if (['completed', 'finished', 'forfeited'].includes(room.status)) return;
+
+    const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+    if (!opponentId) return;
+
+    setForfeitLoading(true);
+    setDidIForfeit(true);
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_forfeit_match', { p_room_id: matchId });
+      if (error) throw error;
+
+      if (!data?.ok) {
+        console.error('[AFK] Auto-forfeit failed:', data?.error);
+        setDidIForfeit(false);
+        return;
+      }
+
+      await supabase.rpc('rpc_send_match_signal', {
+        p_room_id: matchId,
+        p_to_user_id: opponentId,
+        p_type: 'forfeit',
+        p_payload: { message: 'Opponent forfeited (AFK)' }
+      });
+
+      toast.info('Match forfeited due to inactivity');
+      cleanupMatchRef.current?.();
+      await clearMatchState(matchId);
+    } catch (err) {
+      console.error('[AFK] Auto-forfeit error:', err);
+      setDidIForfeit(false);
+    } finally {
+      setForfeitLoading(false);
+    }
+  }
+
   async function forfeitMatch() {
     if (!room || !matchState || !currentUserId) return;
     if (['completed', 'finished', 'forfeited'].includes(room.status)) {
@@ -4069,9 +4205,18 @@ export default function QuickMatchRoomPage() {
         <div className="flex flex-col">
           <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
             <div className={`flex items-center justify-between p-3 border-b border-white/5 ${isMyTurn ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
-              <span className={`text-sm font-bold ${isMyTurn ? 'text-emerald-400' : 'text-blue-400'}`}>
-                {isMyTurn ? `🎯 ${myPlayer.name}'S TURN (You)` : `🎯 ${opponentPlayer.name}'S TURN`}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold ${isMyTurn ? 'text-emerald-400' : 'text-blue-400'}`}>
+                  {isMyTurn ? `🎯 ${myPlayer.name}'S TURN (You)` : `🎯 ${opponentPlayer.name}'S TURN`}
+                </span>
+                <TurnTimer
+                  key={turnTimerKey}
+                  isMyTurn={isMyTurn}
+                  isActive={room.status === 'active' && !showPreGameLobby && !showCoinToss}
+                  turnPlayerId={room.current_turn}
+                  onTimerExpired={handleTurnTimerExpired}
+                />
+              </div>
               <div className="flex gap-2">
                 {/* Show camera controls only if it's my turn AND I'm the active player */}
                 {isMyTurn ? (
@@ -4355,7 +4500,13 @@ export default function QuickMatchRoomPage() {
       <AlertDialog open={showOpponentForfeitModal} onOpenChange={(open) => {
         if (!open) {
           setShowOpponentForfeitModal(false);
-          router.push('/app/play');
+          if (isTournamentMatch && tournamentMatchId) {
+            // Navigate back to tournament page
+            const tournamentId = new URLSearchParams(window.location.search).get('tournamentId');
+            router.push(tournamentId ? `/app/tournaments/${tournamentId}` : '/app/tournaments');
+          } else {
+            router.push('/app/play');
+          }
         }
       }}>
         <AlertDialogContent className="bg-slate-900 border-emerald-500/50">
@@ -4365,7 +4516,7 @@ export default function QuickMatchRoomPage() {
                 <Trophy className="w-10 h-10 text-white" />
               </div>
               <AlertDialogTitle className="text-2xl text-white font-bold mb-2">
-                You Win!
+                You Win by Forfeit!
               </AlertDialogTitle>
               <AlertDialogDescription className="text-gray-400 text-base">
                 <span className="text-emerald-400 font-medium">{opponentPlayer?.name || 'Your opponent'}</span> has forfeited the match.
@@ -4373,17 +4524,44 @@ export default function QuickMatchRoomPage() {
               </AlertDialogDescription>
             </div>
           </AlertDialogHeader>
-          <AlertDialogFooter className="justify-center">
-            <AlertDialogAction 
-              onClick={() => router.push('/app/play')} 
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Return to Play
-            </AlertDialogAction>
+          <AlertDialogFooter className={`justify-center ${isTournamentMatch ? 'flex-col gap-2' : ''}`}>
+            {isTournamentMatch ? (
+              <AlertDialogAction 
+                onClick={() => {
+                  const tournamentId = new URLSearchParams(window.location.search).get('tournamentId');
+                  router.push(tournamentId ? `/app/tournaments/${tournamentId}` : '/app/tournaments');
+                }}
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white px-8"
+              >
+                <Trophy className="w-4 h-4 mr-2" />
+                Return to Tournament
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction 
+                onClick={() => router.push('/app/play')} 
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Return to Play
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AFK Warning Modal - shown to active player when their timer expires */}
+      <AfkWarningModal
+        open={showAfkWarning}
+        onStillHere={handleStillHere}
+        onAutoForfeit={handleAfkAutoForfeit}
+      />
+
+      {/* Opponent AFK Notice - shown to waiting player */}
+      <OpponentAfkNotice
+        open={showOpponentAfk}
+        opponentName={opponentPlayer?.name || 'Opponent'}
+        onDismiss={() => setShowOpponentAfk(false)}
+      />
 
       <EditVisitModal
         open={showEditModal}
