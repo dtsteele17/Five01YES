@@ -2,8 +2,16 @@
 -- FIVE01 TOURNAMENT SYSTEM - COMPLETE SQL
 -- Apply this ONE file in Supabase SQL Editor. It contains everything.
 -- Safe to run multiple times (uses CREATE OR REPLACE / DROP IF EXISTS)
--- Last updated: 2026-02-26
+-- Last updated: 2026-02-27
 -- ================================================================
+
+-- ============================================
+-- 0. FIX CHECK CONSTRAINTS
+-- ============================================
+-- This MUST run first to avoid constraint violations in the functions below
+ALTER TABLE tournament_matches DROP CONSTRAINT IF EXISTS tournament_matches_status_check;
+ALTER TABLE tournament_matches ADD CONSTRAINT tournament_matches_status_check
+  CHECK (status IN ('pending', 'ready', 'ready_check', 'in_progress', 'completed', 'cancelled', 'forfeited', 'bye'));
 
 -- ============================================
 -- 1. ENSURE TABLES & COLUMNS EXIST

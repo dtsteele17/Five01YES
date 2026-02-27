@@ -69,7 +69,7 @@ export default function GlobalTournamentMonitor() {
       // Check for tournaments that just went live or are about to
       const { data: liveTournaments } = await supabase
         .from('tournaments')
-        .select('id, name, start_time, status, bracket_generated_at')
+        .select('id, name, start_at, status, bracket_generated_at')
         .in('id', tournamentIds)
         .in('status', ['scheduled', 'checkin', 'in_progress']);
 
@@ -80,7 +80,7 @@ export default function GlobalTournamentMonitor() {
       for (const t of liveTournaments) {
         if (dismissedTournamentsRef.current.has(t.id)) continue;
 
-        const startMs = new Date(t.start_time).getTime();
+        const startMs = new Date(t.start_at).getTime();
         const msSinceStart = now - startMs;
         const msUntilStart = startMs - now;
 
@@ -108,7 +108,7 @@ export default function GlobalTournamentMonitor() {
         // Only show popup if tournament is starting within 60s OR just started (within 60s ago)
         // Never show for tournaments that started more than 60s ago
         if (msUntilStart <= 60000 && msSinceStart <= 60000 && !showCountdown && !countdownComplete) {
-          setActiveTournament({ id: t.id, name: t.name, startTime: t.start_time });
+          setActiveTournament({ id: t.id, name: t.name, startTime: t.start_at });
           setShowCountdown(true);
           dismissedTournamentsRef.current.add(t.id);
           return; // Only show one at a time
@@ -184,14 +184,32 @@ export default function GlobalTournamentMonitor() {
     };
   }, [userId, checkTournaments]);
 
-  // Handle countdown completion → navigate to tournament page
-  const handleCountdownComplete = useCallback(() => {
+  // Handle countdown completion → trigger bracket gen + navigate
+  const handleCountdownComplete = useCallback(async () => {
     setShowCountdown(false);
     setCountdownComplete(true);
     if (activeTournament) {
+      // Try to generate bracket (idempotent — if already generated, the tournament page will handle it)
+      try {
+        // First check if bracket already exists
+        const { data: existingMatches } = await supabase
+          .from('tournament_matches')
+          .select('id')
+          .eq('tournament_id', activeTournament.id)
+          .limit(1);
+
+        if (!existingMatches?.length) {
+          console.log('[GlobalTournamentMonitor] Generating bracket for', activeTournament.name);
+          await supabase.rpc('generate_tournament_bracket', {
+            p_tournament_id: activeTournament.id,
+          });
+        }
+      } catch (err) {
+        console.error('[GlobalTournamentMonitor] Bracket gen error:', err);
+      }
       router.push(`/app/tournaments/${activeTournament.id}`);
     }
-  }, [activeTournament, router]);
+  }, [activeTournament, router, supabase]);
 
   // Handle ready-up dismissal
   const handleReadyUpClose = useCallback(() => {
