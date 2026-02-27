@@ -2132,15 +2132,7 @@ export default function QuickMatchRoomPage() {
     
     console.log('[MATCH END] Setting match end stats:', { p1Legs, p2Legs, winnerId, p1Name: p1Profile?.username, p2Name: p2Profile?.username });
     
-    setMatchEndStats({
-      player1: { id: p1Id, name: p1Profile?.username || roomData.player1_id?.substring(0, 8) || 'Player 1', legs: p1Legs },
-      player2: { id: p2Id, name: p2Profile?.username || roomData.player2_id?.substring(0, 8) || 'Player 2', legs: p2Legs },
-      player1FullStats: p1Id === winnerId ? wStats : lStats,
-      player2FullStats: p2Id === winnerId ? wStats : lStats,
-      winnerId: winnerId,
-    });
-    
-    // Save stats to database with calculated stats
+    // Save stats to database first
     await saveMatchStats(
       matchId, 
       winnerId, 
@@ -2152,9 +2144,9 @@ export default function QuickMatchRoomPage() {
       lStats
     );
 
-    // Handle tournament match completion
+    // Handle tournament match completion — progress bracket BEFORE showing any popup
     if (isTournamentMatch && tournamentMatchId && winnerId) {
-      handleTournamentMatchCompletion(winnerId);
+      await handleTournamentMatchCompletion(winnerId);
       // Check if this was the final match
       const { data: nextMatches } = await supabase
         .from('tournament_matches')
@@ -2169,6 +2161,15 @@ export default function QuickMatchRoomPage() {
         setShowTournamentWinnerModal(true);
       }
     }
+
+    // NOW set matchEndStats to trigger the popup render (after flags are set)
+    setMatchEndStats({
+      player1: { id: p1Id, name: p1Profile?.username || roomData.player1_id?.substring(0, 8) || 'Player 1', legs: p1Legs },
+      player2: { id: p2Id, name: p2Profile?.username || roomData.player2_id?.substring(0, 8) || 'Player 2', legs: p2Legs },
+      player1FullStats: p1Id === winnerId ? wStats : lStats,
+      player2FullStats: p2Id === winnerId ? wStats : lStats,
+      winnerId: winnerId,
+    });
 
     // Handle ranked match finalization
     if (isRankedMatch && winnerId) {
@@ -4206,10 +4207,10 @@ export default function QuickMatchRoomPage() {
 
       </div>
 
-      {/* Floating Chat Button — bottom-right corner */}
+      {/* Floating Chat Button — bottom-left corner */}
       <button
         onClick={() => { setShowChatDrawer(true); setHasUnreadMessages(false); }}
-        className={`fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all
+        className={`fixed bottom-6 left-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all
           ${hasUnreadMessages 
             ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/40 scale-110' 
             : 'bg-slate-800 hover:bg-slate-700 border border-white/10'}`}
@@ -4700,7 +4701,7 @@ export default function QuickMatchRoomPage() {
       )}
 
       {/* Tournament Winner Popup - shows instead of WinnerPopup for tournament matches */}
-      {matchEndStats && room?.status === 'finished' && isTournamentMatch && !showTournamentChampionScreen && tournamentMatchId && tournamentId && (
+      {matchEndStats && room?.status === 'finished' && isTournamentMatch && showTournamentWinnerModal && !showTournamentChampionScreen && tournamentMatchId && tournamentId && (
         <TournamentWinnerPopup
           isOpen={true}
           onClose={() => {

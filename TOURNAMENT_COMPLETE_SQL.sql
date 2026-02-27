@@ -269,13 +269,15 @@ $$;
 DROP FUNCTION IF EXISTS create_tournament_match_room(UUID, UUID, UUID, UUID, INTEGER, INTEGER) CASCADE;
 CREATE OR REPLACE FUNCTION create_tournament_match_room(
   p_tournament_match_id UUID, p_player1_id UUID, p_player2_id UUID,
-  p_tournament_id UUID, p_game_mode INTEGER DEFAULT 501, p_legs_per_match INTEGER DEFAULT 3
+  p_tournament_id UUID, p_game_mode INTEGER DEFAULT 501, p_legs_per_match INTEGER DEFAULT 5
 )
 RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_room_id UUID;
   v_tournament RECORD;
   v_legs_to_win INTEGER;
+  v_game_mode INTEGER;
+  v_best_of INTEGER;
   v_existing_room TEXT;
 BEGIN
   -- Check if room already exists (prevents duplicate rooms for same match)
@@ -285,7 +287,9 @@ BEGIN
   END IF;
 
   SELECT * INTO v_tournament FROM tournaments WHERE id = p_tournament_id;
-  v_legs_to_win := CEIL(COALESCE(v_tournament.legs_per_match, p_legs_per_match)::numeric / 2);
+  v_best_of := COALESCE(v_tournament.legs_per_match, p_legs_per_match);
+  v_game_mode := COALESCE(v_tournament.game_mode, p_game_mode);
+  v_legs_to_win := CEIL(v_best_of::numeric / 2);
 
   INSERT INTO match_rooms (
     player1_id, player2_id, game_mode, match_format, status,
@@ -293,11 +297,10 @@ BEGIN
     current_turn, source, match_type, tournament_match_id
   ) VALUES (
     p_player1_id, p_player2_id,
-    COALESCE(v_tournament.starting_score, p_game_mode),
-    'best-of-' || COALESCE(v_tournament.legs_per_match, p_legs_per_match)::text,
+    v_game_mode,
+    'best-of-' || v_best_of::text,
     'active', 1, v_legs_to_win,
-    COALESCE(v_tournament.starting_score, p_game_mode),
-    COALESCE(v_tournament.starting_score, p_game_mode),
+    v_game_mode, v_game_mode,
     p_player1_id, 'tournament', 'tournament', p_tournament_match_id
   ) RETURNING id INTO v_room_id;
 
