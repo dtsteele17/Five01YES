@@ -231,16 +231,7 @@ export function DartbotWinnerPopup({
           </div>
         </div>
 
-        {/* Leg-by-Leg Stats */}
-        {legStats && legStats.length > 0 && (
-          <div className="px-4 pb-2">
-            <LegByLegStats 
-              legStats={legStats}
-              playerName={player1.name}
-              opponentName={player2.name}
-            />
-          </div>
-        )}
+        {/* Leg-by-Leg Stats removed — too large for dartbot end screen */}
 
         {/* Action Buttons - SIMPLIFIED for Dartbot (no waiting for opponent) */}
         <div className="px-4 pb-4 pt-3">
