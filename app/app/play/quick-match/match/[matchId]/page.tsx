@@ -133,6 +133,7 @@ interface Profile {
   username: string;
   trust_rating_letter?: string;
   division_name?: string;
+  avatar_url?: string;
 }
 
 interface QuickMatchVisit {
@@ -1094,7 +1095,7 @@ export default function QuickMatchRoomPage() {
         // Refresh opponent's profile to get updated trust rating
         supabase
           .from('profiles')
-          .select('user_id, username, trust_rating_letter, trust_rating_count')
+          .select('user_id, username, trust_rating_letter, trust_rating_count, avatar_url')
           .eq('user_id', opponentId)
           .single()
           .then(({ data }) => {
@@ -1869,7 +1870,7 @@ export default function QuickMatchRoomPage() {
       console.log('[MATCH END] Fetching profiles...');
       const { data: freshProfiles } = await supabase
         .from('profiles')
-        .select('user_id, username, trust_rating_letter')
+        .select('user_id, username, trust_rating_letter, avatar_url')
         .in('user_id', [roomData.player1_id, roomData.player2_id]);
       if (freshProfiles) {
         currentProfiles = freshProfiles as Profile[];
@@ -2115,7 +2116,7 @@ export default function QuickMatchRoomPage() {
     const playerIds = [roomData.player1_id, roomData.player2_id].filter(Boolean);
     const { data: profilesData } = await supabase
       .from('profiles')
-      .select('user_id, username, trust_rating_letter')
+      .select('user_id, username, trust_rating_letter, avatar_url')
       .in('user_id', playerIds);
 
     setProfiles((profilesData as Profile[]) || []);
@@ -3245,7 +3246,7 @@ export default function QuickMatchRoomPage() {
             console.log('[MATCH END] Fetching profiles...');
             const { data: freshProfiles } = await supabase
               .from('profiles')
-              .select('user_id, username, trust_rating_letter')
+              .select('user_id, username, trust_rating_letter, avatar_url')
               .in('user_id', [room.player1_id, room.player2_id]);
             if (freshProfiles) {
               currentProfiles = freshProfiles as Profile[];
@@ -4828,11 +4829,13 @@ export default function QuickMatchRoomPage() {
           player1={{ 
             id: room.player1_id, 
             username: profiles.find(p => p.user_id === room.player1_id)?.username || 'Player 1',
+            avatar_url: profiles.find(p => p.user_id === room.player1_id)?.avatar_url,
             division_name: profiles.find(p => p.user_id === room.player1_id)?.division_name
           }}
           player2={{ 
             id: room.player2_id || '', 
             username: profiles.find(p => p.user_id === room.player2_id)?.username || 'Player 2',
+            avatar_url: profiles.find(p => p.user_id === room.player2_id)?.avatar_url,
             division_name: profiles.find(p => p.user_id === room.player2_id)?.division_name
           }}
           currentUserId={currentUserId || ''}
