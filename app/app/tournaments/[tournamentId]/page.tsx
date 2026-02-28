@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import {
   CheckCircle,
   AlertCircle,
   Share2,
+  Swords,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -132,6 +133,9 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [countdownComplete, setCountdownComplete] = useState(false); // Guard: only show ready-up AFTER countdown
   const [currentMatchId, setCurrentMatchId] = useState<string | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
+  const [nextRoundCountdown, setNextRoundCountdown] = useState<number | null>(null); // seconds remaining
+  const [nextRoundMatchId, setNextRoundMatchId] = useState<string | null>(null);
+  const nextRoundTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // P1.1 FIX: Debounce tournament loading to prevent reload storms
   const [lastLoadTime, setLastLoadTime] = useState(0);
@@ -140,14 +144,17 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   useEffect(() => {
     loadTournament(true); // Force initial load
     loadCurrentUser();
+    return () => {
+      if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+    };
   }, [tournamentId]);
 
   // SMART TOURNAMENT TIMER: Checks more frequently as start time approaches
   useEffect(() => {
     if (!tournament?.start_at) return;
     if (!['registration', 'scheduled', 'checkin'].includes(tournament?.status || '')) {
-      // If already in_progress AND countdown is done, check for ready-up matches every 10s
-      if (tournament?.status === 'in_progress' && countdownComplete) {
+      // If already in_progress, check for ready-up matches every 10s (regardless of countdown state — user may return from match)
+      if (tournament?.status === 'in_progress') {
         const matchInterval = setInterval(() => {
           loadTournamentMatches().then(() => checkForReadyUpMatch());
         }, 10000);
@@ -431,6 +438,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
   const checkForReadyUpMatch = async () => {
     if (!currentUserId) return;
+    // Don't check if already showing ready-up or next-round countdown
+    if (showReadyUpModal) return;
 
     try {
       // Fetch fresh matches to avoid stale state
@@ -448,9 +457,28 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         
         if (matchStatus.canRedirect) {
           if (matchStatus.shouldShowReadyUp) {
-            // Show ready-up modal
-            setCurrentMatchId(activeMatch.id);
-            setShowReadyUpModal(true);
+            // Both players are in the match and it's ready — start 1-minute countdown if not already
+            if (nextRoundCountdown === null && nextRoundMatchId !== activeMatch.id) {
+              console.log('🎯 Next round match detected, starting 60s countdown:', activeMatch.id);
+              setNextRoundMatchId(activeMatch.id);
+              setNextRoundCountdown(60);
+              
+              // Start countdown timer
+              if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+              let remaining = 60;
+              nextRoundTimerRef.current = setInterval(() => {
+                remaining--;
+                setNextRoundCountdown(remaining);
+                if (remaining <= 0) {
+                  if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+                  nextRoundTimerRef.current = null;
+                  setNextRoundCountdown(null);
+                  // Now show the 3-minute ready-up modal
+                  setCurrentMatchId(activeMatch.id);
+                  setShowReadyUpModal(true);
+                }
+              }, 1000);
+            }
           } else if (matchStatus.redirectUrl) {
             // Redirect to live match
             router.push(matchStatus.redirectUrl);
@@ -1159,6 +1187,37 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               }
             }}
           />
+        )}
+
+        {/* Next Round Countdown Banner */}
+        {nextRoundCountdown !== null && nextRoundCountdown > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 p-4">
+            <div className="max-w-lg mx-auto bg-gradient-to-r from-amber-500/90 to-orange-500/90 backdrop-blur-sm rounded-xl border border-amber-400/30 p-4 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <Swords className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold text-sm">Next Round Starting Soon!</p>
+                    <p className="text-white/80 text-xs">Both players are ready — get prepared</p>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-black text-white tabular-nums">
+                    {Math.floor(nextRoundCountdown / 60)}:{(nextRoundCountdown % 60).toString().padStart(2, '0')}
+                  </div>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-white rounded-full transition-all duration-1000"
+                  style={{ width: `${((60 - nextRoundCountdown) / 60) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Tournament Ready-Up Modal */}
