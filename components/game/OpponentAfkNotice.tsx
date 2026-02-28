@@ -15,6 +15,12 @@ export function OpponentAfkNotice({ open, opponentName, onDismiss, onOpponentAfk
   const [secondsLeft, setSecondsLeft] = useState(60);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTimedOutRef = useRef(false);
+  const callbackRef = useRef(onOpponentAfkTimeout);
+
+  // Keep callback ref fresh without re-running the timer effect
+  useEffect(() => {
+    callbackRef.current = onOpponentAfkTimeout;
+  }, [onOpponentAfkTimeout]);
 
   useEffect(() => {
     if (open) {
@@ -30,22 +36,27 @@ export function OpponentAfkNotice({ open, opponentName, onDismiss, onOpponentAfk
 
     intervalRef.current = setInterval(() => {
       setSecondsLeft(prev => {
-        if (prev <= 1) {
-          // Timer hit 0 — trigger auto-forfeit for opponent
-          if (!hasTimedOutRef.current && onOpponentAfkTimeout) {
-            hasTimedOutRef.current = true;
-            onOpponentAfkTimeout();
-          }
+        const next = prev - 1;
+        if (next <= 0) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
           return 0;
         }
-        return prev - 1;
+        return next;
       });
     }, 1000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [open, onOpponentAfkTimeout]);
+  }, [open]);
+
+  // Fire the timeout callback when seconds hits 0
+  useEffect(() => {
+    if (secondsLeft === 0 && !hasTimedOutRef.current && open) {
+      hasTimedOutRef.current = true;
+      callbackRef.current?.();
+    }
+  }, [secondsLeft, open]);
 
   const progress = secondsLeft / 60;
   const isLow = secondsLeft <= 15;

@@ -3474,30 +3474,28 @@ export default function QuickMatchRoomPage() {
     if (!room || !currentUserId || !matchState) return;
     if (['completed', 'finished', 'forfeited'].includes(room.status)) return;
 
-    console.log('[AFK] Opponent AFK timeout — auto-forfeiting opponent');
+    console.log('[AFK] Opponent AFK timeout — auto-forfeiting opponent via RPC');
     setShowOpponentAfk(false);
 
     try {
-      // Use rpc_forfeit_match_opponent to forfeit the AFK player (not ourselves)
-      // Since rpc_forfeit_match forfeits the CALLER, we need to use a different approach:
-      // Update the room status directly to 'forfeited' with us as the winner
-      const { error } = await supabase
-        .from('match_rooms')
-        .update({
-          status: 'forfeited',
-          winner_id: currentUserId,
-          ended_at: new Date().toISOString(),
-        })
-        .eq('id', matchId)
-        .in('status', ['active', 'waiting']);
+      // Use dedicated RPC that allows the waiting player to forfeit the AFK opponent
+      const { data, error } = await supabase.rpc('rpc_forfeit_afk_opponent', {
+        p_room_id: matchId
+      });
 
       if (error) {
-        console.error('[AFK] Failed to forfeit opponent:', error);
+        console.error('[AFK] RPC error forfeiting opponent:', error);
         toast.error('Failed to end match');
         return;
       }
 
-      // Send forfeit signal to opponent
+      if (!data?.ok) {
+        console.error('[AFK] Forfeit opponent failed:', data?.error);
+        toast.error(data?.error || 'Failed to forfeit opponent');
+        return;
+      }
+
+      // Send forfeit signal to opponent (best effort)
       const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
       if (opponentId) {
         try {
