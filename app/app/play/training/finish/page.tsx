@@ -96,12 +96,14 @@ function FinishTrainingContent() {
       const session = data.session;
       const settings = session.settings;
 
-      setMinRange(settings.min || 2);
-      setMaxRange(settings.max || 40);
+      const sessionMin = settings.min || 2;
+      const sessionMax = settings.max || 40;
+      setMinRange(sessionMin);
+      setMaxRange(sessionMax);
 
-      // If no current target, generate one
+      // If no current target, generate one (pass values directly since state hasn't updated yet)
       if (!settings.current_target) {
-        await getNewTarget();
+        await getNewTarget(sessionMin, sessionMax);
       } else {
         setCurrentTarget(settings.current_target);
         setRemaining(settings.current_target);
@@ -195,13 +197,15 @@ function FinishTrainingContent() {
     setFinishesHit(successfulTargets);
   };
 
-  const getNewTarget = async () => {
+  const getNewTarget = async (overrideMin?: number, overrideMax?: number) => {
     const supabase = createClient();
+    const useMin = overrideMin ?? minRange;
+    const useMax = overrideMax ?? maxRange;
 
     try {
       const { data, error } = await supabase.rpc('rpc_finish_training_random_checkout', {
-        p_min: minRange,
-        p_max: maxRange,
+        p_min: useMin,
+        p_max: useMax,
       });
 
       if (error || !data?.ok) {
