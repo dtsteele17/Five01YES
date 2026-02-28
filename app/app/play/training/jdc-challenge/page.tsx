@@ -77,7 +77,7 @@ export default function JDCChallengePage() {
       case 'double':
         return dart.multiplier === 2;
       case 'bull':
-        return dart.segment === 'BULL' || dart.score === 50;
+        return dart.segment === 'BULL' || dart.segment === '25' || dart.score === 50 || dart.score === 25;
       case 'triple':
         return dart.score === targetNumber && dart.multiplier === 3;
       case 'single':
@@ -551,7 +551,7 @@ export default function JDCChallengePage() {
           </div>
           <p className="text-gray-400 text-sm">
             Hit the target shown to score points. For rounds 1-6, hit singles 10-15. 
-            For rounds 7-12, hit trebles 10-15. Round 13: any double. Round 14: Double Bull. 
+            For rounds 7-12, hit trebles 10-15. Round 13: any double. Round 14: Bull (single or double). 
             Double bonus points awarded for hitting doubles!
           </p>
         </div>
