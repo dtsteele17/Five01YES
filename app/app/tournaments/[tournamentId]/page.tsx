@@ -433,8 +433,15 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     if (!currentUserId) return;
 
     try {
+      // Fetch fresh matches to avoid stale state
+      const { data: freshMatches } = await supabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId);
+      
+      const matchList = freshMatches || matches;
       // Use canonical logic to find active match requiring action
-      const activeMatch = findActiveUserMatch(matches, currentUserId);
+      const activeMatch = findActiveUserMatch(matchList, currentUserId);
       
       if (activeMatch) {
         const matchStatus = getMatchRedirect(activeMatch, tournamentId, currentUserId);

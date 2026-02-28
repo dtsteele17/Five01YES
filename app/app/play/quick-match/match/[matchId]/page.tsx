@@ -1792,6 +1792,8 @@ export default function QuickMatchRoomPage() {
     
     console.log('[MATCH END] Showing popup for finished match');
     
+    try {
+    
     const winnerId = roomData.winner_id;
     const isPlayer1Winner = winnerId === roomData.player1_id;
     const loserId = isPlayer1Winner ? roomData.player2_id : roomData.player1_id;
@@ -1976,6 +1978,23 @@ export default function QuickMatchRoomPage() {
           setHasSubmittedRating(hasRated);
         }).catch(console.error);
       }
+    }
+    } catch (err) {
+      console.error('[MATCH END] Error in showMatchEndPopup:', err);
+      // Fallback: still show popup with basic info so players can navigate away
+      const p1Id = roomData.player1_id;
+      const p2Id = roomData.player2_id;
+      const winnerId = roomData.winner_id!;
+      if (isTournamentMatch) {
+        setShowTournamentWinnerModal(true);
+      }
+      setMatchEndStats({
+        player1: { id: p1Id, name: p1Id?.substring(0, 8) || 'Player 1', legs: roomData.player1_legs || 0 },
+        player2: { id: p2Id, name: p2Id?.substring(0, 8) || 'Player 2', legs: roomData.player2_legs || 0 },
+        player1FullStats: null as any,
+        player2FullStats: null as any,
+        winnerId,
+      });
     }
   }
 
@@ -3314,7 +3333,7 @@ export default function QuickMatchRoomPage() {
 
           // Handle tournament match completion
           if (isTournamentMatch && tournamentMatchId && winnerId) {
-            handleTournamentMatchCompletion(winnerId);
+            await handleTournamentMatchCompletion(winnerId);
             const { data: nextMatches } = await supabase
               .from('tournament_matches')
               .select('id')

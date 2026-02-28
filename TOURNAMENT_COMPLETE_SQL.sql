@@ -394,6 +394,72 @@ END;
 $$;
 
 -- ============================================
+-- 9b. AUTO-START TRIGGER (fires when both players ready up)
+-- ============================================
+DROP TRIGGER IF EXISTS trigger_auto_start_tournament_match ON tournament_match_ready;
+DROP FUNCTION IF EXISTS auto_start_tournament_match_on_ready() CASCADE;
+
+CREATE OR REPLACE FUNCTION auto_start_tournament_match_on_ready()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_match RECORD;
+  v_tournament RECORD;
+  v_ready_count INTEGER;
+  v_match_room_id UUID;
+  v_best_of INTEGER;
+  v_legs_to_win INTEGER;
+BEGIN
+  SELECT * INTO v_match FROM tournament_matches WHERE id = NEW.match_id;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+  IF v_match.status NOT IN ('pending', 'ready_check', 'ready') THEN RETURN NEW; END IF;
+  IF v_match.match_room_id IS NOT NULL THEN RETURN NEW; END IF;
+
+  SELECT COUNT(*) INTO v_ready_count
+  FROM tournament_match_ready
+  WHERE match_id = NEW.match_id;
+
+  IF v_ready_count >= 2 THEN
+    SELECT * INTO v_tournament FROM tournaments WHERE id = v_match.tournament_id;
+    IF FOUND THEN
+      -- Use legs_per_match (the actual column name in tournaments table)
+      v_best_of := COALESCE(v_tournament.legs_per_match, 3);
+      v_legs_to_win := CEIL(v_best_of::numeric / 2);
+
+      INSERT INTO match_rooms (
+        player1_id, player2_id, game_mode, match_format, status,
+        current_leg, legs_to_win, player1_remaining, player2_remaining,
+        current_turn, source, match_type, tournament_match_id
+      ) VALUES (
+        v_match.player1_id, v_match.player2_id,
+        COALESCE(v_tournament.game_mode, 501),
+        'best-of-' || v_best_of::text,
+        'active', 1, v_legs_to_win,
+        COALESCE(v_tournament.game_mode, 501),
+        COALESCE(v_tournament.game_mode, 501),
+        v_match.player1_id,
+        'tournament', 'tournament', NEW.match_id
+      )
+      RETURNING id INTO v_match_room_id;
+
+      UPDATE tournament_matches
+      SET match_room_id = v_match_room_id,
+          status = 'in_game',
+          started_at = now(),
+          updated_at = now()
+      WHERE id = NEW.match_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trigger_auto_start_tournament_match
+AFTER INSERT ON tournament_match_ready
+FOR EACH ROW
+EXECUTE FUNCTION auto_start_tournament_match_on_ready();
+
+-- ============================================
 -- 10. GRANTS
 -- ============================================
 GRANT EXECUTE ON FUNCTION join_tournament(UUID, UUID) TO authenticated;
@@ -404,6 +470,7 @@ GRANT EXECUTE ON FUNCTION process_tournament_status_transitions() TO authenticat
 GRANT EXECUTE ON FUNCTION create_tournament_match_room(UUID, UUID, UUID, UUID, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION progress_tournament_bracket(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION ready_up_tournament_match(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION auto_start_tournament_match_on_ready() TO authenticated;
 
 -- ============================================
 -- 11. INDEXES
