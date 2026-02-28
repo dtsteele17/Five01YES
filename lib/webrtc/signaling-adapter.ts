@@ -15,7 +15,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
  * - room_id (uuid) - match room identifier
  * - from_user_id (uuid) - sender user id (auth.uid())
  * - to_user_id (uuid) - recipient user id
- * - type (text) - 'offer', 'answer', 'ice', 'state'
+ * - type (text) - 'offer', 'answer', 'ice', 'state', 'reconnect'
  * - payload (jsonb) - signal data
  * - created_at (timestamp)
  */
@@ -40,7 +40,7 @@ export interface SignalPayload {
  * @param roomId - Match room UUID
  * @param fromUserId - Sender's user ID (current user)
  * @param toUserId - Recipient's user ID (opponent)
- * @param type - Signal type: 'offer', 'answer', 'ice', 'state'
+ * @param type - Signal type: 'offer', 'answer', 'ice', 'state', 'reconnect'
  * @param payload - Signal payload data
  */
 export async function sendMatchSignal(
@@ -48,7 +48,7 @@ export async function sendMatchSignal(
   roomId: string,
   fromUserId: string,
   toUserId: string,
-  type: 'offer' | 'answer' | 'ice' | 'state',
+  type: 'offer' | 'answer' | 'ice' | 'state' | 'reconnect',
   payload: SignalPayload
 ): Promise<boolean> {
   console.log('[WEBRTC QS] ========== SEND MATCH SIGNAL ==========');
@@ -131,7 +131,7 @@ export async function sendSignal(
   roomId: string,
   fromUserId: string,
   toUserId: string,
-  type: 'offer' | 'answer' | 'ice' | 'state',
+  type: 'offer' | 'answer' | 'ice' | 'state' | 'reconnect',
   payload: SignalPayload
 ): Promise<boolean> {
   const supabase = createClient();
@@ -143,6 +143,7 @@ export interface SignalHandler {
   onAnswer: (answer: RTCSessionDescriptionInit) => Promise<void>;
   onIce: (candidate: RTCIceCandidateInit) => Promise<void>;
   onState?: (state: any) => void;
+  onReconnect?: (payload?: any) => Promise<void> | void;
 }
 
 /**
@@ -165,13 +166,13 @@ export function subscribeSignals(
   let pollInterval: NodeJS.Timeout | null = null;
   let realtimeChannel: any = null;
 
-  // Only process signals created after this timestamp (ignore stale signals from previous sessions)
-  const subscriptionStartTime = new Date().toISOString();
+  // Use a short lookback so reconnect/offers sent during page refresh race windows are not missed.
+  const subscriptionLookbackTime = new Date(Date.now() - 30000).toISOString();
 
   console.log('[WEBRTC QS] ========== SUBSCRIPTION SETUP ==========');
   console.log('[WEBRTC QS] room_id:', roomId);
   console.log('[WEBRTC QS] my user_id:', myUserId);
-  console.log('[WEBRTC QS] filtering signals after:', subscriptionStartTime);
+  console.log('[WEBRTC QS] filtering signals after:', subscriptionLookbackTime);
 
   // Process a signal
   const processSignal = async (signal: any) => {
@@ -215,6 +216,13 @@ export function subscribeSignals(
             handler.onState(signal.payload);
           }
           break;
+
+        case 'reconnect':
+          if (handler.onReconnect) {
+            console.log('[WEBRTC QS] 🔄 Handling RECONNECT request');
+            await handler.onReconnect(signal.payload);
+          }
+          break;
       }
     } catch (error: any) {
       console.error('[WEBRTC QS] ❌ Error processing signal:', error);
@@ -229,7 +237,7 @@ export function subscribeSignals(
         .select('*')
         .eq('room_id', roomId)
         .eq('to_user_id', myUserId)
-        .gte('created_at', subscriptionStartTime)
+        .gte('created_at', subscriptionLookbackTime)
         .order('created_at', { ascending: true });
 
       if (error) {

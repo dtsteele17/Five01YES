@@ -1038,6 +1038,7 @@ export default function QuickMatchRoomPage() {
     roomId: matchId,
     myUserId: currentUserId,
     coinTossComplete: coinTossCompleted, // Wait for coin toss before connecting
+    isMatchActive: room?.status === 'active',
   });
   const {
     localStream,
@@ -1739,6 +1740,50 @@ export default function QuickMatchRoomPage() {
     };
   }, [visits, room?.current_leg]);
 
+  const roomSyncInFlightRef = useRef(false);
+  const syncRoomStateFromDb = useCallback(async (reason: string) => {
+    if (!matchId || roomSyncInFlightRef.current) return null;
+    roomSyncInFlightRef.current = true;
+
+    try {
+      const { data: roomData, error } = await supabase
+        .from('match_rooms')
+        .select('*')
+        .eq('id', matchId)
+        .maybeSingle();
+
+      if (error || !roomData) {
+        return null;
+      }
+
+      const nextRoom = roomData as MatchRoom;
+      const turnChanged = room && nextRoom.current_turn !== room.current_turn;
+      if (turnChanged) {
+        console.log(`[ROOM SYNC:${reason}] Turn mismatch corrected`, {
+          local: room.current_turn,
+          db: nextRoom.current_turn,
+        });
+        setShowAfkWarning(false);
+        setShowOpponentAfk(false);
+        setTurnStartedAt(nextRoom.updated_at || new Date().toISOString());
+      }
+
+      if (!coinTossCompleted && nextRoom.coin_toss_completed) {
+        setCoinTossCompleted(true);
+      }
+
+      setRoom(nextRoom);
+
+      if (nextRoom.status === 'finished' && nextRoom.winner_id && !matchEndStats) {
+        await showMatchEndPopup(nextRoom);
+      }
+
+      return nextRoom;
+    } finally {
+      roomSyncInFlightRef.current = false;
+    }
+  }, [matchId, supabase, room, coinTossCompleted, matchEndStats]);
+
   useEffect(() => {
     let cleanupFn: (() => void) | undefined;
 
@@ -1753,6 +1798,17 @@ export default function QuickMatchRoomPage() {
       if (cleanupFn) cleanupFn();
     };
   }, [matchId]);
+
+  // Safety-net sync for turn state in case realtime misses updates.
+  useEffect(() => {
+    if (!matchId || !currentUserId || room?.status !== 'active') return;
+
+    const interval = setInterval(() => {
+      syncRoomStateFromDb('poll_3s');
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [matchId, currentUserId, room?.status, syncRoomStateFromDb]);
 
   async function initializeMatch() {
     try {
@@ -2029,6 +2085,9 @@ export default function QuickMatchRoomPage() {
     });
     
     setRoom(roomData as MatchRoom);
+    if (roomData.coin_toss_completed) {
+      setCoinTossCompleted(true);
+    }
 
     // Initialize turn timer from room's updated_at (or now if not available)
     if (roomData.status === 'active' && roomData.current_turn && !turnStartedAt) {
@@ -2172,6 +2231,7 @@ export default function QuickMatchRoomPage() {
           // Handle coin toss completion
           if (oldRoom && !oldRoom.coin_toss_completed && updatedRoom.coin_toss_completed) {
             console.log('[ROOM] Coin toss completed! Winner:', updatedRoom.coin_toss_winner_id);
+            setCoinTossCompleted(true);
           }
           
           // Handle player ready updates
@@ -2855,6 +2915,8 @@ export default function QuickMatchRoomPage() {
           player2_remaining: !isPlayer1 ? data.remaining_after : room.player2_remaining,
         });
       }
+
+      await syncRoomStateFromDb('post_submit_typed_double_dialog');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to submit visit');
     } finally {
@@ -2995,6 +3057,8 @@ export default function QuickMatchRoomPage() {
         console.log('[SUBMIT CHECKOUT] Match won!');
       }
 
+      await syncRoomStateFromDb('post_submit_checkout_details');
+
     } catch (error: any) {
       console.error('[SUBMIT CHECKOUT] Unexpected error:', error);
       toast.error(error?.message || 'Failed to submit visit');
@@ -3129,6 +3193,8 @@ export default function QuickMatchRoomPage() {
       console.log('[SUBMIT] Clearing local visit state');
       setScoreInput('');
       setCurrentVisit([]);
+
+      await syncRoomStateFromDb('post_submit_visit');
 
       if (data.leg_won) {
         console.log('[SUBMIT] Leg won!');

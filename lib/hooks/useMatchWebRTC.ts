@@ -8,6 +8,7 @@ export interface UseMatchWebRTCProps {
   myUserId: string | null;
   coinTossComplete?: boolean;
   autoStartCamera?: boolean;
+  isMatchActive?: boolean;
 }
 
 export interface UseMatchWebRTCReturn {
@@ -41,6 +42,7 @@ export function useMatchWebRTC({
   myUserId,
   coinTossComplete = true,
   autoStartCamera = false,
+  isMatchActive = false,
 }: UseMatchWebRTCProps): UseMatchWebRTCReturn {
   const supabase = createClient();
 
@@ -64,6 +66,8 @@ export function useMatchWebRTC({
   const localStreamRef = useRef<MediaStream | null>(null);
   const hasAutoStarted = useRef(false);
   const isSettingUp = useRef(false);
+  const isRebuildingRef = useRef(false);
+  const healthIssueStartedAtRef = useRef<number | null>(null);
 
   // Keep localStreamRef in sync
   useEffect(() => {
@@ -72,6 +76,14 @@ export function useMatchWebRTC({
 
   const facingModeRef = useRef<'user' | 'environment'>('user');
   useEffect(() => { facingModeRef.current = facingMode; }, [facingMode]);
+
+  const sendReconnectSignal = useCallback(async (reason: string) => {
+    if (!roomId || !myUserId || !opponentUserId) return;
+    await sendSignal(roomId, myUserId, opponentUserId, 'reconnect', {
+      reason,
+      at: new Date().toISOString(),
+    });
+  }, [roomId, myUserId, opponentUserId]);
 
   // ========== START CAMERA ==========
   const startCamera = useCallback(async (overrideFacing?: 'user' | 'environment'): Promise<MediaStream | null> => {
@@ -263,7 +275,7 @@ export function useMatchWebRTC({
       // Determine player role
       const { data } = await supabase
         .from('match_rooms')
-        .select('player1_id')
+        .select('player1_id, status')
         .eq('id', roomId)
         .single();
 
@@ -385,6 +397,10 @@ export function useMatchWebRTC({
         onOffer: handleOffer,
         onAnswer: handleAnswer,
         onIce: handleIce,
+        onReconnect: async () => {
+          console.log('[WebRTC] Reconnect signal received from opponent, rebuilding peer connection');
+          await refreshConnection(true, false);
+        },
       });
       subscriptionCleanupRef.current = cleanup;
 
@@ -403,6 +419,11 @@ export function useMatchWebRTC({
         } finally {
           makingOfferRef.current = false;
         }
+      }
+
+      // If user reloads while match is active, notify opponent to rebuild as well.
+      if (data?.status === 'active') {
+        await sendReconnectSignal('page_reconnect');
       }
 
       isSettingUp.current = false;
@@ -511,38 +532,98 @@ export function useMatchWebRTC({
   }, [startCamera]);
 
   // ========== REFRESH CONNECTION ==========
-  const refreshConnection = useCallback(async () => {
+  const refreshConnection = useCallback(async (refreshRole = false, notifyOpponent = true) => {
     if (!roomId || !myUserId || !opponentUserId) return;
+    if (isRebuildingRef.current) return;
+    isRebuildingRef.current = true;
 
-    setCallStatus('connecting');
-    setRemoteStream(null);
+    try {
+      setCallStatus('connecting');
+      setRemoteStream(null);
 
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    pendingIceCandidatesRef.current = [];
-    makingOfferRef.current = false;
-
-    await new Promise((r) => setTimeout(r, 300));
-
-    const pc = await createPeerConnection(roomId, myUserId, opponentUserId, isPlayer1, localStreamRef.current);
-
-    if (isPlayer1 && localStreamRef.current) {
-      try {
-        makingOfferRef.current = true;
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
-          offer: pc.localDescription?.toJSON(),
-        });
-      } catch (e) {
-        console.error('[WebRTC] Refresh offer error:', e);
-      } finally {
-        makingOfferRef.current = false;
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
       }
+      pendingIceCandidatesRef.current = [];
+      makingOfferRef.current = false;
+      ignoreOfferRef.current = false;
+
+      let amPlayer1 = isPlayer1;
+      if (refreshRole) {
+        const { data } = await supabase
+          .from('match_rooms')
+          .select('player1_id')
+          .eq('id', roomId)
+          .single();
+        amPlayer1 = data?.player1_id === myUserId;
+        setIsPlayer1(amPlayer1);
+      }
+
+      await new Promise((r) => setTimeout(r, 300));
+
+      const pc = await createPeerConnection(roomId, myUserId, opponentUserId, amPlayer1, localStreamRef.current);
+
+      if (notifyOpponent) {
+        await sendReconnectSignal('connection_rebuild');
+      }
+
+      if (amPlayer1 && localStreamRef.current) {
+        try {
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON(),
+          });
+        } catch (e) {
+          console.error('[WebRTC] Refresh offer error:', e);
+        } finally {
+          makingOfferRef.current = false;
+        }
+      }
+    } finally {
+      isRebuildingRef.current = false;
     }
-  }, [roomId, myUserId, opponentUserId, isPlayer1, createPeerConnection]);
+  }, [roomId, myUserId, opponentUserId, isPlayer1, createPeerConnection, sendReconnectSignal, supabase]);
+
+  // ========== CONNECTION HEALTH WATCHDOG ==========
+  useEffect(() => {
+    if (!isMatchActive) {
+      healthIssueStartedAtRef.current = null;
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const stream = remoteStream;
+      if (!stream) {
+        healthIssueStartedAtRef.current = null;
+        return;
+      }
+
+      const hasLiveTrack = stream
+        .getTracks()
+        .some((track) => track.readyState === 'live' && track.enabled);
+
+      if (hasLiveTrack) {
+        healthIssueStartedAtRef.current = null;
+        return;
+      }
+
+      if (!healthIssueStartedAtRef.current) {
+        healthIssueStartedAtRef.current = Date.now();
+        return;
+      }
+
+      if (Date.now() - healthIssueStartedAtRef.current > 5000) {
+        console.log('[WebRTC] Remote stream has no live tracks for >5s, triggering reconnect');
+        healthIssueStartedAtRef.current = null;
+        refreshConnection(true, true);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isMatchActive, remoteStream, refreshConnection]);
 
   // ========== FORCE TURN RELAY ==========
   const forceTurnAndRestart = useCallback(() => {

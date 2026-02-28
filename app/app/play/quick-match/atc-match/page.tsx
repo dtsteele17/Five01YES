@@ -365,6 +365,34 @@ export default function ATCMatchPage() {
   const [showGameEndPopup, setShowGameEndPopup] = useState(false);
   const [isRefreshingCamera, setIsRefreshingCamera] = useState(false);
   const [isRefreshingConnection, setIsRefreshingConnection] = useState(false);
+  const syncMatchInFlightRef = useRef(false);
+
+  const syncMatchStateFromDb = useCallback(async (reason: string) => {
+    if (!matchId || syncMatchInFlightRef.current) return null;
+    syncMatchInFlightRef.current = true;
+    try {
+      const { data } = await supabase
+        .from('atc_matches')
+        .select('*')
+        .eq('id', matchId)
+        .maybeSingle();
+
+      if (!data) return null;
+      const dbMatch = data as ATCMatch;
+
+      if (match && dbMatch.current_player_index !== match.current_player_index) {
+        console.log(`[ATC SYNC:${reason}] Turn index reconciled`, {
+          local: match.current_player_index,
+          db: dbMatch.current_player_index,
+        });
+      }
+
+      setMatch(dbMatch);
+      return dbMatch;
+    } finally {
+      syncMatchInFlightRef.current = false;
+    }
+  }, [matchId, supabase, match]);
   const cameraInitAttempted = useRef(false);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -483,6 +511,17 @@ export default function ATCMatchPage() {
       channel.unsubscribe();
     };
   }, [matchId, currentUser]);
+
+  // Safety-net turn sync in case realtime update is missed.
+  useEffect(() => {
+    if (!matchId || match?.status !== 'in_progress') return;
+
+    const interval = setInterval(() => {
+      syncMatchStateFromDb('poll_3s');
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [matchId, match?.status, syncMatchStateFromDb]);
   
   // Callback refs for video elements - FIXED to handle AbortError when element removed
   const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -803,6 +842,8 @@ export default function ATCMatchPage() {
           players: updatedPlayers
         })
         .eq('id', matchId);
+
+      await syncMatchStateFromDb('post_submit_visit');
       
       toast.success(`${currentPlayer.username} wins!`);
       setShowGameEndPopup(true);
@@ -838,6 +879,8 @@ export default function ATCMatchPage() {
         current_player_index: nextIndex 
       })
       .eq('id', matchId);
+
+    await syncMatchStateFromDb('post_end_turn');
       
     setCurrentVisit({});
     setDartCount(0);
