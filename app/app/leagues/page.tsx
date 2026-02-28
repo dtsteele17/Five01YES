@@ -118,15 +118,15 @@ export default function LeaguesPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 max-sm:px-1">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">Leagues</h1>
           <p className="text-gray-400">Join or create leagues and compete with others.</p>
         </div>
         <Button
           onClick={() => setIsModalOpen(true)}
-          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white"
+          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create League
@@ -143,7 +143,7 @@ export default function LeaguesPage() {
         ) : myLeagues.length === 0 ? (
           <div className="text-center py-12">
             <Trophy className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 mb-4">You haven't joined any leagues yet</p>
+            <p className="text-gray-400 mb-4">You haven&apos;t joined any leagues yet</p>
             <Button
               onClick={() => setIsModalOpen(true)}
               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white"
@@ -156,15 +156,15 @@ export default function LeaguesPage() {
             {myLeagues.map((league, index) => (
               <div
                 key={league.id}
-                className="flex items-center justify-between p-4 sm:p-6 bg-white/5 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 sm:p-6 bg-white/5 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-colors"
               >
-                <div className="flex items-center space-x-4">
-                  <div className={`w-16 h-16 bg-gradient-to-br ${getLeagueColor(index)} rounded-xl flex items-center justify-center`}>
-                    <Trophy className="w-8 h-8 text-white" />
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br ${getLeagueColor(index)} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                   </div>
-                  <div>
-                    <h3 className="text-white font-semibold text-lg mb-1">{league.name}</h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-400">
+                  <div className="min-w-0">
+                    <h3 className="text-white font-semibold text-base sm:text-lg mb-1 break-words">{league.name}</h3>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400">
                       <div className="flex items-center">
                         <Users className="w-4 h-4 mr-1" />
                         {league.member_count || 0}/{league.max_participants} players
@@ -181,7 +181,7 @@ export default function LeaguesPage() {
                 </div>
                 <Button
                   variant="outline"
-                  className="border-white/10 text-white hover:bg-white/5"
+                  className="border-white/10 text-white hover:bg-white/5 w-full sm:w-auto"
                   onClick={() => router.push(`/app/leagues/${league.id}`)}
                 >
                   View League

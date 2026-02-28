@@ -206,18 +206,18 @@ function CurrentRankCard({
         <Star className={`w-4 h-4 ${isGrandChampion ? 'text-amber-400/60' : `${colors.text}/40`} animate-pulse delay-500`} />
       </div>
       
-      <div className="relative z-10 p-10">
+      <div className="relative z-10 p-4 sm:p-10">
         {/* Header Badge */}
-        <div className="flex justify-center mb-6">
-          <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r ${isGrandChampion ? 'from-amber-500/20 via-purple-500/20 to-amber-500/20' : 'from-white/10 to-white/5'} border ${isGrandChampion ? 'border-amber-400/30' : 'border-white/10'} backdrop-blur-sm`}>
+        <div className="flex justify-center mb-4 sm:mb-6">
+          <div className={`inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-gradient-to-r ${isGrandChampion ? 'from-amber-500/20 via-purple-500/20 to-amber-500/20' : 'from-white/10 to-white/5'} border ${isGrandChampion ? 'border-amber-400/30' : 'border-white/10'} backdrop-blur-sm`}>
             <Flame className={`w-4 h-4 ${isGrandChampion ? 'text-amber-400' : colors.text}`} />
-            <span className={`text-sm font-bold uppercase tracking-wider ${isGrandChampion ? 'text-amber-300' : colors.text}`}>Current Season Active</span>
+            <span className={`text-xs sm:text-sm font-bold uppercase tracking-wider ${isGrandChampion ? 'text-amber-300' : colors.text}`}>Current Season Active</span>
           </div>
         </div>
 
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-10">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 sm:gap-10">
           {/* Left - Rank Badge & Division */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
             <div className="relative">
               {/* Multi-layered glow effect */}
               <div className={`absolute inset-0 ${colors.bg}/60 rounded-3xl blur-2xl animate-pulse`} />
@@ -225,9 +225,9 @@ function CurrentRankCard({
               <div className={`absolute -inset-3 ${colors.bg}/30 rounded-[2rem] blur-lg`} />
               
               {/* Main badge container - consistent large size for all ranks */}
-              <div className="relative w-72 h-72 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50">
+              <div className="relative w-40 h-40 sm:w-72 sm:h-72 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/20 to-transparent" />
-                <div className="relative flex items-center justify-center">
+                <div className="relative flex items-center justify-center max-sm:scale-[0.52] sm:scale-100">
                   {getTierIcon(playerState.division_name, 260)}
                 </div>
               </div>
@@ -240,13 +240,13 @@ function CurrentRankCard({
               )}
             </div>
             
-            <div>
+            <div className="text-center sm:text-left">
               <div className="flex items-center gap-3 mb-2">
                 <p className={`${colors.text} text-sm font-black uppercase tracking-[0.2em]`}>Current Rank</p>
                 {isGrandChampion && <Crown className="w-5 h-5 text-amber-400" />}
               </div>
               <div className="relative">
-                <h2 className={`text-5xl font-black text-white tracking-tight drop-shadow-[0_0_20px_${isGrandChampion ? 'rgba(168,85,247,0.6)' : 'rgba(255,255,255,0.4)'}]`}>
+                <h2 className={`text-3xl sm:text-5xl font-black text-white tracking-tight break-words drop-shadow-[0_0_20px_${isGrandChampion ? 'rgba(168,85,247,0.6)' : 'rgba(255,255,255,0.4)'}]`}>
                   {playerState.division_name}
                 </h2>
                 <div className={`absolute -inset-4 ${colors.bg}/40 rounded-2xl blur-xl -z-10`} />
@@ -270,7 +270,7 @@ function CurrentRankCard({
               <div className={`absolute inset-0 ${colors.bg}/30 rounded-full blur-3xl scale-150 animate-pulse`} />
               <div className={`absolute -inset-8 ${colors.bg}/20 rounded-full blur-2xl`} />
               
-              <p className={`relative text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white ${isGrandChampion ? 'via-purple-200 to-purple-400' : 'via-slate-200 to-slate-400'} drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`}>
+              <p className={`relative text-5xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white ${isGrandChampion ? 'via-purple-200 to-purple-400' : 'via-slate-200 to-slate-400'} drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`}>
                 {playerState.rp}
               </p>
             </div>
@@ -281,9 +281,9 @@ function CurrentRankCard({
           </div>
 
           {/* Right - Status & Next Tier */}
-          <div className="flex flex-col items-end gap-4">
+          <div className="flex flex-col items-stretch sm:items-end gap-4 w-full xl:w-auto">
             {playerState.provisional_games_remaining ? (
-              <div className="w-56 bg-slate-900/60 rounded-2xl p-4 border border-amber-500/30 backdrop-blur-sm">
+              <div className="w-full sm:w-56 bg-slate-900/60 rounded-2xl p-4 border border-amber-500/30 backdrop-blur-sm">
                 <div className="flex justify-between text-sm mb-3">
                   <span className="text-amber-400 font-bold">Placement Matches</span>
                   <span className="text-white font-black">{Math.max(0, 5 - Math.min(5, playerState.provisional_games_remaining))}/5</span>
@@ -304,7 +304,7 @@ function CurrentRankCard({
             )}
             
             {nextTier && (
-              <div className="text-right p-4 bg-slate-900/40 rounded-2xl border border-white/5 backdrop-blur-sm">
+              <div className="text-left sm:text-right p-4 bg-slate-900/40 rounded-2xl border border-white/5 backdrop-blur-sm">
                 <p className="text-slate-400 text-sm mb-1">Next Rank</p>
                 <p className="text-emerald-400 font-bold text-lg">{nextTier.division_name}</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -317,8 +317,8 @@ function CurrentRankCard({
         </div>
 
         {/* Stats Row - Ultra Premium */}
-        <div className="mt-10 pt-8 border-t border-white/10">
-          <div className="grid grid-cols-4 gap-6">
+        <div className="mt-8 sm:mt-10 pt-6 sm:pt-8 border-t border-white/10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
             {[
               { label: 'Wins', value: playerState.wins, color: 'emerald', icon: Trophy },
               { label: 'Losses', value: playerState.losses, color: 'rose', icon: Flame },
@@ -327,11 +327,11 @@ function CurrentRankCard({
             ].map((stat, index) => (
               <div 
                 key={index}
-                className={`relative group text-center p-5 rounded-2xl bg-gradient-to-b from-slate-800/50 to-slate-900/50 border ${isGrandChampion ? `border-${stat.color}-500/30` : 'border-white/5'} backdrop-blur-sm hover:border-${stat.color}-500/40 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-${stat.color}-500/20`}
+                className={`relative group text-center p-3 sm:p-5 rounded-2xl bg-gradient-to-b from-slate-800/50 to-slate-900/50 border ${isGrandChampion ? `border-${stat.color}-500/30` : 'border-white/5'} backdrop-blur-sm hover:border-${stat.color}-500/40 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-${stat.color}-500/20`}
               >
                 <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-${stat.color}-500/50 to-transparent`} />
                 <stat.icon className={`w-5 h-5 mx-auto mb-2 text-${stat.color}-400`} />
-                <p className={`text-3xl font-black text-${stat.color}-400`}>{stat.value}</p>
+                <p className={`text-2xl sm:text-3xl font-black text-${stat.color}-400`}>{stat.value}</p>
                 <p className="text-slate-400 text-xs uppercase tracking-wider mt-1 font-medium">{stat.label}</p>
               </div>
             ))}
@@ -349,7 +349,7 @@ function TierPageHeader({ tierName }: { tierName: string }) {
   const isGrandChampion = tierKey === 'grandchampion';
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.gradient} p-6 mb-6 shadow-2xl ${colors.glow} border border-white/10`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.gradient} p-4 sm:p-6 mb-6 shadow-2xl ${colors.glow} border border-white/10`}>
       {/* Animated background effects */}
       <div className="absolute inset-0 bg-black/20" />
       <div className={`absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.1)_50%,transparent_75%)]`} />
@@ -360,9 +360,9 @@ function TierPageHeader({ tierName }: { tierName: string }) {
         </>
       )}
       
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-40 h-40 rounded-xl flex items-center justify-center bg-white/20 backdrop-blur-sm shadow-lg">
+      <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="w-24 h-24 sm:w-40 sm:h-40 rounded-xl flex items-center justify-center bg-white/20 backdrop-blur-sm shadow-lg flex-shrink-0">
             {getTierIcon(tierName, 150)}
           </div>
           <div>
@@ -380,13 +380,13 @@ function TierPageHeader({ tierName }: { tierName: string }) {
                 </span>
               )}
             </p>
-            <h2 className={`text-3xl font-black text-white ${isGrandChampion ? 'drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]' : ''}`}>
+            <h2 className={`text-2xl sm:text-3xl font-black text-white ${isGrandChampion ? 'drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]' : ''}`}>
               {tierName}
             </h2>
           </div>
         </div>
-        <div className={`px-4 py-2 rounded-xl ${isGrandChampion ? 'bg-gradient-to-r from-amber-500/30 to-purple-500/30 border border-amber-400/30' : 'bg-white/20'} backdrop-blur-sm`}>
-          <span className="text-white font-bold text-sm">
+        <div className={`px-3 sm:px-4 py-2 rounded-xl ${isGrandChampion ? 'bg-gradient-to-r from-amber-500/30 to-purple-500/30 border border-amber-400/30' : 'bg-white/20'} backdrop-blur-sm self-start sm:self-auto`}>
+          <span className="text-white font-bold text-xs sm:text-sm">
             {isGrandChampion ? '👑 Grand Champion' :
              tierKey === 'champion' ? '🏆 Elite Tier' : 
              tierKey === 'platinum' ? '💎 Advanced Tier' : 
@@ -485,7 +485,7 @@ function TierNavigator({
   return (
     <div className="space-y-6">
       {/* Tier Navigator - Ultra Premium Edition */}
-      <Card className={`relative overflow-hidden p-8 ${isGrandChampionPage ? 'bg-gradient-to-br from-purple-900/50 via-slate-900/80 to-slate-950 border-purple-400/50' : 'bg-gradient-to-br from-slate-800/60 via-slate-900/80 to-slate-950 border-slate-600/50'} border-2 shadow-2xl backdrop-blur-xl`}>
+      <Card className={`relative overflow-hidden p-4 sm:p-8 ${isGrandChampionPage ? 'bg-gradient-to-br from-purple-900/50 via-slate-900/80 to-slate-950 border-purple-400/50' : 'bg-gradient-to-br from-slate-800/60 via-slate-900/80 to-slate-950 border-slate-600/50'} border-2 shadow-2xl backdrop-blur-xl`}>
         {/* Animated background effects */}
         <div className={`absolute top-0 right-0 w-[500px] h-[500px] ${colors.bg}/10 rounded-full blur-[120px]`} />
         <div className={`absolute bottom-0 left-0 w-[300px] h-[300px] ${colors.bg}/5 rounded-full blur-[80px]`} />
@@ -508,18 +508,18 @@ function TierNavigator({
           <TierPageHeader tierName={currentTierName} />
           
           {/* Navigation Controls - Ultra Premium */}
-          <div className="flex items-center justify-center gap-4 mb-8 relative z-10">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-6 sm:mb-8 relative z-10">
             <button
               type="button"
               onClick={goToPrevious}
               disabled={currentPage === 0}
-              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
+              className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
             >
-              <ChevronLeft className="w-7 h-7 pointer-events-none" />
+              <ChevronLeft className="w-5 h-5 sm:w-7 sm:h-7 pointer-events-none" />
             </button>
             
-            <div className="px-8 py-4 rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl min-w-[180px] text-center">
-              <span className="text-white font-black text-xl">
+            <div className="px-3 sm:px-8 py-2 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-800 border-2 border-slate-700 shadow-xl min-w-0 sm:min-w-[180px] text-center">
+              <span className="text-white font-black text-sm sm:text-xl">
                 Tier <span className="text-amber-400">{currentPage + 1}</span> / {totalPages}
               </span>
             </div>
@@ -528,21 +528,21 @@ function TierNavigator({
               type="button"
               onClick={goToNext}
               disabled={currentPage >= totalPages - 1}
-              className="w-14 h-14 rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
+              className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-110 hover:bg-slate-600 hover:shadow-xl disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
             >
-              <ChevronRight className="w-7 h-7 pointer-events-none" />
+              <ChevronRight className="w-5 h-5 sm:w-7 sm:h-7 pointer-events-none" />
             </button>
           </div>
           
           {/* Keyboard hint */}
-          <p className="text-center text-slate-500 text-xs mb-6 flex items-center justify-center gap-2">
+          <p className="text-center text-slate-500 text-xs mb-6 items-center justify-center gap-2 hidden sm:flex">
             <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">←</span>
             <span>Use arrow keys to navigate</span>
             <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">→</span>
           </p>
 
           {/* Rank Cards Grid - Ultra Premium Styling */}
-          <div className={`grid gap-5 ${isGrandChampionPage ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-2 md:grid-cols-4'}`}>
+          <div className={`grid gap-4 sm:gap-5 ${isGrandChampionPage ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'}`}>
             <AnimatePresence mode="wait">
               {currentTiers.map((tier, index) => {
                 const isCurrent = playerState && 
@@ -559,7 +559,7 @@ function TierNavigator({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.95 }}
                     transition={{ delay: index * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className={`relative overflow-hidden rounded-3xl p-6 border-2 transition-all duration-500 group cursor-pointer ${
+                    className={`relative overflow-hidden rounded-3xl p-4 sm:p-6 border-2 transition-all duration-500 group cursor-pointer ${
                       isCurrent 
                         ? `bg-gradient-to-br ${tierColors.gradient} border-white/70 shadow-[0_0_40px_-10px] ${tierColors.glow} ${isGrandChampion ? 'ring-2 ring-amber-400/60' : ''} scale-105` 
                         : isGrandChampion
@@ -599,7 +599,7 @@ function TierNavigator({
                     
                     <div className="relative">
                       {/* Icon container - consistent size for all ranks */}
-                      <div className="w-48 h-48 rounded-2xl flex items-center justify-center mb-4 bg-slate-800/80 border border-slate-700 transition-transform group-hover:scale-105">
+                      <div className="w-full max-w-[180px] aspect-square rounded-2xl flex items-center justify-center mb-4 mx-auto bg-slate-800/80 border border-slate-700 transition-transform group-hover:scale-105">
                         {getTierIcon(tier.tier_name, 180)}
                       </div>
                       
@@ -707,7 +707,7 @@ function RecentRankedMatches({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <div key={i} className="h-16 bg-slate-800 rounded-xl animate-pulse" />
@@ -730,8 +730,8 @@ function RecentRankedMatches({ userId }: { userId: string }) {
   }
 
   return (
-    <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
             <Activity className="w-5 h-5 text-white" />
@@ -750,9 +750,9 @@ function RecentRankedMatches({ userId }: { userId: string }) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600/50 transition-colors"
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600/50 transition-colors"
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
               {/* Result Badge */}
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                 match.result === 'win' 
@@ -770,20 +770,20 @@ function RecentRankedMatches({ userId }: { userId: string }) {
                 )}
               </div>
               
-              <div>
-                <p className="text-white font-semibold">
+              <div className="min-w-0">
+                <p className="text-white font-semibold truncate">
                   {match.result === 'win' ? 'Victory' : match.result === 'loss' ? 'Defeat' : 'Draw'}
                   <span className="text-slate-500 mx-2">vs</span>
                   <span className="text-slate-300">{match.opponent_username || 'Unknown'}</span>
                 </p>
-                <p className="text-slate-500 text-sm">
+                <p className="text-slate-500 text-sm truncate">
                   {match.game_mode} • {formatDistanceToNow(new Date(match.played_at), { addSuffix: true })}
                 </p>
               </div>
             </div>
 
             {/* RP Change */}
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <p className={`text-lg font-bold ${
                 (match.rp_change || 0) > 0 
                   ? 'text-emerald-400' 
@@ -895,7 +895,7 @@ export default function RankedDivisionsPage() {
 
   return (
     <motion.div 
-      className="max-w-7xl mx-auto space-y-8"
+      className="max-w-7xl mx-auto space-y-8 max-sm:px-1"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -912,7 +912,7 @@ export default function RankedDivisionsPage() {
             Competitive Play
           </motion.p>
           <motion.h1 
-            className="text-4xl md:text-5xl font-black text-white tracking-tight"
+            className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -920,7 +920,7 @@ export default function RankedDivisionsPage() {
             Ranked Divisions
           </motion.h1>
           <motion.p 
-            className="text-slate-400 mt-2 text-lg max-w-2xl"
+            className="text-slate-400 mt-2 text-base sm:text-lg max-w-2xl"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}

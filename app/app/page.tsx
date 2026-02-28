@@ -586,15 +586,15 @@ export default function DashboardPage() {
                 <div className="flex flex-col items-center">
                   <div className="relative">
                     <div className="absolute -inset-4 bg-amber-500/10 rounded-full blur-2xl" />
-                    <p className="relative text-5xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-200 drop-shadow-2xl">
+                    <p className="relative text-4xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-200 drop-shadow-2xl">
                       {rankedState?.rp || 0}
                     </p>
                   </div>
-                  <p className="text-amber-400/80 text-sm font-bold uppercase tracking-[0.2em] mt-2">ELO Rating</p>
+                  <p className="text-amber-400/80 text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-2">ELO Rating</p>
                 </div>
 
                 {/* Right - Play Button & Placement */}
-                <div className="flex flex-col items-start xl:items-end gap-4">
+                <div className="flex flex-col items-start xl:items-end gap-4 w-full xl:w-auto">
                   {rankedState?.provisional_games_remaining ? (
                     <div className="w-full sm:w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
                       <div className="flex justify-between text-sm mb-2">
@@ -613,7 +613,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <Link href="/app/ranked">
-                    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-8 py-6 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 transition-all">
+                    <Button className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-sm sm:text-base shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 transition-all">
                       <Shield className="w-5 h-5 mr-2" />
                       Play Ranked
                     </Button>
@@ -623,23 +623,23 @@ export default function DashboardPage() {
 
               {/* Stats Row */}
               <div className="mt-6 sm:mt-8 pt-6 border-t border-amber-500/20">
-                <div className="grid grid-cols-4 gap-3 sm:gap-4">
-                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-emerald-500/20 backdrop-blur-sm">
-                    <p className="text-2xl font-black text-emerald-400">{rankedState?.wins || 0}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-emerald-500/20 backdrop-blur-sm">
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400">{rankedState?.wins || 0}</p>
                     <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Wins</p>
                   </div>
-                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-red-500/20 backdrop-blur-sm">
-                    <p className="text-2xl font-black text-red-400">{rankedState?.losses || 0}</p>
+                  <div className="text-center p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-red-500/20 backdrop-blur-sm">
+                    <p className="text-xl sm:text-2xl font-black text-red-400">{rankedState?.losses || 0}</p>
                     <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Losses</p>
                   </div>
-                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-blue-500/20 backdrop-blur-sm">
-                    <p className="text-2xl font-black text-blue-400">
+                  <div className="text-center p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-blue-500/20 backdrop-blur-sm">
+                    <p className="text-xl sm:text-2xl font-black text-blue-400">
                       {rankedState?.games_played ? Math.round((rankedState.wins / rankedState.games_played) * 100) : 0}%
                     </p>
                     <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Win Rate</p>
                   </div>
-                  <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-purple-500/20 backdrop-blur-sm">
-                    <p className="text-2xl font-black text-purple-400">{ranked3DartAvg}</p>
+                  <div className="text-center p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-purple-500/20 backdrop-blur-sm">
+                    <p className="text-xl sm:text-2xl font-black text-purple-400">{ranked3DartAvg}</p>
                     <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">3-Dart Avg</p>
                   </div>
                 </div>

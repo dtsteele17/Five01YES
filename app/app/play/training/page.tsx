@@ -258,7 +258,7 @@ function DartBotConfigCard() {
   return (
     <motion.div
       variants={itemVariants}
-      className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600/20 via-slate-800/60 to-teal-600/20 border border-emerald-500/40 p-8"
+      className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600/20 via-slate-800/60 to-teal-600/20 border border-emerald-500/40 p-4 sm:p-8"
     >
       {/* Background Effects */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
@@ -266,13 +266,13 @@ function DartBotConfigCard() {
       
       <div className="relative">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl">
               <Cpu className="w-10 h-10 text-white" />
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                   AI Opponent
                 </Badge>
@@ -281,7 +281,7 @@ function DartBotConfigCard() {
                   +100 XP
                 </Badge>
               </div>
-              <h2 className="text-3xl font-black text-white">DartBot Training</h2>
+              <h2 className="text-2xl sm:text-3xl font-black text-white">DartBot Training</h2>
               <p className="text-slate-400">Practice against AI with adjustable difficulty</p>
             </div>
           </div>
@@ -381,8 +381,8 @@ function DartBotConfigCard() {
         </div>
 
         {/* Start Button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-sm text-slate-400">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-slate-400">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               Double Out Enabled
@@ -395,7 +395,7 @@ function DartBotConfigCard() {
           <Button 
             onClick={handleStart}
             size="lg"
-            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-lg shadow-xl hover:shadow-2xl transition-all"
+            className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-base sm:text-lg shadow-xl hover:shadow-2xl transition-all"
           >
             <Play className="w-5 h-5 mr-2" />
             Start Match
@@ -1050,7 +1050,7 @@ export default function TrainingHubPage() {
   return (
     <>
       <motion.div
-        className="max-w-7xl mx-auto space-y-8"
+        className="max-w-7xl mx-auto space-y-8 max-sm:px-1"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -1087,7 +1087,7 @@ export default function TrainingHubPage() {
                 <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">
                   Training Hub
                 </h1>
-                <p className="text-slate-400 mt-2 text-lg max-w-2xl">
+                <p className="text-slate-400 mt-2 text-base sm:text-lg max-w-2xl">
                   Master your skills with AI-powered training modes. Track progress, earn XP, and become a better player.
                 </p>
               </motion.div>
@@ -1105,7 +1105,7 @@ export default function TrainingHubPage() {
 
         {/* All Other Training Modes */}
         <div>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
             <div>
               <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">
                 More Training

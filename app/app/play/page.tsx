@@ -481,7 +481,7 @@ export default function PlayPage() {
 
   return (
     <motion.div 
-      className="max-w-7xl mx-auto space-y-8"
+      className="max-w-7xl mx-auto space-y-8 max-sm:px-1"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -530,7 +530,7 @@ export default function PlayPage() {
 
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Quick Match */}
           <GameModeCard
             href="/app/play/quick-match"

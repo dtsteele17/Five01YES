@@ -277,7 +277,7 @@ export default function RankedPage() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
             <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Ranked Arena</h1>
           </div>
@@ -337,7 +337,7 @@ export default function RankedPage() {
                 ) : (
                   <>
                     <p className="text-blue-400 text-sm font-bold uppercase tracking-wider">Current Rank</p>
-                    <h2 className="text-4xl font-black text-white">{playerState?.division_name}</h2>
+                    <h2 className="text-2xl sm:text-4xl font-black text-white break-words">{playerState?.division_name}</h2>
                     <div className="flex items-center gap-2 justify-center md:justify-start">
                       <span className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400">
                         {playerState?.rp}
@@ -349,16 +349,16 @@ export default function RankedPage() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-center w-full md:w-auto">
+                <div className="bg-slate-800/50 rounded-xl p-3 sm:p-4 border border-white/5">
                   <p className="text-2xl font-black text-white">{playerState?.games_played || 0}</p>
                   <p className="text-xs text-slate-400 uppercase tracking-wider">Played</p>
                 </div>
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                <div className="bg-slate-800/50 rounded-xl p-3 sm:p-4 border border-white/5">
                   <p className="text-2xl font-black text-emerald-400">{playerState?.wins || 0}</p>
                   <p className="text-xs text-slate-400 uppercase tracking-wider">Wins</p>
                 </div>
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                <div className="col-span-2 sm:col-span-1 bg-slate-800/50 rounded-xl p-3 sm:p-4 border border-white/5">
                   <p className="text-2xl font-black text-white">{winRate}%</p>
                   <p className="text-xs text-slate-400 uppercase tracking-wider">Win Rate</p>
                 </div>
@@ -391,7 +391,7 @@ export default function RankedPage() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
-                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-blue-500/30 p-8"
+                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-blue-500/30 p-4 sm:p-8"
               >
                 {/* Animated border pulse */}
                 <div className="absolute inset-0 rounded-2xl border-2 border-blue-500/20 animate-pulse" />
@@ -438,8 +438,8 @@ export default function RankedPage() {
         </motion.div>
 
         {/* Info Cards */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          <Card className="bg-slate-800/30 border-white/5 p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <Card className="bg-slate-800/30 border-white/5 p-4 sm:p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
                 <Target className="w-5 h-5 text-blue-400" />
@@ -449,7 +449,7 @@ export default function RankedPage() {
             <p className="text-slate-400 text-sm">Every ranked match is 501 Best of 5 legs with double out finish. Pure skill.</p>
           </Card>
 
-          <Card className="bg-slate-800/30 border-white/5 p-5">
+          <Card className="bg-slate-800/30 border-white/5 p-4 sm:p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -459,7 +459,7 @@ export default function RankedPage() {
             <p className="text-slate-400 text-sm">Win to gain RP, lose to drop. Climb through Bronze, Silver, Gold, Platinum, Champion and Grand Champion.</p>
           </Card>
 
-          <Card className="bg-slate-800/30 border-white/5 p-5">
+          <Card className="bg-slate-800/30 border-white/5 p-4 sm:p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
                 <Crown className="w-5 h-5 text-amber-400" />
@@ -493,7 +493,7 @@ export default function RankedPage() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-              className="bg-slate-900 border border-amber-500/30 rounded-2xl p-8 max-w-md w-full mx-4 text-center"
+              className="bg-slate-900 border border-amber-500/30 rounded-2xl p-4 sm:p-8 max-w-md w-full mx-4 text-center"
             >
               <motion.div
                 initial={{ scale: 0 }}

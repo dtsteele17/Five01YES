@@ -1868,7 +1868,7 @@ export default function QuickMatchLobbyPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 p-4">
+    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 p-3 sm:p-4">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -1884,18 +1884,18 @@ export default function QuickMatchLobbyPage() {
           <p className="text-slate-400 mt-2 text-base sm:text-lg">Create or join an online match with players worldwide</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Button
             variant="outline"
             size="sm"
             onClick={handleReset}
             disabled={loading}
-            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 max-sm:text-xs max-sm:px-2"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Reset
           </Button>
-          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 px-4 py-2 text-sm">
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm max-w-full">
             <Users className="w-4 h-4 mr-2" />
             {filteredLobbies.length} Games Available
           </Badge>
@@ -1912,8 +1912,8 @@ export default function QuickMatchLobbyPage() {
 
       {/* Stale Lobby Warning */}
       {myLobby && myLobby.status !== 'open' && myLobby.status !== 'waiting' && myLobby.created_by !== userId && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:justify-between">
+          <div className="flex items-start sm:items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-400" />
             <div>
               <p className="text-amber-400 font-medium">You may be stuck in an old lobby</p>
@@ -1924,7 +1924,7 @@ export default function QuickMatchLobbyPage() {
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 w-full sm:w-auto"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Reset
@@ -2141,7 +2141,7 @@ export default function QuickMatchLobbyPage() {
         {/* Open Lobbies */}
         <div className="lg:col-span-2">
           <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-4 sm:p-6 h-full">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
                   <Trophy className="w-6 h-6 text-white" />
@@ -2183,7 +2183,7 @@ export default function QuickMatchLobbyPage() {
               </Select>
             </div>
 
-            <ScrollArea className="h-[500px] pr-4">
+            <ScrollArea className="h-[500px] pr-0 sm:pr-4">
               {filteredLobbies.length === 0 ? (
                 <div className="py-12 text-center">
                   <Target className="w-10 h-10 text-slate-500 mx-auto mb-4" />
@@ -2203,8 +2203,8 @@ export default function QuickMatchLobbyPage() {
                               {lobby.player1?.username?.charAt(0).toUpperCase() || 'P'}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <h3 className="text-white font-bold">{lobby.player1?.username ?? 'Player'}</h3>
+                          <div className="min-w-0">
+                            <h3 className="text-white font-bold truncate">{lobby.player1?.username ?? 'Player'}</h3>
                             {/* Trust Rating */}
                             {lobby.player1?.trust_rating_letter && (
                               <div className="flex items-center gap-1 mt-0.5">
@@ -2394,9 +2394,9 @@ export default function QuickMatchLobbyPage() {
               </div>
               
               {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 sm:py-6 text-lg font-bold"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 sm:py-6 text-base sm:text-lg font-bold"
                   onClick={() => handleAcceptJoinRequest(currentJoinRequest)}
                   disabled={processingRequest}
                 >
@@ -2409,7 +2409,7 @@ export default function QuickMatchLobbyPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20 py-4 sm:py-6 text-lg font-bold"
+                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20 py-3 sm:py-6 text-base sm:text-lg font-bold"
                   onClick={() => handleDeclineJoinRequest(currentJoinRequest)}
                   disabled={processingRequest}
                 >
@@ -2424,10 +2424,10 @@ export default function QuickMatchLobbyPage() {
 
       {/* Pending Join Request Indicator */}
       {pendingLobbyId && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-3 sm:px-6 py-4 shadow-2xl z-40">
-          <div className="flex items-center gap-3">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-3 sm:px-6 py-3 sm:py-4 shadow-2xl z-40 w-[calc(100vw-1.25rem)] sm:w-auto max-w-xl">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-            <span className="text-white font-medium">Waiting for host approval...</span>
+            <span className="text-white text-sm sm:text-base font-medium">Waiting for host approval...</span>
             <Button 
               variant="ghost" 
               size="sm" 

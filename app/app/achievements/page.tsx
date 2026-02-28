@@ -82,26 +82,26 @@ export default function AchievementsPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-sm:px-1">
       <div>
         <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">Achievements</h1>
         <p className="text-gray-400">Complete challenges across all modes to earn rewards and show off your skill.</p>
       </div>
 
       <div className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 border border-teal-500/30 rounded-xl p-4 sm:p-6 shadow-lg shadow-teal-500/10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center">
               <Trophy className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Achievement Progress</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Achievement Progress</h2>
               <p className="text-gray-300 text-sm">
                 {stats.completed} of {stats.total} completed
               </p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-2xl sm:text-4xl font-bold text-teal-400">{stats.percentage}%</div>
             <p className="text-xs text-gray-400">Total Progress</p>
           </div>
@@ -122,8 +122,8 @@ export default function AchievementsPage() {
             />
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex gap-2 bg-slate-800/50 rounded-lg p-1">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-wrap gap-2 bg-slate-800/50 rounded-lg p-1">
               <Button
                 size="sm"
                 variant={completionFilter === 'all' ? 'default' : 'ghost'}
@@ -163,7 +163,7 @@ export default function AchievementsPage() {
             </div>
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[200px] bg-slate-800/50 border-white/10 text-white focus:border-teal-500 focus:ring-teal-500/20">
+              <SelectTrigger className="w-full sm:w-[200px] bg-slate-800/50 border-white/10 text-white focus:border-teal-500 focus:ring-teal-500/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-900 border-white/10">

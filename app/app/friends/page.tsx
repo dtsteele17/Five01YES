@@ -81,7 +81,7 @@ function TabButton({ active, onClick, children, count }: {
   return (
     <button
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-3 sm:px-6 py-3 text-sm font-semibold transition-all rounded-xl ${
+      className={`relative flex items-center gap-1 sm:gap-2 px-2 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold transition-all rounded-xl ${
         active 
           ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
           : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -89,7 +89,7 @@ function TabButton({ active, onClick, children, count }: {
     >
       {children}
       {count !== undefined && count > 0 && (
-        <Badge className={`ml-2 ${active ? 'bg-white text-emerald-600' : 'bg-slate-700 text-slate-300'}`}>
+        <Badge className={`ml-1 sm:ml-2 ${active ? 'bg-white text-emerald-600' : 'bg-slate-700 text-slate-300'}`}>
           {count}
         </Badge>
       )}
@@ -106,7 +106,7 @@ function FriendListItem({
   onChatClick: (id: string, name: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50 hover:border-slate-600/50 hover:bg-slate-800/60 transition-all group">
+    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-800/40 rounded-xl border border-slate-700/50 hover:border-slate-600/50 hover:bg-slate-800/60 transition-all group">
       {/* Avatar */}
       <div className="relative">
         <Avatar className="w-14 h-14 rounded-xl border-2 border-slate-700">
@@ -123,7 +123,7 @@ function FriendListItem({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-white font-bold text-lg truncate">{friend.username}</p>
+          <p className="text-white font-bold text-base sm:text-lg truncate">{friend.username}</p>
           <TrustRatingBadge letter={friend.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E' | null} count={friend.trust_rating_count || 0} />
         </div>
         <div className="flex items-center gap-2 mt-1">
@@ -180,7 +180,7 @@ function RequestItem({
   onDecline: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
       <Avatar className="w-14 h-14 rounded-xl">
         <AvatarImage src={request.avatar_url} />
         <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold">
@@ -196,7 +196,7 @@ function RequestItem({
           {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex w-full sm:w-auto gap-2">
         <Button
           size="sm"
           onClick={() => onAccept(request.id)}
@@ -228,7 +228,7 @@ function SearchResultItem({
   onAddFriend: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
+    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
       <Avatar className="w-14 h-14 rounded-xl">
         <AvatarImage src={user.avatar_url} />
         <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold">
@@ -480,7 +480,7 @@ export default function FriendsPage() {
   const offlineFriends = friends.filter(f => !f.is_online);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto max-sm:px-1">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
@@ -488,13 +488,13 @@ export default function FriendsPage() {
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">Friends</h1>
           <p className="text-slate-400 mt-2">Connect with players worldwide</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-center px-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+          <div className="text-center px-2 sm:px-4">
             <p className="text-2xl font-black text-emerald-400">{onlineFriends.length}</p>
             <p className="text-slate-500 text-sm">Online</p>
           </div>
-          <div className="w-px h-10 bg-slate-700" />
-          <div className="text-center px-4">
+          <div className="w-px h-8 sm:h-10 bg-slate-700" />
+          <div className="text-center px-2 sm:px-4">
             <p className="text-2xl font-black text-white">{friends.length}</p>
             <p className="text-slate-500 text-sm">Total</p>
           </div>
@@ -508,7 +508,7 @@ export default function FriendsPage() {
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
             {/* Tabs */}
             <div className="p-4 border-b border-slate-700/50">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <TabButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')} count={friends.length}>
                   <Users className="w-4 h-4" />
                   Friends
@@ -596,11 +596,11 @@ export default function FriendsPage() {
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                       className="flex-1 bg-slate-700/50 border-slate-600 text-white h-12 rounded-xl"
                     />
-                    <Button
-                      onClick={handleSearch}
-                      disabled={searching}
-                      className="bg-emerald-600 hover:bg-emerald-700 h-12 px-3 sm:px-6 rounded-xl"
-                    >
+                  <Button
+                    onClick={handleSearch}
+                    disabled={searching}
+                    className="bg-emerald-600 hover:bg-emerald-700 h-12 px-3 sm:px-6 rounded-xl max-sm:w-auto"
+                  >
                       <Search className="w-5 h-5 mr-2" />
                       Search
                     </Button>
@@ -654,7 +654,7 @@ export default function FriendsPage() {
         {/* Right Column - Chat */}
         {chatOpen && (
           <div className="lg:col-span-1">
-            <Card className="bg-slate-800/30 border-slate-700/50 h-[600px] flex flex-col overflow-hidden">
+            <Card className="bg-slate-800/30 border-slate-700/50 h-[70vh] sm:h-[600px] flex flex-col overflow-hidden">
               {/* Chat Header */}
               <div className="flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-800/50">
                 <div className="flex items-center gap-3">

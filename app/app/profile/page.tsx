@@ -260,7 +260,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 max-sm:px-1">
       {/* Hero Profile Card */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/50">
         {/* Background Elements */}
@@ -457,7 +457,7 @@ export default function ProfilePage() {
                         </Avatar>
                         <div className="min-w-0">
                           <p className="text-white font-semibold truncate">vs {match.opponent_username}</p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-slate-400 truncate">
                             {match.game_mode} • {match.match_format || 'quick'} • {match.played_at ? new Date(match.played_at).toLocaleDateString() : 'Unknown date'}
                           </p>
                         </div>
@@ -502,7 +502,7 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="p-4 sm:p-6 text-center">
-              <p className="text-4xl sm:text-6xl font-black text-white">{isUnranked ? (profile?.ranked_points || 0) : (rankedInfo?.rp || 0)}</p>
+              <p className="text-3xl sm:text-6xl font-black text-white">{isUnranked ? (profile?.ranked_points || 0) : (rankedInfo?.rp || 0)}</p>
               <p className="text-slate-400 mt-1">Ranked Points</p>
               
               {!isUnranked && rankedInfo?.division_name ? (
@@ -523,7 +523,7 @@ export default function ProfilePage() {
                 </div>
               )}
               
-              <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mt-6">
                 <div>
                   <p className="text-lg sm:text-xl font-bold text-white">{isUnranked ? 0 : (rankedInfo?.wins || 0)}</p>
                   <p className="text-slate-400 text-xs">Wins</p>
@@ -532,13 +532,13 @@ export default function ProfilePage() {
                   <p className="text-lg sm:text-xl font-bold text-white">{isUnranked ? 0 : (rankedInfo?.losses || 0)}</p>
                   <p className="text-slate-400 text-xs">Losses</p>
                 </div>
-                <div>
+                <div className="col-span-2 sm:col-span-1">
                   <p className="text-lg sm:text-xl font-bold text-white">{isUnranked ? '0.0' : calculateRankedWinRate()}%</p>
                   <p className="text-slate-400 text-xs">Win Rate</p>
                 </div>
               </div>
             </div>
-            <div className="px-6 pb-6">
+            <div className="px-4 sm:px-6 pb-4 sm:pb-6">
               <Link href="/app/ranked">
                 <Button className="w-full bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
                   <Shield className="w-4 h-4 mr-2" />

@@ -225,7 +225,7 @@ export default function StatsPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">Performance</p>
-          <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">Your Statistics</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tight">Your Statistics</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -278,7 +278,7 @@ export default function StatsPage() {
             </div>
           </div>
           {isFiltered && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center gap-2">
+            <div className="mt-4 pt-4 border-t border-slate-700/50 flex flex-wrap items-center gap-2">
               <span className="text-slate-400 text-sm">Active filters:</span>
               <Badge className="bg-emerald-500/20 text-emerald-400">
                 {GAME_MODES.find(m => m.value === gameModeFilter)?.label} × {MATCH_TYPES.find(t => t.value === matchTypeFilter)?.label}
@@ -297,7 +297,7 @@ export default function StatsPage() {
       )}
 
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <MainStatCard
           value={String(displayStats?.total_matches || 0)}
           label="Total Matches"
@@ -367,8 +367,8 @@ export default function StatsPage() {
 
       {/* Tournament Wins - show when tournament filter active */}
       {matchTypeFilter === 'tournament' && (
-        <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 p-5">
-          <div className="flex items-center gap-4">
+        <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 p-4 sm:p-5">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-14 h-14 rounded-xl bg-amber-500/20 flex items-center justify-center">
               <Trophy className="w-7 h-7 text-amber-400" />
             </div>
@@ -457,8 +457,8 @@ function RecentMatchesSection() {
 
   return (
     <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
-      <div className="p-6 border-b border-slate-700/50">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 border-b border-slate-700/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
               <Activity className="w-5 h-5 text-emerald-400" />
@@ -479,7 +479,7 @@ function RecentMatchesSection() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             <Link href="/app/stats/matches">
-              <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white">
+              <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white text-xs sm:text-sm px-2 sm:px-3">
                 View All
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -488,7 +488,7 @@ function RecentMatchesSection() {
         </div>
       </div>
       
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {loading && matches.length === 0 ? (
           <div className="py-12 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-4">

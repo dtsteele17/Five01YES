@@ -420,18 +420,18 @@ export default function TournamentsPage() {
         {/* Premium Header Section */}
         <div className="bg-slate-900/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
           <div className="px-3 sm:px-6 py-4 sm:py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 via-emerald-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
                   <Trophy className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-black text-white tracking-tight">Tournaments</h1>
+                  <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Tournaments</h1>
                   <p className="text-slate-400">Compete in organized competitions</p>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <Button
                   onClick={async () => {
                     console.log('Manual tournament status check triggered');
@@ -455,7 +455,7 @@ export default function TournamentsPage() {
                     }
                   }}
                   variant="outline"
-                  className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                  className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 max-sm:flex-1 max-sm:min-w-[140px] max-sm:text-xs"
                 >
                   <Zap className="w-4 h-4 mr-2" />
                   Check Status
@@ -468,7 +468,7 @@ export default function TournamentsPage() {
                     setIsCreateModalOpen(true);
                     console.log('Modal state after setIsCreateModalOpen(true)');
                   }}
-                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0"
+                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 border-0 max-sm:flex-1 max-sm:min-w-[170px] max-sm:text-xs"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Tournament
@@ -503,10 +503,10 @@ export default function TournamentsPage() {
 
           {/* Tab Navigation */}
           <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10 p-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <button
                 onClick={() => setActiveTab('open')}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                className={`w-full sm:flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 ${
                   activeTab === 'open'
                     ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -523,7 +523,7 @@ export default function TournamentsPage() {
               
               <button
                 onClick={() => setActiveTab('live')}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                className={`w-full sm:flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 ${
                   activeTab === 'live'
                     ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -540,7 +540,7 @@ export default function TournamentsPage() {
               
               <button
                 onClick={() => setActiveTab('completed')}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                className={`w-full sm:flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-3 sm:py-4 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 ${
                   activeTab === 'completed'
                     ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'

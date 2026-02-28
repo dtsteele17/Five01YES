@@ -433,7 +433,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-12">
+    <div className="max-w-3xl mx-auto space-y-8 pb-12 max-sm:px-1">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -457,7 +457,7 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
           {/* Avatar Upload */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
             <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
               <Avatar className="w-24 h-24 rounded-2xl border-4 border-slate-700">
                 {avatarPreview ? (
@@ -619,8 +619,8 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
-            <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+            <div className="flex items-center space-x-3 min-w-0">
               <Volume2 className="w-5 h-5 text-emerald-400" />
               <div>
                 <p className="text-white font-medium">Invite Notification Sound</p>
@@ -630,8 +630,8 @@ export default function SettingsPage() {
             <Switch checked={inviteSoundOn} onCheckedChange={(v) => { setInviteSoundOn(v); setInviteSoundEnabled(v); toast.success(v ? 'Invite sound enabled' : 'Invite sound disabled'); }} />
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
-            <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+            <div className="flex items-center space-x-3 min-w-0">
               <Volume2 className="w-5 h-5 text-emerald-400" />
               <div>
                 <p className="text-white font-medium">Match Start Sound</p>
@@ -648,7 +648,7 @@ export default function SettingsPage() {
             { key: 'notifications_achievements' as const, label: 'Achievement Unlocked', desc: 'When you earn new achievements' },
             { key: 'notifications_messages' as const, label: 'New Messages', desc: 'Chat and direct messages' },
           ]).map((item) => (
-            <div key={item.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+            <div key={item.key} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white/5 rounded-xl border border-white/5">
               <div>
                 <p className="text-white font-medium">{item.label}</p>
                 <p className="text-gray-400 text-sm">{item.desc}</p>
@@ -668,8 +668,8 @@ export default function SettingsPage() {
           <h2 className="text-xl font-bold text-white">Training</h2>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
-          <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+          <div className="flex items-center space-x-3 min-w-0">
             <Target className="w-5 h-5 text-emerald-400" />
             <div>
               <p className="text-white font-medium">Show Dartbot Dartboard</p>
@@ -690,14 +690,14 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white/5 rounded-xl border border-white/5">
             <div>
               <p className="text-white font-medium">Dark Mode</p>
               <p className="text-gray-400 text-sm">Use dark theme (always on)</p>
             </div>
             <Switch checked={true} disabled />
           </div>
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white/5 rounded-xl border border-white/5">
             <div>
               <p className="text-white font-medium">Reduce Motion</p>
               <p className="text-gray-400 text-sm">Minimize animations</p>
@@ -717,14 +717,14 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white/5 rounded-xl border border-white/5">
             <div>
               <p className="text-white font-medium">Profile Visibility</p>
               <p className="text-gray-400 text-sm">Show profile to everyone</p>
             </div>
             <Switch checked={localSettings.privacy_profile_visible} onCheckedChange={(v) => updateLocalSetting('privacy_profile_visible', v)} />
           </div>
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-white/5 rounded-xl border border-white/5">
             <div>
               <p className="text-white font-medium">Show Online Status</p>
               <p className="text-gray-400 text-sm">Let others see when you&apos;re online</p>
