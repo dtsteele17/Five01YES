@@ -440,10 +440,16 @@ export default function DashboardPage() {
                     <Activity className="w-3 h-3 mr-1" />
                     Online
                   </Badge>
-                  {rankedState?.division_name && (
+                  {rankedState && !rankedState.provisional_games_remaining && rankedState.division_name && (
                     <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                       <Crown className="w-3 h-3 mr-1" />
                       {rankedState.division_name}
+                    </Badge>
+                  )}
+                  {rankedState?.provisional_games_remaining && (
+                    <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">
+                      <Crown className="w-3 h-3 mr-1" />
+                      Unranked
                     </Badge>
                   )}
                   {(profile?.trust_rating_count || 0) > 0 && profile?.trust_rating_letter && (
@@ -560,7 +566,7 @@ export default function DashboardPage() {
                   <div className="relative flex-shrink-0">
                     <div className="absolute inset-0 bg-amber-500/30 rounded-2xl blur-lg" />
                     <div className="relative w-24 h-24 sm:w-40 sm:h-40 flex items-center justify-center">
-                      {rankedState?.division_name ? (
+                      {rankedState?.division_name && !rankedState.provisional_games_remaining ? (
                         <img 
                           src={getRankImageUrl(rankedState.division_name)} 
                           alt={rankedState.division_name}
@@ -577,7 +583,7 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-amber-400 text-xs sm:text-sm font-semibold uppercase tracking-wider">Current Rank</p>
                     <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">
-                      {rankedState?.division_name || 'Unranked'}
+                      {rankedState?.provisional_games_remaining ? 'Unranked' : (rankedState?.division_name || 'Unranked')}
                     </h2>
                   </div>
                 </div>
@@ -587,10 +593,12 @@ export default function DashboardPage() {
                   <div className="relative">
                     <div className="absolute -inset-4 bg-amber-500/10 rounded-full blur-2xl" />
                     <p className="relative text-4xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-200 drop-shadow-2xl">
-                      {rankedState?.rp || 0}
+                      {rankedState?.provisional_games_remaining ? '—' : (rankedState?.rp || 0)}
                     </p>
                   </div>
-                  <p className="text-amber-400/80 text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-2">ELO Rating</p>
+                  <p className="text-amber-400/80 text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-2">
+                    {rankedState?.provisional_games_remaining ? 'COMPLETE PLACEMENTS' : 'ELO Rating'}
+                  </p>
                 </div>
 
                 {/* Right - Play Button & Placement */}
