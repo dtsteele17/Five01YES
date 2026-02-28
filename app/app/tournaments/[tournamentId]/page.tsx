@@ -1164,16 +1164,86 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               setShowReadyUpModal(false);
               router.push(`/app/play/quick-match/match/${roomId}?tournamentMatch=${currentMatchId}&tournamentId=${tournamentId}`);
             }}
-            onTimeout={async () => {
+            onTimeout={async (iReadied: boolean, opponentReadied: boolean) => {
               setShowReadyUpModal(false);
-              // Cancel tournament if not all players readied up
-              try {
-                await supabase
-                  .from('tournaments')
-                  .update({ status: 'cancelled' })
-                  .eq('id', tournamentId);
-                toast.error('Tournament cancelled - not all players readied up');
-              } catch {}
+              
+              if (iReadied && !opponentReadied) {
+                // I readied, opponent didn't → I win by forfeit
+                try {
+                  // Get the match to find opponent
+                  const { data: match } = await supabase
+                    .from('tournament_matches')
+                    .select('player1_id, player2_id')
+                    .eq('id', currentMatchId)
+                    .single();
+                  
+                  if (match) {
+                    // Set winner to the player who readied up
+                    await supabase
+                      .from('tournament_matches')
+                      .update({ 
+                        winner_id: currentUserId, 
+                        status: 'completed',
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', currentMatchId);
+
+                    // Progress the bracket
+                    try {
+                      await supabase.rpc('progress_tournament_bracket', {
+                        p_match_id: currentMatchId,
+                        p_winner_id: currentUserId,
+                      });
+                    } catch {}
+                    
+                    toast.success('🏆 You win! Opponent failed to ready up.');
+                  }
+                } catch (err) {
+                  console.error('Error forfeiting match:', err);
+                }
+              } else if (!iReadied && opponentReadied) {
+                // Opponent readied, I didn't → opponent wins
+                try {
+                  const { data: match } = await supabase
+                    .from('tournament_matches')
+                    .select('player1_id, player2_id')
+                    .eq('id', currentMatchId)
+                    .single();
+                  
+                  if (match) {
+                    const opponentId = match.player1_id === currentUserId ? match.player2_id : match.player1_id;
+                    await supabase
+                      .from('tournament_matches')
+                      .update({ 
+                        winner_id: opponentId, 
+                        status: 'completed',
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', currentMatchId);
+
+                    try {
+                      await supabase.rpc('progress_tournament_bracket', {
+                        p_match_id: currentMatchId,
+                        p_winner_id: opponentId,
+                      });
+                    } catch {}
+                    
+                    toast.error('You were eliminated — failed to ready up in time.');
+                  }
+                } catch (err) {
+                  console.error('Error forfeiting match:', err);
+                }
+              } else {
+                // Neither readied — both forfeit, cancel the match
+                try {
+                  await supabase
+                    .from('tournament_matches')
+                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                    .eq('id', currentMatchId);
+                  toast.error('Match cancelled — neither player readied up.');
+                } catch {}
+              }
+              
               loadTournament();
             }}
           />

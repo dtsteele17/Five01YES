@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -12,7 +12,7 @@ interface Props {
   tournamentId: string;
   currentUserId: string;
   onBothReady: (roomId: string) => void;
-  onTimeout: () => void;
+  onTimeout: (myReady: boolean, opponentReady: boolean) => void;
 }
 
 export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, onBothReady, onTimeout }: Props) {
@@ -93,13 +93,19 @@ export function TournamentReadyUpModal({ matchId, tournamentId, currentUserId, o
     return () => clearInterval(poll);
   }, [matchId, currentUserId, player1Id, player2Id, creatingRoom]);
 
+  // Track ready state via refs for timeout callback
+  const myReadyRef = useRef(false);
+  const opponentReadyRef = useRef(false);
+  useEffect(() => { myReadyRef.current = myReady; }, [myReady]);
+  useEffect(() => { opponentReadyRef.current = opponentReady; }, [opponentReady]);
+
   // 3-minute countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          onTimeout();
+          onTimeout(myReadyRef.current, opponentReadyRef.current);
           return 0;
         }
         return prev - 1;
