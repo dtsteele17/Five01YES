@@ -3500,12 +3500,16 @@ export default function QuickMatchRoomPage() {
       // Send forfeit signal to opponent
       const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
       if (opponentId) {
-        await supabase.rpc('rpc_send_match_signal', {
-          p_room_id: matchId,
-          p_to_user_id: opponentId,
-          p_type: 'forfeit',
-          p_payload: { message: 'You were forfeited for being AFK' }
-        }).catch(err => console.error('[AFK] Signal error:', err));
+        try {
+          await supabase.rpc('rpc_send_match_signal', {
+            p_room_id: matchId,
+            p_to_user_id: opponentId,
+            p_type: 'forfeit',
+            p_payload: { message: 'You were forfeited for being AFK' }
+          });
+        } catch (err) {
+          console.error('[AFK] Signal error:', err);
+        }
       }
 
       // Progress tournament bracket if applicable
