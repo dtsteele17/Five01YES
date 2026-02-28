@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/accordion";
 import { TopNav } from '@/components/website/TopNav';
 import { getRankImageUrl } from '@/lib/rank-badge-helpers';
+import { createClient } from '@/lib/supabase/client';
 
 // Animated counter hook with easing
 function useAnimatedCounter(target: number, duration: number = 2500) {
@@ -403,21 +404,128 @@ function HeroSection({ scrollToSection }: any) {
 
 // LIVE STATS TICKER
 function LiveStatsTicker() {
-  const liveMatches = useAnimatedCounter(1247, 2000);
-  const activePlayers = useAnimatedCounter(8392, 2500);
-  const dartsThrown = useAnimatedCounter(45231, 3000);
-  const tournaments = useAnimatedCounter(48, 1500);
+  const [statsData, setStatsData] = useState({
+    liveMatches: 0,
+    activePlayers: 0,
+    dartsToday: 0,
+    activeTournaments: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadStats = async () => {
+      setIsLoading(true);
+      setHasError(false);
+
+      try {
+        const supabase = createClient();
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+        const [liveMatchesRes, activeTournamentsRes, activeRoomsRes, presenceRes, eventsRes] = await Promise.all([
+          supabase
+            .from('match_rooms')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active'),
+          supabase
+            .from('tournaments')
+            .select('id', { count: 'exact', head: true })
+            .in('status', ['active', 'in_progress']),
+          supabase
+            .from('match_rooms')
+            .select('player1_id, player2_id')
+            .eq('status', 'active'),
+          supabase
+            .from('user_presence')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('is_online', true)
+            .gte('last_seen_at', fifteenMinutesAgo),
+          supabase
+            .from('match_events')
+            .select('event_type, payload, created_at')
+            .gte('created_at', startOfDay.toISOString()),
+        ]);
+
+        let activePlayersCount = presenceRes.count ?? 0;
+        if (presenceRes.error) {
+          const playerSet = new Set<string>();
+          (activeRoomsRes.data || []).forEach((room) => {
+            if (room.player1_id) playerSet.add(room.player1_id);
+            if (room.player2_id) playerSet.add(room.player2_id);
+          });
+          activePlayersCount = playerSet.size;
+        }
+
+        let dartsTodayCount = 0;
+        if (!eventsRes.error && eventsRes.data) {
+          dartsTodayCount = eventsRes.data.reduce((sum, event: any) => {
+            if (event.event_type !== 'visit') return sum;
+            const payload = event.payload || {};
+            if (typeof payload.darts_thrown === 'number') return sum + payload.darts_thrown;
+            if (typeof payload.dart_count === 'number') return sum + payload.dart_count;
+            if (typeof payload.dartsThrown === 'number') return sum + payload.dartsThrown;
+            if (Array.isArray(payload.darts)) return sum + payload.darts.length;
+            return sum;
+          }, 0);
+        } else {
+          const { data: visitsData } = await supabase
+            .from('quick_match_visits')
+            .select('darts_thrown, created_at')
+            .gte('created_at', startOfDay.toISOString());
+
+          dartsTodayCount = (visitsData || []).reduce((sum, visit: any) => sum + (visit.darts_thrown || 0), 0);
+        }
+
+        if (!mounted) return;
+
+        setStatsData({
+          liveMatches: liveMatchesRes.count ?? 0,
+          activePlayers: activePlayersCount,
+          dartsToday: dartsTodayCount,
+          activeTournaments: activeTournamentsRes.count ?? 0,
+        });
+      } catch (error) {
+        console.error('[LiveStatsTicker] Failed to load live stats:', error);
+        if (!mounted) return;
+        setHasError(true);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    loadStats();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const liveMatches = useAnimatedCounter(statsData.liveMatches, 2000);
+  const activePlayers = useAnimatedCounter(statsData.activePlayers, 2500);
+  const dartsThrown = useAnimatedCounter(statsData.dartsToday, 3000);
+  const tournaments = useAnimatedCounter(statsData.activeTournaments, 1500);
+
+  const formatValue = (value: string) => {
+    if (isLoading) return '...';
+    return value;
+  };
 
   const stats = [
-    { label: 'Live Matches', value: liveMatches.count.toLocaleString(), icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500/20' },
-    { label: 'Active Players', value: activePlayers.count.toLocaleString(), icon: Users, color: 'text-primary', bg: 'bg-primary/20' },
-    { label: 'Darts Today', value: `${(dartsThrown.count / 1000).toFixed(1)}K`, icon: Target, color: 'text-secondary', bg: 'bg-secondary/20' },
-    { label: 'Active Tournaments', value: tournaments.count.toString(), icon: Trophy, color: 'text-amber-400', bg: 'bg-amber-500/20' },
+    { label: 'Live Matches', value: formatValue(liveMatches.count.toLocaleString()), icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500/20' },
+    { label: 'Active Players', value: formatValue(activePlayers.count.toLocaleString()), icon: Users, color: 'text-primary', bg: 'bg-primary/20' },
+    { label: 'Darts Today', value: formatValue(`${(dartsThrown.count / 1000).toFixed(1)}K`), icon: Target, color: 'text-secondary', bg: 'bg-secondary/20' },
+    { label: 'Active Tournaments', value: formatValue(tournaments.count.toString()), icon: Trophy, color: 'text-amber-400', bg: 'bg-amber-500/20' },
   ];
 
   return (
     <div ref={liveMatches.ref} className="border-y border-border/50 bg-card/30 backdrop-blur-sm">
       <div className="container mx-auto px-4 py-6">
+        {hasError && (
+          <p className="text-xs text-muted-foreground mb-3">Some live stats are temporarily unavailable.</p>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
             <FadeIn key={index} delay={index * 0.1}>

@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { useTodayStats } from '@/lib/hooks/useTodayStats';
 import { formatDistanceToNow } from 'date-fns';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MatchStatsModal } from '@/components/app/MatchStatsModal';
 import { PrivateMatchModal } from '@/components/game/PrivateMatchModal';
 import { ModernMatchCard } from '@/components/match/ModernMatchCard';
@@ -411,6 +411,73 @@ function PrivateMatchCard() {
 }
 
 export default function PlayPage() {
+  const [quickMatchActiveCount, setQuickMatchActiveCount] = useState(0);
+  const [rankedPoints, setRankedPoints] = useState<number | null>(null);
+  const [menuStatsLoading, setMenuStatsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = createClient();
+
+    const loadPlayMenuStats = async () => {
+      setMenuStatsLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          if (!mounted) return;
+          setQuickMatchActiveCount(0);
+          setRankedPoints(0);
+          return;
+        }
+
+        const [roomsCountRes, profileRes, rankedStateRes] = await Promise.all([
+          supabase
+            .from('match_rooms')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active')
+            .eq('match_type', 'quick'),
+          supabase
+            .from('profiles')
+            .select('ranked_points')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          supabase.rpc('rpc_ranked_get_my_state'),
+        ]);
+
+        let quickCount = roomsCountRes.count ?? 0;
+        if (roomsCountRes.error) {
+          const { count: lobbiesCount } = await supabase
+            .from('quick_match_lobbies')
+            .select('id', { count: 'exact', head: true })
+            .in('status', ['open', 'waiting', 'full']);
+          quickCount = lobbiesCount ?? 0;
+        }
+
+        const rpFromProfile = profileRes.data?.ranked_points;
+        const rpFromRpc = rankedStateRes.data?.player_state?.rp;
+        const resolvedRankedPoints = typeof rpFromProfile === 'number'
+          ? rpFromProfile
+          : (typeof rpFromRpc === 'number' ? rpFromRpc : 0);
+
+        if (!mounted) return;
+        setQuickMatchActiveCount(quickCount);
+        setRankedPoints(resolvedRankedPoints);
+      } catch (error) {
+        console.error('[PlayPage] Failed loading play menu stats:', error);
+        if (!mounted) return;
+        setQuickMatchActiveCount(0);
+        setRankedPoints(0);
+      } finally {
+        if (mounted) setMenuStatsLoading(false);
+      }
+    };
+
+    loadPlayMenuStats();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <motion.div 
       className="max-w-7xl mx-auto space-y-8"
@@ -474,7 +541,7 @@ export default function PlayPage() {
             description="Jump into a fast-paced match against players worldwide. Perfect for casual games."
             icon={<Zap className="w-7 h-7 text-white" />}
             badge={{ text: 'Popular', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' }}
-            stats={{ label: 'Active', value: '1.2k' }}
+            stats={{ label: 'Active', value: menuStatsLoading ? '...' : quickMatchActiveCount.toLocaleString() }}
             featured
             color="bg-gradient-to-br from-emerald-500 to-teal-600"
           />
@@ -487,7 +554,7 @@ export default function PlayPage() {
             description="Compete for ranked points and climb the divisions. Prove your skills."
             icon={<Shield className="w-7 h-7 text-white" />}
             badge={{ text: 'Ranked', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }}
-            stats={{ label: 'Points', value: '500' }}
+            stats={{ label: 'Points', value: menuStatsLoading ? '...' : (rankedPoints ?? 0).toLocaleString() }}
             color="bg-gradient-to-br from-amber-500 to-orange-600"
           />
 

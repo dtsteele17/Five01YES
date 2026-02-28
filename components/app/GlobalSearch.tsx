@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, User, Trophy, Loader2 } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 
 interface SearchResult {
-  type: 'player' | 'tournament';
+  type: 'player';
   id: string;
   name: string;
   subtitle: string;
@@ -46,21 +46,12 @@ export function GlobalSearch({ className = '', inputClassName = '', placeholder 
     try {
       const searchTerm = `%${q.trim()}%`;
 
-      // Search players and tournaments in parallel
-      const [playersRes, tournamentsRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('user_id, username, display_name, avatar_url')
-          .or(`username.ilike.${searchTerm},display_name.ilike.${searchTerm}`)
-          .limit(5),
-        supabase
-          .from('tournaments')
-          .select('id, name, status, game_mode, max_players')
-          .ilike('name', searchTerm)
-          .in('status', ['scheduled', 'checkin', 'in_progress'])
-          .order('start_time', { ascending: true })
-          .limit(5),
-      ]);
+      const playersRes = await supabase
+        .from('profiles')
+        .select('user_id, username, display_name, avatar_url')
+        .or(`username.ilike.${searchTerm},display_name.ilike.${searchTerm}`)
+        .order('username', { ascending: true })
+        .limit(8);
 
       const searchResults: SearchResult[] = [];
 
@@ -73,30 +64,18 @@ export function GlobalSearch({ className = '', inputClassName = '', placeholder 
             name: p.display_name || p.username || 'Unknown',
             subtitle: p.username ? `@${p.username}` : '',
             avatar_url: p.avatar_url,
-            href: `/app/player/${p.user_id}`,
-          });
-        }
-      }
-
-      // Map tournaments
-      if (tournamentsRes.data) {
-        for (const t of tournamentsRes.data) {
-          const statusLabel = t.status === 'in_progress' ? '🟢 Live' : t.status === 'checkin' ? '🟡 Check-in' : '📅 Upcoming';
-          searchResults.push({
-            type: 'tournament',
-            id: t.id,
-            name: t.name,
-            subtitle: `${statusLabel} · ${t.game_mode || 501}`,
-            href: `/app/tournaments/${t.id}`,
+            href: `/app/profile/${p.user_id}`,
           });
         }
       }
 
       setResults(searchResults);
-      setOpen(searchResults.length > 0);
+      setOpen(true);
       setSelectedIndex(-1);
     } catch (err) {
       console.error('[Search] Error:', err);
+      setResults([]);
+      setOpen(true);
     } finally {
       setLoading(false);
     }
@@ -133,6 +112,11 @@ export function GlobalSearch({ className = '', inputClassName = '', placeholder 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      return;
+    }
+
     if (!open || results.length === 0) return;
 
     if (e.key === 'ArrowDown') {
@@ -144,8 +128,6 @@ export function GlobalSearch({ className = '', inputClassName = '', placeholder 
     } else if (e.key === 'Enter' && selectedIndex >= 0) {
       e.preventDefault();
       handleSelect(results[selectedIndex]);
-    } else if (e.key === 'Escape') {
-      setOpen(false);
     }
   };
 
@@ -178,24 +160,18 @@ export function GlobalSearch({ className = '', inputClassName = '', placeholder 
                 i === selectedIndex ? 'bg-emerald-500/10' : 'hover:bg-white/5'
               }`}
             >
-              {result.type === 'player' ? (
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={result.avatar_url || ''} />
-                  <AvatarFallback className="bg-slate-700 text-white text-xs">
-                    {result.name.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                  <Trophy className="w-4 h-4 text-amber-400" />
-                </div>
-              )}
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={result.avatar_url || ''} />
+                <AvatarFallback className="bg-slate-700 text-white text-xs">
+                  {result.name.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{result.name}</p>
                 <p className="text-xs text-slate-400 truncate">{result.subtitle}</p>
               </div>
               <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-                {result.type === 'player' ? 'Player' : 'Tournament'}
+                Player
               </span>
             </button>
           ))}
