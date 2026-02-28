@@ -1050,6 +1050,8 @@ export default function QuickMatchRoomPage() {
     refreshCamera,
     refreshConnection,
     forceTurnAndRestart,
+    switchCamera,
+    facingMode,
   } = webrtc;
   
   // Expose streams to window for debugging
@@ -4138,6 +4140,11 @@ export default function QuickMatchRoomPage() {
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
                       {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
                     </Button>
+                    {isCameraOn && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={switchCamera} title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}>
+                        <RotateCcw className="w-4 h-4" />
+                      </Button>
+                    )}
                     {isCameraOn && (
                       <TooltipProvider>
                         <Tooltip>

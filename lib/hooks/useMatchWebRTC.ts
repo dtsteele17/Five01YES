@@ -22,6 +22,8 @@ export interface UseMatchWebRTCReturn {
   refreshCamera: () => Promise<void>;
   refreshConnection: () => Promise<void>;
   forceTurnAndRestart: () => void;
+  switchCamera: () => Promise<void>;
+  facingMode: 'user' | 'environment';
 }
 
 /**
@@ -51,6 +53,7 @@ export function useMatchWebRTC({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -67,15 +70,19 @@ export function useMatchWebRTC({
     localStreamRef.current = localStream;
   }, [localStream]);
 
+  const facingModeRef = useRef<'user' | 'environment'>('user');
+  useEffect(() => { facingModeRef.current = facingMode; }, [facingMode]);
+
   // ========== START CAMERA ==========
-  const startCamera = useCallback(async (): Promise<MediaStream | null> => {
-    console.log('[WebRTC] Starting camera...');
+  const startCamera = useCallback(async (overrideFacing?: 'user' | 'environment'): Promise<MediaStream | null> => {
+    const facing = overrideFacing || facingModeRef.current;
+    console.log('[WebRTC] Starting camera...', { facingMode: facing });
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
-          facingMode: 'user',
+          facingMode: facing,
         },
         audio: false,
       });
@@ -474,6 +481,35 @@ export function useMatchWebRTC({
     }
   }, [startCamera, stopCamera]);
 
+  // ========== SWITCH CAMERA (front/back) ==========
+  const switchCamera = useCallback(async () => {
+    const newFacing = facingModeRef.current === 'user' ? 'environment' : 'user';
+    console.log('[WebRTC] Switching camera to:', newFacing);
+    setFacingMode(newFacing);
+    facingModeRef.current = newFacing;
+
+    // Stop current tracks
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+
+    // Get new stream with different facing mode
+    const stream = await startCamera(newFacing);
+    if (stream && peerConnectionRef.current) {
+      const pc = peerConnectionRef.current;
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        // Replace the track on the existing sender
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(videoTrack);
+        } else {
+          pc.addTrack(videoTrack, stream);
+        }
+      }
+    }
+  }, [startCamera]);
+
   // ========== REFRESH CONNECTION ==========
   const refreshConnection = useCallback(async () => {
     if (!roomId || !myUserId || !opponentUserId) return;
@@ -597,5 +633,7 @@ export function useMatchWebRTC({
     refreshCamera,
     refreshConnection,
     forceTurnAndRestart,
+    switchCamera,
+    facingMode,
   };
 }
