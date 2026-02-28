@@ -581,7 +581,16 @@ export default function LocalMatchPage() {
     }
 
     const dart: Dart = { type: dartType, number, value };
-    setCurrentVisit([...currentVisit, dart]);
+    const newVisit = [...currentVisit, dart];
+    setCurrentVisit(newVisit);
+
+    // Auto-submit when 3 darts entered
+    if (newVisit.length >= 3) {
+      // Use setTimeout to allow state to update first
+      setTimeout(() => {
+        handleSubmitVisitFromDarts(newVisit);
+      }, 150);
+    }
   };
 
   const handleClearVisit = () => {
@@ -667,13 +676,71 @@ export default function LocalMatchPage() {
     handleScoreSubmit(visitTotal, dartsThrown, lastDartType);
   };
 
+  // Auto-submit version that takes darts directly (for auto-submit on 3rd dart)
+  const handleSubmitVisitFromDarts = (darts: Dart[]) => {
+    if (!matchConfig || darts.length === 0) return;
+
+    const currentRemaining = currentPlayer === 'player1' ? player1Score : player2Score;
+    const total = darts.reduce((sum, dart) => sum + dart.value, 0);
+    const newRemaining = currentRemaining - total;
+    const doubleOut = matchConfig.doubleOut;
+
+    let finalDarts = [...darts];
+
+    // Pad with misses if needed (same logic as handleSubmitVisit)
+    let shouldPadWithMisses = true;
+    if (newRemaining === 0) {
+      const lastDart = finalDarts[finalDarts.length - 1];
+      const isLastDartDouble = lastDart && (lastDart.type === 'double' || (lastDart.type === 'bull' && lastDart.number === 50));
+      if (!doubleOut || isLastDartDouble) shouldPadWithMisses = false;
+    }
+    if (shouldPadWithMisses) {
+      while (finalDarts.length < 3) {
+        finalDarts.push({ type: 'single', number: 0, value: 0 });
+      }
+    }
+
+    setCurrentVisit([]);
+
+    const dartsThrown = finalDarts.length;
+    let dartsAtDoubleCount = 0;
+    let remainingBeforeDart = currentRemaining;
+    let checkoutMade = false;
+
+    for (const dart of finalDarts) {
+      if (doubleOut && isOneDartFinish(remainingBeforeDart)) dartsAtDoubleCount++;
+      remainingBeforeDart -= dart.value;
+      if (remainingBeforeDart === 0) checkoutMade = true;
+    }
+
+    if (dartsAtDoubleCount > 0) {
+      if (currentPlayer === 'player1') {
+        setPlayer1TotalDartsAtDouble(prev => prev + dartsAtDoubleCount);
+        if (checkoutMade) setPlayer1CheckoutsMade(prev => prev + 1);
+      } else {
+        setPlayer2TotalDartsAtDouble(prev => prev + dartsAtDoubleCount);
+        if (checkoutMade) setPlayer2CheckoutsMade(prev => prev + 1);
+      }
+    }
+
+    let lastDartType: 'S' | 'D' | 'T' | 'BULL' | 'SBULL' | undefined = undefined;
+    if (finalDarts.length > 0) {
+      const lastDart = finalDarts[finalDarts.length - 1];
+      if (lastDart.type === 'single') lastDartType = 'S';
+      else if (lastDart.type === 'double') lastDartType = 'D';
+      else if (lastDart.type === 'triple') lastDartType = 'T';
+      else if (lastDart.type === 'bull') lastDartType = lastDart.number === 50 ? 'BULL' : 'SBULL';
+    }
+
+    handleScoreSubmit(total, dartsThrown, lastDartType);
+  };
+
   const handleBust = () => {
     handleScoreSubmit(0);
   };
 
   const handleEditVisit = (visitIndex: number) => {
     const visit = currentLeg.visits[visitIndex];
-    if (visit.player !== 'player1') return;
 
     setEditingVisitIndex(visitIndex);
     setEditingVisitScore(visit.score);
@@ -687,7 +754,7 @@ export default function LocalMatchPage() {
 
     const visit = currentLeg.visits[editingVisitIndex];
     const originalScore = visit.score;
-    const currentRemaining = player1Score;
+    const currentRemaining = visit.player === 'player1' ? player1Score : player2Score;
 
     const validation = validateEditedVisit(
       currentRemaining,
@@ -702,11 +769,12 @@ export default function LocalMatchPage() {
     if (editingVisitIndex === null || !matchConfig) return;
 
     const visit = currentLeg.visits[editingVisitIndex];
-    if (visit.player !== 'player1') return;
+    const isP1 = visit.player === 'player1';
+    const currentScore = isP1 ? player1Score : player2Score;
 
     const originalScore = visit.score;
     const delta = newScore - originalScore;
-    const newRemaining = player1Score - delta;
+    const newRemaining = currentScore - delta;
 
     let updatedVisits = [...currentLeg.visits];
     updatedVisits[editingVisitIndex] = {
@@ -722,8 +790,13 @@ export default function LocalMatchPage() {
       visits: updatedVisits,
     }));
 
-    setPlayer1MatchTotalScored(prev => prev + delta);
-    setPlayer1Score(newRemaining);
+    if (isP1) {
+      setPlayer1MatchTotalScored(prev => prev + delta);
+      setPlayer1Score(newRemaining);
+    } else {
+      setPlayer2MatchTotalScored(prev => prev + delta);
+      setPlayer2Score(newRemaining);
+    }
 
     const isWin = newRemaining === 0;
 
@@ -731,7 +804,7 @@ export default function LocalMatchPage() {
       setShowEditVisitModal(false);
       toast.success('Leg won!');
       setTimeout(() => {
-        handleLegComplete('player1');
+        handleLegComplete(visit.player);
       }, 500);
     } else {
       setShowEditVisitModal(false);
@@ -1076,7 +1149,7 @@ export default function LocalMatchPage() {
                                 : 'border-slate-500/50 text-slate-300'
                             }`}
                           >
-                            {visit.player === 'player1' ? 'YOU' : matchConfig.opponentName.toUpperCase()}
+                            {visit.player === 'player1' ? player1Name.toUpperCase() : player2Name.toUpperCase()}
                           </Badge>
                           <span className="text-gray-500 text-xs">
                             #{currentLeg.visits.length - idx}
@@ -1096,16 +1169,14 @@ export default function LocalMatchPage() {
                           <span className="text-white font-semibold">{visit.score}</span>
                           <span className="text-gray-500">→</span>
                           <span className="text-gray-400">{visit.remainingScore}</span>
-                          {visit.player === 'player1' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditVisit(actualIndex)}
-                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-500/20"
-                            >
-                              <Pencil className="w-3 h-3 text-teal-400" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditVisit(actualIndex)}
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-500/20"
+                          >
+                            <Pencil className="w-3 h-3 text-teal-400" />
+                          </Button>
                         </div>
                       </div>
                     );
@@ -1215,39 +1286,42 @@ export default function LocalMatchPage() {
               <div className="flex-1 flex flex-col min-h-0">
                 <Tabs value={dartboardGroup} onValueChange={(value) => setDartboardGroup(value as 'singles' | 'doubles' | 'triples' | 'bulls')} className="mb-1 flex-shrink-0">
                   <TabsList className="grid grid-cols-4 w-full bg-slate-800/60 border border-white/10">
-                    <TabsTrigger value="singles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Singles</TabsTrigger>
-                    <TabsTrigger value="doubles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Doubles</TabsTrigger>
-                    <TabsTrigger value="triples" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Triples</TabsTrigger>
-                    <TabsTrigger value="bulls" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Bulls</TabsTrigger>
+                    <TabsTrigger value="singles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white text-gray-400">Singles</TabsTrigger>
+                    <TabsTrigger value="doubles" className="text-xs data-[state=active]:bg-blue-500 data-[state=active]:text-white text-gray-400">Doubles</TabsTrigger>
+                    <TabsTrigger value="triples" className="text-xs data-[state=active]:bg-red-500 data-[state=active]:text-white text-gray-400">Triples</TabsTrigger>
+                    <TabsTrigger value="bulls" className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-white text-gray-400">Bulls</TabsTrigger>
                   </TabsList>
                 </Tabs>
 
                 {dartboardGroup !== 'bulls' ? (
                   <div className="grid grid-cols-5 gap-1 mb-1">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
-                      <Button
-                        key={num}
-                        onClick={() => handleDartClick(dartboardGroup, num)}
-                        disabled={currentVisit.length >= 3}
-                        className="h-10 text-xs font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
-                      >
-                        {dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}
-                      </Button>
-                    ))}
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => {
+                      const hoverColor = dartboardGroup === 'singles' ? 'hover:bg-emerald-500/20 hover:border-emerald-500/30' : dartboardGroup === 'doubles' ? 'hover:bg-blue-500/20 hover:border-blue-500/30' : 'hover:bg-red-500/20 hover:border-red-500/30';
+                      return (
+                        <Button
+                          key={num}
+                          onClick={() => handleDartClick(dartboardGroup, num)}
+                          disabled={currentVisit.length >= 3}
+                          className={`h-10 text-xs font-semibold bg-white/5 ${hoverColor} border border-white/10 text-white disabled:opacity-50`}
+                        >
+                          {dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}
+                        </Button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 mb-1">
                     <Button
                       onClick={() => handleDartClick('bulls', 25)}
                       disabled={currentVisit.length >= 3}
-                      className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                      className="h-12 text-sm font-semibold bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-500/30 text-white disabled:opacity-50"
                     >
                       Single Bull <span className="text-xs text-gray-400 ml-1">(25)</span>
                     </Button>
                     <Button
                       onClick={() => handleDartClick('bulls', 50)}
                       disabled={currentVisit.length >= 3}
-                      className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                      className="h-12 text-sm font-semibold bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-500/30 text-white disabled:opacity-50"
                     >
                       Bullseye <span className="text-xs text-gray-400 ml-1">(50)</span>
                     </Button>
