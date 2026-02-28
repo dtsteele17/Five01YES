@@ -177,9 +177,10 @@ function CurrentRankCard({
   rpToNext: number;
   rankedAverage: number;
 }) {
-  const tierKey = getTierKey(playerState.division_name);
-  const colors = TIER_COLORS[tierKey];
-  const isGrandChampion = tierKey === 'grandchampion';
+  const isUnranked = !!playerState.provisional_games_remaining;
+  const tierKey = isUnranked ? 'bronze' : getTierKey(playerState.division_name);
+  const colors = isUnranked ? { bg: 'bg-slate-500', text: 'text-slate-400', gradient: 'from-slate-700 to-slate-800', glow: 'shadow-slate-500/20', border: 'border-slate-600' } : TIER_COLORS[tierKey];
+  const isGrandChampion = !isUnranked && tierKey === 'grandchampion';
   const winRate = playerState.games_played > 0 
     ? Math.round((playerState.wins / playerState.games_played) * 100) 
     : 0;
@@ -228,7 +229,11 @@ function CurrentRankCard({
               <div className="relative w-40 h-40 sm:w-72 sm:h-72 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/20 to-transparent" />
                 <div className="relative flex items-center justify-center max-sm:scale-[0.52] sm:scale-100">
-                  {getTierIcon(playerState.division_name, 260)}
+                  {playerState.provisional_games_remaining ? (
+                    <Trophy className="w-32 h-32 text-slate-400" />
+                  ) : (
+                    getTierIcon(playerState.division_name, 260)
+                  )}
                 </div>
               </div>
               
@@ -247,11 +252,13 @@ function CurrentRankCard({
               </div>
               <div className="relative">
                 <h2 className={`text-3xl sm:text-5xl font-black text-white tracking-tight break-words drop-shadow-[0_0_20px_${isGrandChampion ? 'rgba(168,85,247,0.6)' : 'rgba(255,255,255,0.4)'}]`}>
-                  {playerState.division_name}
+                  {playerState.provisional_games_remaining ? 'Unranked' : playerState.division_name}
                 </h2>
                 <div className={`absolute -inset-4 ${colors.bg}/40 rounded-2xl blur-xl -z-10`} />
               </div>
-              {isGrandChampion ? (
+              {playerState.provisional_games_remaining ? (
+                <p className="text-slate-400 text-sm mt-2">Complete placement matches to reveal your rank</p>
+              ) : isGrandChampion ? (
                 <p className="text-purple-300/90 text-sm mt-2 font-medium flex items-center gap-2">
                   <Star className="w-4 h-4 text-amber-400" />
                   Elite of the Elite
@@ -271,12 +278,14 @@ function CurrentRankCard({
               <div className={`absolute -inset-8 ${colors.bg}/20 rounded-full blur-2xl`} />
               
               <p className={`relative text-5xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white ${isGrandChampion ? 'via-purple-200 to-purple-400' : 'via-slate-200 to-slate-400'} drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`}>
-                {playerState.rp}
+                {playerState.provisional_games_remaining ? '—' : playerState.rp}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-3">
               <Activity className={`w-4 h-4 ${colors.text}`} />
-              <p className={`${colors.text} text-sm font-black uppercase tracking-[0.3em]`}>ELO Rating</p>
+              <p className={`${colors.text} text-sm font-black uppercase tracking-[0.3em]`}>
+                {playerState.provisional_games_remaining ? 'COMPLETE PLACEMENTS' : 'ELO Rating'}
+              </p>
             </div>
           </div>
 
@@ -546,6 +555,7 @@ function TierNavigator({
             <AnimatePresence mode="wait">
               {currentTiers.map((tier, index) => {
                 const isCurrent = playerState && 
+                  !playerState.provisional_games_remaining &&
                   playerState.rp >= tier.rp_min && 
                   playerState.rp <= tier.rp_max;
                 const tierK = getTierKey(tier.tier_name);
