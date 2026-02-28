@@ -416,7 +416,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6">
       {/* Hero Section - Player Card Style */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/50">
         {/* Background Pattern */}
@@ -460,7 +460,7 @@ export default function DashboardPage() {
                     />
                   )}
                 </div>
-                <h1 className="text-4xl font-black text-white tracking-tight truncate">
+                <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight truncate">
                   {profile?.display_name || profile?.username}
                 </h1>
                 <p className="text-slate-400 mt-1 text-sm">@{profile?.username}</p>
@@ -546,9 +546,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Grid Layout - 2 columns */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-3 sm:gap-6">
         {/* Left Column - 2/3 width: Ranked Status + Upcoming Games */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-6">
           {/* Ranked Status - Premium Design */}
           <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-900/40 via-slate-900/60 to-slate-900/80 shadow-2xl shadow-amber-500/10">
             {/* Background Effects */}
@@ -657,10 +657,10 @@ export default function DashboardPage() {
 
           {/* Upcoming Games - replaces Recent Activity */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                  <Calendar className="w-5 h-5 text-emerald-400" />
+            <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-base sm:text-lg font-bold text-white">Upcoming Games</h2>
@@ -680,7 +680,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {upcomingGames.length > 0 ? (
                 <div className="space-y-3">
                   {upcomingGames.map((game) => (
@@ -718,10 +718,10 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <Calendar className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-white mb-2">No upcoming games</h3>
-                  <p className="text-slate-400 mb-4">Join a tournament or league to see scheduled matches here</p>
+                <div className="text-center py-6 sm:py-12">
+                  <Calendar className="w-10 h-10 sm:w-16 sm:h-16 text-slate-600 mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-xl font-bold text-white mb-2">No upcoming games</h3>
+                  <p className="text-slate-400 text-sm mb-4">Join a tournament or league to see scheduled matches here</p>
                   <div className="flex justify-center gap-3">
                     <Link href="/app/tournaments">
                       <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
@@ -743,29 +743,29 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column - 1/3 width - Last 5 Games + Online Friends + Achievements */}
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
           {/* Last 5 Games Record - Now at top */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-emerald-400" />
+            <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
                 </div>
-                <h2 className="text-lg font-bold text-white">Last 5 Games</h2>
+                <h2 className="text-base sm:text-lg font-bold text-white">Last 5 Games</h2>
               </div>
               <Link href="/app/stats">
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm">
                   History
                 </Button>
               </Link>
             </div>
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {last5Games.length > 0 ? (
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2">
                   {last5Games.map((result, index) => (
                     <div
                       key={index}
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black ${
+                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-lg sm:text-xl font-black ${
                         result === 'win'
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                           : result === 'loss'
@@ -780,7 +780,7 @@ export default function DashboardPage() {
                   {Array.from({ length: Math.max(0, 5 - last5Games.length) }).map((_, index) => (
                     <div
                       key={`empty-${index}`}
-                      className="w-12 h-12 rounded-xl bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-xl font-black text-slate-600"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-lg sm:text-xl font-black text-slate-600"
                     >
                       -
                     </div>
@@ -797,20 +797,20 @@ export default function DashboardPage() {
 
           {/* Online Friends Detail - Moved below Last 5 Games */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-400" />
+            <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                 </div>
-                <h2 className="text-lg font-bold text-white">Online Friends</h2>
+                <h2 className="text-base sm:text-lg font-bold text-white">Online Friends</h2>
               </div>
               <Link href="/app/friends">
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm">
                   View All
                 </Button>
               </Link>
             </div>
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {onlineFriends.length > 0 ? (
                 <div className="space-y-3">
                   {onlineFriends.map((friend) => (
@@ -839,9 +839,9 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400">No friends online</p>
+                <div className="text-center py-4 sm:py-8">
+                  <Users className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-2 sm:mb-3" />
+                  <p className="text-slate-400 text-sm">No friends online</p>
                   <Link href="/app/friends">
                     <Button variant="ghost" size="sm" className="text-emerald-400 mt-2">
                       Find Friends
@@ -855,20 +855,20 @@ export default function DashboardPage() {
 
           {/* Achievements */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-purple-400" />
+            <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                 </div>
-                <h2 className="text-lg font-bold text-white">Achievements</h2>
+                <h2 className="text-base sm:text-lg font-bold text-white">Achievements</h2>
               </div>
               <Link href="/app/achievements">
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm">
                   All
                 </Button>
               </Link>
             </div>
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {recentAchievements.length > 0 ? (
                 <div className="space-y-3">
                   {recentAchievements.map((achievement) => {
@@ -890,10 +890,10 @@ export default function DashboardPage() {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Award className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400">No achievements yet</p>
-                  <p className="text-slate-500 text-sm mt-1">Start playing to unlock</p>
+                <div className="text-center py-4 sm:py-8">
+                  <Award className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-2 sm:mb-3" />
+                  <p className="text-slate-400 text-sm">No achievements yet</p>
+                  <p className="text-slate-500 text-xs sm:text-sm mt-1">Start playing to unlock</p>
                 </div>
               )}
             </div>
