@@ -18,6 +18,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'FIVE01',
   description: 'Play darts online, track stats, compete in ranked matches and tournaments.',
+  icons: {
+    icon: '/favicon.jpg',
+    apple: '/favicon.jpg',
+  },
   openGraph: {
     images: [
       {
