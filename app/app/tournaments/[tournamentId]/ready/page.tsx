@@ -419,7 +419,7 @@ export default function TournamentReadyUpPage() {
             )}
           </div>
 
-          <div className="text-4xl font-bold text-slate-400">VS</div>
+          <div className="text-2xl sm:text-4xl font-bold text-slate-400">VS</div>
 
           <div className="text-center">
             <Avatar className="h-24 w-24 mx-auto mb-3 border-4 border-slate-300">
@@ -438,13 +438,13 @@ export default function TournamentReadyUpPage() {
           </div>
         </div>
 
-        <div className="bg-slate-100 rounded-lg p-6 mb-6">
+        <div className="bg-slate-100 rounded-lg p-4 sm:p-6 mb-6">
           <div className="flex items-center justify-center gap-2 mb-3">
             <Clock className="h-5 w-5 text-slate-600" />
             <span className="text-slate-600 font-medium">Time Remaining</span>
           </div>
           <div
-            className={`text-5xl font-bold text-center ${
+            className={`text-3xl sm:text-5xl font-bold text-center ${
               timeRemaining < 30 ? 'text-red-600' : 'text-slate-900'
             }`}
           >
@@ -484,7 +484,7 @@ export default function TournamentReadyUpPage() {
         ) : (
           <Button
             size="lg"
-            className="w-full text-lg py-6"
+            className="w-full text-lg py-4 sm:py-6"
             onClick={() => handleReadyUp()}
             disabled={readyingUp}
           >

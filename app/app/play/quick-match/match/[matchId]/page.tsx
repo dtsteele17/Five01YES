@@ -238,7 +238,7 @@ function VisitHistoryPanel({
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
-        <div className="grid grid-cols-2 gap-4 text-xs text-gray-400 border-b border-white/10 pb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-gray-400 border-b border-white/10 pb-2">
           <div className={`text-center font-bold ${myColor}`}>{myName}</div>
           <div className={`text-center font-bold ${opponentColor}`}>{opponentName}</div>
         </div>
@@ -254,7 +254,7 @@ function VisitHistoryPanel({
             const isLatestMyVisit = myVisit && i === 0;
             
             return (
-              <div key={i} className="grid grid-cols-2 gap-4 py-2 border-b border-white/5">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2 border-b border-white/5">
                 {/* My Visit */}
                 <div className="relative group">
                   {myVisit ? (
@@ -677,7 +677,7 @@ function ScoringPanel({
       </div>
 
       {/* Number Pad */}
-      <div className="flex-1 grid grid-cols-5 gap-1 mb-4">
+      <div className="flex-1 grid grid-cols-3 sm:grid-cols-5 gap-1 mb-4">
         {activeTab === 'bulls' ? (
           <>
             <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">
@@ -3469,6 +3469,65 @@ export default function QuickMatchRoomPage() {
     forfeitMatchFromAfk();
   }, []);
 
+  // Called on the WAITING player's side when opponent didn't respond to AFK warning in time
+  const handleOpponentAfkTimeout = useCallback(async () => {
+    if (!room || !currentUserId || !matchState) return;
+    if (['completed', 'finished', 'forfeited'].includes(room.status)) return;
+
+    console.log('[AFK] Opponent AFK timeout — auto-forfeiting opponent');
+    setShowOpponentAfk(false);
+
+    try {
+      // Use rpc_forfeit_match_opponent to forfeit the AFK player (not ourselves)
+      // Since rpc_forfeit_match forfeits the CALLER, we need to use a different approach:
+      // Update the room status directly to 'forfeited' with us as the winner
+      const { error } = await supabase
+        .from('match_rooms')
+        .update({
+          status: 'forfeited',
+          winner_id: currentUserId,
+          ended_at: new Date().toISOString(),
+        })
+        .eq('id', matchId)
+        .in('status', ['active', 'waiting']);
+
+      if (error) {
+        console.error('[AFK] Failed to forfeit opponent:', error);
+        toast.error('Failed to end match');
+        return;
+      }
+
+      // Send forfeit signal to opponent
+      const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+      if (opponentId) {
+        await supabase.rpc('rpc_send_match_signal', {
+          p_room_id: matchId,
+          p_to_user_id: opponentId,
+          p_type: 'forfeit',
+          p_payload: { message: 'You were forfeited for being AFK' }
+        }).catch(err => console.error('[AFK] Signal error:', err));
+      }
+
+      // Progress tournament bracket if applicable
+      if (isTournamentMatch && tournamentMatchId) {
+        try {
+          await supabase.rpc('progress_tournament_bracket', {
+            p_tournament_match_id: tournamentMatchId,
+            p_winner_id: currentUserId,
+          });
+          console.log('[AFK] Tournament bracket progressed, I win by opponent AFK');
+        } catch (err) {
+          console.error('[AFK] Tournament bracket error:', err);
+        }
+      }
+
+      toast.success('Opponent forfeited due to inactivity! You win! 🎉');
+    } catch (err) {
+      console.error('[AFK] Opponent forfeit error:', err);
+      toast.error('Something went wrong');
+    }
+  }, [room, currentUserId, matchState, matchId, supabase, isTournamentMatch, tournamentMatchId]);
+
   async function forfeitMatchFromAfk() {
     if (!room || !matchState || !currentUserId) return;
     if (['completed', 'finished', 'forfeited'].includes(room.status)) return;
@@ -4143,7 +4202,7 @@ export default function QuickMatchRoomPage() {
       </button>
 
       {/* Main Content - Single camera (shows active player's camera to BOTH users) + game panel */}
-      <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 overflow-hidden">
         {/* LEFT: Active Player Camera - Both users see whoever's turn it is */}
         <div className="flex flex-col">
           <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
@@ -4262,7 +4321,7 @@ export default function QuickMatchRoomPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-4 sm:p-6">
                     <CameraOff className="w-16 h-16 mb-4 opacity-50" />
                     <span className="text-lg font-medium mb-2">Your camera is off</span>
                     <span className="text-sm text-slate-500 mb-4 text-center">
@@ -4287,7 +4346,7 @@ export default function QuickMatchRoomPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-6">
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-4 sm:p-6">
                     <UserPlus className="w-16 h-16 mb-4 opacity-50" />
                     <span className="text-lg font-medium mb-2">
                       {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${opponentPlayer.name}...`}
@@ -4356,7 +4415,7 @@ export default function QuickMatchRoomPage() {
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
           {/* Player Cards - Stats reset per leg */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <QuickMatchPlayerCard
               name={myPlayer.name}
               remaining={myPlayer.remaining}
@@ -4478,7 +4537,7 @@ export default function QuickMatchRoomPage() {
                   const tournamentId = new URLSearchParams(window.location.search).get('tournamentId');
                   router.push(tournamentId ? `/app/tournaments/${tournamentId}` : '/app/tournaments');
                 }}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white px-8"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white px-4 sm:px-8"
               >
                 <Trophy className="w-4 h-4 mr-2" />
                 Return to Tournament
@@ -4486,7 +4545,7 @@ export default function QuickMatchRoomPage() {
             ) : (
               <AlertDialogAction 
                 onClick={() => router.push('/app/play')} 
-                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-4 sm:px-8"
               >
                 <Home className="w-4 h-4 mr-2" />
                 Return to Play
@@ -4508,6 +4567,7 @@ export default function QuickMatchRoomPage() {
         open={showOpponentAfk}
         opponentName={opponentPlayer?.name || 'Opponent'}
         onDismiss={() => setShowOpponentAfk(false)}
+        onOpponentAfkTimeout={handleOpponentAfkTimeout}
       />
 
       <EditVisitModal
@@ -4532,7 +4592,7 @@ export default function QuickMatchRoomPage() {
       {/* Edit Notification Popup */}
       {editNotification?.show && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-amber-500 text-white px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
+          <div className="bg-amber-500 text-white px-3 sm:px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
             <div className="flex items-center gap-2">
               <Edit2 className="w-5 h-5" />
               <span className="font-bold">{editNotification.playerName} edited their visit</span>

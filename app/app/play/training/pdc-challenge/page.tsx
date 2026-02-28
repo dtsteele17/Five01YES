@@ -236,22 +236,22 @@ export default function PDCChallengePage() {
             {/* XP Reward Display */}
             {xpResult && <XPRewardDisplay xpResult={xpResult} />}
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Total Score</p>
-                <p className="text-4xl font-bold text-white">{totalScore}</p>
+                <p className="text-2xl sm:text-4xl font-bold text-white">{totalScore}</p>
               </div>
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Accuracy</p>
-                <p className="text-4xl font-bold text-emerald-400">{getAccuracy()}%</p>
+                <p className="text-2xl sm:text-4xl font-bold text-emerald-400">{getAccuracy()}%</p>
               </div>
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Total Hits</p>
-                <p className="text-4xl font-bold text-blue-400">{getTotalHits()}/54</p>
+                <p className="text-2xl sm:text-4xl font-bold text-blue-400">{getTotalHits()}/54</p>
               </div>
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Rounds</p>
-                <p className="text-4xl font-bold text-purple-400">18</p>
+                <p className="text-2xl sm:text-4xl font-bold text-purple-400">18</p>
               </div>
             </div>
 
@@ -340,7 +340,7 @@ export default function PDCChallengePage() {
         <div className="bg-gradient-to-br from-red-900/20 to-pink-900/20 border border-red-500/30 rounded-2xl p-8 mb-6">
           <div className="text-center">
             <p className="text-gray-400 mb-2">Current Target</p>
-            <h2 className="text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
+            <h2 className="text-3xl sm:text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
             <p className="text-red-400">Target: {currentTarget.target}</p>
           </div>
         </div>
@@ -355,7 +355,7 @@ export default function PDCChallengePage() {
         </div>
 
         {/* Darts Display */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[0, 1, 2].map((i) => {
             const dart = currentDarts[i];
             return (
@@ -386,8 +386,8 @@ export default function PDCChallengePage() {
         </div>
 
         {/* Scoring Interface */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-          <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {/* Single */}
             <button
               onClick={() => {
@@ -445,7 +445,7 @@ export default function PDCChallengePage() {
 
           {/* Bull buttons for bull rounds */}
           {currentTarget.type === 'bull' && (
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <button
                 onClick={() => handleDartInput(25, 1, '25')}
                 disabled={currentDarts.length >= 3}

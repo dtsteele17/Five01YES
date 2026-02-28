@@ -4,7 +4,7 @@ export default function MatchLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-screen w-screen overflow-hidden">
+    <div className="h-dvh w-screen overflow-hidden">
       {children}
     </div>
   );

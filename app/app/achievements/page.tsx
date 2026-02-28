@@ -84,11 +84,11 @@ export default function AchievementsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-bold text-white mb-2">Achievements</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">Achievements</h1>
         <p className="text-gray-400">Complete challenges across all modes to earn rewards and show off your skill.</p>
       </div>
 
-      <div className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 border border-teal-500/30 rounded-xl p-6 shadow-lg shadow-teal-500/10">
+      <div className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 border border-teal-500/30 rounded-xl p-4 sm:p-6 shadow-lg shadow-teal-500/10">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center">
@@ -102,14 +102,14 @@ export default function AchievementsPage() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-4xl font-bold text-teal-400">{stats.percentage}%</div>
+            <div className="text-2xl sm:text-4xl font-bold text-teal-400">{stats.percentage}%</div>
             <p className="text-xs text-gray-400">Total Progress</p>
           </div>
         </div>
         <Progress value={stats.percentage} className="h-3 bg-teal-900/30" />
       </div>
 
-      <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+      <div className="bg-slate-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-4 sm:p-6">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

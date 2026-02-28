@@ -122,7 +122,7 @@ export function PreGameLobby({
         </div>
 
         {/* Players */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           {/* Player 1 */}
           <div className={`p-4 rounded-lg border ${player1.isReady ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
             <div className="flex flex-col items-center text-center">

@@ -475,11 +475,11 @@ export default function OneTwentyOnePage() {
         </div>
 
         {/* Main Stats Card */}
-        <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-slate-700 p-6">
-          <div className="grid grid-cols-4 gap-4 text-center">
+        <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-slate-700 p-4 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Current Target</div>
-              <div className={`text-4xl font-bold bg-gradient-to-r ${getProgressColor()} bg-clip-text text-transparent`}>
+              <div className={`text-2xl sm:text-4xl font-bold bg-gradient-to-r ${getProgressColor()} bg-clip-text text-transparent`}>
                 {currentTarget}
               </div>
               <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
@@ -488,17 +488,17 @@ export default function OneTwentyOnePage() {
             </div>
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Remaining</div>
-              <div className="text-4xl font-bold text-white">{remaining}</div>
+              <div className="text-2xl sm:text-4xl font-bold text-white">{remaining}</div>
               <div className="text-xs text-slate-500">Visit {visitNumber}/3</div>
             </div>
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Best Target</div>
-              <div className="text-4xl font-bold text-emerald-400">{highestTargetReached}</div>
+              <div className="text-2xl sm:text-4xl font-bold text-emerald-400">{highestTargetReached}</div>
               <div className="text-xs text-emerald-500">Personal Best</div>
             </div>
             <div className="space-y-1">
               <div className="text-xs text-slate-400 uppercase tracking-wider">Streak</div>
-              <div className="text-4xl font-bold text-orange-400">{streak}</div>
+              <div className="text-2xl sm:text-4xl font-bold text-orange-400">{streak}</div>
               <div className="text-xs text-orange-500">Best: {bestStreak}</div>
             </div>
           </div>
@@ -516,7 +516,7 @@ export default function OneTwentyOnePage() {
         )}
 
         {/* Current Visit and History Display */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Current Visit */}
           <Card className="bg-slate-800/50 border-slate-700 p-4 col-span-2">
             <div className="flex items-center justify-between">
@@ -587,9 +587,9 @@ export default function OneTwentyOnePage() {
         </div>
 
         {/* Scoring Panel */}
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
+        <Card className="bg-slate-800/50 border-slate-700 p-4 sm:p-6">
           <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')}>
-            <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 mb-4">
+            <TabsList className="bg-slate-700/50 w-full grid grid-cols-1 sm:grid-cols-2 mb-4">
               <TabsTrigger value="dart_pad" className="data-[state=active]:bg-orange-500">
                 Dart by Dart
               </TabsTrigger>
@@ -600,7 +600,7 @@ export default function OneTwentyOnePage() {
 
             <TabsContent value="dart_pad">
               <Tabs value={scoringTab} onValueChange={(v) => setScoringTab(v as any)}>
-                <TabsList className="bg-slate-700/50 w-full grid grid-cols-4 mb-4">
+                <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 sm:grid-cols-4 mb-4">
                   <TabsTrigger value="singles" className="data-[state=active]:bg-blue-500">
                     Singles
                   </TabsTrigger>
@@ -661,7 +661,7 @@ export default function OneTwentyOnePage() {
                 </TabsContent>
 
                 <TabsContent value="bulls">
-                  <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
                     <Button
                       onClick={() => handleDartClick({ segment: 'SB', value: 25, label: 'SB' })}
                       disabled={!gameActive}
@@ -680,7 +680,7 @@ export default function OneTwentyOnePage() {
                 </TabsContent>
               </Tabs>
 
-              <div className="grid grid-cols-2 gap-4 mt-4 max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 max-w-2xl mx-auto">
                 <Button
                   onClick={handleMiss}
                   disabled={!gameActive}
@@ -716,7 +716,7 @@ export default function OneTwentyOnePage() {
                   <Button
                     onClick={handleTypedSubmit}
                     disabled={!typedScore || !gameActive}
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-8 disabled:opacity-50"
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-4 sm:px-8 disabled:opacity-50"
                   >
                     Submit
                   </Button>
@@ -810,11 +810,11 @@ export default function OneTwentyOnePage() {
             <div className="space-y-6 py-4">
               {/* XP Earned */}
               {sessionXP > 0 && (
-                <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg p-6 text-center border border-amber-500/30">
+                <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg p-4 sm:p-6 text-center border border-amber-500/30">
                   <div className="text-amber-300 text-sm uppercase tracking-wider mb-2">
                     XP Earned This Session
                   </div>
-                  <div className="text-5xl font-bold text-white flex items-center justify-center gap-2">
+                  <div className="text-3xl sm:text-5xl font-bold text-white flex items-center justify-center gap-2">
                     <Star className="w-8 h-8 text-amber-400" />
                     {sessionXP}
                   </div>
@@ -822,14 +822,14 @@ export default function OneTwentyOnePage() {
               )}
 
               {/* Main Stats */}
-              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-lg p-6 text-center border border-orange-500/30">
+              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-lg p-4 sm:p-6 text-center border border-orange-500/30">
                 <div className="text-orange-300 text-sm uppercase tracking-wider mb-2">
                   Highest Target Reached
                 </div>
-                <div className="text-6xl font-bold text-orange-400">{highestTargetReached}</div>
+                <div className="text-2xl sm:text-4xl sm:text-6xl font-bold text-orange-400">{highestTargetReached}</div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-700/30 rounded-lg p-4 text-center">
                   <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
                     Total Darts
@@ -847,7 +847,7 @@ export default function OneTwentyOnePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-700/30 rounded-lg p-4 text-center">
                   <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
                     Best Streak

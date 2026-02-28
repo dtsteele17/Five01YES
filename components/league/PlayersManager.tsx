@@ -76,7 +76,7 @@ export default function PlayersManager({ league, isAdmin }: PlayersManagerProps)
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div>
           <h3 className="text-lg font-semibold text-white">
             Players ({league.players.length}/{league.maxParticipants})
@@ -87,7 +87,7 @@ export default function PlayersManager({ league, isAdmin }: PlayersManagerProps)
         {isAdmin && (
           <Button
             onClick={() => setInviteModalOpen(true)}
-            className="bg-teal-600 hover:bg-teal-700"
+            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700"
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Invite Player
@@ -125,7 +125,7 @@ export default function PlayersManager({ league, isAdmin }: PlayersManagerProps)
               }
             `}
           >
-            <div className="flex items-start justify-between mb-3">
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex items-start gap-3 flex-1">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-lg">
                   {player.displayName.charAt(0)}
@@ -197,7 +197,7 @@ export default function PlayersManager({ league, isAdmin }: PlayersManagerProps)
             </div>
 
             {league.cameraRequired && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-start sm:items-center gap-2 text-sm">
                 {player.cameraRequiredAcknowledged ? (
                   <>
                     <CheckCircle className="w-4 h-4 text-green-400" />

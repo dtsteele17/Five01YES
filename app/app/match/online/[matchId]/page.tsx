@@ -491,7 +491,7 @@ export default function OnlineMatchPage() {
   const winner = myLegs >= legsToWin ? 'you' : opponentLegs >= legsToWin ? 'opponent' : null;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-slate-950 p-4 sm:p-6">
       {showSoundBanner && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
           <span className="text-sm font-medium">Tap to enable match sound</span>
@@ -534,7 +534,7 @@ export default function OnlineMatchPage() {
 
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           <Card
-            className={`bg-slate-900 border-2 p-6 ${
+            className={`bg-slate-900 border-2 p-4 sm:p-6 ${
               isMyTurn && !matchComplete ? 'border-emerald-400 shadow-lg shadow-emerald-400/20' : 'border-white/10'
             }`}
           >
@@ -555,7 +555,7 @@ export default function OnlineMatchPage() {
               )}
             </div>
             <div className="text-center py-8">
-              <div className="text-6xl font-bold text-white mb-2">{myRemaining}</div>
+              <div className="text-2xl sm:text-4xl sm:text-6xl font-bold text-white mb-2">{myRemaining}</div>
               <div className="text-sm text-gray-400">Remaining</div>
             </div>
             <div className="flex justify-center gap-2">
@@ -571,7 +571,7 @@ export default function OnlineMatchPage() {
           </Card>
 
           <Card
-            className={`bg-slate-900 border-2 p-6 ${
+            className={`bg-slate-900 border-2 p-4 sm:p-6 ${
               !isMyTurn && !matchComplete ? 'border-blue-400 shadow-lg shadow-blue-400/20' : 'border-white/10'
             }`}
           >
@@ -592,7 +592,7 @@ export default function OnlineMatchPage() {
               )}
             </div>
             <div className="text-center py-8">
-              <div className="text-6xl font-bold text-white mb-2">{opponentRemaining}</div>
+              <div className="text-2xl sm:text-4xl sm:text-6xl font-bold text-white mb-2">{opponentRemaining}</div>
               <div className="text-sm text-gray-400">Remaining</div>
             </div>
             <div className="flex justify-center gap-2">
@@ -609,7 +609,7 @@ export default function OnlineMatchPage() {
         </div>
 
         {!matchComplete && (
-          <Card className="bg-slate-900 border-white/10 p-6">
+          <Card className="bg-slate-900 border-white/10 p-4 sm:p-6">
             <h3 className="text-white font-bold mb-4 text-center">
               {isMyTurn ? 'Enter Your Score' : 'Waiting for opponent...'}
             </h3>
@@ -663,7 +663,7 @@ export default function OnlineMatchPage() {
                   await submitVisit();
                 }}
                 disabled={!isMyTurn || !inputScore || submitting}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 sm:px-8 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -688,7 +688,7 @@ export default function OnlineMatchPage() {
               {winner === 'you' ? '🎉 You Win!' : winner === 'opponent' ? '😔 You Lose' : 'Match Complete'}
             </DialogTitle>
           </DialogHeader>
-          <div className="text-center py-6">
+          <div className="text-center py-4 sm:py-6">
             <Trophy
               className={`w-16 h-16 mx-auto mb-4 ${
                 winner === 'you' ? 'text-amber-400' : 'text-gray-400'

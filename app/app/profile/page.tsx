@@ -59,13 +59,13 @@ interface RankedInfo {
 // Stat Tile Component
 function StatTile({ value, label, icon: Icon, color }: { value: string | number; label: string; icon: any; color: string }) {
   return (
-    <div className="flex items-center gap-4 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
-      <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center`}>
-        <Icon className="w-6 h-6 text-white" />
+    <div className="flex items-center gap-3 p-3 sm:p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
+        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
       </div>
-      <div>
-        <p className="text-2xl font-black text-white">{value}</p>
-        <p className="text-slate-400 text-sm uppercase tracking-wider">{label}</p>
+      <div className="min-w-0">
+        <p className="text-xl sm:text-2xl font-black text-white">{value}</p>
+        <p className="text-slate-400 text-xs sm:text-sm uppercase tracking-wider truncate">{label}</p>
       </div>
     </div>
   );
@@ -183,13 +183,13 @@ export default function ProfilePage() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
         <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl" />
         
-        <div className="relative z-10 p-8">
-          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8">
+        <div className="relative z-10 p-4 sm:p-8">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 sm:gap-8">
             {/* Avatar */}
-            <div className="relative">
-              <Avatar className="w-32 h-32 rounded-2xl border-4 border-slate-700 shadow-2xl">
+            <div className="relative flex-shrink-0">
+              <Avatar className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl border-4 border-slate-700 shadow-2xl">
                 {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" className="rounded-2xl object-cover" />}
-                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-5xl font-black rounded-2xl">
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-4xl sm:text-5xl font-black rounded-2xl">
                   {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
@@ -205,7 +205,7 @@ export default function ProfilePage() {
                   <h1 className="text-4xl font-black text-white tracking-tight">
                     {profile?.display_name || profile?.username || 'User'}
                   </h1>
-                  <p className="text-slate-400 text-lg">@{profile?.username}</p>
+                  <p className="text-slate-400 text-base sm:text-lg">@{profile?.username}</p>
                 </div>
                 <div className="flex items-center justify-center lg:justify-start gap-2">
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 px-3 py-1">
@@ -278,7 +278,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <StatTile 
           value={overallStats?.total_matches || 0} 
           label="Matches" 

@@ -797,7 +797,7 @@ export default function LocalMatchPage() {
 
       <div className="flex-1 overflow-hidden">
         <div className="max-w-[1800px] mx-auto px-4 py-2 h-full flex flex-col">
-          <div className="grid grid-cols-3 gap-3 mb-2 flex-shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2 flex-shrink-0">
             <Card className="bg-slate-900/50 border-white/10 p-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -838,10 +838,10 @@ export default function LocalMatchPage() {
                 </div>
               </div>
               <div className="text-center py-2">
-                <p className="text-4xl font-bold text-white">{player1Score}</p>
+                <p className="text-2xl sm:text-4xl font-bold text-white">{player1Score}</p>
                 <p className="text-xs text-gray-400 mt-1">Remaining</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div className="text-center bg-white/5 rounded p-1">
                   <p className="text-gray-400">Avg</p>
                   <p className="text-white font-semibold">{player1MatchAverage}</p>
@@ -868,10 +868,10 @@ export default function LocalMatchPage() {
                 </div>
               </div>
               <div className="text-center py-2">
-                <p className="text-4xl font-bold text-white">{player2Score}</p>
+                <p className="text-2xl sm:text-4xl font-bold text-white">{player2Score}</p>
                 <p className="text-xs text-gray-400 mt-1">Remaining</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div className="text-center bg-white/5 rounded p-1">
                   <p className="text-gray-400">Avg</p>
                   <p className="text-white font-semibold">{player2MatchAverage}</p>
@@ -1073,7 +1073,7 @@ export default function LocalMatchPage() {
                     </div>
 
                     {dartboardGroup !== 'bulls' ? (
-                      <div className="grid grid-cols-5 gap-1 mb-1">
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 mb-1">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
                           <Button
                             key={num}
@@ -1089,7 +1089,7 @@ export default function LocalMatchPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-2 mb-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-1">
                         <Button
                           onClick={() => handleDartClick('bulls', 25)}
                           disabled={currentVisit.length >= 3}
@@ -1117,7 +1117,7 @@ export default function LocalMatchPage() {
                       Miss (0)
                     </Button>
 
-                    <div className="grid grid-cols-3 gap-2 flex-shrink-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0">
                       <Button
                         onClick={handleClearVisit}
                         disabled={currentVisit.length === 0}
@@ -1197,13 +1197,13 @@ export default function LocalMatchPage() {
                         }
                       }}
                       disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-8"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 sm:px-8"
                     >
                       Submit
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 flex-shrink-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
                       <Button
                         key={num}
@@ -1265,11 +1265,11 @@ export default function LocalMatchPage() {
       <Dialog open={showMatchCompleteModal} onOpenChange={() => {}}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="text-center space-y-4 py-6">
+            <div className="text-center space-y-4 py-4 sm:py-6">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full mb-4">
                 <Trophy className="w-10 h-10 text-white" />
               </div>
-              <DialogTitle className="text-4xl font-bold text-white">
+              <DialogTitle className="text-2xl sm:text-4xl font-bold text-white">
                 Good game!
               </DialogTitle>
               <p className="text-2xl text-gray-300">
@@ -1279,7 +1279,7 @@ export default function LocalMatchPage() {
           </DialogHeader>
 
           <div className="grid md:grid-cols-2 gap-6 my-6">
-            <Card className="bg-slate-800/50 border-white/10 p-6">
+            <Card className="bg-slate-800/50 border-white/10 p-4 sm:p-6">
               <div className="flex items-center space-x-3 mb-6">
                 <Avatar className="w-12 h-12">
                   <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
@@ -1335,7 +1335,7 @@ export default function LocalMatchPage() {
                   <span className="text-white font-bold">{finalMatchStats?.player1.checkoutsMade || 0} / {finalMatchStats?.player1.checkoutDartsAttempted || 0}</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center pt-2">
                   <div className="p-2 bg-white/5 rounded-lg">
                     <p className="text-xl font-bold text-white">{finalMatchStats?.player1.count100Plus || 0}</p>
                     <p className="text-xs text-gray-400">100+</p>
@@ -1357,7 +1357,7 @@ export default function LocalMatchPage() {
               </div>
             </Card>
 
-            <Card className="bg-slate-800/50 border-white/10 p-6">
+            <Card className="bg-slate-800/50 border-white/10 p-4 sm:p-6">
               <div className="flex items-center space-x-3 mb-6">
                 <Avatar className="w-12 h-12">
                   <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white">
@@ -1413,7 +1413,7 @@ export default function LocalMatchPage() {
                   <span className="text-white font-bold">{finalMatchStats?.player2.checkoutsMade || 0} / {finalMatchStats?.player2.checkoutDartsAttempted || 0}</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center pt-2">
                   <div className="p-2 bg-white/5 rounded-lg">
                     <p className="text-xl font-bold text-white">{finalMatchStats?.player2.count100Plus || 0}</p>
                     <p className="text-xs text-gray-400">100+</p>
@@ -1440,7 +1440,7 @@ export default function LocalMatchPage() {
             <Button
               size="lg"
               onClick={handleRematch}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-8"
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white px-4 sm:px-8"
             >
               <RotateCcw className="w-5 h-5 mr-2" />
               Rematch
@@ -1449,7 +1449,7 @@ export default function LocalMatchPage() {
               size="lg"
               variant="outline"
               onClick={handleReturnToApp}
-              className="border-white/10 text-white hover:bg-white/5 px-8"
+              className="border-white/10 text-white hover:bg-white/5 px-4 sm:px-8"
             >
               <Home className="w-5 h-5 mr-2" />
               Return

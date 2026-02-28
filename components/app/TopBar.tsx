@@ -74,16 +74,16 @@ export function TopBar() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/40 backdrop-blur-xl border-b border-white/10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2 sm:space-x-6 min-w-0">
               <Link href="/" className="flex items-center">
                 <Image 
                   src="/logo.png" 
                   alt="FIVE01" 
                   width={240} 
                   height={216} 
-                  className="h-24 w-auto object-contain"
+                  className="h-14 sm:h-24 w-auto object-contain"
                   priority
                 />
               </Link>
@@ -122,7 +122,7 @@ export function TopBar() {
               })}
             </nav>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-1.5 sm:space-x-3">
               <div className="hidden md:flex items-center">
                 <GlobalSearch className="w-64" />
               </div>
@@ -166,7 +166,7 @@ export function TopBar() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+                <DropdownMenuContent align="end" className="w-56 max-w-[calc(100vw-1rem)] bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
                   {/* Header - Dashboard Style */}
                   <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-800/30">
                     <div className="flex items-center gap-3">

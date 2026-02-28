@@ -102,7 +102,7 @@ function HeroStat({ value, label, icon: Icon, color, trend, onClick }: {
   onClick?: () => void;
 }) {
   const content = (
-    <div 
+    <div
       className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
@@ -110,7 +110,7 @@ function HeroStat({ value, label, icon: Icon, color, trend, onClick }: {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-4xl font-black text-white tracking-tight">{value}</p>
-          <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
           {trend && (
             <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
@@ -424,18 +424,18 @@ export default function DashboardPage() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
         
-        <div className="relative z-10 p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="relative z-10 p-4 sm:p-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
             {/* Player Info */}
-            <div className="flex items-center gap-6">
-              <Avatar className="w-24 h-24 rounded-2xl shadow-2xl shadow-emerald-500/20">
+            <div className="flex items-center gap-3 sm:gap-6">
+              <Avatar className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl shadow-2xl shadow-emerald-500/20 flex-shrink-0">
                 {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" className="rounded-2xl object-cover" />}
-                <AvatarFallback className="w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-3xl font-black text-white">
+                <AvatarFallback className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-2xl sm:text-3xl font-black text-white">
                   {profile?.display_name?.charAt(0) || profile?.username?.charAt(0) || 'P'}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <div className="flex items-center gap-3 mb-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                     <Activity className="w-3 h-3 mr-1" />
                     Online
@@ -447,24 +447,24 @@ export default function DashboardPage() {
                     </Badge>
                   )}
                   {(profile?.trust_rating_count || 0) > 0 && profile?.trust_rating_letter && (
-                    <SafetyRatingBadge 
-                      grade={profile.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'} 
+                    <SafetyRatingBadge
+                      grade={profile.trust_rating_letter as 'A' | 'B' | 'C' | 'D' | 'E'}
                       size="sm"
                       totalRatings={profile.trust_rating_count || 0}
                     />
                   )}
                 </div>
-                <h1 className="text-4xl font-black text-white tracking-tight">
+                <h1 className="text-4xl font-black text-white tracking-tight truncate">
                   {profile?.display_name || profile?.username}
                 </h1>
-                <p className="text-slate-400 mt-1">@{profile?.username}</p>
+                <p className="text-slate-400 mt-1 text-sm">@{profile?.username}</p>
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Link href="/app/play">
-                <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100 font-bold px-8 shadow-xl">
+                <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100 font-bold px-6 sm:px-8 shadow-xl">
                   <Play className="w-5 h-5 mr-2" />
                   Play Now
                 </Button>
@@ -473,7 +473,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Hero Stats Grid - 4 columns: Matches, Win Rate, 3-Dart Avg, Win Streak */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8">
             <HeroStat 
               value={stats?.totalMatches || 0} 
               label="Matches Played" 
@@ -509,7 +509,7 @@ export default function DashboardPage() {
                   <p className="text-4xl font-black text-white tracking-tight">
                     {(profile?.trust_rating_count || 0) === 0 ? '-' : profile?.trust_rating_letter}
                   </p>
-                  <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Trust Rating</p>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Trust Rating</p>
                   <p className="text-xs text-slate-400 mt-2">
                     {(profile?.trust_rating_count || 0) === 0 ? 'No ratings yet' : `${profile?.trust_rating_count} rating${profile?.trust_rating_count !== 1 ? 's' : ''}`}
                   </p>
@@ -553,13 +553,13 @@ export default function DashboardPage() {
             {/* Top Accent Line */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
             
-            <div className="relative z-10 p-8">
-              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
+            <div className="relative z-10 p-4 sm:p-8">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 sm:gap-8">
                 {/* Left - Rank Image & Division */}
-                <div className="flex items-center gap-5">
-                  <div className="relative">
+                <div className="flex items-center gap-4 sm:gap-5">
+                  <div className="relative flex-shrink-0">
                     <div className="absolute inset-0 bg-amber-500/30 rounded-2xl blur-lg" />
-                    <div className="relative w-40 h-40 flex items-center justify-center">
+                    <div className="relative w-24 h-24 sm:w-40 sm:h-40 flex items-center justify-center">
                       {rankedState?.division_name ? (
                         <img 
                           src={getRankImageUrl(rankedState.division_name)} 
@@ -575,8 +575,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-amber-400 text-sm font-semibold uppercase tracking-wider">Current Rank</p>
-                    <h2 className="text-3xl font-black text-white mt-1">
+                    <p className="text-amber-400 text-xs sm:text-sm font-semibold uppercase tracking-wider">Current Rank</p>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white mt-1">
                       {rankedState?.division_name || 'Unranked'}
                     </h2>
                   </div>
@@ -586,7 +586,7 @@ export default function DashboardPage() {
                 <div className="flex flex-col items-center">
                   <div className="relative">
                     <div className="absolute -inset-4 bg-amber-500/10 rounded-full blur-2xl" />
-                    <p className="relative text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-200 drop-shadow-2xl">
+                    <p className="relative text-5xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-200 drop-shadow-2xl">
                       {rankedState?.rp || 0}
                     </p>
                   </div>
@@ -594,9 +594,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right - Play Button & Placement */}
-                <div className="flex flex-col items-end gap-4">
+                <div className="flex flex-col items-start xl:items-end gap-4">
                   {rankedState?.provisional_games_remaining ? (
-                    <div className="w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
+                    <div className="w-full sm:w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-amber-400 font-medium">Placement</span>
                         <span className="text-white font-bold">{Math.max(0, 5 - Math.min(5, rankedState.provisional_games_remaining))}/5</span>
@@ -622,8 +622,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Stats Row */}
-              <div className="mt-8 pt-6 border-t border-amber-500/20">
-                <div className="grid grid-cols-4 gap-4">
+              <div className="mt-6 sm:mt-8 pt-6 border-t border-amber-500/20">
+                <div className="grid grid-cols-4 gap-3 sm:gap-4">
                   <div className="text-center p-4 rounded-xl bg-slate-900/40 border border-emerald-500/20 backdrop-blur-sm">
                     <p className="text-2xl font-black text-emerald-400">{rankedState?.wins || 0}</p>
                     <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Wins</p>
@@ -649,24 +649,24 @@ export default function DashboardPage() {
 
           {/* Upcoming Games - replaces Recent Activity */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+            <div className="p-6 border-b border-slate-700/50 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                   <Calendar className="w-5 h-5 text-emerald-400" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Upcoming Games</h2>
-                  <p className="text-sm text-slate-400">Your scheduled matches</p>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold text-white">Upcoming Games</h2>
+                  <p className="text-xs sm:text-sm text-slate-400 hidden sm:block">Your scheduled matches</p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1 sm:gap-2 flex-shrink-0">
                 <Link href="/app/tournaments">
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm px-2 sm:px-3">
                     Tournaments
                   </Button>
                 </Link>
                 <Link href="/app/leagues">
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm px-2 sm:px-3">
                     Leagues
                   </Button>
                 </Link>

@@ -121,7 +121,7 @@ export default function LeaguesPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Leagues</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">Leagues</h1>
           <p className="text-gray-400">Join or create leagues and compete with others.</p>
         </div>
         <Button
@@ -133,7 +133,7 @@ export default function LeaguesPage() {
         </Button>
       </div>
 
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <h2 className="text-xl font-bold text-white mb-6">Your Leagues</h2>
 
         {loading ? (
@@ -156,7 +156,7 @@ export default function LeaguesPage() {
             {myLeagues.map((league, index) => (
               <div
                 key={league.id}
-                className="flex items-center justify-between p-6 bg-white/5 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-colors"
+                className="flex items-center justify-between p-4 sm:p-6 bg-white/5 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-colors"
               >
                 <div className="flex items-center space-x-4">
                   <div className={`w-16 h-16 bg-gradient-to-br ${getLeagueColor(index)} rounded-xl flex items-center justify-center`}>

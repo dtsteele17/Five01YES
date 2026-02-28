@@ -120,7 +120,7 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
             <div className="flex-1">
               <div className="mb-3">
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{subtitle}</p>
-                <h3 className="text-xl font-bold text-white mt-1 group-hover:text-emerald-400 transition-colors">{title}</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-white mt-1 group-hover:text-emerald-400 transition-colors">{title}</h3>
               </div>
 
               <p className="text-slate-400 text-sm mb-4 line-clamp-2">{description}</p>
@@ -225,7 +225,7 @@ function StatsDashboard() {
   const { stats, loading } = useTodayStats();
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
       <StatMiniCard 
         label="Matches Today" 
         value={stats.matchesPlayed.toString()} 
@@ -292,7 +292,7 @@ function RecentMatchesSection() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
-            <h2 className="text-2xl font-bold text-white">Recent Matches</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Recent Matches</h2>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -421,7 +421,7 @@ export default function PlayPage() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <motion.p 
+          <motion.p
             className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -429,16 +429,16 @@ export default function PlayPage() {
           >
             Welcome Back
           </motion.p>
-          <motion.h1 
-            className="text-4xl md:text-5xl font-black text-white tracking-tight"
+          <motion.h1
+            className="text-3xl md:text-5xl font-black text-white tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
             Game Dashboard
           </motion.h1>
-          <motion.p 
-            className="text-slate-400 mt-2 text-lg"
+          <motion.p
+            className="text-slate-400 mt-2 text-base sm:text-lg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -465,7 +465,7 @@ export default function PlayPage() {
           </Badge>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Quick Match */}
           <GameModeCard
             href="/app/play/quick-match"

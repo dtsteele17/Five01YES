@@ -39,7 +39,7 @@ export function XPRewardDisplay({ xpResult, showBreakdown = true }: XPRewardDisp
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-      className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-slate-700 p-6 mb-6"
+      className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-slate-700 p-4 sm:p-6 mb-6"
     >
       {/* Total XP Header */}
       <div className="text-center mb-4">
@@ -55,7 +55,7 @@ export function XPRewardDisplay({ xpResult, showBreakdown = true }: XPRewardDisp
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="text-5xl font-black text-white mb-1"
+          className="text-3xl sm:text-5xl font-black text-white mb-1"
         >
           +{totalXP}
         </motion.h2>

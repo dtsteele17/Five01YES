@@ -52,7 +52,7 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
 
   if (mode === 'bull') {
     return (
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
         <Button
           onClick={() => onSegmentClick(25, 1)}
           disabled={disabled}
@@ -78,7 +78,7 @@ export function SegmentKeypad({ mode, onSegmentClick, disabled }: SegmentKeypadP
   }
 
   return (
-    <div className="grid grid-cols-5 gap-1.5 p-3">
+    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-3">
       {SEGMENTS.map((segment) => (
         <Button
           key={segment}

@@ -217,9 +217,9 @@ export function ModernMatchCard({
           </div>
 
           {/* VS / SCORE */}
-          <div className="px-6 flex flex-col items-center">
+          <div className="px-3 sm:px-6 flex flex-col items-center">
             <span className="text-slate-500 text-xs font-medium mb-1">VS</span>
-            <div className={`text-4xl font-black ${result.text} tracking-tight`}>
+            <div className={`text-2xl sm:text-4xl font-black ${result.text} tracking-tight`}>
               {match.legs_won}:{match.legs_lost}
             </div>
             <p className="text-slate-500 text-xs mt-1">Best of {totalLegs}</p>
@@ -258,7 +258,7 @@ export function ModernMatchCard({
             <span className="text-slate-400 text-xs font-medium">Your Stats</span>
           </div>
           
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <StatBox 
               icon={<TrendingUp className="w-3.5 h-3.5" />}
               label="3-Dart Avg"
@@ -297,7 +297,7 @@ export function ModernMatchCard({
                 <span className="text-slate-400 text-xs font-medium">{opponentName}&apos;s Stats</span>
               </div>
               
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatBox 
                   icon={<TrendingUp className="w-3.5 h-3.5" />}
                   label="3-Dart Avg"

@@ -152,7 +152,7 @@ export function MatchChatDrawer({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[400px] bg-slate-900 border-white/10 text-white flex flex-col p-0"
+        className="w-[calc(100vw-1rem)] sm:w-[400px] bg-slate-900 border-white/10 text-white flex flex-col p-0"
       >
         <SheetHeader className="p-4 border-b border-white/10">
           <SheetTitle className="text-white">Match Chat</SheetTitle>
@@ -174,7 +174,7 @@ export function MatchChatDrawer({
                   className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                    className={`max-w-[85%] sm:max-w-[75%] rounded-lg px-3 py-2 ${
                       isMyMessage
                         ? 'bg-emerald-600 text-white'
                         : 'bg-slate-800 text-white'
@@ -208,7 +208,7 @@ export function MatchChatDrawer({
             <Button
               onClick={sendMessage}
               disabled={!newMessage.trim() || sending}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4"
             >
               <Send className="w-4 h-4" />
             </Button>

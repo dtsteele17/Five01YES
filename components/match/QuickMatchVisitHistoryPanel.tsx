@@ -376,7 +376,7 @@ export function QuickMatchVisitHistoryPanel({
         )}
 
         <Dialog open={showAllModal} onOpenChange={setShowAllModal}>
-          <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogContent className="bg-slate-900 border-white/10 text-white w-[calc(100vw-1rem)] max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>Complete Visit History</DialogTitle>
             </DialogHeader>

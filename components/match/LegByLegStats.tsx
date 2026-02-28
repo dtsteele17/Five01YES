@@ -71,16 +71,16 @@ export function LegByLegStats({ legStats, playerName, opponentName }: LegByLegSt
     playerWon: boolean;
     opponentWon: boolean;
   }) => (
-    <div className="flex items-center justify-between py-2 px-3 bg-slate-800/30 rounded">
+    <div className="flex items-center justify-between py-2 px-2 sm:px-3 gap-2 bg-slate-800/30 rounded">
       <div className="flex items-center gap-2 text-slate-400 text-sm">
         <Icon className="w-4 h-4" />
         <span>{label}</span>
       </div>
-      <div className="flex items-center gap-6">
-        <span className={`font-bold w-16 text-right ${playerWon ? 'text-emerald-400' : 'text-slate-300'}`}>
+      <div className="flex items-center gap-3 sm:gap-6">
+        <span className={`font-bold w-12 sm:w-16 text-right ${playerWon ? 'text-emerald-400' : 'text-slate-300'}`}>
           {playerValue}
         </span>
-        <span className={`font-bold w-16 text-right ${opponentWon ? 'text-blue-400' : 'text-slate-300'}`}>
+        <span className={`font-bold w-12 sm:w-16 text-right ${opponentWon ? 'text-blue-400' : 'text-slate-300'}`}>
           {opponentValue}
         </span>
       </div>
@@ -146,11 +146,11 @@ export function LegByLegStats({ legStats, playerName, opponentName }: LegByLegSt
       </div>
 
       {/* Column headers */}
-      <div className="flex items-center justify-between py-2 px-3 text-sm text-slate-400 border-b border-slate-700 mb-2">
+      <div className="flex items-center justify-between py-2 px-2 sm:px-3 text-sm text-slate-400 border-b border-slate-700 mb-2">
         <div>Stats</div>
-        <div className="flex items-center gap-6">
-          <span className="w-16 text-right font-medium">{playerName}</span>
-          <span className="w-16 text-right font-medium">{opponentName}</span>
+        <div className="flex items-center gap-3 sm:gap-6">
+          <span className="w-12 sm:w-16 text-right font-medium truncate">{playerName}</span>
+          <span className="w-12 sm:w-16 text-right font-medium truncate">{opponentName}</span>
         </div>
       </div>
 

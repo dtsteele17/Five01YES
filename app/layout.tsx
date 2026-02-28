@@ -42,7 +42,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${inter.variable} font-sans`}>
+      <body className={`${spaceGrotesk.variable} ${inter.variable} font-sans overflow-x-hidden`}>
         <ClickSfxProvider>
           {children}
         </ClickSfxProvider>

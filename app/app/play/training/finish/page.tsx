@@ -606,7 +606,7 @@ function FinishTrainingContent() {
             className="shrink-0"
           >
             <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700/50 p-4 backdrop-blur-sm">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Target */}
                 <div className="text-center space-y-1">
                   <div className="flex items-center justify-center gap-2 text-emerald-400">
@@ -617,7 +617,7 @@ function FinishTrainingContent() {
                     key={currentTarget}
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-5xl font-black text-white"
+                    className="text-3xl sm:text-5xl font-black text-white"
                   >
                     {currentTarget}
                   </motion.div>
@@ -633,7 +633,7 @@ function FinishTrainingContent() {
                     key={remaining}
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className={`text-5xl font-black ${remaining === 0 ? 'text-emerald-400' : 'text-white'}`}
+                    className={`text-3xl sm:text-5xl font-black ${remaining === 0 ? 'text-emerald-400' : 'text-white'}`}
                   >
                     {remaining}
                   </motion.div>
@@ -645,7 +645,7 @@ function FinishTrainingContent() {
                     <Zap className="h-4 w-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">Attempt</span>
                   </div>
-                  <div className="text-5xl font-black text-white">
+                  <div className="text-3xl sm:text-5xl font-black text-white">
                     {attemptNo}<span className="text-2xl text-slate-500">/3</span>
                   </div>
                 </div>
@@ -713,7 +713,7 @@ function FinishTrainingContent() {
           >
             <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm h-full flex flex-col">
               <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')} className="flex flex-col h-full">
-                <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 mb-3 shrink-0">
+                <TabsList className="bg-slate-700/50 w-full grid grid-cols-1 sm:grid-cols-2 mb-3 shrink-0">
                   <TabsTrigger value="dart_pad" className="data-[state=active]:bg-emerald-500">
                     Dart by Dart
                   </TabsTrigger>
@@ -725,7 +725,7 @@ function FinishTrainingContent() {
                 <TabsContent value="dart_pad" className="flex-1 flex flex-col min-h-0 mt-0">
                   <div className="space-y-3 flex flex-col h-full">
                     <Tabs value={scoringTab} onValueChange={(v) => setScoringTab(v as any)} className="flex flex-col flex-1">
-                      <TabsList className="bg-slate-700/50 w-full grid grid-cols-4 mb-3 shrink-0">
+                      <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 sm:grid-cols-4 mb-3 shrink-0">
                         <TabsTrigger value="singles" className="data-[state=active]:bg-blue-500">
                           Singles
                         </TabsTrigger>
@@ -828,7 +828,7 @@ function FinishTrainingContent() {
                       </TabsContent>
 
                       <TabsContent value="bulls" className="flex-1 mt-0">
-                        <div className="grid grid-cols-2 gap-6 h-full content-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 h-full content-center">
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                             <Button
                               onClick={() =>
@@ -863,7 +863,7 @@ function FinishTrainingContent() {
                       </TabsContent>
                     </Tabs>
 
-                    <div className="grid grid-cols-2 gap-4 pt-2 shrink-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 shrink-0">
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
                         <Button
                           onClick={() =>
@@ -907,7 +907,7 @@ function FinishTrainingContent() {
                         className="bg-slate-700/50 border-slate-600 text-white text-lg h-14"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Button
                         onClick={handleTypedVisitSubmit}
                         disabled={!typedVisitValue}
@@ -998,25 +998,25 @@ function FinishTrainingContent() {
             className="space-y-4 py-4"
           >
             {/* Total XP Earned */}
-            <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-6 text-center">
+            <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-6 text-center">
               <div className="text-amber-300 text-sm font-bold uppercase tracking-wider mb-2">
                 Total XP Earned
               </div>
-              <div className="text-5xl font-black text-white flex items-center justify-center gap-2">
+              <div className="text-3xl sm:text-5xl font-black text-white flex items-center justify-center gap-2">
                 <Star className="w-8 h-8 text-amber-400" />
                 {sessionXP}
               </div>
             </div>
 
             {/* Total Darts */}
-            <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center">
+            <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30 rounded-2xl p-4 sm:p-6 text-center">
               <div className="text-emerald-300 text-sm font-bold uppercase tracking-wider mb-2">
                 Total Darts Thrown
               </div>
-              <div className="text-5xl font-black text-white">{totalDarts}</div>
+              <div className="text-3xl sm:text-5xl font-black text-white">{totalDarts}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-slate-700/30 rounded-xl p-4 text-center border border-slate-600/30">
                 <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
                   Attempts
@@ -1049,7 +1049,7 @@ function FinishTrainingContent() {
                   <div className="text-amber-300 text-sm font-bold uppercase tracking-wider mb-2 text-center">
                     Highest Finish
                   </div>
-                  <div className="text-4xl font-black text-white text-center">
+                  <div className="text-2xl sm:text-4xl font-black text-white text-center">
                     {Math.max(...finishesHit)}
                   </div>
                 </div>

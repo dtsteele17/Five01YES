@@ -62,7 +62,7 @@ export function PlayerScoreCard({
         </div>
       </div>
 
-      <div className="text-center py-6">
+      <div className="text-center py-4 sm:py-6">
         <div className="text-8xl font-bold text-white leading-none mb-2">
           {remaining}
         </div>

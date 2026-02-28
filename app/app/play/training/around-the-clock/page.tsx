@@ -253,7 +253,7 @@ export default function AroundTheClockPage() {
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="inline-block p-6 rounded-full bg-emerald-500/20 mb-4"
+            className="inline-block p-4 sm:p-6 rounded-full bg-emerald-500/20 mb-4"
           >
             <CheckCircle2 className="h-12 w-12 text-emerald-400" />
           </motion.div>
@@ -415,7 +415,7 @@ export default function AroundTheClockPage() {
       } else {
         // increase_by_segment - show all options in 2x2 grid but larger
         return (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
               <Button
                 onClick={() => handleDart('S', targetNumber)}
@@ -575,7 +575,7 @@ export default function AroundTheClockPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="grid grid-cols-4 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
         >
           <Card className="bg-slate-800/50 border-slate-700/50 p-4 text-center backdrop-blur-sm hover:bg-slate-800/70 transition-colors">
             <div className="flex items-center justify-center gap-2 mb-2">
@@ -613,7 +613,7 @@ export default function AroundTheClockPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="bg-slate-800/50 border-slate-700/50 p-6 backdrop-blur-sm">
+          <Card className="bg-slate-800/50 border-slate-700/50 p-4 sm:p-6 backdrop-blur-sm">
             <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <Crosshair className="h-5 w-5 text-blue-400" />
               Enter Your Throw
@@ -735,14 +735,14 @@ export default function AroundTheClockPage() {
 
             {/* Time Display */}
             <div className="text-center py-4 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl border border-white/10">
-              <div className="text-5xl font-black text-white mb-2">
+              <div className="text-3xl sm:text-5xl font-black text-white mb-2">
                 {formatTime(elapsedTime)}
               </div>
               <div className="text-slate-400 font-medium">Completion Time</div>
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-slate-700/50 p-4 rounded-xl text-center border border-slate-600/50">
                 <div className="text-3xl font-black text-blue-400">{state.totalThrows}</div>
                 <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Throws</div>
@@ -765,7 +765,7 @@ export default function AroundTheClockPage() {
           <DialogFooter className="gap-3 mt-6">
             <Button
               onClick={handleRetry}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-6 text-lg shadow-lg shadow-blue-500/25"
+              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 sm:py-6 text-lg shadow-lg shadow-blue-500/25"
             >
               <RotateCcw className="mr-2 h-5 w-5" />
               Play Again
@@ -773,7 +773,7 @@ export default function AroundTheClockPage() {
             <Button
               onClick={handleReturn}
               variant="outline"
-              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white font-bold py-6"
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white font-bold py-4 sm:py-6"
             >
               <ArrowLeft className="mr-2 h-5 w-5" />
               Exit

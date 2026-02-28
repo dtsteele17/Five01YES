@@ -35,7 +35,7 @@ export function MatchHUDTop({
     <div className="flex flex-col items-center py-3 px-4 space-y-3">
       <h2 className="text-lg font-semibold text-white">{bestOf}</h2>
 
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 w-full">
         <PlayerStatsSideBlock
           average={myPlayer.average}
           lastScore={myPlayer.lastScore}
@@ -43,7 +43,7 @@ export function MatchHUDTop({
           side="left"
         />
 
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <PlayerScoreCard
             name={myPlayer.name}
             remaining={myPlayer.remaining}
@@ -55,7 +55,7 @@ export function MatchHUDTop({
           />
         </div>
 
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <PlayerScoreCard
             name={opponentPlayer.name}
             remaining={opponentPlayer.remaining}

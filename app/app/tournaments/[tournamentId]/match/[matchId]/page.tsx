@@ -172,7 +172,7 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
           <p className="text-slate-400 mb-6">The tournament match you're looking for doesn't exist.</p>
           <button 
             onClick={() => router.push(`/app/tournaments/${tournamentId}`)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-6 py-2 rounded-lg"
           >
             Back to Tournament
           </button>
@@ -201,7 +201,7 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
       <div className="max-w-4xl mx-auto">
         
         {/* Tournament Match Header */}
-        <div className="bg-slate-900/50 border border-white/10 rounded-xl p-6 mb-6">
+        <div className="bg-slate-900/50 border border-white/10 rounded-xl p-4 sm:p-6 mb-6">
           <div className="text-center space-y-3">
             <h1 className="text-2xl font-black text-white">
               {tournamentMatch.tournament?.name}
@@ -219,7 +219,7 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
         </div>
 
         {/* Match Status */}
-        <div className="bg-slate-900/50 border border-white/10 rounded-xl p-6 text-center">
+        <div className="bg-slate-900/50 border border-white/10 rounded-xl p-4 sm:p-6 text-center">
           {!tournamentMatch.player1_id || !tournamentMatch.player2_id ? (
             <div className="space-y-4">
               <div className="w-16 h-16 bg-slate-700 rounded-full mx-auto flex items-center justify-center">
@@ -259,7 +259,7 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
               {isParticipant ? (
                 <button 
                   onClick={() => router.push(`/app/play/quick-match/match?roomId=${tournamentMatch.match_room_id}&tournamentMatch=${matchId}`)}
-                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-200"
+                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold py-3 px-4 sm:px-8 rounded-lg transition-all duration-200"
                 >
                   Join Match
                 </button>
@@ -267,7 +267,7 @@ export default function TournamentMatchPage({ params }: TournamentMatchPageProps
                 <div className="space-y-3">
                   <button 
                     onClick={() => router.push(`/app/play/quick-match/match?roomId=${tournamentMatch.match_room_id}&spectate=true`)}
-                    className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-lg transition-all duration-200 mr-4"
+                    className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 sm:px-8 rounded-lg transition-all duration-200 mr-4"
                   >
                     Spectate Match
                   </button>

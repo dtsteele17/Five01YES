@@ -532,7 +532,7 @@ export default function KillerTrainingPage() {
         </div>
 
         {/* Player Cards */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* User Card */}
           <Card className={`p-4 border-2 ${user.eliminated ? 'bg-slate-800/50 border-slate-700 opacity-50' : user.isKiller ? 'bg-red-500/10 border-red-500/50' : 'bg-emerald-500/10 border-emerald-500/30'}`}>
             <div className="flex items-center justify-between mb-3">
@@ -636,7 +636,7 @@ export default function KillerTrainingPage() {
 
         {/* Scoring Panel */}
         {gamePhase !== 'round-over' && gamePhase !== 'match-over' && (
-          <Card className="bg-slate-800/50 border-slate-700 p-6">
+          <Card className="bg-slate-800/50 border-slate-700 p-4 sm:p-6">
             {/* Tabs */}
             <div className="flex gap-1 mb-4 bg-slate-700/50 p-1 rounded-lg">
               {(['singles', 'doubles', 'trebles', 'bulls'] as const).map((tab) => (
@@ -707,7 +707,7 @@ export default function KillerTrainingPage() {
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
                 <Button
                   onClick={() => handleDartClick({ 
                     segment: 'SB', 
@@ -808,17 +808,17 @@ export default function KillerTrainingPage() {
             <div className="space-y-6 py-4">
               {/* Match Score Display (when match is over) */}
               {gamePhase === 'match-over' && (
-                <div className={`rounded-lg p-6 text-center border-2 ${
+                <div className={`rounded-lg p-4 sm:p-6 text-center border-2 ${
                   roundScore.user > roundScore.bot 
                     ? 'bg-emerald-500/20 border-emerald-500' 
                     : roundScore.bot > roundScore.user
                     ? 'bg-red-500/20 border-red-500'
                     : 'bg-amber-500/20 border-amber-500'
                 }`}>
-                  <div className="text-6xl mb-3">
+                  <div className="text-2xl sm:text-4xl sm:text-6xl mb-3">
                     {roundScore.user > roundScore.bot ? '🏆' : roundScore.bot > roundScore.user ? '🤖' : '🤝'}
                   </div>
-                  <div className="text-5xl font-black text-white mb-2">
+                  <div className="text-3xl sm:text-5xl font-black text-white mb-2">
                     {roundScore.user} - {roundScore.bot}
                   </div>
                   <div className="text-sm text-slate-300">
@@ -843,12 +843,12 @@ export default function KillerTrainingPage() {
 
               {/* Round Score Display (during match) */}
               {gamePhase === 'round-over' && (
-                <div className={`rounded-lg p-6 text-center border-2 ${
+                <div className={`rounded-lg p-4 sm:p-6 text-center border-2 ${
                   winner?.id === 'user' 
                     ? 'bg-emerald-500/20 border-emerald-500' 
                     : 'bg-red-500/20 border-red-500'
                 }`}>
-                  <div className="text-6xl mb-2">{winner?.id === 'user' ? '🎯' : '💀'}</div>
+                  <div className="text-2xl sm:text-4xl sm:text-6xl mb-2">{winner?.id === 'user' ? '🎯' : '💀'}</div>
                   <div className={`text-3xl font-bold ${winner?.id === 'user' ? 'text-emerald-400' : 'text-red-400'}`}>
                     {winner?.name} wins Round {currentRound}!
                   </div>
@@ -863,7 +863,7 @@ export default function KillerTrainingPage() {
                 <div className="text-slate-400 text-xs uppercase tracking-wider mb-3 text-center">
                   Round {currentRound} Stats
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="text-center">
                     <div className="text-slate-400 text-xs mb-1">Your Kills</div>
                     <div className="text-2xl font-bold text-emerald-400">{userKills}</div>

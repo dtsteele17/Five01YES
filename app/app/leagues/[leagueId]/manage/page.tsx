@@ -197,7 +197,7 @@ export default function ManageLeaguePage() {
           </TabsList>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">League Settings</h2>
 
               <div className="space-y-6">
@@ -213,7 +213,7 @@ export default function ManageLeaguePage() {
 
                 <div>
                   <Label className="text-white">Match Days</Label>
-                  <div className="grid grid-cols-7 gap-2 mt-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 mt-2">
                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
                       <button
                         key={day}
@@ -326,7 +326,7 @@ export default function ManageLeaguePage() {
           </TabsContent>
 
           <TabsContent value="fixtures" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">Manage Fixtures</h2>
 
               <div className="space-y-4">
@@ -395,7 +395,7 @@ export default function ManageLeaguePage() {
           </TabsContent>
 
           <TabsContent value="players" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">Manage Players</h2>
 
               <div className="space-y-3">

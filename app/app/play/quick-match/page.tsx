@@ -390,7 +390,7 @@ function ATCLobbyModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">
@@ -408,7 +408,7 @@ function ATCLobbyModal({
           </div>
         </div>
         
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Not in lobby warning */}
           {!isPlayerInLobby && (
             <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
@@ -657,11 +657,11 @@ function HeroStat({ value, label, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-4 sm:p-6 group hover:border-slate-600/50 transition-all`}>
       <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-2xl sm:text-4xl font-black text-white tracking-tight">{value}</p>
           <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
         </div>
         <div className={`w-12 h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
@@ -1880,7 +1880,7 @@ export default function QuickMatchLobbyPage() {
             </Link>
             <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">Online Play</p>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Quick Match</h1>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">Quick Match</h1>
           <p className="text-slate-400 mt-2 text-lg">Create or join an online match with players worldwide</p>
         </div>
 
@@ -1903,7 +1903,7 @@ export default function QuickMatchLobbyPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <HeroStat value={totalOpenLobbies} label="Available Matches" icon={Gamepad2} color="bg-blue-500" />
         <HeroStat value={inProgressMatches} label="Matches In Play" icon={Zap} color="bg-emerald-500" />
         <HeroStat value={last5Record} label="Last 5 Matches" icon={Target} color="bg-purple-500" />
@@ -1935,7 +1935,7 @@ export default function QuickMatchLobbyPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Create Lobby */}
         <div>
-          <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 h-full">
+          <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-4 sm:p-6 h-full">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
@@ -1964,7 +1964,7 @@ export default function QuickMatchLobbyPage() {
                       </div>
                       
                       <Button
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-6 text-lg font-bold"
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 sm:py-6 text-lg font-bold"
                         onClick={() => setShowATCLobbyModal(true)}
                       >
                         <Users className="w-5 h-5 mr-2" />
@@ -2125,7 +2125,7 @@ export default function QuickMatchLobbyPage() {
                   )}
 
                   <Button
-                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-6"
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold py-4 sm:py-6"
                     onClick={createLobby}
                     disabled={creating}
                   >
@@ -2140,7 +2140,7 @@ export default function QuickMatchLobbyPage() {
 
         {/* Open Lobbies */}
         <div className="lg:col-span-2">
-          <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 h-full">
+          <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-4 sm:p-6 h-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
@@ -2154,7 +2154,7 @@ export default function QuickMatchLobbyPage() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
               <Select value={filterMode} onValueChange={setFilterMode}>
                 <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white">
                   <SelectValue placeholder="Game Mode" />
@@ -2331,7 +2331,7 @@ export default function QuickMatchLobbyPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-white">
@@ -2347,7 +2347,7 @@ export default function QuickMatchLobbyPage() {
               </div>
             </div>
             
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
               {/* Player Info Card */}
               <div className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl">
                 <Avatar className="w-16 h-16 rounded-xl">
@@ -2396,7 +2396,7 @@ export default function QuickMatchLobbyPage() {
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <Button
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-6 text-lg font-bold"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 sm:py-6 text-lg font-bold"
                   onClick={() => handleAcceptJoinRequest(currentJoinRequest)}
                   disabled={processingRequest}
                 >
@@ -2409,7 +2409,7 @@ export default function QuickMatchLobbyPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20 py-6 text-lg font-bold"
+                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20 py-4 sm:py-6 text-lg font-bold"
                   onClick={() => handleDeclineJoinRequest(currentJoinRequest)}
                   disabled={processingRequest}
                 >
@@ -2424,7 +2424,7 @@ export default function QuickMatchLobbyPage() {
 
       {/* Pending Join Request Indicator */}
       {pendingLobbyId && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-6 py-4 shadow-2xl z-40">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 border border-emerald-500/30 rounded-xl px-3 sm:px-6 py-4 shadow-2xl z-40">
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
             <span className="text-white font-medium">Waiting for host approval...</span>

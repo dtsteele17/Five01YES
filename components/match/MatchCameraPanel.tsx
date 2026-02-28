@@ -84,8 +84,8 @@ export function MatchCameraPanel({
   return (
     <Card className="bg-slate-900/50 border-white/10 p-4 h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
           Camera
           {isConnecting && (
             <span className="text-xs text-amber-400 animate-pulse">
@@ -99,13 +99,13 @@ export function MatchCameraPanel({
             <span className="text-xs text-red-400">● Failed</span>
           )}
         </h3>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           {isFailed && refreshConnection && (
             <Button
               onClick={refreshConnection}
               variant="outline"
               size="sm"
-              className="border-white/10 text-white hover:bg-white/5 text-xs h-8"
+              className="border-white/10 text-white hover:bg-white/5 text-xs h-8 flex-1 sm:flex-none"
             >
               <RefreshCw className="w-3 h-3 mr-1" /> Retry
             </Button>
@@ -115,7 +115,7 @@ export function MatchCameraPanel({
             disabled={isConnecting}
             variant="outline"
             size="sm"
-            className="border-white/10 text-white hover:bg-white/5 text-xs h-8"
+            className="border-white/10 text-white hover:bg-white/5 text-xs h-8 flex-1 sm:flex-none"
           >
             {isCameraOn ? (
               <>
@@ -150,7 +150,7 @@ export function MatchCameraPanel({
                 muted={mainIsMuted}
                 className="w-full h-full object-cover rounded-lg"
               />
-              <div className="absolute bottom-4 left-4 px-4 py-2 bg-black/70 rounded-lg text-base text-white font-medium flex items-center gap-2">
+              <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 px-3 sm:px-4 py-1.5 sm:py-2 bg-black/70 rounded-lg text-sm sm:text-base text-white font-medium flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 {mainName} — Throwing
               </div>
@@ -170,7 +170,7 @@ export function MatchCameraPanel({
         </div>
 
         {/* PiP — Waiting player */}
-        <div className="absolute bottom-4 right-4 w-32 h-24 rounded-lg overflow-hidden border-2 border-white/20 bg-slate-800 shadow-lg">
+        <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 w-24 h-20 sm:w-32 sm:h-24 rounded-lg overflow-hidden border-2 border-white/20 bg-slate-800 shadow-lg">
           {pipStream ? (
             <>
               <video

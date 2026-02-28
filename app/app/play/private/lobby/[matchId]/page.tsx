@@ -142,7 +142,7 @@ export default function PrivateMatchLobbyPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl"
+          className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-4 sm:p-6 shadow-2xl"
         >
           <PrivateMatchLobby
             roomId={matchId}

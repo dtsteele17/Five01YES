@@ -101,7 +101,7 @@ export default function AllMatchesPage() {
             </Link>
             <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">History</p>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">All Matches</h1>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">All Matches</h1>
           <p className="text-slate-400 mt-2 text-lg">
             {isFiltered 
               ? `Showing ${matches.length} filtered matches`
@@ -136,7 +136,7 @@ export default function AllMatchesPage() {
 
       {/* Summary Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-slate-800/40 border-slate-700/50 p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
@@ -197,7 +197,7 @@ export default function AllMatchesPage() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <Card className="bg-slate-800/40 border-slate-700/50 p-6">
+        <Card className="bg-slate-800/40 border-slate-700/50 p-4 sm:p-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="text-slate-400 text-sm mb-3 block font-medium">Game Mode</label>

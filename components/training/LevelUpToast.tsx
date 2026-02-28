@@ -33,13 +33,13 @@ export function LevelUpToast({ oldLevel, newLevel, onDismiss }: LevelUpToastProp
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          className="fixed bottom-6 right-6 z-[9999] cursor-pointer"
+          className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[9999] cursor-pointer"
           onClick={() => {
             setVisible(false);
             onDismiss?.();
           }}
         >
-          <div className="relative overflow-hidden rounded-xl border border-amber-500/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 shadow-2xl shadow-amber-500/20 min-w-[280px]">
+          <div className="relative overflow-hidden rounded-xl border border-amber-500/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-5 shadow-2xl shadow-amber-500/20 min-w-[240px] sm:min-w-[280px] max-w-[calc(100vw-1.5rem)]">
             {/* Glow effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 animate-pulse" />
 

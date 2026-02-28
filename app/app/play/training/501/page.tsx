@@ -372,7 +372,7 @@ function ScoringPanel({
         ))}
       </div>
 
-      <div className="flex-1 grid grid-cols-5 gap-1 mb-3">
+      <div className="flex-1 grid grid-cols-3 sm:grid-cols-5 gap-1 mb-3">
         {activeTab === 'bulls' ? (
           <>
             <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">25</Button>
@@ -430,7 +430,7 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg, onEditVisit, c
     <div className="h-full flex flex-col">
       <h3 className="text-sm font-semibold text-white mb-2">Visit History - Leg {currentLeg}</h3>
       <div className="flex-1 overflow-auto space-y-1">
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 border-b border-white/10 pb-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-400 border-b border-white/10 pb-1">
           <div className="text-center font-bold text-emerald-400">{myName}</div>
           <div className="text-center font-bold text-purple-400">{botName}</div>
         </div>
@@ -439,7 +439,7 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg, onEditVisit, c
             const myVisit = myVisits[i];
             const botVisit = botVisits[i];
             return (
-              <div key={i} className="grid grid-cols-2 gap-2 py-1 border-b border-white/5 text-sm">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-1 border-b border-white/5 text-sm">
                 <div>{myVisit ? (
                   <div className="bg-slate-800/50 rounded p-1.5 relative group">
                     <div className="flex justify-between items-center">
@@ -1643,7 +1643,7 @@ export default function DartbotMatchPage() {
       </div>
 
       {/* Main Content - QuickMatch Style */}
-      <div className="flex-1 grid grid-cols-2 gap-3 p-3 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 overflow-hidden">
         {/* LEFT: Dartboard */}
         <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between p-2 border-b border-white/5">
@@ -1716,7 +1716,7 @@ export default function DartbotMatchPage() {
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-3 overflow-hidden">
           {/* Player Cards */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <QuickMatchPlayerCard
               name="You"
               remaining={player1Score}

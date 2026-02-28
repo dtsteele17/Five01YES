@@ -222,7 +222,7 @@ export default function JDCChallengePage() {
         // Show Single, Double, and Triple buttons for rounds 1-6 (10s-15s)
         return (
           <div className="space-y-3 mb-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={() => handleDartInput(currentTarget.number!, 1, `S${currentTarget.number}`)}
                 disabled={disabled}
@@ -262,7 +262,7 @@ export default function JDCChallengePage() {
       case 'triple':
         // Only show Treble button for the target number
         return (
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <button
               onClick={() => handleDartInput(currentTarget.number!, 3, `T${currentTarget.number}`)}
               disabled={disabled}
@@ -286,7 +286,7 @@ export default function JDCChallengePage() {
         // Show all doubles D1-D20
         return (
           <>
-            <div className="grid grid-cols-5 gap-2 mb-4">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
               {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
                 <button
                   key={`D${num}`}
@@ -313,7 +313,7 @@ export default function JDCChallengePage() {
         // Show Outer Bull and Bullseye
         return (
           <div className="space-y-3 mb-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => handleDartInput(25, 1, '25')}
                 disabled={disabled}
@@ -366,18 +366,18 @@ export default function JDCChallengePage() {
             {/* XP Reward Display */}
             {xpResult && <XPRewardDisplay xpResult={xpResult} />}
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Total Score</p>
-                <p className="text-4xl font-bold text-white">{totalScore}</p>
+                <p className="text-2xl sm:text-4xl font-bold text-white">{totalScore}</p>
               </div>
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Double Bonus</p>
-                <p className="text-4xl font-bold text-emerald-400">{getTotalBonus()}</p>
+                <p className="text-2xl sm:text-4xl font-bold text-emerald-400">{getTotalBonus()}</p>
               </div>
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Rounds</p>
-                <p className="text-4xl font-bold text-blue-400">14</p>
+                <p className="text-2xl sm:text-4xl font-bold text-blue-400">14</p>
               </div>
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Grade</p>
@@ -475,7 +475,7 @@ export default function JDCChallengePage() {
         <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-500/30 rounded-2xl p-8 mb-6">
           <div className="text-center">
             <p className="text-gray-400 mb-2">Current Target</p>
-            <h2 className="text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
+            <h2 className="text-3xl sm:text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
             <p className="text-blue-400">Target: {currentTarget.target}</p>
           </div>
         </div>
@@ -490,7 +490,7 @@ export default function JDCChallengePage() {
         </div>
 
         {/* Darts Display */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[0, 1, 2].map((i) => {
             const dart = currentDarts[i];
             return (
@@ -521,7 +521,7 @@ export default function JDCChallengePage() {
         </div>
 
         {/* Scoring Interface */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
           {renderScoringButtons()}
 
           {/* Action Buttons */}

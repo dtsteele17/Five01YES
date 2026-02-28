@@ -73,7 +73,7 @@ function MainStatCard({ value, label, icon, color, trend, sublabel }: MainStatCa
       <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-3xl md:text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-2xl md:text-4xl font-black text-white tracking-tight">{value}</p>
           <p className="text-slate-400 text-sm mt-1 uppercase tracking-wider font-medium">{label}</p>
           {sublabel && <p className="text-slate-500 text-xs mt-1">{sublabel}</p>}
           {trend && (
@@ -225,9 +225,9 @@ export default function StatsPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">Performance</p>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Your Statistics</h1>
+          <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">Your Statistics</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
@@ -329,7 +329,7 @@ export default function StatsPage() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <Card className="bg-slate-800/40 border-slate-700/50 p-5">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">

@@ -274,14 +274,14 @@ export default function RankedPage() {
         <div className="absolute bottom-0 left-1/4 w-[600px] h-[300px] bg-purple-600/10 rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 space-y-8">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-3">
-            <Shield className="w-10 h-10 text-blue-400" />
-            <h1 className="text-4xl font-black text-white tracking-tight">Ranked Arena</h1>
+            <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Ranked Arena</h1>
           </div>
-          <p className="text-slate-400 text-lg">501 • Best of 5 • Double Out</p>
+          <p className="text-slate-400 text-base sm:text-lg">501 • Best of 5 • Double Out</p>
         </div>
 
         {/* Rank Card */}
@@ -292,8 +292,8 @@ export default function RankedPage() {
         >
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent" />
 
-          <div className="relative p-8">
-            <div className="flex flex-col md:flex-row items-center gap-8">
+          <div className="relative p-4 sm:p-8">
+            <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8">
               {/* Rank Badge */}
               <div className="relative flex-shrink-0">
                 <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-3xl" />
@@ -301,11 +301,11 @@ export default function RankedPage() {
                   <img
                     src={getRankImageUrl(playerState.division_name)}
                     alt={playerState.division_name}
-                    className="relative w-36 h-36 object-contain"
+                    className="relative w-24 h-24 sm:w-36 sm:h-36 object-contain"
                   />
                 ) : (
-                  <div className="relative w-36 h-36 rounded-full bg-slate-700/50 border-2 border-dashed border-slate-600 flex items-center justify-center">
-                    <span className="text-slate-500 text-4xl font-black">?</span>
+                  <div className="relative w-24 h-24 sm:w-36 sm:h-36 rounded-full bg-slate-700/50 border-2 border-dashed border-slate-600 flex items-center justify-center">
+                    <span className="text-slate-500 text-3xl sm:text-4xl font-black">?</span>
                   </div>
                 )}
               </div>
@@ -317,8 +317,8 @@ export default function RankedPage() {
                     <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs uppercase tracking-wider">
                       Placement Matches
                     </Badge>
-                    <h2 className="text-3xl font-black text-white">Unranked</h2>
-                    <div className="space-y-2 max-w-xs">
+                    <h2 className="text-2xl sm:text-3xl font-black text-white">Unranked</h2>
+                    <div className="space-y-2 max-w-xs mx-auto md:mx-0">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-400">Progress</span>
                         <span className="text-white font-bold">{placementsDone}/5</span>
@@ -338,8 +338,8 @@ export default function RankedPage() {
                   <>
                     <p className="text-blue-400 text-sm font-bold uppercase tracking-wider">Current Rank</p>
                     <h2 className="text-4xl font-black text-white">{playerState?.division_name}</h2>
-                    <div className="flex items-center gap-2">
-                      <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400">
+                    <div className="flex items-center gap-2 justify-center md:justify-start">
+                      <span className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400">
                         {playerState?.rp}
                       </span>
                       <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">RP</span>
@@ -438,7 +438,7 @@ export default function RankedPage() {
         </motion.div>
 
         {/* Info Cards */}
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <Card className="bg-slate-800/30 border-white/5 p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">

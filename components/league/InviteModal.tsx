@@ -93,7 +93,7 @@ export default function InviteModal({ open, onOpenChange, leagueId }: InviteModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[500px] sm:w-full">
         <DialogHeader>
           <DialogTitle>Invite Players</DialogTitle>
           <DialogDescription>
@@ -104,7 +104,7 @@ export default function InviteModal({ open, onOpenChange, leagueId }: InviteModa
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email Address</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
@@ -122,7 +122,7 @@ export default function InviteModal({ open, onOpenChange, leagueId }: InviteModa
                   className="pl-10"
                 />
               </div>
-              <Button onClick={handleInvite} className="bg-teal-600 hover:bg-teal-700">
+              <Button onClick={handleInvite} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
                 Send Invite
               </Button>
             </div>
@@ -135,11 +135,11 @@ export default function InviteModal({ open, onOpenChange, leagueId }: InviteModa
                 {league.invitedEmails.map((invitedEmail, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between bg-slate-800/30 rounded-lg px-3 py-2 border border-slate-700/30"
+                    className="flex items-center justify-between gap-2 bg-slate-800/30 rounded-lg px-3 py-2 border border-slate-700/30"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Mail className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm text-slate-300">{invitedEmail}</span>
+                      <span className="text-sm text-slate-300 truncate">{invitedEmail}</span>
                     </div>
                     <Button
                       variant="ghost"

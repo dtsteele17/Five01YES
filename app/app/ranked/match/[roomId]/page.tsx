@@ -748,7 +748,7 @@ export default function RankedMatchPage() {
           <div className="space-y-4">
             {/* Player 1 */}
             <Card className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border-2 border-transparent hover:border-amber-500/30 transition-all">
-              <div className={`p-6 rounded-xl ${
+              <div className={`p-4 sm:p-6 rounded-xl ${
                 matchState.currentTurnPlayer === 1
                   ? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border-2 border-emerald-500'
                   : ''
@@ -772,7 +772,7 @@ export default function RankedMatchPage() {
                   )}
                 </div>
                 <div className="text-center">
-                  <div className="text-5xl font-black text-white mb-2">{matchState.players[0].remaining}</div>
+                  <div className="text-3xl sm:text-5xl font-black text-white mb-2">{matchState.players[0].remaining}</div>
                   <div className="text-sm text-gray-400">Remaining</div>
                 </div>
               </div>
@@ -780,7 +780,7 @@ export default function RankedMatchPage() {
 
             {/* Player 2 */}
             <Card className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border-2 border-transparent hover:border-amber-500/30 transition-all">
-              <div className={`p-6 rounded-xl ${
+              <div className={`p-4 sm:p-6 rounded-xl ${
                 matchState.currentTurnPlayer === 2
                   ? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border-2 border-emerald-500'
                   : ''
@@ -804,7 +804,7 @@ export default function RankedMatchPage() {
                   )}
                 </div>
                 <div className="text-center">
-                  <div className="text-5xl font-black text-white mb-2">{matchState.players[1].remaining}</div>
+                  <div className="text-3xl sm:text-5xl font-black text-white mb-2">{matchState.players[1].remaining}</div>
                   <div className="text-sm text-gray-400">Remaining</div>
                 </div>
               </div>
@@ -862,7 +862,7 @@ export default function RankedMatchPage() {
           {/* Right Column: Scoring Interface */}
           <div className="lg:col-span-2 space-y-4">
             <Card className="bg-slate-900/50 backdrop-blur-sm border border-white/10">
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-white">Score Entry</h3>
                   <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
@@ -887,7 +887,7 @@ export default function RankedMatchPage() {
                     </div>
 
                     {dartboardGroup === 'bulls' ? (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Button
                           onClick={() => handleDartClick(25, 'bull')}
                           disabled={!isMyTurn || currentVisit.length >= 3}
@@ -904,7 +904,7 @@ export default function RankedMatchPage() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-5 gap-2">
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                         {[20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5].map((num) => (
                           <Button
                             key={num}
@@ -1054,7 +1054,7 @@ export default function RankedMatchPage() {
             return (
               <div>
                 {/* Header */}
-                <div className={`relative p-6 ${isWin ? 'bg-gradient-to-r from-emerald-600/30 via-emerald-500/20 to-emerald-600/30' : 'bg-gradient-to-r from-red-600/20 via-red-500/10 to-red-600/20'}`}>
+                <div className={`relative p-4 sm:p-6 ${isWin ? 'bg-gradient-to-r from-emerald-600/30 via-emerald-500/20 to-emerald-600/30' : 'bg-gradient-to-r from-red-600/20 via-red-500/10 to-red-600/20'}`}>
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/5 to-transparent" />
                   <div className="relative text-center space-y-2">
                     <Badge className="bg-white/10 text-white border-white/20 text-xs uppercase tracking-widest">Ranked Match</Badge>
@@ -1071,13 +1071,13 @@ export default function RankedMatchPage() {
                   </div>
                 </div>
 
-                <div className="p-6 space-y-5">
+                <div className="p-4 sm:p-6 space-y-5">
                   {/* RP Change - Big and dramatic */}
-                  <div className={`text-center p-6 rounded-2xl border ${isWin ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <div className={`text-center p-4 sm:p-6 rounded-2xl border ${isWin ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
                     <p className="text-slate-400 text-sm mb-1 uppercase tracking-wider">Rating Change</p>
                     <div className="flex items-center justify-center gap-3">
                       {myPlayer.delta > 0 ? <ArrowUp className="w-8 h-8 text-emerald-400" /> : <ArrowDown className="w-8 h-8 text-red-400" />}
-                      <span className={`text-6xl font-black ${myPlayer.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <span className={`text-2xl sm:text-4xl sm:text-6xl font-black ${myPlayer.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {myPlayer.delta > 0 ? '+' : ''}{myPlayer.delta}
                       </span>
                       <span className="text-slate-400 text-xl font-bold">RP</span>
@@ -1116,7 +1116,7 @@ export default function RankedMatchPage() {
                     </div>
                     {!hasSubmittedRating ? (
                       <div className="space-y-2">
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                           {(['A', 'B', 'C', 'D', 'E'] as const).map((rating) => (
                             <button
                               key={rating}

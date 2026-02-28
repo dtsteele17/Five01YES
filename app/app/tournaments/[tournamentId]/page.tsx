@@ -651,7 +651,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Premium Header Section */}
       <div className="bg-slate-900/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -669,7 +669,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-8 space-y-8">
 
         {/* Header */}
         <motion.div
@@ -688,7 +688,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                       <Trophy className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h1 className="text-4xl font-black text-white tracking-tight">{tournament.name}</h1>
+                      <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">{tournament.name}</h1>
                       <div className="flex items-center gap-4 text-slate-400 mt-2">
                         <div className="flex items-center gap-1">
                           <Target className="w-4 h-4" />
@@ -742,7 +742,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Registration Progress */}
             <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
@@ -768,7 +768,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
             {/* Tournament Format */}
             <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
@@ -788,7 +788,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
             {/* Tournament Timing */}
             <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
@@ -835,24 +835,24 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           <div className="lg:col-span-3">
             <Tabs defaultValue={tournament.status === 'in_progress' || tournament.status === 'completed' ? 'bracket' : 'overview'} className="space-y-8">
               <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10 p-2">
-                <TabsList className="grid w-full grid-cols-3 bg-transparent">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 bg-transparent">
                   <TabsTrigger
                     value="overview"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/25 rounded-xl py-3 px-6 font-medium transition-all duration-200"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/25 rounded-xl py-3 px-3 sm:px-6 font-medium transition-all duration-200"
                   >
                     <Target className="w-4 h-4 mr-2" />
                     Overview
                   </TabsTrigger>
                   <TabsTrigger
                     value="players"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 rounded-xl py-3 px-6 font-medium transition-all duration-200"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 rounded-xl py-3 px-3 sm:px-6 font-medium transition-all duration-200"
                   >
                     <Users className="w-4 h-4 mr-2" />
                     Players ({participants.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="bracket"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-xl py-3 px-6 font-medium transition-all duration-200"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-xl py-3 px-3 sm:px-6 font-medium transition-all duration-200"
                   >
                     <Trophy className="w-4 h-4 mr-2" />
                     Bracket
@@ -1087,7 +1087,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           <div className="space-y-6">
             {/* Join/Status Card */}
             <Card className="bg-slate-900/50 border-white/10 sticky top-6">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 {!isRegistered ? (
                   <div className="space-y-4">
                     <div className="text-center">
@@ -1172,7 +1172,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                 <CardTitle className="text-white text-base">Tournament Stats</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
                   <div className="p-3 bg-slate-800/30 rounded-lg">
                     <div className="text-lg font-bold text-emerald-400">{participants.length}</div>
                     <div className="text-xs text-slate-400">Players</div>

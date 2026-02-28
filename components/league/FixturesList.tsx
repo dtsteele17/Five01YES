@@ -74,7 +74,7 @@ export default function FixturesList({ league }: FixturesListProps) {
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant={filter === 'all' ? 'default' : 'outline'}
             size="sm"
@@ -150,14 +150,14 @@ export default function FixturesList({ league }: FixturesListProps) {
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-3 text-sm text-slate-400">
+                        <div className="flex flex-wrap items-center gap-2 mb-3 text-sm text-slate-400">
                           <Calendar className="w-4 h-4" />
                           <span>{format(fixture.dateTime, 'EEE, MMM d, yyyy')}</span>
                           <Clock className="w-4 h-4 ml-2" />
                           <span>{format(fixture.dateTime, 'HH:mm')}</span>
                         </div>
 
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 sm:gap-4">
                           <div className="flex items-center gap-3 flex-1">
                             <div className="text-right flex-1">
                               <div className={`font-medium ${
@@ -170,8 +170,8 @@ export default function FixturesList({ league }: FixturesListProps) {
                             </div>
 
                             {fixture.status === 'Completed' ? (
-                              <div className="flex items-center gap-3 bg-slate-900/50 rounded-lg px-4 py-2">
-                                <span className={`text-2xl font-bold ${
+                              <div className="flex items-center gap-2 sm:gap-3 bg-slate-900/50 rounded-lg px-3 sm:px-4 py-2">
+                                <span className={`text-xl sm:text-2xl font-bold ${
                                   (fixture.legsWonHome || 0) > (fixture.legsWonAway || 0)
                                     ? 'text-green-400'
                                     : 'text-slate-400'
@@ -179,7 +179,7 @@ export default function FixturesList({ league }: FixturesListProps) {
                                   {fixture.legsWonHome}
                                 </span>
                                 <span className="text-slate-600">-</span>
-                                <span className={`text-2xl font-bold ${
+                                <span className={`text-xl sm:text-2xl font-bold ${
                                   (fixture.legsWonAway || 0) > (fixture.legsWonHome || 0)
                                     ? 'text-green-400'
                                     : 'text-slate-400'
@@ -188,7 +188,7 @@ export default function FixturesList({ league }: FixturesListProps) {
                                 </span>
                               </div>
                             ) : (
-                              <div className="bg-slate-900/50 rounded-lg px-4 py-2">
+                              <div className="bg-slate-900/50 rounded-lg px-3 sm:px-4 py-2">
                                 <span className="text-slate-400 text-sm">vs</span>
                               </div>
                             )}
@@ -206,7 +206,7 @@ export default function FixturesList({ league }: FixturesListProps) {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         <Badge
                           variant={fixture.status === 'Completed' ? 'secondary' : 'default'}
                           className={

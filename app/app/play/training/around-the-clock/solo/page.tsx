@@ -186,14 +186,14 @@ export default function SoloAroundTheClockPage() {
           <div className="w-20" />
         </div>
 
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
+        <Card className="bg-slate-800/50 border-slate-700 p-4 sm:p-6">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Target className="h-8 w-8 text-blue-400" />
                 <div>
                   <div className="text-sm text-slate-400">Current Target</div>
-                  <div className="text-4xl font-bold text-white">{getTargetLabel()}</div>
+                  <div className="text-2xl sm:text-4xl font-bold text-white">{getTargetLabel()}</div>
                 </div>
               </div>
               <div className="text-right">
@@ -219,7 +219,7 @@ export default function SoloAroundTheClockPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-slate-700/30 p-3 rounded-lg text-center">
                 <div className="text-xs text-slate-400">Darts</div>
                 <div className="text-xl font-bold text-white">{state.totalDarts}</div>
@@ -240,10 +240,10 @@ export default function SoloAroundTheClockPage() {
           </div>
         </Card>
 
-        <Card className="bg-slate-800/50 border-slate-700 p-6">
+        <Card className="bg-slate-800/50 border-slate-700 p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Throw Dart</h3>
           {state.currentTarget === 25 ? (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Button
                 onClick={() => handleDart('S')}
                 disabled={state.isComplete}
@@ -267,7 +267,7 @@ export default function SoloAroundTheClockPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Button
                 onClick={() => handleDart('S')}
                 disabled={state.isComplete}
@@ -301,7 +301,7 @@ export default function SoloAroundTheClockPage() {
         </Card>
 
         {state.history.length > 0 && (
-          <Card className="bg-slate-800/50 border-slate-700 p-6">
+          <Card className="bg-slate-800/50 border-slate-700 p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-white mb-4">History</h3>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {state.history.slice().reverse().map((entry, idx) => (
@@ -337,13 +337,13 @@ export default function SoloAroundTheClockPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-center py-4">
-              <div className="text-4xl font-bold text-yellow-500 mb-2">
+              <div className="text-2xl sm:text-4xl font-bold text-yellow-500 mb-2">
                 {formatTime(state.finishedAt ? state.finishedAt - state.startedAt : 0)}
               </div>
               <div className="text-slate-400">Completion Time</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-slate-700/30 p-4 rounded-lg text-center">
                 <div className="text-2xl font-bold text-white">{state.totalDarts}</div>
                 <div className="text-sm text-slate-400">Total Darts</div>
@@ -362,7 +362,7 @@ export default function SoloAroundTheClockPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-blue-500/20 border border-blue-500/50 p-3 rounded-lg text-center">
                 <div className="text-xl font-bold text-white">{state.singles}</div>
                 <div className="text-xs text-slate-400">Singles</div>

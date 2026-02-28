@@ -359,7 +359,7 @@ function DartBotConfigCard() {
             <label className="text-slate-400 text-sm font-medium mb-3 block">
               Match Format
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[1, 3, 5, 7, 9, 11].map((legs) => (
                 <button
                   key={legs}
@@ -395,7 +395,7 @@ function DartBotConfigCard() {
           <Button 
             onClick={handleStart}
             size="lg"
-            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-8 py-6 text-lg shadow-xl hover:shadow-2xl transition-all"
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-lg shadow-xl hover:shadow-2xl transition-all"
           >
             <Play className="w-5 h-5 mr-2" />
             Start Match
@@ -466,7 +466,7 @@ function FinishTrainingModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none p-4"
           >
-            <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl pointer-events-auto">
+            <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-4 sm:p-6 shadow-2xl pointer-events-auto">
               {/* Close Button */}
               <button
                 onClick={onClose}
@@ -549,7 +549,7 @@ function FinishTrainingModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 </div>
 
                 {/* Preset Buttons */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { label: 'Beginner', min: 2, max: 40 },
                     { label: 'Intermediate', min: 20, max: 80 },
@@ -576,7 +576,7 @@ function FinishTrainingModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
               <Button
                 onClick={handlePlay}
                 disabled={creating}
-                className="w-full mt-6 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-6 disabled:opacity-50"
+                className="w-full mt-6 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-4 sm:py-6 disabled:opacity-50"
               >
                 {creating ? (
                   <>
@@ -650,7 +650,7 @@ function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none p-4"
           >
-            <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl pointer-events-auto">
+            <div className="relative w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-4 sm:p-6 shadow-2xl pointer-events-auto">
               {/* Close Button */}
               <button
                 onClick={onClose}
@@ -675,7 +675,7 @@ function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 {/* Order Mode */}
                 <div>
                   <label className="text-slate-300 font-medium mb-3 block">Target Order</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       onClick={() => setOrderMode('in_order')}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
@@ -755,7 +755,7 @@ function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
               {/* Play Button */}
               <Button
                 onClick={handlePlay}
-                className="w-full mt-6 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-6"
+                className="w-full mt-6 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-4 sm:py-6"
               >
                 <Play className="w-5 h-5 mr-2" />
                 Start Training
@@ -797,7 +797,7 @@ function TrainingLevelBadge({ stats, loading }: { stats: TrainingStats; loading:
 function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading: boolean }) {
   if (loading) {
     return (
-      <div className="relative overflow-hidden rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
+      <div className="relative overflow-hidden rounded-2xl bg-slate-800/40 border border-slate-700/50 p-4 sm:p-6">
         <div className="h-24 bg-slate-700/50 rounded-xl animate-pulse" />
       </div>
     );
@@ -806,7 +806,7 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
   return (
     <motion.div
       variants={itemVariants}
-      className="relative overflow-hidden rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6"
+      className="relative overflow-hidden rounded-2xl bg-slate-800/40 border border-slate-700/50 p-4 sm:p-6"
     >
       {/* Background Effect */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
@@ -1084,7 +1084,7 @@ export default function TrainingHubPage() {
                 <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">
                   Practice & Improve
                 </p>
-                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">
                   Training Hub
                 </h1>
                 <p className="text-slate-400 mt-2 text-lg max-w-2xl">
@@ -1127,7 +1127,7 @@ export default function TrainingHubPage() {
         {/* Tips Section */}
         <motion.div
           variants={itemVariants}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800/60 to-slate-800/40 border border-slate-700/50 p-6"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800/60 to-slate-800/40 border border-slate-700/50 p-4 sm:p-6"
         >
           <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl" />
           <div className="relative flex flex-col md:flex-row items-start md:items-center gap-4">

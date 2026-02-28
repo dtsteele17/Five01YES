@@ -81,7 +81,7 @@ function TabButton({ active, onClick, children, count }: {
   return (
     <button
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-all rounded-xl ${
+      className={`relative flex items-center gap-2 px-3 sm:px-6 py-3 text-sm font-semibold transition-all rounded-xl ${
         active 
           ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
           : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -485,7 +485,7 @@ export default function FriendsPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
           <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">Social</p>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Friends</h1>
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">Friends</h1>
           <p className="text-slate-400 mt-2">Connect with players worldwide</p>
         </div>
         <div className="flex items-center gap-4">
@@ -599,7 +599,7 @@ export default function FriendsPage() {
                     <Button
                       onClick={handleSearch}
                       disabled={searching}
-                      className="bg-emerald-600 hover:bg-emerald-700 h-12 px-6 rounded-xl"
+                      className="bg-emerald-600 hover:bg-emerald-700 h-12 px-3 sm:px-6 rounded-xl"
                     >
                       <Search className="w-5 h-5 mr-2" />
                       Search

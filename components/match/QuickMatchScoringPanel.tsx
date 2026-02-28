@@ -113,7 +113,7 @@ export function QuickMatchScoringPanel({
           <Button
             onClick={onTypeScoreSubmit}
             disabled={submitting || !scoreInput}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-12"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 sm:px-6 h-12"
           >
             Submit
           </Button>
@@ -185,7 +185,7 @@ export function QuickMatchScoringPanel({
 
       {/* Mode Tabs */}
       <Tabs value={mode} onValueChange={(val) => setMode(val as typeof mode)} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 border border-white/10 h-10 p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-slate-900/50 border border-white/10 h-10 p-1 gap-1">
           <TabsTrigger
             value="single"
             className={`${getModeButtonClass('single', mode === 'single')} text-sm rounded`}
@@ -223,7 +223,7 @@ export function QuickMatchScoringPanel({
       </div>
 
       {/* Action Buttons: Miss, Bust, Submit Visit */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Button
           onClick={onMiss}
           disabled={submitting || currentDarts.length >= 3}

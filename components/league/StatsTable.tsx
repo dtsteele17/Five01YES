@@ -63,15 +63,15 @@ export default function StatsTable({ league }: StatsTableProps) {
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[860px]">
           <thead>
             <tr className="border-b border-slate-800">
-              <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400 uppercase">
+              <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase">
                 Player
               </th>
               <th
                 onClick={() => handleSort('matchesPlayed')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   Played
@@ -80,7 +80,7 @@ export default function StatsTable({ league }: StatsTableProps) {
               </th>
               <th
                 onClick={() => handleSort('average')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   Avg
@@ -89,7 +89,7 @@ export default function StatsTable({ league }: StatsTableProps) {
               </th>
               <th
                 onClick={() => handleSort('checkoutPercentage')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   Checkout %
@@ -98,7 +98,7 @@ export default function StatsTable({ league }: StatsTableProps) {
               </th>
               <th
                 onClick={() => handleSort('oneEighties')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   180s
@@ -107,7 +107,7 @@ export default function StatsTable({ league }: StatsTableProps) {
               </th>
               <th
                 onClick={() => handleSort('highestCheckout')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   High CO
@@ -116,7 +116,7 @@ export default function StatsTable({ league }: StatsTableProps) {
               </th>
               <th
                 onClick={() => handleSort('wins')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   W
@@ -125,7 +125,7 @@ export default function StatsTable({ league }: StatsTableProps) {
               </th>
               <th
                 onClick={() => handleSort('losses')}
-                className="text-center py-3 px-4 text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
+                className="text-center py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase cursor-pointer hover:text-white transition-colors"
               >
                 <div className="flex items-center justify-center">
                   L
@@ -155,7 +155,7 @@ export default function StatsTable({ league }: StatsTableProps) {
                     }
                   `}
                 >
-                  <td className="py-4 px-4">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm">
                         {player.displayName.charAt(0)}
@@ -165,10 +165,10 @@ export default function StatsTable({ league }: StatsTableProps) {
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-center text-white font-medium">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center text-white font-medium">
                     {stat.matchesPlayed}
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                     <div className="flex flex-col items-center gap-1">
                       <span className={`font-bold ${getAverageColor(stat.average)}`}>
                         {stat.average.toFixed(1)}
@@ -185,7 +185,7 @@ export default function StatsTable({ league }: StatsTableProps) {
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                     <div className="flex flex-col items-center gap-1">
                       <span className={`font-bold ${getPercentageColor(stat.checkoutPercentage)}`}>
                         {stat.checkoutPercentage}%
@@ -202,17 +202,17 @@ export default function StatsTable({ league }: StatsTableProps) {
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                     <span className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-purple-500/20 text-purple-400 font-bold text-sm">
                       {stat.oneEighties}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                     <span className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-orange-500/20 text-orange-400 font-bold text-sm">
                       {stat.highestCheckout}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                     <div className="flex flex-col items-center">
                       <span className="text-green-400 font-bold">{stat.wins}</span>
                       {stat.matchesPlayed > 0 && (
@@ -220,7 +220,7 @@ export default function StatsTable({ league }: StatsTableProps) {
                       )}
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-center">
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-center">
                     <span className="text-red-400 font-bold">{stat.losses}</span>
                   </td>
                 </tr>

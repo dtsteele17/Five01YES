@@ -124,7 +124,7 @@ export function CompactMatchCard({ match, onClick, showOpponentStats = true }: C
           {/* Center: VS / Score Display */}
           <div className="px-4 flex flex-col items-center">
             <span className="text-slate-500 text-xs mb-1">vs</span>
-            <div className={`text-3xl font-black ${getResultColor(match.result)}`}>
+            <div className={`text-2xl sm:text-3xl font-black ${getResultColor(match.result)}`}>
               {match.legs_won} - {match.legs_lost}
             </div>
             <span className="text-slate-500 text-[10px] mt-1 truncate max-w-[80px]">

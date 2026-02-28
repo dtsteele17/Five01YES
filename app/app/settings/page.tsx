@@ -323,14 +323,14 @@ export default function SettingsPage() {
             <Link href="/app/profile" className="text-slate-400 hover:text-white transition-colors">
               <ChevronLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-4xl font-bold text-white">Settings</h1>
+            <h1 className="text-2xl sm:text-4xl font-bold text-white">Settings</h1>
           </div>
           <p className="text-gray-400">Manage your profile, account, and preferences.</p>
         </div>
       </div>
 
       {/* ═══════════════ PROFILE ═══════════════ */}
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
             <User className="w-5 h-5 text-white" />
@@ -464,7 +464,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ═══════════════ PASSWORD ═══════════════ */}
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
             <Lock className="w-5 h-5 text-white" />
@@ -497,7 +497,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ═══════════════ NOTIFICATIONS ═══════════════ */}
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
             <Bell className="w-5 h-5 text-white" />
@@ -547,7 +547,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ═══════════════ TRAINING ═══════════════ */}
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center">
             <Target className="w-5 h-5 text-white" />
@@ -568,7 +568,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ═══════════════ APPEARANCE ═══════════════ */}
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
             <Palette className="w-5 h-5 text-white" />
@@ -595,7 +595,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ═══════════════ PRIVACY ═══════════════ */}
-      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+      <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
             <Shield className="w-5 h-5 text-white" />
@@ -622,7 +622,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ═══════════════ DANGER ZONE ═══════════════ */}
-      <Card className="bg-red-500/10 backdrop-blur-sm border-red-500/30 p-6">
+      <Card className="bg-red-500/10 backdrop-blur-sm border-red-500/30 p-4 sm:p-6">
         <h2 className="text-xl font-bold text-white mb-2">Danger Zone</h2>
         <p className="text-gray-300 mb-4">
           Once you delete your account, there is no going back. Please be certain.

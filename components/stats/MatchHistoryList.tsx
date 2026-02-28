@@ -132,7 +132,7 @@ export function MatchHistoryList({ userId, limit = 20, days, gameMode = null, ma
 
   if (loading) {
     return (
-      <Card className="bg-slate-900/50 border-slate-700 p-6">
+      <Card className="bg-slate-900/50 border-slate-700 p-4 sm:p-6">
         <div className="text-center text-slate-400">Loading match history...</div>
       </Card>
     );
@@ -218,7 +218,7 @@ export function MatchHistoryList({ userId, limit = 20, days, gameMode = null, ma
             </div>
 
             {/* Stats Summary */}
-            <div className="hidden sm:grid grid-cols-3 gap-3 text-center">
+            <div className="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
               <div>
                 <div className="flex items-center justify-center gap-1 text-slate-500 text-xs mb-1">
                   <TrendingUp className="w-3 h-3" />

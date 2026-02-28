@@ -40,7 +40,7 @@ export class MatchErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 sm:p-6">
           <Card className="bg-slate-900 border-red-500/30 p-8 max-w-md w-full">
             <div className="flex flex-col items-center text-center space-y-6">
               <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">

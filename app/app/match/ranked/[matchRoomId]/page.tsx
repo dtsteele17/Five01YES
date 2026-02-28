@@ -429,7 +429,7 @@ export default function RankedMatchPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-4">
-          <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+          <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
             <div className="space-y-4">
               <div className={`p-4 rounded-xl border-2 transition-all ${
                 matchState.currentTurnPlayer === 1
@@ -500,7 +500,7 @@ export default function RankedMatchPage() {
             </div>
           </Card>
 
-          <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+          <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">Score Entry</h3>
@@ -526,7 +526,7 @@ export default function RankedMatchPage() {
                   </div>
 
                   {dartboardGroup === 'bulls' ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <Button
                         onClick={() => handleDartClick(25, 'bull')}
                         disabled={!isMyTurn || currentVisit.length >= 3}
@@ -543,7 +543,7 @@ export default function RankedMatchPage() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                       {[20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5].map((num) => (
                         <Button
                           key={num}
@@ -654,7 +654,7 @@ export default function RankedMatchPage() {
           </Card>
         </div>
 
-        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-6">
+        <Card className="bg-slate-900/50 backdrop-blur-sm border-white/10 p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Visit History</h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {matchState.visitHistory.slice().reverse().map((visit, idx) => (
@@ -725,7 +725,7 @@ export default function RankedMatchPage() {
                   return (
                     <Card
                       key={player.id}
-                      className={`p-6 ${
+                      className={`p-4 sm:p-6 ${
                         isWinner
                           ? 'bg-gradient-to-br from-amber-600/20 to-orange-600/20 border-amber-500/30'
                           : 'bg-slate-800/50 border-white/10'

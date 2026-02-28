@@ -204,7 +204,7 @@ function FeaturedTournamentCard({ tournament, onClick }: { tournament: Tournamen
         className="bg-gradient-to-br from-slate-900 to-slate-800 border-white/20 hover:border-emerald-500/50 transition-all cursor-pointer overflow-hidden group"
         onClick={onClick}
       >
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl flex items-center justify-center">
@@ -419,7 +419,7 @@ export default function TournamentsPage() {
         
         {/* Premium Header Section */}
         <div className="bg-slate-900/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
-          <div className="px-6 py-6">
+          <div className="px-3 sm:px-6 py-4 sm:py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 via-emerald-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
@@ -478,7 +478,7 @@ export default function TournamentsPage() {
           </div>
         </div>
 
-        <div className="px-6 py-6 space-y-8">
+        <div className="px-3 sm:px-6 py-4 sm:py-6 space-y-8">
 
           {/* Featured Tournaments */}
           {featuredTournaments.length > 0 && (
@@ -506,7 +506,7 @@ export default function TournamentsPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab('open')}
-                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
                   activeTab === 'open'
                     ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -523,7 +523,7 @@ export default function TournamentsPage() {
               
               <button
                 onClick={() => setActiveTab('live')}
-                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
                   activeTab === 'live'
                     ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -540,7 +540,7 @@ export default function TournamentsPage() {
               
               <button
                 onClick={() => setActiveTab('completed')}
-                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-6 py-4 rounded-xl font-medium transition-all duration-200 ${
                   activeTab === 'completed'
                     ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -625,7 +625,7 @@ export default function TournamentsPage() {
               {activeTab === 'open' && !searchQuery && (
                 <Button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 px-8 py-3 rounded-xl"
+                  className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold shadow-lg shadow-emerald-500/25 px-4 sm:px-8 py-3 rounded-xl"
                 >
                   <Plus className="w-5 h-5 mr-3" />
                   Create Your First Tournament

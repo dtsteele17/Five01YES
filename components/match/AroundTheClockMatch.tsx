@@ -508,7 +508,7 @@ export function AroundTheClockMatch({
         {/* Left Side - Game Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Player Cards */}
-          <div className="flex-none grid grid-cols-2 gap-2 p-3">
+          <div className="flex-none grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
             {(['p1', 'p2'] as const).map((playerId, idx) => {
               const player = playerStates[playerId];
               const isCurrentPlayer = currentTurn === playerId;
@@ -783,7 +783,7 @@ export function AroundTheClockMatch({
 
           <div className="space-y-4">
             <Card className="bg-slate-800/50 border-white/10 p-4">
-              <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
                 <div>
                   <p className="text-gray-400 text-sm mb-1">Visits</p>
                   <p className="text-2xl font-bold text-white">

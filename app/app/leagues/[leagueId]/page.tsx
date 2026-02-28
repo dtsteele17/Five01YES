@@ -508,7 +508,7 @@ export default function LeagueOverview() {
             Back to Leagues
           </button>
 
-          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-6 mb-6">
+          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-4 sm:p-6 mb-6">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
               <div className="flex-1">
                 <div className="flex items-start gap-4 mb-4">
@@ -530,7 +530,7 @@ export default function LeagueOverview() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/30">
                     <div className="text-slate-400 text-xs mb-1">Legs</div>
                     <div className="text-white font-semibold">{league.legsPerGame}</div>
@@ -589,7 +589,7 @@ export default function LeagueOverview() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`
-                      relative px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap
+                      relative px-3 sm:px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap
                       ${activeTab === tab.id
                         ? 'text-teal-400'
                         : 'text-slate-400 hover:text-white'
@@ -605,7 +605,7 @@ export default function LeagueOverview() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {activeTab === 'standings' && <StandingsTable league={league} />}
               {activeTab === 'fixtures' && <FixturesList league={league} />}
               {activeTab === 'players' && <PlayersManager league={league} isAdmin={isAdmin} />}

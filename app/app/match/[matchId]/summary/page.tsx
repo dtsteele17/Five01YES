@@ -115,7 +115,7 @@ export default function MatchSummaryPage() {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full mb-4">
               <Trophy className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">
               {winnerName} Won!
             </h1>
             <div className="flex items-center justify-center space-x-4 text-2xl font-bold">
@@ -137,7 +137,7 @@ export default function MatchSummaryPage() {
         </Card>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="bg-slate-900/50 border-white/10 p-6">
+          <Card className="bg-slate-900/50 border-white/10 p-4 sm:p-6">
             <div className="flex items-center space-x-3 mb-6">
               <Avatar className="w-12 h-12">
                 <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
@@ -182,7 +182,7 @@ export default function MatchSummaryPage() {
 
               <Separator className="bg-white/10" />
 
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                 <div className="p-3 bg-white/5 rounded-lg">
                   <p className="text-2xl font-bold text-white">{player1Stats.count100Plus}</p>
                   <p className="text-xs text-gray-400">100+</p>
@@ -209,7 +209,7 @@ export default function MatchSummaryPage() {
             </div>
           </Card>
 
-          <Card className="bg-slate-900/50 border-white/10 p-6">
+          <Card className="bg-slate-900/50 border-white/10 p-4 sm:p-6">
             <div className="flex items-center space-x-3 mb-6">
               <Avatar className="w-12 h-12">
                 <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white">
@@ -254,7 +254,7 @@ export default function MatchSummaryPage() {
 
               <Separator className="bg-white/10" />
 
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                 <div className="p-3 bg-white/5 rounded-lg">
                   <p className="text-2xl font-bold text-white">{player2Stats.count100Plus}</p>
                   <p className="text-xs text-gray-400">100+</p>
@@ -282,7 +282,7 @@ export default function MatchSummaryPage() {
           </Card>
         </div>
 
-        <Card className="bg-slate-900/50 border-white/10 p-6 mb-8">
+        <Card className="bg-slate-900/50 border-white/10 p-4 sm:p-6 mb-8">
           <div className="flex items-center space-x-2 mb-4">
             <BarChart3 className="w-5 h-5 text-emerald-400" />
             <h3 className="text-xl font-bold text-white">Match Timeline</h3>

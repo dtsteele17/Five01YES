@@ -38,9 +38,9 @@ export function QuickMatchPlayerCard({
   const isBust = showPreview && previewRemaining < 0;
 
   return (
-    <div className="relative flex items-stretch gap-2">
+    <div className="relative flex items-stretch gap-1 sm:gap-2">
       {position === 'left' && stats && (
-        <div className="flex flex-col justify-center space-y-3 min-w-[100px]">
+        <div className="hidden md:flex flex-col justify-center space-y-3 min-w-[100px]">
           <div className="text-right">
             <p className="text-sm text-gray-400 font-medium">Avg</p>
             <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
@@ -75,7 +75,7 @@ export function QuickMatchPlayerCard({
           </div>
 
           <div className="text-center py-1">
-            <div className="text-7xl font-display font-bold text-white tracking-tight" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>{remaining}</div>
+            <div className="text-4xl sm:text-6xl md:text-7xl font-display font-bold text-white tracking-tight" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>{remaining}</div>
             {showPreview && (
               <div className={`text-sm mt-1 ${isBust ? 'text-red-400' : 'text-gray-400'}`}>
                 Remaining: {isBust ? 'Bust' : previewRemaining}
@@ -103,7 +103,7 @@ export function QuickMatchPlayerCard({
       </Card>
 
       {position === 'right' && stats && (
-        <div className="flex flex-col justify-center space-y-3 min-w-[100px]">
+        <div className="hidden md:flex flex-col justify-center space-y-3 min-w-[100px]">
           <div>
             <p className="text-sm text-gray-400 font-medium">Avg</p>
             <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>

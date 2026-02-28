@@ -388,7 +388,7 @@ export default function ManageTournamentPage() {
           </TabsList>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">Tournament Settings</h2>
 
               <div className="space-y-6">
@@ -654,7 +654,7 @@ export default function ManageTournamentPage() {
           </TabsContent>
 
           <TabsContent value="schedule" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">Manage Schedule</h2>
 
               {matches.length === 0 ? (
@@ -721,7 +721,7 @@ export default function ManageTournamentPage() {
           </TabsContent>
 
           <TabsContent value="bracket" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-white">Tournament Bracket</h2>
                 <div className="flex gap-2">
@@ -826,7 +826,7 @@ export default function ManageTournamentPage() {
           </TabsContent>
 
           <TabsContent value="players" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">Manage Players</h2>
 
               <div className="space-y-3">
@@ -904,7 +904,7 @@ export default function ManageTournamentPage() {
           </TabsContent>
 
           <TabsContent value="rules" className="space-y-6">
-            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-6">
+            <Card className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 p-4 sm:p-6">
               <h2 className="text-xl font-bold text-white mb-6">Tournament Rules</h2>
 
               <div className="space-y-4">

@@ -15,7 +15,7 @@ export function PlayerStatsSideBlock({ average, lastScore, dartsThrown, side }: 
   ];
 
   return (
-    <div className={`flex flex-col justify-center space-y-2 ${side === 'left' ? 'items-end' : 'items-start'}`}>
+    <div className={`hidden lg:flex flex-col justify-center space-y-2 ${side === 'left' ? 'items-end' : 'items-start'}`}>
       {stats.map((stat) => (
         <div key={stat.label} className={`flex flex-col ${side === 'left' ? 'items-end' : 'items-start'}`}>
           <span className="text-xs text-gray-400 font-medium">{stat.label}</span>

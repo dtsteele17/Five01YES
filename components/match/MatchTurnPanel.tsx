@@ -113,7 +113,7 @@ export function MatchTurnPanel({
                   }
                 }}
                 disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180 || !isMyTurn || submitting}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white h-12 px-6 text-sm font-semibold"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white h-12 px-3 sm:px-6 text-sm font-semibold"
               >
                 Submit
               </Button>
@@ -168,7 +168,7 @@ export function MatchTurnPanel({
           {/* Scoring Buttons */}
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
             <Tabs value={dartboardGroup} onValueChange={(value) => setDartboardGroup(value as any)} className="mb-2">
-              <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-slate-800/50">
                 <TabsTrigger value="singles" className="text-xs" disabled={!isMyTurn || submitting}>Singles</TabsTrigger>
                 <TabsTrigger value="doubles" className="text-xs" disabled={!isMyTurn || submitting}>Doubles</TabsTrigger>
                 <TabsTrigger value="triples" className="text-xs" disabled={!isMyTurn || submitting}>Trebles</TabsTrigger>
@@ -177,7 +177,7 @@ export function MatchTurnPanel({
             </Tabs>
 
             {dartboardGroup !== 'bulls' && (
-              <div className="grid grid-cols-5 gap-2 mb-3">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
                   <Button
                     key={num}
@@ -193,7 +193,7 @@ export function MatchTurnPanel({
             )}
 
             {dartboardGroup === 'bulls' && (
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <Button
                   onClick={() => handleDartClick('bulls', 25)}
                   disabled={!isMyTurn || submitting || currentVisit.length >= 3}

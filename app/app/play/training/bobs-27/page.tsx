@@ -198,7 +198,7 @@ export default function Bobs27Page() {
               </p>
             )}
 
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
               <div className="bg-slate-800 rounded-xl p-4">
                 <p className="text-xs text-slate-400">Final Score</p>
                 <p className={`text-3xl font-bold ${getScoreColor(Math.max(0, score))}`}>{Math.max(0, score)}</p>
@@ -290,15 +290,15 @@ export default function Bobs27Page() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Left — Target & Darts */}
           <div className="space-y-6">
             {/* Target */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 text-center">
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6 text-center">
               <p className="text-sm text-slate-400 mb-1">Throw 3 darts at</p>
-              <div className="text-6xl font-black text-white mb-2">{target.label}</div>
+              <div className="text-2xl sm:text-4xl sm:text-6xl font-black text-white mb-2">{target.label}</div>
               <p className="text-slate-400 text-sm">
                 Hit = <span className="text-emerald-400 font-bold">+{target.value}</span> per dart
                 {' · '}
@@ -307,9 +307,9 @@ export default function Bobs27Page() {
             </div>
 
             {/* Darts thrown this round */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
               <h3 className="font-semibold text-white mb-4 text-center">Darts This Round</h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[0, 1, 2].map((i) => {
                   const thrown = i < dartsThrown;
                   // Determine if this dart was a hit: first N hits are hits, rest are misses
@@ -357,7 +357,7 @@ export default function Bobs27Page() {
           </div>
 
           {/* Right — Scoring Buttons */}
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
             <h3 className="font-semibold text-white mb-2 text-center">Did you hit {target.label}?</h3>
             <p className="text-slate-500 text-xs text-center mb-6">Dart {dartsThrown + 1} of 3</p>
 

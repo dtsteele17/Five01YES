@@ -325,7 +325,7 @@ function VisitHistoryPanel({
       
       <div className="flex-1 overflow-auto space-y-2">
         {/* Headers */}
-        <div className="grid grid-cols-2 gap-4 text-xs text-gray-400 border-b border-white/10 pb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-gray-400 border-b border-white/10 pb-2">
           <div className={`text-center font-bold ${myColor}`}>{myName}</div>
           <div className={`text-center font-bold ${opponentColor}`}>{opponentName}</div>
         </div>
@@ -340,7 +340,7 @@ function VisitHistoryPanel({
             const isLatestMyVisit = myVisit && i === myVisits.length - 1;
             
             return (
-              <div key={i} className="grid grid-cols-2 gap-4 py-2 border-b border-white/5">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2 border-b border-white/5">
                 {/* My Visit */}
                 <div className="relative group">
                   {myVisit ? (
@@ -744,7 +744,7 @@ function ScoringPanel({
       </div>
 
       {/* Number Pad */}
-      <div className="flex-1 grid grid-cols-5 gap-1 mb-4">
+      <div className="flex-1 grid grid-cols-3 sm:grid-cols-5 gap-1 mb-4">
         {activeTab === 'bulls' ? (
           <>
             <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">
@@ -1914,7 +1914,7 @@ export default function QuickMatchRoomPage() {
       </div>
 
       {/* Main Content - Camera on left, Player cards and scoring/visit history on right */}
-      <div className="flex-1 grid grid-cols-2 gap-4 p-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 overflow-hidden">
         {/* LEFT: Camera Panel with both local and remote streams */}
         <MatchCameraPanel
           localStream={localStream}
@@ -1932,7 +1932,7 @@ export default function QuickMatchRoomPage() {
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
           {/* Player Cards */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <QuickMatchPlayerCard
               name={myPlayer.name}
               remaining={myPlayer.remaining}
@@ -2039,7 +2039,7 @@ export default function QuickMatchRoomPage() {
       {/* Edit Notification Popup */}
       {editNotification?.show && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-amber-500 text-white px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
+          <div className="bg-amber-500 text-white px-3 sm:px-6 py-4 rounded-lg shadow-lg border-2 border-amber-400">
             <div className="flex items-center gap-2">
               <Edit2 className="w-5 h-5" />
               <span className="font-bold">{editNotification.playerName} edited their visit</span>

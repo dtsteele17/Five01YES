@@ -97,8 +97,8 @@ export default function LiveUpdates({ league, isAdmin }: LiveUpdatesProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-2">
               <Checkbox
                 id="notification"
                 checked={sendNotification}
@@ -115,7 +115,7 @@ export default function LiveUpdates({ league, isAdmin }: LiveUpdatesProps) {
 
             <Button
               onClick={handlePostUpdate}
-              className="bg-teal-600 hover:bg-teal-700"
+              className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700"
               disabled={!message.trim()}
             >
               Post Update
@@ -143,7 +143,7 @@ export default function LiveUpdates({ league, isAdmin }: LiveUpdatesProps) {
                 </div>
 
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <span className="font-medium text-white">{author.displayName}</span>
                     {author.role === 'Owner' && (
                       <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded">
@@ -169,7 +169,7 @@ export default function LiveUpdates({ league, isAdmin }: LiveUpdatesProps) {
                 {update.message}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => handleReaction(update.id, 'upvote')}
                   className={`
