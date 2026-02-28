@@ -197,7 +197,7 @@ export default function ProfileUserPage() {
 
       setProfile(profileData as Profile);
 
-      if (rankedData?.games_played > 0 && typeof rankedData.rp === 'number') {
+      if (rankedData && rankedData.games_played > 0 && rankedData.rp !== null && typeof rankedData.rp === 'number') {
         const { count: higherRpCount } = await supabase
           .from('ranked_players')
           .select('user_id', { count: 'exact', head: true })
