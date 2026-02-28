@@ -83,7 +83,7 @@ export default function LocalMatchPage() {
   });
   const [allLegs, setAllLegs] = useState<LegData[]>([]);
   const [scoreInput, setScoreInput] = useState('');
-  const [scoringMode, setScoringMode] = useState<'quick' | 'input'>('quick');
+  // scoringMode removed — desktop always shows type input + dartboard tabs together
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [matchWinner, setMatchWinner] = useState<'player1' | 'player2' | null>(null);
@@ -811,7 +811,112 @@ export default function LocalMatchPage() {
 
       <div className="flex-1 overflow-hidden">
         <div className="max-w-[1800px] mx-auto px-4 py-2 h-full flex flex-col">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2 flex-shrink-0">
+
+          {/* ===== MOBILE: Only show current player's score + type input ===== */}
+          <div className="sm:hidden flex flex-col h-full">
+            {/* Current player score */}
+            <Card className="bg-emerald-500/20 border-emerald-500/50 p-4 mb-3">
+              <div className="text-center">
+                <p className="text-sm text-emerald-400 font-semibold mb-1">
+                  {currentPlayer === 'player1' ? player1Name : player2Name} — Throwing
+                </p>
+                <p className="text-6xl font-black text-white">
+                  {currentPlayer === 'player1' ? player1Score : player2Score}
+                </p>
+                <div className="flex justify-center gap-4 mt-2 text-xs text-gray-400">
+                  <span>Avg: <span className="text-white font-semibold">{currentPlayer === 'player1' ? player1MatchAverage : player2MatchAverage}</span></span>
+                  <span>Legs: <span className="text-white font-semibold">{player1LegsWon} - {player2LegsWon}</span></span>
+                  <span>Leg {currentLeg.legNumber}</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Checkout suggestion on mobile */}
+            {(() => {
+              const mobileScore = currentPlayer === 'player1' ? player1Score : player2Score;
+              const mobileCheckout = getCheckoutOptions(mobileScore, matchConfig?.doubleOut ?? true);
+              const mobileOnCheckout = mobileScore > 1 && mobileScore <= 170;
+              if (mobileOnCheckout && mobileCheckout.length > 0 && mobileCheckout[0]?.description) {
+                return (
+                  <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-amber-400" />
+                      <span className="text-xs font-semibold text-white">CHECKOUT:</span>
+                      <span className="text-amber-300 text-xs font-semibold">{mobileCheckout[0].description}</span>
+                    </div>
+                  </Card>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Type score input only on mobile */}
+            <div className="flex items-center gap-2 mb-3">
+              <Input
+                type="number"
+                min="0"
+                max="180"
+                value={scoreInput}
+                onChange={(e) => setScoreInput(e.target.value)}
+                placeholder="Type score (0-180)"
+                className="flex-1 h-12 bg-white/5 border-white/10 text-white text-lg text-center"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && scoreInput) {
+                    const score = parseInt(scoreInput);
+                    if (score >= 0 && score <= 180) {
+                      handleInputScoreSubmit(score);
+                      setScoreInput('');
+                    }
+                  }
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <Button
+                onClick={() => {
+                  if (scoreInput) {
+                    const score = parseInt(scoreInput);
+                    if (score >= 0 && score <= 180) {
+                      handleInputScoreSubmit(score);
+                      setScoreInput('');
+                    }
+                  }
+                }}
+                disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white h-10"
+              >
+                <Check className="w-4 h-4 mr-1" /> Submit
+              </Button>
+              <Button
+                onClick={handleBust}
+                className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 h-10"
+              >
+                Bust
+              </Button>
+              <Button
+                onClick={handleUndo}
+                disabled={currentLeg.visits.length === 0}
+                variant="outline"
+                className="border-white/10 text-white hover:bg-white/5 h-10"
+              >
+                <Undo2 className="w-4 h-4 mr-1" /> Undo
+              </Button>
+            </div>
+
+            {/* Opponent score (smaller) */}
+            <Card className="bg-slate-900/50 border-white/10 p-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">{currentPlayer === 'player1' ? player2Name : player1Name}</span>
+                <span className="text-lg font-bold text-white">{currentPlayer === 'player1' ? player2Score : player1Score}</span>
+                <span className="text-xs text-gray-400">Avg: {currentPlayer === 'player1' ? player2MatchAverage : player1MatchAverage}</span>
+              </div>
+            </Card>
+          </div>
+
+          {/* ===== DESKTOP: Full layout with both players + scoring tabs ===== */}
+          <div className="hidden sm:flex sm:flex-col h-full">
+          <div className="grid grid-cols-3 gap-3 mb-2 flex-shrink-0">
             <Card className="bg-slate-900/50 border-white/10 p-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -821,17 +926,17 @@ export default function LocalMatchPage() {
                 <div className="flex items-center justify-center space-x-3">
                   <div className="text-center">
                     <p className="text-xl font-bold text-white">{player1LegsWon}</p>
-                    <p className="text-xs text-gray-400">You</p>
+                    <p className="text-xs text-gray-400">{player1Name}</p>
                   </div>
                   <div className="text-2xl font-bold text-gray-600">-</div>
                   <div className="text-center">
                     <p className="text-xl font-bold text-white">{player2LegsWon}</p>
-                    <p className="text-xs text-gray-400">{matchConfig.opponentName}</p>
+                    <p className="text-xs text-gray-400">{player2Name}</p>
                   </div>
                 </div>
                 <div className="text-center py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
                   <p className="text-emerald-400 text-sm font-semibold">
-                    {currentPlayer === 'player1' ? 'Your' : `${matchConfig.opponentName}'s`} Turn
+                    {currentPlayer === 'player1' ? `${player1Name}'s` : `${player2Name}'s`} Turn
                   </p>
                 </div>
               </div>
@@ -842,23 +947,27 @@ export default function LocalMatchPage() {
                 <div className="flex items-center space-x-2">
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
-                      YOU
+                      {player1Name.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-semibold text-white">You</p>
+                    <p className="text-sm font-semibold text-white">{player1Name}</p>
                     <p className="text-xs text-gray-400">Legs: {player1LegsWon}</p>
                   </div>
                 </div>
               </div>
               <div className="text-center py-2">
-                <p className="text-2xl sm:text-4xl font-bold text-white">{player1Score}</p>
+                <p className="text-4xl font-bold text-white">{player1Score}</p>
                 <p className="text-xs text-gray-400 mt-1">Remaining</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="text-center bg-white/5 rounded p-1">
                   <p className="text-gray-400">Avg</p>
                   <p className="text-white font-semibold">{player1MatchAverage}</p>
+                </div>
+                <div className="text-center bg-white/5 rounded p-1">
+                  <p className="text-gray-400">Darts</p>
+                  <p className="text-white font-semibold">{player1MatchDartsThrown}</p>
                 </div>
                 <div className="text-center bg-white/5 rounded p-1">
                   <p className="text-gray-400">High</p>
@@ -872,23 +981,27 @@ export default function LocalMatchPage() {
                 <div className="flex items-center space-x-2">
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-sm">
-                      {matchConfig.opponentName?.substring(0, 2).toUpperCase() || 'P2'}
+                      {player2Name.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-semibold text-white">{matchConfig.opponentName}</p>
+                    <p className="text-sm font-semibold text-white">{player2Name}</p>
                     <p className="text-xs text-gray-400">Legs: {player2LegsWon}</p>
                   </div>
                 </div>
               </div>
               <div className="text-center py-2">
-                <p className="text-2xl sm:text-4xl font-bold text-white">{player2Score}</p>
+                <p className="text-4xl font-bold text-white">{player2Score}</p>
                 <p className="text-xs text-gray-400 mt-1">Remaining</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="text-center bg-white/5 rounded p-1">
                   <p className="text-gray-400">Avg</p>
                   <p className="text-white font-semibold">{player2MatchAverage}</p>
+                </div>
+                <div className="text-center bg-white/5 rounded p-1">
+                  <p className="text-gray-400">Darts</p>
+                  <p className="text-white font-semibold">{player2MatchDartsThrown}</p>
                 </div>
                 <div className="text-center bg-white/5 rounded p-1">
                   <p className="text-gray-400">High</p>
@@ -965,302 +1078,165 @@ export default function LocalMatchPage() {
             </Card>
 
             <Card className="bg-slate-900/50 border-white/10 p-2 flex flex-col overflow-hidden">
+              {/* Type score input — always visible, auto-focused */}
               <div className="mb-2 flex-shrink-0">
                 <h3 className="text-base font-semibold text-white mb-2">Scoring</h3>
-
-                <div className="mb-2">
-                  <label className="text-xs text-gray-400 mb-1 block">Type score</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      ref={typeScoreInputRef}
-                      type="number"
-                      min="0"
-                      max="180"
-                      value={scoreInput}
-                      onChange={(e) => setScoreInput(e.target.value)}
-                      placeholder="0-180"
-                      className="flex-1 h-9 bg-white/5 border-white/10 text-white text-sm"
-                      autoFocus
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                            setScoreInput('');
-                          }
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={typeScoreInputRef}
+                    type="number"
+                    min="0"
+                    max="180"
+                    value={scoreInput}
+                    onChange={(e) => setScoreInput(e.target.value)}
+                    placeholder="Type score (0-180)"
+                    className="flex-1 h-9 bg-white/5 border-white/10 text-white text-sm"
+                    autoFocus
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && scoreInput) {
+                        const score = parseInt(scoreInput);
+                        if (score >= 0 && score <= 180) {
+                          handleInputScoreSubmit(score);
+                          setScoreInput('');
                         }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        if (scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                            setScoreInput('');
-                          }
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => {
+                      if (scoreInput) {
+                        const score = parseInt(scoreInput);
+                        if (score >= 0 && score <= 180) {
+                          handleInputScoreSubmit(score);
+                          setScoreInput('');
                         }
-                      }}
-                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white h-9 px-4 text-xs"
-                    >
-                      Enter
-                    </Button>
-                  </div>
+                      }
+                    }}
+                    disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white h-9 px-4 text-xs"
+                  >
+                    Submit
+                  </Button>
+                  <Button
+                    onClick={handleBust}
+                    className="h-9 px-3 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    variant="outline"
+                  >
+                    Bust
+                  </Button>
                 </div>
               </div>
 
+              {/* Checkout suggestions for BOTH players */}
               {(isPlayer1OnCheckout || isPlayer2OnCheckout) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-1 flex-shrink-0">
-                  {isPlayer1OnCheckout && (
-                    player1CheckoutOptions.length > 0 && player1CheckoutOptions[0]?.description ? (
-                      <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5">
-                        <div className="flex items-center space-x-2 mb-0.5">
-                          <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                          <h4 className="text-xs font-semibold text-white">YOU CHECKOUT</h4>
-                          <span className="text-amber-400 font-bold text-base ml-auto">{player1Score}</span>
-                        </div>
-                        <div className="text-amber-300 text-xs font-semibold">
-                          {player1CheckoutOptions[0].description}
-                        </div>
-                      </Card>
-                    ) : (
-                      <Card className="bg-gradient-to-br from-gray-500/20 to-slate-500/20 border-gray-500/30 p-1.5">
-                        <div className="flex items-center space-x-2">
-                          <Zap className="w-3.5 h-3.5 text-gray-400" />
-                          <h4 className="text-xs font-semibold text-white">YOU NO CHECKOUT</h4>
-                          <span className="text-gray-400 font-bold text-base ml-auto">{player1Score}</span>
-                        </div>
-                      </Card>
-                    )
-                  )}
-                  {isPlayer2OnCheckout && (
-                    player2CheckoutOptions.length > 0 && player2CheckoutOptions[0]?.description ? (
-                      <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5">
-                        <div className="flex items-center space-x-2 mb-0.5">
-                          <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                          <h4 className="text-xs font-semibold text-white">{matchConfig?.opponentName || 'OPPONENT'} CHECKOUT</h4>
-                          <span className="text-amber-400 font-bold text-base ml-auto">{player2Score}</span>
-                        </div>
-                        <div className="text-amber-300 text-xs font-semibold">
-                          {player2CheckoutOptions[0].description}
-                        </div>
-                      </Card>
-                    ) : (
-                      <Card className="bg-gradient-to-br from-gray-500/20 to-slate-500/20 border-gray-500/30 p-1.5">
-                        <div className="flex items-center space-x-2">
-                          <Zap className="w-3.5 h-3.5 text-gray-400" />
-                          <h4 className="text-xs font-semibold text-white">{matchConfig?.opponentName || 'OPPONENT'} NO CHECKOUT</h4>
-                          <span className="text-gray-400 font-bold text-base ml-auto">{player2Score}</span>
-                        </div>
-                      </Card>
-                    )
-                  )}
-                </div>
-              )}
-
-              {scoringMode === 'quick' ? (
-                <div className="flex-1 flex flex-col min-h-0">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 mb-1 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold text-sm">Total: {visitTotal}</span>
-                    </div>
-                    <div className="flex items-center space-x-1.5 mt-1">
-                      {currentVisit.map((dart, idx) => (
-                        <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-xs py-0.5">
-                          {getDartLabel(dart)} ({dart.value})
-                        </Badge>
-                      ))}
-                      {[...Array(3 - currentVisit.length)].map((_, idx) => (
-                        <div key={idx} className="w-14 h-5 border-2 border-dashed border-gray-600 rounded"></div>
-                      ))}
-                    </div>
-                  </Card>
-
-                  <div className="flex flex-col">
-                    <Tabs value={dartboardGroup} onValueChange={(value) => setDartboardGroup(value as 'singles' | 'doubles' | 'triples' | 'bulls')} className="mb-1 flex-shrink-0">
-                      <TabsList className="grid grid-cols-4 w-full bg-slate-800/60 border border-white/10">
-                        <TabsTrigger value="singles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
-                          Singles
-                        </TabsTrigger>
-                        <TabsTrigger value="doubles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
-                          Doubles
-                        </TabsTrigger>
-                        <TabsTrigger value="triples" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
-                          Triples
-                        </TabsTrigger>
-                        <TabsTrigger value="bulls" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
-                          Bulls
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-
-                    {dartboardGroup !== 'bulls' ? (
-                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 mb-1">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
-                          <Button
-                            key={num}
-                            onClick={() => handleDartClick(dartboardGroup, num)}
-                            disabled={currentVisit.length >= 3}
-                            className="h-10 text-xs font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
-                          >
-                            {dartboardGroup === 'singles' ? `S${num}` : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}
-                            <span className="text-[10px] text-gray-400 ml-0.5">
-                              ({dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? num * 2 : num * 3})
-                            </span>
-                          </Button>
-                        ))}
+                <div className="grid grid-cols-2 gap-2 mb-1 flex-shrink-0">
+                  {isPlayer1OnCheckout && player1CheckoutOptions.length > 0 && player1CheckoutOptions[0]?.description && (
+                    <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5">
+                      <div className="flex items-center space-x-2 mb-0.5">
+                        <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                        <h4 className="text-xs font-semibold text-white">{player1Name}</h4>
+                        <span className="text-amber-400 font-bold text-base ml-auto">{player1Score}</span>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-1">
-                        <Button
-                          onClick={() => handleDartClick('bulls', 25)}
-                          disabled={currentVisit.length >= 3}
-                          className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
-                        >
-                          Single Bull
-                          <span className="block text-xs text-gray-400">(25)</span>
-                        </Button>
-                        <Button
-                          onClick={() => handleDartClick('bulls', 50)}
-                          disabled={currentVisit.length >= 3}
-                          className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
-                        >
-                          Bullseye
-                          <span className="block text-xs text-gray-400">(50)</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    <Button
-                      onClick={() => handleDartClick('singles', 0)}
-                      variant="outline"
-                      className="w-full h-8 mb-1 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
-                    >
-                      Miss (0)
-                    </Button>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0">
-                      <Button
-                        onClick={handleClearVisit}
-                        disabled={currentVisit.length === 0}
-                        variant="outline"
-                        size="sm"
-                        className="border-white/10 text-white hover:bg-white/5"
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Clear
-                      </Button>
-                      <Button
-                        onClick={handleSubmitVisit}
-                        disabled={currentVisit.length === 0}
-                        size="sm"
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        Submit Visit
-                      </Button>
-                      <Button
-                        onClick={handleBust}
-                        variant="outline"
-                        size="sm"
-                        className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-                      >
-                        Bust
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col space-y-0.5 min-h-0">
-                  <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
-                      <span className="text-emerald-400 font-bold">Total: {scoreInput && !isNaN(parseInt(scoreInput)) ? parseInt(scoreInput) : 0}</span>
-                    </div>
-                    <div className="text-center text-white text-sm">
-                      {scoreInput && !isNaN(parseInt(scoreInput)) ? `Visit total: ${scoreInput}` : 'Enter visit total (0-180)'}
-                    </div>
-                  </Card>
-
-                  {inputModeError && (
-                    <Card className="bg-red-500/20 border-red-500/30 p-2 flex-shrink-0">
-                      <p className="text-red-400 text-xs text-center">{inputModeError}</p>
+                      <div className="text-amber-300 text-xs font-semibold">{player1CheckoutOptions[0].description}</div>
                     </Card>
                   )}
-
-                  <div className="flex space-x-2 flex-shrink-0">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="180"
-                      value={scoreInput}
-                      onChange={(e) => {
-                        setScoreInput(e.target.value);
-                        setInputModeError('');
-                      }}
-                      placeholder="Enter score (0-180)"
-                      className="flex-1 bg-white/5 border-white/10 text-white text-lg"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        if (scoreInput) {
-                          const score = parseInt(scoreInput);
-                          if (score >= 0 && score <= 180) {
-                            handleInputScoreSubmit(score);
-                          }
-                        }
-                      }}
-                      disabled={!scoreInput || parseInt(scoreInput) < 0 || parseInt(scoreInput) > 180}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 sm:px-8"
-                    >
-                      Submit
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                      <Button
-                        key={num}
-                        onClick={() => setScoreInput(prev => prev + num.toString())}
-                        className="h-12 text-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white"
-                      >
-                        {num}
-                      </Button>
-                    ))}
-                    <Button
-                      onClick={() => setScoreInput('')}
-                      className="h-12 text-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400"
-                    >
-                      Clear
-                    </Button>
-                  </div>
+                  {isPlayer2OnCheckout && player2CheckoutOptions.length > 0 && player2CheckoutOptions[0]?.description && (
+                    <Card className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-500/30 p-1.5">
+                      <div className="flex items-center space-x-2 mb-0.5">
+                        <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                        <h4 className="text-xs font-semibold text-white">{player2Name}</h4>
+                        <span className="text-amber-400 font-bold text-base ml-auto">{player2Score}</span>
+                      </div>
+                      <div className="text-amber-300 text-xs font-semibold">{player2CheckoutOptions[0].description}</div>
+                    </Card>
+                  )}
                 </div>
               )}
 
-              <div className="flex items-center justify-center mt-0.5 pt-0.5 border-t border-white/10 flex-shrink-0">
+              {/* Current Visit display */}
+              <Card className="bg-emerald-500/10 border-emerald-500/30 p-1.5 mb-1 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-emerald-400">Current Visit</h4>
+                  <span className="text-emerald-400 font-bold text-sm">Total: {visitTotal}</span>
+                </div>
+                <div className="flex items-center space-x-1.5 mt-1">
+                  {currentVisit.map((dart, idx) => (
+                    <Badge key={idx} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50 text-xs py-0.5">
+                      {getDartLabel(dart)} ({dart.value})
+                    </Badge>
+                  ))}
+                  {[...Array(3 - currentVisit.length)].map((_, idx) => (
+                    <div key={idx} className="w-14 h-5 border-2 border-dashed border-gray-600 rounded"></div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Scoring tabs: Singles / Doubles / Triples / Bulls */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <Tabs value={dartboardGroup} onValueChange={(value) => setDartboardGroup(value as 'singles' | 'doubles' | 'triples' | 'bulls')} className="mb-1 flex-shrink-0">
+                  <TabsList className="grid grid-cols-4 w-full bg-slate-800/60 border border-white/10">
+                    <TabsTrigger value="singles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Singles</TabsTrigger>
+                    <TabsTrigger value="doubles" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Doubles</TabsTrigger>
+                    <TabsTrigger value="triples" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Triples</TabsTrigger>
+                    <TabsTrigger value="bulls" className="text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Bulls</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {dartboardGroup !== 'bulls' ? (
+                  <div className="grid grid-cols-5 gap-1 mb-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((num) => (
+                      <Button
+                        key={num}
+                        onClick={() => handleDartClick(dartboardGroup, num)}
+                        disabled={currentVisit.length >= 3}
+                        className="h-10 text-xs font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                      >
+                        {dartboardGroup === 'singles' ? num : dartboardGroup === 'doubles' ? `D${num}` : `T${num}`}
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 mb-1">
+                    <Button
+                      onClick={() => handleDartClick('bulls', 25)}
+                      disabled={currentVisit.length >= 3}
+                      className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                    >
+                      Single Bull <span className="text-xs text-gray-400 ml-1">(25)</span>
+                    </Button>
+                    <Button
+                      onClick={() => handleDartClick('bulls', 50)}
+                      disabled={currentVisit.length >= 3}
+                      className="h-12 text-sm font-semibold bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/30 text-white disabled:opacity-50"
+                    >
+                      Bullseye <span className="text-xs text-gray-400 ml-1">(50)</span>
+                    </Button>
+                  </div>
+                )}
+
                 <Button
-                  onClick={handleUndo}
-                  disabled={currentLeg.visits.length === 0}
+                  onClick={() => handleDartClick('singles', 0)}
                   variant="outline"
-                  size="sm"
-                  className="border-white/10 text-white hover:bg-white/5"
+                  className="w-full h-8 mb-1 border-white/10 text-white hover:bg-white/5 font-semibold text-sm flex-shrink-0"
                 >
-                  <Undo2 className="w-4 h-4 mr-1" />
-                  Undo Last
+                  Miss (0)
                 </Button>
+
+                <div className="grid grid-cols-3 gap-2 flex-shrink-0">
+                  <Button onClick={handleClearVisit} disabled={currentVisit.length === 0} variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
+                    <X className="w-4 h-4 mr-1" /> Clear
+                  </Button>
+                  <Button onClick={handleSubmitVisit} disabled={currentVisit.length === 0} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                    <Check className="w-4 h-4 mr-1" /> Submit Visit
+                  </Button>
+                  <Button onClick={handleUndo} disabled={currentLeg.visits.length === 0} variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
+                    <Undo2 className="w-4 h-4 mr-1" /> Undo
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
+          </div>{/* end desktop wrapper */}
         </div>
       </div>
 
