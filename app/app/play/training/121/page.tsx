@@ -417,9 +417,7 @@ export default function OneTwentyOnePage() {
             console.log('[121] Total XP from last 5 records:', totalFromDb);
           }
           
-          const msg = `✅ +${sessionXP} XP saved!\n\nYour XP will appear in Training Hub.`;
-          toast.success(msg, { duration: 5000 });
-          alert(`XP Saved: +${sessionXP}\n\nClick OK to return to Training Hub. Your XP will be updated there.`);
+          toast.success(`✅ +${sessionXP} XP saved!`, { duration: 5000 });
           
           if (result.levelUp) {
             toast.success(`🎉 Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`, { duration: 5000 });

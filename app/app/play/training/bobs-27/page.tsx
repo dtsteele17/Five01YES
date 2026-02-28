@@ -8,6 +8,8 @@ import { Zap, ArrowLeft, Trophy, Skull, Target, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { awardXP } from '@/lib/training/xpTracker';
+import { calculateXP, XPResult } from '@/lib/training/xpSystem';
+import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 // 21 targets: D1-D20 then Bull
@@ -27,6 +29,7 @@ interface RoundResult {
 export default function Bobs27Page() {
   const router = useRouter();
   const [gameState, setGameState] = useState<'playing' | 'eliminated' | 'completed'>('playing');
+  const [xpResult, setXpResult] = useState<XPResult | null>(null);
   const [currentRound, setCurrentRound] = useState(0); // 0-20
   const [score, setScore] = useState(27);
   const [dartsThrown, setDartsThrown] = useState(0); // 0-2 within current round
@@ -117,13 +120,18 @@ export default function Bobs27Page() {
         },
       });
 
-      const xpResult = await awardXP('bobs-27', Math.max(0, finalScore), {
+      // Calculate XP for display
+      const xp = calculateXP('bobs-27', Math.max(0, finalScore), { completed });
+      setXpResult(xp);
+
+      const awardResult = await awardXP('bobs-27', Math.max(0, finalScore), {
         completed,
         won: completed,
+        xpOverride: xp.totalXP,
         sessionData: { score: finalScore, roundsCompleted: results.length, totalHits, accuracy },
       });
-      if (xpResult.levelUp) {
-        triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
+      if (awardResult.levelUp) {
+        triggerLevelUp(awardResult.levelUp.oldLevel, awardResult.levelUp.newLevel);
       }
     } catch (error) {
       console.error('Failed to save game:', error);
@@ -140,6 +148,7 @@ export default function Bobs27Page() {
     setDartsThrown(0);
     setHitsThisRound(0);
     setRoundResults([]);
+    setXpResult(null);
   };
 
   const getScoreColor = (s: number) => {
@@ -207,6 +216,9 @@ export default function Bobs27Page() {
                 <p className="text-2xl font-bold text-amber-400">{roundResults.length}/21</p>
               </div>
             </div>
+
+            {/* XP Reward */}
+            {xpResult && <XPRewardDisplay xpResult={xpResult} />}
 
             {/* Round-by-round breakdown */}
             <div className="bg-slate-800/50 rounded-xl p-4 mb-6 max-h-48 overflow-y-auto text-left">

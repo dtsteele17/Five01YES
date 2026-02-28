@@ -341,21 +341,7 @@ export default function KillerTrainingPage() {
       const totalTurns = results.reduce((sum, r) => sum + r.turns, 0);
       const won = finalScore.user > finalScore.bot;
 
-      await supabase.from('training_stats').insert({
-        user_id: user.id,
-        mode: 'killer',
-        rounds_played: results.length,
-        rounds_won: finalScore.user,
-        rounds_lost: finalScore.bot,
-        kills: totalKills,
-        total_turns: totalTurns,
-        won,
-        xp_earned: xp.totalXP,
-        performance_rating: xp.performanceRating,
-        created_at: new Date().toISOString(),
-      });
-
-      // Award XP to player total
+      // Award XP to player total (also records to training_stats via RPC)
       const xpResult = await awardXP('killer', finalScore.user, {
         completed: true,
         won,

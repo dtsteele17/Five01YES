@@ -928,6 +928,42 @@ function FinishTrainingContent() {
             </Card>
           </motion.div>
 
+          {/* Visit History */}
+          {finishesHit.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="shrink-0 px-1"
+            >
+              <Card className="bg-slate-800/50 border-slate-700/50 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Checkouts Hit ({finishesHit.length})
+                  </p>
+                  {finishesHit.length > 0 && (
+                    <p className="text-xs text-amber-400 font-bold">
+                      Best: {Math.max(...finishesHit)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {finishesHit.map((finish, idx) => (
+                    <span
+                      key={idx}
+                      className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        finish >= 100 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                        finish >= 60 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                        'bg-slate-700/50 text-slate-300 border border-slate-600/30'
+                      }`}
+                    >
+                      {finish}
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1051,7 +1087,7 @@ function FinishTrainingContent() {
               onClick={() => router.push('/app/play/training')}
               className="flex-1 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-bold"
             >
-              Back to Play
+              Return to Training Hub
             </Button>
           </DialogFooter>
         </DialogContent>
