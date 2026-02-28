@@ -122,6 +122,9 @@ DECLARE
   v_bracket_size INTEGER;
   v_round INTEGER;
   v_match_index INTEGER;
+  v_seeded UUID[];
+  v_idx INTEGER;
+  v_slot INTEGER;
   v_matches_in_round INTEGER;
 BEGIN
   -- Get registered participants (randomized order)
@@ -142,26 +145,52 @@ BEGIN
   -- Delete existing matches
   DELETE FROM tournament_matches WHERE tournament_id = p_tournament_id;
 
-  -- Create Round 1 matches
+  -- Create seeded bracket positions to distribute byes evenly
+  -- Standard approach: place players in p1 slots first, then fill p2 slots
+  -- This ensures byes (empty p2) are spread across different matches
+  -- For 5 players in 8-bracket (4 matches): 
+  --   Match 0: P1 vs P5, Match 1: P2 vs BYE, Match 2: P3 vs BYE, Match 3: P4 vs BYE
+  --   3 byes spread across 3 different matches, no double-byes
+  v_seeded := array_fill(NULL::UUID, ARRAY[v_bracket_size]);
+  
+  -- Fill p1 positions first (odd indices: 1, 3, 5, 7...) then p2 (even: 2, 4, 6, 8...)
+  v_slot := 0;
+  FOR v_idx IN 1..v_count LOOP
+    IF v_idx <= v_bracket_size / 2 THEN
+      -- First N/2 players go into p1 slots
+      v_seeded[(v_idx - 1) * 2 + 1] := v_participants[v_idx];
+    ELSE
+      -- Remaining players go into p2 slots, starting from match 0
+      v_seeded[(v_idx - v_bracket_size / 2 - 1) * 2 + 2] := v_participants[v_idx];
+    END IF;
+  END LOOP;
+
+  -- Create Round 1 matches from seeded positions
   v_matches_in_round := v_bracket_size / 2;
   FOR v_match_index IN 0..(v_matches_in_round - 1) LOOP
     DECLARE
-      p1_idx INTEGER := v_match_index * 2 + 1;
-      p2_idx INTEGER := v_match_index * 2 + 2;
-      p1_id UUID := CASE WHEN p1_idx <= v_count THEN v_participants[p1_idx] ELSE NULL END;
-      p2_id UUID := CASE WHEN p2_idx <= v_count THEN v_participants[p2_idx] ELSE NULL END;
+      p1_id UUID := v_seeded[v_match_index * 2 + 1];
+      p2_id UUID := v_seeded[v_match_index * 2 + 2];
       match_status TEXT := 'pending';
     BEGIN
       -- If only one player (bye), auto-advance them
       IF p1_id IS NOT NULL AND p2_id IS NULL THEN
         match_status := 'completed';
+      ELSIF p1_id IS NULL AND p2_id IS NOT NULL THEN
+        -- Swap so player is always in p1 for bye matches
+        p1_id := p2_id;
+        p2_id := NULL;
+        match_status := 'completed';
       ELSIF p1_id IS NOT NULL AND p2_id IS NOT NULL THEN
         match_status := 'ready';
+      ELSE
+        -- Both NULL = empty match, skip advancing
+        match_status := 'completed';
       END IF;
 
       INSERT INTO tournament_matches (tournament_id, round, match_index, player1_id, player2_id, status, winner_id)
       VALUES (p_tournament_id, 1, v_match_index, p1_id, p2_id, match_status,
-              CASE WHEN p2_id IS NULL AND p1_id IS NOT NULL THEN p1_id ELSE NULL END);
+              CASE WHEN (p1_id IS NOT NULL AND p2_id IS NULL) THEN p1_id ELSE NULL END);
     END;
   END LOOP;
 

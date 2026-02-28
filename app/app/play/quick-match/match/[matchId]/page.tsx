@@ -2199,14 +2199,15 @@ export default function QuickMatchRoomPage() {
             toast.success('You won by forfeit!');
             
             // Progress tournament bracket if this is a tournament match
-            if (isTournamentMatch && tournamentMatchId) {
+            if (isTournamentMatch && tournamentMatchId && currentUserId) {
               (async () => {
                 try {
                   const { error: progressErr } = await supabase.rpc('progress_tournament_bracket', {
-                    p_tournament_match_id: tournamentMatchId
+                    p_tournament_match_id: tournamentMatchId,
+                    p_winner_id: currentUserId, // I win because opponent forfeited
                   });
                   if (progressErr) console.error('[Tournament] Bracket progression error on forfeit:', progressErr);
-                  else console.log('[Tournament] Bracket progressed after forfeit');
+                  else console.log('[Tournament] Bracket progressed after forfeit, I advance');
                 } catch (err) {
                   console.error('[Tournament] Error progressing bracket on forfeit:', err);
                 }
@@ -3494,6 +3495,19 @@ export default function QuickMatchRoomPage() {
         p_type: 'forfeit',
         p_payload: { message: 'Opponent forfeited (AFK)' }
       });
+
+      // Progress tournament bracket if this is a tournament match
+      if (isTournamentMatch && tournamentMatchId && opponentId) {
+        try {
+          await supabase.rpc('progress_tournament_bracket', {
+            p_tournament_match_id: tournamentMatchId,
+            p_winner_id: opponentId, // opponent wins since I forfeited
+          });
+          console.log('[AFK] Tournament bracket progressed, opponent wins');
+        } catch (err) {
+          console.error('[AFK] Tournament bracket progression error:', err);
+        }
+      }
 
       toast.info('Match forfeited due to inactivity');
       cleanupMatchRef.current?.();

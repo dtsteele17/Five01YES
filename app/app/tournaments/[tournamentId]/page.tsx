@@ -1179,31 +1179,12 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               setShowCountdownPopup(false);
               setCountdownComplete(true);
               
-              // Find user's match and show ready-up popup
-              if (currentUserId) {
-                try {
-                  const { data: myMatch } = await supabase
-                    .from('tournament_matches')
-                    .select('*')
-                    .eq('tournament_id', tournamentId)
-                    .eq('round', 1)
-                    .or(`player1_id.eq.${currentUserId},player2_id.eq.${currentUserId}`)
-                    .limit(1)
-                    .single();
-
-                  if (myMatch) {
-                    console.log('🎯 Found match, showing ready-up:', myMatch.id);
-                    setCurrentMatchId(myMatch.id);
-                    setShowReadyUpModal(true);
-                  } else {
-                    loadTournament();
-                    loadTournamentMatches();
-                  }
-                } catch (err) {
-                  console.error('Error finding match:', err);
-                  loadTournament();
-                }
-              }
+              // Reload matches then start the 1-minute countdown flow
+              await loadTournament();
+              await loadTournamentMatches();
+              // checkForReadyUpMatch will detect the match and start the 1-min countdown
+              // which then triggers the 3-min ready-up
+              await checkForReadyUpMatch();
             }}
           />
         )}
