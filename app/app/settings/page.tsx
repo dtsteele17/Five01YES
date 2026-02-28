@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bell, Shield, Palette, Key, Lock, Volume2, Target, User, Camera, Save, Loader2, AlertTriangle, ChevronLeft } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { isInviteSoundEnabled, setInviteSoundEnabled, isGameOnSoundEnabled, setGameOnSoundEnabled } from '@/lib/sfx';
@@ -21,9 +22,9 @@ interface ProfileData {
   display_name: string | null;
   bio: string | null;
   location: string | null;
-  website: string | null;
   avatar_url: string | null;
   username_changed_at: string | null;
+  last_display_name_change: string | null;
 }
 
 // Settings stored in localStorage
@@ -65,6 +66,9 @@ function saveLocalSettings(settings: LocalSettings) {
 export default function SettingsPage() {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const dragPointerIdRef = useRef<number | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Profile state
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -77,12 +81,18 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
-  const [website, setWebsite] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
+  const [cropImage, setCropImage] = useState<HTMLImageElement | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
 
   // Username change tracking
   const [canChangeUsername, setCanChangeUsername] = useState(true);
   const [usernameNextChangeDate, setUsernameNextChangeDate] = useState<string | null>(null);
+  const [canChangeDisplayName, setCanChangeDisplayName] = useState(true);
+  const [displayNameNextChangeDate, setDisplayNameNextChangeDate] = useState<string | null>(null);
 
   // Password state
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -97,22 +107,14 @@ export default function SettingsPage() {
   // Local settings (notifications, privacy, appearance)
   const [localSettings, setLocalSettings] = useState<LocalSettings>(DEFAULT_SETTINGS);
 
-  useEffect(() => {
-    loadProfile();
-    setInviteSoundOn(isInviteSoundEnabled());
-    setGameOnSoundOn(isGameOnSoundEnabled());
-    setDartbotVizOn(isDartbotVisualizationEnabled());
-    setLocalSettings(loadLocalSettings());
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, username, display_name, bio, location, website, avatar_url, username_changed_at')
+        .select('user_id, username, display_name, bio, location, avatar_url, username_changed_at, last_display_name_change')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -127,10 +129,8 @@ export default function SettingsPage() {
         setDisplayName(data.display_name || '');
         setBio(data.bio || '');
         setLocation(data.location || '');
-        setWebsite(data.website || '');
         setAvatarPreview(data.avatar_url);
 
-        // Check username change eligibility (once per 30 days)
         if (data.username_changed_at) {
           const lastChange = new Date(data.username_changed_at);
           const nextAllowed = new Date(lastChange.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -139,13 +139,65 @@ export default function SettingsPage() {
             setUsernameNextChangeDate(nextAllowed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
           }
         }
+
+        if (data.last_display_name_change) {
+          const lastChange = new Date(data.last_display_name_change);
+          const nextAllowed = new Date(lastChange.getTime() + 30 * 24 * 60 * 60 * 1000);
+          if (new Date() < nextAllowed) {
+            setCanChangeDisplayName(false);
+            setDisplayNameNextChangeDate(nextAllowed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
+          }
+        }
       }
     } catch (err) {
       console.error('[Settings] Error:', err);
     } finally {
       setProfileLoading(false);
     }
+  }, [supabase]);
+
+  const clampCropOffset = (zoomValue: number, nextOffset: { x: number; y: number }) => {
+    if (!cropImage) return { x: 0, y: 0 };
+    const canvasSize = 320;
+    const baseScale = Math.max(canvasSize / cropImage.width, canvasSize / cropImage.height);
+    const drawW = cropImage.width * baseScale * zoomValue;
+    const drawH = cropImage.height * baseScale * zoomValue;
+    const maxX = Math.max(0, (drawW - canvasSize) / 2);
+    const maxY = Math.max(0, (drawH - canvasSize) / 2);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, nextOffset.x)),
+      y: Math.min(maxY, Math.max(-maxY, nextOffset.y)),
+    };
   };
+
+  useEffect(() => {
+    loadProfile();
+    setInviteSoundOn(isInviteSoundEnabled());
+    setGameOnSoundOn(isGameOnSoundEnabled());
+    setDartbotVizOn(isDartbotVisualizationEnabled());
+    setLocalSettings(loadLocalSettings());
+  }, [loadProfile]);
+
+  useEffect(() => {
+    const canvas = cropCanvasRef.current;
+    if (!canvas || !cropImage || !cropModalOpen) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const canvasSize = 320;
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+
+    const baseScale = Math.max(canvasSize / cropImage.width, canvasSize / cropImage.height);
+    const scale = baseScale * cropZoom;
+    const drawW = cropImage.width * scale;
+    const drawH = cropImage.height * scale;
+    const x = (canvasSize - drawW) / 2 + cropOffset.x;
+    const y = (canvasSize - drawH) / 2 + cropOffset.y;
+
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
+    ctx.drawImage(cropImage, x, y, drawW, drawH);
+  }, [cropImage, cropZoom, cropOffset, cropModalOpen]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -161,39 +213,91 @@ export default function SettingsPage() {
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        setCropImage(image);
+        setCropImageUrl(reader.result as string);
+        setCropZoom(1);
+        setCropOffset({ x: 0, y: 0 });
+        setCropModalOpen(true);
+      };
+      image.onerror = () => toast.error('Failed to load selected image');
+      image.src = reader.result as string;
+    };
+    reader.onerror = () => toast.error('Failed to read selected file');
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    dragPointerIdRef.current = event.pointerId;
+    dragStartRef.current = { x: event.clientX - cropOffset.x, y: event.clientY - cropOffset.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleCropPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (dragPointerIdRef.current !== event.pointerId || !dragStartRef.current) return;
+    const candidate = {
+      x: event.clientX - dragStartRef.current.x,
+      y: event.clientY - dragStartRef.current.y,
+    };
+    setCropOffset(clampCropOffset(cropZoom, candidate));
+  };
+
+  const handleCropPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (dragPointerIdRef.current === event.pointerId) {
+      dragPointerIdRef.current = null;
+      dragStartRef.current = null;
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const handleConfirmCrop = async () => {
+    if (!cropImage) return;
     setAvatarUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const filePath = `${user.id}/avatar.${ext}`;
+      const outputSize = 512;
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = outputSize;
+      outputCanvas.height = outputSize;
+      const ctx = outputCanvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to initialize image cropper');
 
-      // Upload to Supabase Storage
+      const baseScale = Math.max(outputSize / cropImage.width, outputSize / cropImage.height);
+      const scale = baseScale * cropZoom;
+      const drawW = cropImage.width * scale;
+      const drawH = cropImage.height * scale;
+      const x = (outputSize - drawW) / 2 + cropOffset.x * (outputSize / 320);
+      const y = (outputSize - drawH) / 2 + cropOffset.y * (outputSize / 320);
+      ctx.drawImage(cropImage, x, y, drawW, drawH);
+
+      const blob = await new Promise<Blob | null>((resolve) => outputCanvas.toBlob(resolve, 'image/jpeg', 0.9));
+      if (!blob) throw new Error('Failed to process cropped image');
+
+      const filePath = `${user.id}/avatar.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true, contentType: file.type });
+        .upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
 
-      if (uploadError) {
-        // If bucket doesn't exist, try public-assets bucket
-        console.error('[Settings] Upload error:', uploadError);
-        toast.error('Failed to upload avatar. Make sure the "avatars" storage bucket exists in Supabase.');
-        return;
-      }
-
-      // Get public URL
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = urlData.publicUrl + `?t=${Date.now()}`; // Cache bust
-
-      // Update profile
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('user_id', user.id);
-
       if (updateError) throw updateError;
 
       setAvatarPreview(publicUrl);
+      setProfile((prev) => (prev ? { ...prev, avatar_url: publicUrl } : prev));
+      setCropModalOpen(false);
+      setCropImageUrl(null);
+      setCropImage(null);
       toast.success('Profile picture updated!');
     } catch (err: any) {
       console.error('[Settings] Avatar upload error:', err);
@@ -210,11 +314,19 @@ export default function SettingsPage() {
       if (!user) throw new Error('Not authenticated');
 
       const updates: Record<string, any> = {
-        display_name: displayName || null,
         bio: bio || null,
         location: location || null,
-        website: website || null,
       };
+
+      if (displayName !== (profile?.display_name || '')) {
+        if (!canChangeDisplayName) {
+          toast.error(`Display name can only be changed once per month. Next change available: ${displayNameNextChangeDate}`);
+          setProfileSaving(false);
+          return;
+        }
+        updates.display_name = displayName || null;
+        updates.last_display_name_change = new Date().toISOString();
+      }
 
       // Handle username change
       if (username !== profile?.username) {
@@ -269,6 +381,11 @@ export default function SettingsPage() {
         setCanChangeUsername(false);
         const nextDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         setUsernameNextChangeDate(nextDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
+      }
+      if (updates.last_display_name_change) {
+        setCanChangeDisplayName(false);
+        const nextDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        setDisplayNameNextChangeDate(nextDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
       }
       setProfile(prev => prev ? { ...prev, ...updates } : prev);
       toast.success('Profile updated!');
@@ -407,10 +524,18 @@ export default function SettingsPage() {
             <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              disabled={!canChangeDisplayName}
               className="bg-white/5 border-white/10 text-white"
               placeholder="Your display name"
               maxLength={30}
             />
+            <p className="text-amber-400 text-xs">You can only change your display name once per month</p>
+            {!canChangeDisplayName && (
+              <p className="text-amber-400 text-xs flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                Display name can be changed again on {displayNameNextChangeDate}
+              </p>
+            )}
             <p className="text-slate-500 text-xs">Shown on your profile and in matches.</p>
           </div>
 
@@ -437,18 +562,6 @@ export default function SettingsPage() {
               className="bg-white/5 border-white/10 text-white"
               placeholder="e.g. London, UK"
               maxLength={50}
-            />
-          </div>
-
-          {/* Website */}
-          <div className="space-y-2">
-            <Label className="text-white">Website</Label>
-            <Input
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              className="bg-white/5 border-white/10 text-white"
-              placeholder="https://yourwebsite.com"
-              maxLength={100}
             />
           </div>
 
@@ -614,7 +727,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
             <div>
               <p className="text-white font-medium">Show Online Status</p>
-              <p className="text-gray-400 text-sm">Let others see when you're online</p>
+              <p className="text-gray-400 text-sm">Let others see when you&apos;re online</p>
             </div>
             <Switch checked={localSettings.privacy_show_online} onCheckedChange={(v) => updateLocalSetting('privacy_show_online', v)} />
           </div>
@@ -635,6 +748,84 @@ export default function SettingsPage() {
           Delete Account
         </Button>
       </Card>
+
+      <Dialog open={cropModalOpen} onOpenChange={(open) => {
+        if (!avatarUploading) {
+          setCropModalOpen(open);
+          if (!open) {
+            setCropImageUrl(null);
+            setCropImage(null);
+          }
+        }
+      }}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-[calc(100vw-1.5rem)] sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Crop Profile Picture</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Drag to move and use zoom to fit your image inside the circular frame.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="relative w-full aspect-square max-w-[320px] mx-auto rounded-xl overflow-hidden touch-none">
+              <canvas
+                ref={cropCanvasRef}
+                className="w-full h-full cursor-grab active:cursor-grabbing select-none"
+                onPointerDown={handleCropPointerDown}
+                onPointerMove={handleCropPointerMove}
+                onPointerUp={handleCropPointerUp}
+                onPointerCancel={handleCropPointerUp}
+              />
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                <div className="w-[80%] h-[80%] rounded-full border-2 border-white/80 shadow-[0_0_0_9999px_rgba(15,23,42,0.55)]" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-white">Zoom</Label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={cropZoom}
+                onChange={(e) => {
+                  const nextZoom = Number(e.target.value);
+                  setCropZoom(nextZoom);
+                  setCropOffset((prev) => clampCropOffset(nextZoom, prev));
+                }}
+                className="w-full accent-emerald-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/10 text-slate-300 hover:text-white"
+                onClick={() => {
+                  setCropModalOpen(false);
+                  setCropImageUrl(null);
+                  setCropImage(null);
+                }}
+                disabled={avatarUploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                onClick={handleConfirmCrop}
+                disabled={avatarUploading || !cropImageUrl}
+              >
+                {avatarUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {avatarUploading ? 'Uploading...' : 'Crop & Save'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

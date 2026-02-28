@@ -13,7 +13,10 @@ CREATE POLICY "Anyone can view profiles" ON profiles
   TO authenticated
   USING (true);
 
--- Also create a search RPC for more reliable searching
+-- Drop existing function first to avoid return type conflicts
+DROP FUNCTION IF EXISTS rpc_search_users(text, integer);
+
+-- Create search RPC for reliable searching
 CREATE OR REPLACE FUNCTION rpc_search_users(p_query text, p_limit integer DEFAULT 8)
 RETURNS TABLE (
   user_id uuid,
