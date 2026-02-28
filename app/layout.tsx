@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'FIVE01 - Online Darts Platform',
+  title: 'FIVE01',
   description: 'Play darts online, track stats, compete in ranked matches and tournaments.',
   openGraph: {
     images: [
