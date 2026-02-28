@@ -514,7 +514,7 @@ function LiveStatsTicker() {
   };
 
   const stats = [
-    { label: 'Live Matches', value: formatValue(liveMatches.count.toLocaleString()), icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500/20' },
+    { label: 'Matches Played', value: formatValue(liveMatches.count.toLocaleString()), icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500/20' },
     { label: 'Active Players', value: formatValue(activePlayers.count.toLocaleString()), icon: Users, color: 'text-primary', bg: 'bg-primary/20' },
     { label: 'Darts Today', value: formatValue(`${(dartsThrown.count / 1000).toFixed(1)}K`), icon: Target, color: 'text-secondary', bg: 'bg-secondary/20' },
     { label: 'Active Tournaments', value: formatValue(tournaments.count.toString()), icon: Trophy, color: 'text-amber-400', bg: 'bg-amber-500/20' },
