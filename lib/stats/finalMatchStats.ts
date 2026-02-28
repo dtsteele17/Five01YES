@@ -80,6 +80,31 @@ function computePlayerStats(
     leg.visits.filter(v => v.player === player && !v.isBust)
   );
 
+  // Count legs won from actual leg data (most reliable)
+  const legsWon = legs.filter(leg => leg.winner === player).length;
+
+  // Count checkouts made from actual visit data (more reliable than state counters)
+  let actualCheckoutsMade = 0;
+  let highestCheckout = 0;
+
+  legs.forEach(leg => {
+    if (leg.winner === player) {
+      const legVisits = leg.visits.filter(v => v.player === player);
+      const winningVisit = legVisits.find(v => v.isCheckout);
+
+      if (winningVisit) {
+        actualCheckoutsMade++;
+        const checkoutValue = winningVisit.score;
+        if (checkoutValue > highestCheckout && checkoutValue > 0 && checkoutValue <= 170) {
+          highestCheckout = checkoutValue;
+        }
+      }
+    }
+  });
+
+  // Use actual checkouts if state counters seem stale (0 when we found checkouts in data)
+  const finalCheckoutsMade = actualCheckoutsMade > checkoutsMade ? actualCheckoutsMade : checkoutsMade;
+
   if (allVisits.length === 0) {
     return {
       threeDartAverage: 0,
@@ -87,14 +112,14 @@ function computePlayerStats(
       first9DartsThrown: 0,
       first9PointsScored: 0,
       highestScore: 0,
-      highestCheckout: 0,
+      highestCheckout,
       checkoutPercent: 0,
       checkoutDartsAttempted: totalDartsAtDouble,
-      checkoutsMade,
+      checkoutsMade: finalCheckoutsMade,
       count100Plus: 0,
       count140Plus: 0,
       count180: 0,
-      legsWon: 0,
+      legsWon,
       totalDartsThrown: 0,
       totalPointsScored: 0,
     };
@@ -121,26 +146,10 @@ function computePlayerStats(
   const count140Plus = allVisits.filter(v => v.score >= 140).length;
   const count180 = allVisits.filter(v => v.score === 180).length;
 
-  let highestCheckout = 0;
-  const legsWon = legs.filter(leg => leg.winner === player).length;
-
-  legs.forEach(leg => {
-    if (leg.winner === player) {
-      const legVisits = leg.visits.filter(v => v.player === player);
-      const winningVisit = legVisits.find(v => v.isCheckout);
-
-      if (winningVisit) {
-        const checkoutValue = winningVisit.score;
-        if (checkoutValue > highestCheckout && checkoutValue > 0 && checkoutValue <= 170) {
-          highestCheckout = checkoutValue;
-        }
-      }
-    }
-  });
-
+  // Use whichever is higher — state counter or data-derived count
   const checkoutPercent = totalDartsAtDouble > 0
-    ? (checkoutsMade / totalDartsAtDouble) * 100
-    : 0;
+    ? (finalCheckoutsMade / totalDartsAtDouble) * 100
+    : (finalCheckoutsMade > 0 ? 100 : 0);
 
   return {
     threeDartAverage: Math.round(threeDartAverage * 100) / 100,
@@ -151,7 +160,7 @@ function computePlayerStats(
     highestCheckout,
     checkoutPercent: Math.round(checkoutPercent * 100) / 100,
     checkoutDartsAttempted: totalDartsAtDouble,
-    checkoutsMade,
+    checkoutsMade: finalCheckoutsMade,
     count100Plus,
     count140Plus,
     count180,
