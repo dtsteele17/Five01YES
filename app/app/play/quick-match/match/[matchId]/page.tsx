@@ -1387,11 +1387,11 @@ export default function QuickMatchRoomPage() {
       p2: currentUserId === room.player2_id ? true : prev.p2
     }));
     
-    // Poll to check if opponent is in the match
+    // Poll to check if opponent is in the match AND detect match end
     const checkOpponentInterval = setInterval(async () => {
       const { data: roomData } = await supabase
         .from('match_rooms')
-        .select('player1_id, player2_id')
+        .select('*')
         .eq('id', matchId)
         .maybeSingle();
       
@@ -1412,8 +1412,15 @@ export default function QuickMatchRoomPage() {
             return newState;
           });
         }
+
+        // CRITICAL: Detect match finished for the losing player
+        if (roomData.status === 'finished' && roomData.winner_id && !matchEndStats) {
+          console.log('[POLL] Match finished detected! Showing end-game popup for', 
+            roomData.winner_id === currentUserId ? 'winner' : 'loser');
+          showMatchEndPopup(roomData);
+        }
       }
-    }, 1000);
+    }, 2000);
     
     return () => clearInterval(checkOpponentInterval);
   }, [room, currentUserId, matchId]);
@@ -2209,7 +2216,12 @@ export default function QuickMatchRoomPage() {
           
           // Handle match finished - show winner popup
           if (updatedRoom.status === 'finished' && updatedRoom.winner_id && !matchEndStats) {
+            console.log('[ROOM] Match finished detected via realtime, showing popup');
             showMatchEndPopup(updatedRoom);
+          }
+          // Also check if match is finished but we somehow missed it
+          if (updatedRoom.status === 'finished' && updatedRoom.winner_id) {
+            console.log('[ROOM] Match finished, winner:', updatedRoom.winner_id);
           }
         }
       )

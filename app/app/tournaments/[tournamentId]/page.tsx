@@ -449,14 +449,33 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         .eq('tournament_id', tournamentId);
       
       const matchList = freshMatches || matches;
-      // Use canonical logic to find active match requiring action
-      const activeMatch = findActiveUserMatch(matchList, currentUserId);
+      
+      // First: check canonical logic
+      let activeMatch = findActiveUserMatch(matchList, currentUserId);
+      
+      // Fallback: check for any match where both players are set and match is pending/ready (DB may not have updated status)
+      if (!activeMatch) {
+        activeMatch = matchList.find((m: any) => {
+          const isParticipant = m.player1_id === currentUserId || m.player2_id === currentUserId;
+          const bothPlayersSet = m.player1_id && m.player2_id;
+          const isWaiting = ['pending', 'ready', 'ready_check'].includes(m.status);
+          const notCompleted = !m.match_room_id; // No match room yet
+          return isParticipant && bothPlayersSet && isWaiting && notCompleted;
+        }) || null;
+        if (activeMatch) {
+          console.log('[ReadyCheck] Found next-round match via fallback:', activeMatch.id, 'status:', activeMatch.status);
+          // Also update the status to 'ready' in the DB since both players are here
+          supabase.from('tournament_matches').update({ status: 'ready' }).eq('id', activeMatch.id).then(() => {});
+        }
+      }
       
       if (activeMatch) {
         const matchStatus = getMatchRedirect(activeMatch, tournamentId, currentUserId);
+        const shouldReadyUp = matchStatus.shouldShowReadyUp || 
+          (['pending', 'ready', 'ready_check'].includes(activeMatch.status) && activeMatch.player1_id && activeMatch.player2_id && !activeMatch.match_room_id);
         
-        if (matchStatus.canRedirect) {
-          if (matchStatus.shouldShowReadyUp) {
+        if (shouldReadyUp || matchStatus.canRedirect) {
+          if (shouldReadyUp) {
             // Both players are in the match and it's ready — start 1-minute countdown if not already
             if (nextRoundCountdown === null && nextRoundMatchId !== activeMatch.id) {
               console.log('🎯 Next round match detected, starting 60s countdown:', activeMatch.id);
