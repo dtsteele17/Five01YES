@@ -102,8 +102,8 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
   const [match, setMatch] = useState<MatchHistoryData | null>(null);
   const [userStats, setUserStats] = useState<MatchStats | null>(null);
   const [opponentStats, setOpponentStats] = useState<MatchStats | null>(null);
-  const [userProfile, setUserProfile] = useState<{ username: string } | null>(null);
-  const [opponentProfile, setOpponentProfile] = useState<{ username: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ username: string; avatar_url?: string | null } | null>(null);
+  const [opponentProfile, setOpponentProfile] = useState<{ username: string; avatar_url?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [legStats, setLegStats] = useState<LegStats[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -160,7 +160,7 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
       // Fetch user profile
       const { data: userProf } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, avatar_url')
         .eq('user_id', user.id)
         .maybeSingle();
       
@@ -215,7 +215,7 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
         // Fetch opponent profile
         const { data: oppProf } = await supabase
           .from('profiles')
-          .select('username')
+          .select('username, avatar_url')
           .eq('user_id', userMatchData.opponent_id)
           .maybeSingle();
         
@@ -309,12 +309,16 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
               <div className="flex items-center justify-center gap-8">
                 {/* User */}
                 <div className={`text-center ${userWon ? 'scale-110' : 'opacity-70'}`}>
-                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black ${
+                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black overflow-hidden ${
                     userWon 
                       ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
                       : 'bg-slate-700 text-slate-400'
                   }`}>
-                    {userName.charAt(0).toUpperCase()}
+                    {userProfile?.avatar_url ? (
+                      <img src={userProfile.avatar_url} alt={userName} className="w-full h-full object-cover" />
+                    ) : (
+                      userName.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <p className="text-sm font-medium text-white mb-1">{userName}</p>
                   <motion.p 
@@ -337,12 +341,16 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
                 
                 {/* Opponent */}
                 <div className={`text-center ${!userWon ? 'scale-110' : 'opacity-70'}`}>
-                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black ${
+                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black overflow-hidden ${
                     !userWon 
                       ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30' 
                       : 'bg-slate-700 text-slate-400'
                   }`}>
-                    {opponentName.charAt(0).toUpperCase()}
+                    {opponentProfile?.avatar_url ? (
+                      <img src={opponentProfile.avatar_url} alt={opponentName} className="w-full h-full object-cover" />
+                    ) : (
+                      opponentName.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <p className="text-sm font-medium text-white mb-1">{opponentName}</p>
                   <motion.p 
@@ -366,8 +374,12 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
               {/* User Stats */}
               <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-emerald-500/30 p-6 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
-                    {userName.charAt(0).toUpperCase()}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20 overflow-hidden">
+                    {userProfile?.avatar_url ? (
+                      <img src={userProfile.avatar_url} alt={userName} className="w-full h-full object-cover" />
+                    ) : (
+                      userName.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-white">{userName}</h3>
@@ -408,8 +420,12 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
               {/* Opponent Stats */}
               <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-orange-500/30 p-6 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-500/20">
-                    {opponentName.charAt(0).toUpperCase()}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-500/20 overflow-hidden">
+                    {opponentProfile?.avatar_url ? (
+                      <img src={opponentProfile.avatar_url} alt={opponentName} className="w-full h-full object-cover" />
+                    ) : (
+                      opponentName.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-white">{opponentName}</h3>

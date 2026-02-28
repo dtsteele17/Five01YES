@@ -39,6 +39,7 @@ export interface ModernMatch {
   opponent_visits_180?: number;
   played_at: string;
   bot_level?: number;
+  opponent_avatar_url?: string | null;
 }
 
 interface ModernMatchCardProps {
@@ -123,9 +124,11 @@ export function ModernMatchCard({
             {/* Left: Opponent info */}
             <div className="flex items-center gap-3">
               {/* Avatar */}
-              <div className={`w-10 h-10 rounded-xl ${isBot ? 'bg-blue-500/20' : 'bg-slate-700'} flex items-center justify-center`}>
+              <div className={`w-10 h-10 rounded-xl ${isBot ? 'bg-blue-500/20' : 'bg-slate-700'} flex items-center justify-center overflow-hidden`}>
                 {isBot ? (
                   <Bot className="w-5 h-5 text-blue-400" />
+                ) : match.opponent_avatar_url ? (
+                  <img src={match.opponent_avatar_url} alt={opponentName} className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-5 h-5 text-slate-400" />
                 )}
@@ -232,9 +235,11 @@ export function ModernMatchCard({
                 <p className="text-white font-bold text-lg">{match.legs_lost}</p>
                 <p className="text-slate-500 text-xs">legs won</p>
               </div>
-              <div className={`w-12 h-12 rounded-2xl ${isBot ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-orange-500 to-orange-600'} flex items-center justify-center shadow-lg`}>
+              <div className={`w-12 h-12 rounded-2xl ${isBot ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-orange-500 to-orange-600'} flex items-center justify-center shadow-lg overflow-hidden`}>
                 {isBot ? (
                   <Bot className="w-6 h-6 text-white" />
+                ) : match.opponent_avatar_url ? (
+                  <img src={match.opponent_avatar_url} alt={opponentName} className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-6 h-6 text-white" />
                 )}

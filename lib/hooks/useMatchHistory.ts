@@ -30,6 +30,7 @@ export interface MatchHistoryItem {
   opponent_highest_checkout?: number;
   opponent_checkout_percentage?: number;
   opponent_visits_180?: number;
+  opponent_avatar_url?: string | null;
 }
 
 interface UseMatchHistoryOptions {
@@ -97,21 +98,21 @@ export function useMatchHistory(options: UseMatchHistoryOptions = {}) {
       }
 
       // Get unique opponent IDs for username lookup (only for first 10 matches)
-      let opponentMap: Record<string, string> = {};
+      let opponentMap: Record<string, { username: string; avatar_url?: string | null }> = {};
       const opponentIds = [...new Set((historyData || [])
-        .slice(0, 10) // Only fetch usernames for first 10 matches
+        .slice(0, 10) // Only fetch profiles for first 10 matches
         .map(m => m.opponent_id).filter(Boolean))];
       
       if (opponentIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('user_id, username')
+          .select('user_id, username, avatar_url')
           .in('user_id', opponentIds);
         
         opponentMap = (profilesData || []).reduce((acc, profile) => {
-          acc[profile.user_id] = profile.username;
+          acc[profile.user_id] = { username: profile.username, avatar_url: profile.avatar_url };
           return acc;
-        }, {} as Record<string, string>);
+        }, {} as Record<string, { username: string; avatar_url?: string | null }>);
       }
 
       // Transform data
@@ -124,7 +125,8 @@ export function useMatchHistory(options: UseMatchHistoryOptions = {}) {
           opponent_id: match.opponent_id,
           opponent_username: match.match_format === 'dartbot' 
             ? `DartBot (${match.bot_level || '?'})`
-            : opponentMap[match.opponent_id] || 'Unknown',
+            : opponentMap[match.opponent_id]?.username || 'Unknown',
+          opponent_avatar_url: match.match_format === 'dartbot' ? null : (opponentMap[match.opponent_id]?.avatar_url || null),
           game_mode: match.game_mode,
           match_format: match.match_format,
           result: match.result,
