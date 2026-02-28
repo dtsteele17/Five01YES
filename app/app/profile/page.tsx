@@ -69,13 +69,13 @@ interface LastMatch {
 // Stat Tile Component
 function StatTile({ value, label, icon: Icon, color }: { value: string | number; label: string; icon: any; color: string }) {
   return (
-    <div className="flex items-center gap-3 p-3 sm:p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
-      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
-        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+    <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
+      <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
+        <Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
       </div>
       <div className="min-w-0">
-        <p className="text-xl sm:text-2xl font-black text-white">{value}</p>
-        <p className="text-slate-400 text-xs sm:text-sm uppercase tracking-wider truncate">{label}</p>
+        <p className="text-lg sm:text-2xl font-black text-white">{value}</p>
+        <p className="text-slate-400 text-[11px] sm:text-sm uppercase tracking-wider truncate">{label}</p>
       </div>
     </div>
   );
@@ -252,7 +252,7 @@ export default function ProfilePage() {
     return (
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="h-64 bg-slate-800/50 rounded-3xl animate-pulse" />
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-800/50 rounded-xl animate-pulse" />)}
         </div>
       </div>
@@ -286,7 +286,7 @@ export default function ProfilePage() {
             <div className="flex-1 text-center lg:text-left">
               <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
                 <div>
-                  <h1 className="text-4xl font-black text-white tracking-tight">
+                  <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                     {profile?.display_name || profile?.username || 'User'}
                   </h1>
                   <p className="text-slate-400 text-base sm:text-lg">@{profile?.username}</p>
@@ -400,7 +400,7 @@ export default function ProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Overall Stats */}
           <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50">
+            <div className="p-4 sm:p-6 border-b border-slate-700/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
                   <Trophy className="w-5 h-5 text-emerald-400" />
@@ -411,7 +411,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {overallStats ? (
                 <PlayerStatsCard stats={overallStats} title="" icon={null} />
               ) : (
@@ -490,7 +490,7 @@ export default function ProfilePage() {
 
           {/* Ranked Status */}
           <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50">
+            <div className="p-4 sm:p-6 border-b border-slate-700/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
                   <Crown className="w-5 h-5 text-amber-400" />
@@ -501,17 +501,17 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-            <div className="p-6 text-center">
-              <p className="text-6xl font-black text-white">{isUnranked ? (profile?.ranked_points || 0) : (rankedInfo?.rp || 0)}</p>
+            <div className="p-4 sm:p-6 text-center">
+              <p className="text-4xl sm:text-6xl font-black text-white">{isUnranked ? (profile?.ranked_points || 0) : (rankedInfo?.rp || 0)}</p>
               <p className="text-slate-400 mt-1">Ranked Points</p>
               
               {!isUnranked && rankedInfo?.division_name ? (
-                <div className="mt-4 p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                <div className="mt-4 p-3 sm:p-4 bg-amber-500/10 rounded-xl border border-amber-500/20">
                   <p className="text-amber-400 font-bold text-xl">{rankedInfo.division_name}</p>
                   <p className="text-slate-400 text-sm">Current Division</p>
                 </div>
               ) : (
-                <div className="mt-4 p-4 bg-slate-700/30 rounded-xl border border-slate-600/40">
+                <div className="mt-4 p-3 sm:p-4 bg-slate-700/30 rounded-xl border border-slate-600/40">
                   <p className="text-slate-200 font-bold text-xl">Unranked</p>
                   <p className="text-slate-400 text-sm">Play ranked matches to get placed</p>
                 </div>
@@ -523,17 +523,17 @@ export default function ProfilePage() {
                 </div>
               )}
               
-              <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6">
                 <div>
-                  <p className="text-xl font-bold text-white">{isUnranked ? 0 : (rankedInfo?.wins || 0)}</p>
+                  <p className="text-lg sm:text-xl font-bold text-white">{isUnranked ? 0 : (rankedInfo?.wins || 0)}</p>
                   <p className="text-slate-400 text-xs">Wins</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-white">{isUnranked ? 0 : (rankedInfo?.losses || 0)}</p>
+                  <p className="text-lg sm:text-xl font-bold text-white">{isUnranked ? 0 : (rankedInfo?.losses || 0)}</p>
                   <p className="text-slate-400 text-xs">Losses</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-white">{isUnranked ? '0.0' : calculateRankedWinRate()}%</p>
+                  <p className="text-lg sm:text-xl font-bold text-white">{isUnranked ? '0.0' : calculateRankedWinRate()}%</p>
                   <p className="text-slate-400 text-xs">Win Rate</p>
                 </div>
               </div>

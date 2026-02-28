@@ -56,63 +56,63 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
       </div>
 
       {/* Win/Loss Record */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div className="text-center">
-          <div className="text-3xl font-bold text-emerald-400">{stats.wins}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-emerald-400">{stats.wins}</div>
           <div className="text-xs text-slate-400">Wins</div>
         </div>
         <div className="text-center">
-          <div className="text-3xl font-bold text-red-400">{stats.losses}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-red-400">{stats.losses}</div>
           <div className="text-xs text-slate-400">Losses</div>
         </div>
-        <div className="text-center">
-          <div className="text-3xl font-bold text-white">{winPercentage}%</div>
+        <div className="text-center col-span-2 sm:col-span-1">
+          <div className="text-2xl sm:text-3xl font-bold text-white">{winPercentage}%</div>
           <div className="text-xs text-slate-400">Win Rate</div>
         </div>
       </div>
 
       {/* Averages */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-slate-800/50 rounded-lg p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-6">
+        <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
             <TrendingUp className="w-4 h-4" />
             <span className="text-sm">3-Dart Average</span>
           </div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-xl sm:text-2xl font-bold text-white">
             {(stats.overall_3dart_avg ?? stats.avg_3dart ?? 0).toFixed(1)}
           </div>
           <div className="text-xs text-slate-500 mt-1">
             From {stats.total_darts_thrown ?? stats.total_darts ?? 0} darts
           </div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4">
+        <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
             <Award className="w-4 h-4" />
             <span className="text-sm">First 9 Average</span>
           </div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-xl sm:text-2xl font-bold text-white">
             {(stats.overall_first9_avg ?? 0).toFixed(1)}
           </div>
         </div>
       </div>
 
       {/* Checkouts */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-slate-800/50 rounded-lg p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-6">
+        <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
             <Target className="w-4 h-4" />
             <span className="text-sm">Highest Checkout</span>
           </div>
-          <div className="text-2xl font-bold text-emerald-400">
+          <div className="text-xl sm:text-2xl font-bold text-emerald-400">
             {stats.highest_checkout || '-'}
           </div>
         </div>
-        <div className="bg-slate-800/50 rounded-lg p-4">
+        <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
             <Trophy className="w-4 h-4" />
             <span className="text-sm">Checkout %</span>
           </div>
-          <div className="text-2xl font-bold text-white">
+          <div className="text-xl sm:text-2xl font-bold text-white">
             {(stats.checkout_percentage ?? stats.checkout_pct ?? 0).toFixed(1)}%
           </div>
           <div className="text-xs text-slate-500 mt-1">
@@ -127,7 +127,7 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
           <BarChart3 className="w-4 h-4" />
           <span className="text-sm">Visit Milestones</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <div className="text-center">
             <div className="text-xl font-bold text-emerald-400">{stats.visits_100_plus || 0}</div>
             <div className="text-xs text-slate-400">100+</div>

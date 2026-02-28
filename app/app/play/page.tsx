@@ -83,21 +83,21 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
   if (disabled) {
     return (
       <motion.div variants={itemVariants} className="h-full">
-        <div className="relative overflow-hidden rounded-2xl bg-slate-800/30 border border-slate-700/30 p-6 opacity-50 h-full">
+        <div className="relative overflow-hidden rounded-2xl bg-slate-800/30 border border-slate-700/30 p-4 sm:p-6 opacity-50 h-full">
           <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 z-10">
             <div className="text-center">
               <Lock className="w-8 h-8 text-slate-500 mx-auto mb-2" />
               <span className="text-slate-500 font-medium">Coming Soon</span>
             </div>
           </div>
-          <div className="flex items-start justify-between mb-4">
-            <div className={`w-14 h-14 rounded-xl ${color} flex items-center justify-center`}>
+          <div className="flex items-start justify-between mb-3 sm:mb-4">
+            <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl ${color} flex items-center justify-center`}>
               {icon}
             </div>
             {badge && <Badge className={badge.color}>{badge.text}</Badge>}
           </div>
-          <h3 className="text-xl font-bold text-white mb-1">{title}</h3>
-          <p className="text-slate-400 text-sm">{description}</p>
+          <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{title}</h3>
+          <p className="text-slate-400 text-xs sm:text-sm">{description}</p>
         </div>
       </motion.div>
     );
@@ -106,12 +106,12 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
   return (
     <motion.div variants={itemVariants} className="h-full">
       <Link href={href} className="h-full block">
-        <Card className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${featured ? 'bg-slate-800/60 border-emerald-500/30' : 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50'} p-6`}>
+        <Card className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${featured ? 'bg-slate-800/60 border-emerald-500/30' : 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50'} p-4 sm:p-6`}>
           <div className={`absolute inset-0 ${color} opacity-0 group-hover:opacity-10 transition-opacity`} />
           
           <div className="relative z-10 h-full flex flex-col">
-            <div className="flex items-start justify-between mb-4">
-              <div className={`w-14 h-14 rounded-xl ${color} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow`}>
+            <div className="flex items-start justify-between mb-3 sm:mb-4">
+              <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl ${color} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow`}>
                 {icon}
               </div>
               {badge && <Badge className={badge.color}>{badge.text}</Badge>}
@@ -120,16 +120,16 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
             <div className="flex-1">
               <div className="mb-3">
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{subtitle}</p>
-                <h3 className="text-lg sm:text-xl font-bold text-white mt-1 group-hover:text-emerald-400 transition-colors">{title}</h3>
+                <h3 className="text-base sm:text-xl font-bold text-white mt-1 group-hover:text-emerald-400 transition-colors">{title}</h3>
               </div>
 
-              <p className="text-slate-400 text-sm mb-4 line-clamp-2">{description}</p>
+              <p className="text-slate-400 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-2">{description}</p>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-700/30">
+            <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-slate-700/30">
               {stats ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">{stats.label}</span>
+                  <span className="text-[11px] sm:text-xs text-slate-500">{stats.label}</span>
                   <span className="text-sm font-bold text-white">{stats.value}</span>
                 </div>
               ) : (
@@ -150,11 +150,11 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
 // Stats Mini Card
 function StatMiniCard({ label, value, icon: Icon, color, trend, loading }: { label: string; value: string; icon: any; color: string; trend?: { value: string; positive: boolean }; loading?: boolean }) {
   return (
-    <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/50 p-4 group hover:border-slate-500/50 transition-all">
+    <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/50 p-3 sm:p-4 group hover:border-slate-500/50 transition-all">
       <div className={`absolute inset-0 ${color} opacity-0 group-hover:opacity-10 transition-opacity`} />
       <div className="relative flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center`}>
-          <Icon className="w-5 h-5 text-white" />
+        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg ${color} flex items-center justify-center`}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </div>
         <div>
           <p className="text-xs text-slate-400 uppercase tracking-wider">{label}</p>
@@ -163,7 +163,7 @@ function StatMiniCard({ label, value, icon: Icon, color, trend, loading }: { lab
               <div className="w-12 h-6 bg-slate-700 rounded animate-pulse" />
             ) : (
               <>
-                <p className="text-xl font-bold text-white">{value}</p>
+                <p className="text-lg sm:text-xl font-bold text-white">{value}</p>
                 {trend && (
                   <span className={`text-xs font-medium ${trend.positive ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {trend.positive ? '+' : ''}{trend.value}
@@ -183,12 +183,12 @@ function TrainingHubCard() {
   return (
     <motion.div variants={itemVariants}>
       <Link href="/app/play/training">
-        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-gradient-to-br from-rose-500/10 to-orange-500/10 border-rose-500/30 hover:border-rose-500/50 p-6">
+        <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-gradient-to-br from-rose-500/10 to-orange-500/10 border-rose-500/30 hover:border-rose-500/50 p-4 sm:p-6">
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           
           <div className="relative z-10 h-full flex flex-col">
             <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-rose-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
                 <Target className="w-7 h-7 text-white" />
               </div>
               <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30">
@@ -199,7 +199,7 @@ function TrainingHubCard() {
 
             <div className="flex-1">
               <p className="text-xs text-rose-400 uppercase tracking-wider font-semibold">Practice</p>
-              <h3 className="text-2xl font-bold text-white mt-1 group-hover:text-rose-400 transition-colors">Training Hub</h3>
+              <h3 className="text-xl sm:text-2xl font-bold text-white mt-1 group-hover:text-rose-400 transition-colors">Training Hub</h3>
               <p className="text-slate-300 text-sm mt-2">
                 Master your skills with AI opponents. 501 practice, checkout training, challenges, and more.
               </p>
@@ -288,8 +288,8 @@ function RecentMatchesSection() {
 
   return (
     <>
-      <motion.div variants={itemVariants} className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6">
-        <div className="flex items-center justify-between mb-6">
+      <motion.div variants={itemVariants} className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">History</p>
             <h2 className="text-xl sm:text-2xl font-bold text-white">Recent Matches</h2>
@@ -368,12 +368,12 @@ function PrivateMatchCard() {
           onClick={() => setShowModal(true)}
           className="h-full block cursor-pointer"
         >
-          <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50 p-6">
+          <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50 p-4 sm:p-6">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-10 transition-opacity" />
             
             <div className="relative z-10 h-full flex flex-col">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
                   <Users className="w-7 h-7 text-white" />
                 </div>
                 <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
@@ -525,7 +525,7 @@ export default function PlayPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">Game Modes</p>
-            <h2 className="text-2xl font-bold text-white">Choose Your Match</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Choose Your Match</h2>
           </div>
           <Badge className="bg-slate-700 text-slate-300">
             <Activity className="w-3 h-3 mr-1" />

@@ -102,7 +102,7 @@ export default function AllMatchesPage() {
             <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">History</p>
           </div>
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">All Matches</h1>
-          <p className="text-slate-400 mt-2 text-lg">
+          <p className="text-slate-400 mt-2 text-base sm:text-lg">
             {isFiltered 
               ? `Showing ${matches.length} filtered matches`
               : `Complete match history (${totalCount} games loaded)`
@@ -136,58 +136,58 @@ export default function AllMatchesPage() {
 
       {/* Summary Stats */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-slate-800/40 border-slate-700/50 p-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+          <Card className="bg-slate-800/40 border-slate-700/50 p-3 sm:p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-emerald-400" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats.wins}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{stats.wins}</p>
                 <p className="text-slate-400 text-xs">Wins</p>
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-800/40 border-slate-700/50 p-4">
+          <Card className="bg-slate-800/40 border-slate-700/50 p-3 sm:p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                <Target className="w-5 h-5 text-red-400" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats.losses}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{stats.losses}</p>
                 <p className="text-slate-400 text-xs">Losses</p>
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-800/40 border-slate-700/50 p-4">
+          <Card className="bg-slate-800/40 border-slate-700/50 p-3 sm:p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-blue-400" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats.totalAvg}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{stats.totalAvg}</p>
                 <p className="text-slate-400 text-xs">Avg</p>
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-800/40 border-slate-700/50 p-4">
+          <Card className="bg-slate-800/40 border-slate-700/50 p-3 sm:p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-purple-400" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats.avgFirst9}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{stats.avgFirst9}</p>
                 <p className="text-slate-400 text-xs">First 9</p>
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-800/40 border-slate-700/50 p-4">
+          <Card className="bg-slate-800/40 border-slate-700/50 p-3 sm:p-4 col-span-2 md:col-span-1">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                <Target className="w-5 h-5 text-amber-400" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{stats.avgCheckout}%</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{stats.avgCheckout}%</p>
                 <p className="text-slate-400 text-xs">Checkout %</p>
               </div>
             </div>
@@ -198,7 +198,7 @@ export default function AllMatchesPage() {
       {/* Filters Panel */}
       {showFilters && (
         <Card className="bg-slate-800/40 border-slate-700/50 p-4 sm:p-6">
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="text-slate-400 text-sm mb-3 block font-medium">Game Mode</label>
               <Select value={gameModeFilter} onValueChange={setGameModeFilter}>

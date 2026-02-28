@@ -657,15 +657,15 @@ function HeroStat({ value, label, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-4 sm:p-6 group hover:border-slate-600/50 transition-all`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-3 sm:p-6 group hover:border-slate-600/50 transition-all`}>
       <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-2xl sm:text-4xl font-black text-white tracking-tight">{value}</p>
-          <p className="text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
+          <p className="text-xl sm:text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
         </div>
-        <div className={`w-12 h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
-          <Icon className="w-6 h-6 text-white" />
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       </div>
     </div>
@@ -1881,7 +1881,7 @@ export default function QuickMatchLobbyPage() {
             <p className="text-emerald-400 text-sm font-semibold uppercase tracking-wider">Online Play</p>
           </div>
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">Quick Match</h1>
-          <p className="text-slate-400 mt-2 text-lg">Create or join an online match with players worldwide</p>
+          <p className="text-slate-400 mt-2 text-base sm:text-lg">Create or join an online match with players worldwide</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -1903,7 +1903,7 @@ export default function QuickMatchLobbyPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <HeroStat value={totalOpenLobbies} label="Available Matches" icon={Gamepad2} color="bg-blue-500" />
         <HeroStat value={inProgressMatches} label="Matches In Play" icon={Zap} color="bg-emerald-500" />
         <HeroStat value={last5Record} label="Last 5 Matches" icon={Target} color="bg-purple-500" />

@@ -69,19 +69,19 @@ interface MainStatCardProps {
 
 function MainStatCard({ value, label, icon, color, trend, sublabel }: MainStatCardProps) {
   return (
-    <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-6 group">
+    <Card className="relative overflow-hidden bg-slate-800/40 border-slate-700/50 p-4 sm:p-6 group">
       <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-2xl md:text-4xl font-black text-white tracking-tight">{value}</p>
-          <p className="text-slate-400 text-sm mt-1 uppercase tracking-wider font-medium">{label}</p>
+          <p className="text-xl sm:text-2xl md:text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-slate-400 text-xs sm:text-sm mt-1 uppercase tracking-wider font-medium">{label}</p>
           {sublabel && <p className="text-slate-500 text-xs mt-1">{sublabel}</p>}
           {trend && (
-            <div className="flex items-center gap-1 mt-3">
+            <div className="flex items-center gap-1 mt-2 sm:mt-3">
               {trend.direction === 'up' && <ArrowUpRight className="w-4 h-4 text-emerald-400" />}
               {trend.direction === 'down' && <ArrowDownRight className="w-4 h-4 text-red-400" />}
               {trend.direction === 'flat' && <Minus className="w-4 h-4 text-slate-400" />}
-              <span className={`text-sm font-medium ${
+              <span className={`text-xs sm:text-sm font-medium ${
                 trend.direction === 'up' ? 'text-emerald-400' :
                 trend.direction === 'down' ? 'text-red-400' : 'text-slate-400'
               }`}>
@@ -90,7 +90,7 @@ function MainStatCard({ value, label, icon, color, trend, sublabel }: MainStatCa
             </div>
           )}
         </div>
-        <div className={`w-12 h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
           {icon}
         </div>
       </div>
@@ -246,7 +246,7 @@ export default function StatsPage() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <Card className="bg-slate-800/40 border-slate-700/50 p-6">
+        <Card className="bg-slate-800/40 border-slate-700/50 p-4 sm:p-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="text-slate-400 text-sm mb-3 block font-medium">Game Mode</label>
@@ -329,37 +329,37 @@ export default function StatsPage() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <Card className="bg-slate-800/40 border-slate-700/50 p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-emerald-400" />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="bg-slate-800/40 border-slate-700/50 p-4 sm:p-5">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{displayStats?.wins || 0}</p>
-              <p className="text-slate-400 text-sm">Wins</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{displayStats?.wins || 0}</p>
+              <p className="text-slate-400 text-xs sm:text-sm">Wins</p>
             </div>
           </div>
         </Card>
-        <Card className="bg-slate-800/40 border-slate-700/50 p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-red-400 rotate-180" />
+        <Card className="bg-slate-800/40 border-slate-700/50 p-4 sm:p-5">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 rotate-180" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{displayStats?.losses || 0}</p>
-              <p className="text-slate-400 text-sm">Losses</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{displayStats?.losses || 0}</p>
+              <p className="text-slate-400 text-xs sm:text-sm">Losses</p>
             </div>
           </div>
         </Card>
-        <Card className="bg-slate-800/40 border-slate-700/50 p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
-              <Flame className="w-6 h-6 text-orange-400" />
+        <Card className="bg-slate-800/40 border-slate-700/50 p-4 sm:p-5 col-span-2 md:col-span-1">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-500/20 flex items-center justify-center">
+              <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{displayStats?.visits_180 || 0}</p>
-              <p className="text-slate-400 text-sm">180s Scored</p>
+              <p className="text-xl sm:text-2xl font-bold text-white">{displayStats?.visits_180 || 0}</p>
+              <p className="text-slate-400 text-xs sm:text-sm">180s Scored</p>
             </div>
           </div>
         </Card>
@@ -384,7 +384,7 @@ export default function StatsPage() {
       {/* Detailed Stats Section */}
       {displayStats && displayStats.total_matches > 0 ? (
         <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
-          <div className="p-6 border-b border-slate-700/50">
+          <div className="p-4 sm:p-6 border-b border-slate-700/50">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
                 <BarChart3 className="w-5 h-5 text-emerald-400" />
@@ -400,7 +400,21 @@ export default function StatsPage() {
               </div>
             </div>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 sm:mb-6">
+              <div className="rounded-lg border border-slate-700/50 bg-slate-900/50 p-3 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-emerald-400">{displayStats.wins}</p>
+                <p className="text-xs text-slate-400">Wins</p>
+              </div>
+              <div className="rounded-lg border border-slate-700/50 bg-slate-900/50 p-3 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-red-400">{displayStats.losses}</p>
+                <p className="text-xs text-slate-400">Losses</p>
+              </div>
+              <div className="col-span-2 md:col-span-1 rounded-lg border border-slate-700/50 bg-slate-900/50 p-3 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-white">{calculateWinRate(displayStats)}%</p>
+                <p className="text-xs text-slate-400">Win Rate</p>
+              </div>
+            </div>
             <PlayerStatsCard
               stats={displayStats}
               title=""
