@@ -203,11 +203,40 @@ export async function awardXP(
     const { data, error } = await supabase.rpc('record_training_match', rpcParams);
 
     if (error) {
-      console.error('[XP Tracker] Error recording XP:', error);
-      return { success: false, xpBreakdown, error: error.message };
+      console.error('[XP Tracker] RPC error (falling back to direct insert):', error.message);
     }
 
     console.log('[XP Tracker] Record training match result:', data);
+
+    // Always do a direct insert into training_stats as fallback
+    // (RPC may fail due to match_history opponent_id UUID type mismatch)
+    try {
+      const { error: insertError } = await supabase.from('training_stats').insert({
+        player_id: user.id,
+        game_type: mode,
+        training_mode: mode,
+        score: performanceMetric,
+        completed: options?.completed ?? true,
+        xp_earned: xpBreakdown.total,
+        session_data: {
+          ...(options?.sessionData || {}),
+          xp_breakdown: {
+            base: xpBreakdown.base,
+            performance: xpBreakdown.performanceBonus,
+            win: xpBreakdown.winBonus,
+            completion: xpBreakdown.completionBonus,
+            total: xpBreakdown.total,
+          },
+        },
+      });
+      if (insertError) {
+        console.error('[XP Tracker] Direct insert error:', insertError.message);
+      } else {
+        console.log('[XP Tracker] Direct insert to training_stats succeeded');
+      }
+    } catch (e) {
+      console.error('[XP Tracker] Direct insert exception:', e);
+    }
 
     // Get updated training level
     const { data: levelData, error: levelError } = await supabase.rpc('get_player_training_level', {
