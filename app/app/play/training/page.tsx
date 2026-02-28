@@ -294,7 +294,7 @@ function DartBotConfigCard() {
         {/* Configuration Options */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           {/* Bot Level Selector */}
-          <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+          <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
             <label className="text-slate-400 text-sm font-medium mb-3 block">
               Bot Level
             </label>
@@ -330,7 +330,7 @@ function DartBotConfigCard() {
           </div>
 
           {/* Game Mode Selector */}
-          <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+          <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
             <label className="text-slate-400 text-sm font-medium mb-3 block">
               Game Mode
             </label>
@@ -339,7 +339,7 @@ function DartBotConfigCard() {
                 <button
                   key={mode}
                   onClick={() => setGameMode(mode as 301 | 501)}
-                  className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all ${
+                  className={`flex-1 h-10 sm:h-14 rounded-xl font-bold text-sm sm:text-lg transition-all ${
                     gameMode === mode
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
                       : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
@@ -355,7 +355,7 @@ function DartBotConfigCard() {
           </div>
 
           {/* Legs Selector */}
-          <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+          <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
             <label className="text-slate-400 text-sm font-medium mb-3 block">
               Match Format
             </label>
@@ -732,7 +732,7 @@ function AroundTheClockModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 </div>
 
                 {/* Summary */}
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                <div className="hidden sm:block bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-400">Targets:</span>
                     <span className="text-white font-medium">21 (1-20 + Bull)</span>

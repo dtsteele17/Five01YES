@@ -335,9 +335,9 @@ export default function PDCChallengePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Current Target Card */}
-        <div className="bg-gradient-to-br from-red-900/20 to-pink-900/20 border border-red-500/30 rounded-2xl p-8 mb-6">
+        <div className="bg-gradient-to-br from-red-900/20 to-pink-900/20 border border-red-500/30 rounded-2xl p-4 sm:p-8 mb-4 sm:mb-6">
           <div className="text-center">
             <p className="text-gray-400 mb-2">Current Target</p>
             <h2 className="text-3xl sm:text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
@@ -346,7 +346,7 @@ export default function PDCChallengePage() {
         </div>
 
         {/* Progress */}
-        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 mb-6">
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-3 sm:p-4 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-400">Progress</span>
             <span className="text-sm text-emerald-400">{currentRound} / {PDC_TARGETS.length}</span>
@@ -355,13 +355,13 @@ export default function PDCChallengePage() {
         </div>
 
         {/* Darts Display */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
           {[0, 1, 2].map((i) => {
             const dart = currentDarts[i];
             return (
               <div
                 key={i}
-                className={`h-24 rounded-xl flex flex-col items-center justify-center border-2 ${
+                className={`h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center border-2 ${
                   dart
                     ? 'bg-slate-800 border-emerald-500'
                     : 'bg-slate-900 border-slate-700 border-dashed'
@@ -369,16 +369,16 @@ export default function PDCChallengePage() {
               >
                 {dart ? (
                   <>
-                    <span className="text-xs text-gray-500">Dart {i + 1}</span>
-                    <span className="text-2xl font-bold text-white">
+                    <span className="text-[10px] sm:text-xs text-gray-500">Dart {i + 1}</span>
+                    <span className="text-sm sm:text-2xl font-bold text-white">
                       {dart.segment}
                     </span>
-                    <span className="text-xs text-emerald-400">
+                    <span className="text-[10px] sm:text-xs text-emerald-400">
                       {dart.score * dart.multiplier} pts
                     </span>
                   </>
                 ) : (
-                  <span className="text-gray-600">{i + 1}</span>
+                  <span className="text-sm sm:text-base text-gray-600">{i + 1}</span>
                 )}
               </div>
             );
@@ -386,8 +386,8 @@ export default function PDCChallengePage() {
         </div>
 
         {/* Scoring Interface */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-3 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-3 sm:mb-4">
             {/* Single */}
             <button
               onClick={() => {
@@ -395,10 +395,10 @@ export default function PDCChallengePage() {
                 handleDartInput(num, 1, `S${num}`);
               }}
               disabled={currentDarts.length >= 3}
-              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
+              className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-sm sm:text-lg text-white"
             >
               Single
-              <span className="block text-sm text-gray-500">
+              <span className="hidden sm:block text-sm text-gray-500">
                 {parseInt(currentTarget.target.replace(/[^0-9]/g, '')) || 0}
               </span>
             </button>
@@ -409,10 +409,10 @@ export default function PDCChallengePage() {
                 handleDartInput(num, 2, `D${num}`);
               }}
               disabled={currentDarts.length >= 3}
-              className="h-20 rounded-xl bg-emerald-900/30 border border-emerald-500/50 hover:bg-emerald-900/50 disabled:opacity-50 font-bold text-lg text-white"
+              className="h-10 sm:h-20 rounded-xl bg-emerald-900/30 border border-emerald-500/50 hover:bg-emerald-900/50 disabled:opacity-50 font-bold text-sm sm:text-lg text-white"
             >
               Double
-              <span className="block text-sm text-emerald-400">
+              <span className="hidden sm:block text-sm text-emerald-400">
                 {(parseInt(currentTarget.target.replace(/[^0-9]/g, '')) || 0) * 2}
               </span>
             </button>
@@ -425,10 +425,10 @@ export default function PDCChallengePage() {
                 }
               }}
               disabled={currentDarts.length >= 3 || (parseInt(currentTarget.target.replace(/[^0-9]/g, '')) || 0) > 20}
-              className="h-20 rounded-xl bg-amber-900/30 border border-amber-500/50 hover:bg-amber-900/50 disabled:opacity-50 font-bold text-lg text-white"
+              className="h-10 sm:h-20 rounded-xl bg-amber-900/30 border border-amber-500/50 hover:bg-amber-900/50 disabled:opacity-50 font-bold text-sm sm:text-lg text-white"
             >
               Treble
-              <span className="block text-sm text-amber-400">
+              <span className="hidden sm:block text-sm text-amber-400">
                 {(parseInt(currentTarget.target.replace(/[^0-9]/g, '')) || 0) * 3}
               </span>
             </button>
@@ -436,27 +436,27 @@ export default function PDCChallengePage() {
             <button
               onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={currentDarts.length >= 3}
-              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+              className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-sm sm:text-lg text-gray-500"
             >
               Miss
-              <span className="block text-sm text-gray-600">0</span>
+              <span className="hidden sm:block text-sm text-gray-600">0</span>
             </button>
           </div>
 
           {/* Bull buttons for bull rounds */}
           {currentTarget.type === 'bull' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
               <button
                 onClick={() => handleDartInput(25, 1, '25')}
                 disabled={currentDarts.length >= 3}
-                className="h-16 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-white"
+                className="h-10 sm:h-16 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-xs sm:text-base text-white"
               >
                 Outer Bull (25)
               </button>
               <button
                 onClick={() => handleDartInput(50, 1, 'BULL')}
                 disabled={currentDarts.length >= 3}
-                className="h-16 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-white"
+                className="h-10 sm:h-16 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-xs sm:text-base text-white"
               >
                 Bullseye (50)
               </button>
@@ -464,18 +464,18 @@ export default function PDCChallengePage() {
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => setCurrentDarts([])}
               disabled={currentDarts.length === 0}
-              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl font-bold text-white"
+              className="flex-1 h-10 sm:h-auto sm:py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm sm:text-base text-white"
             >
               Clear
             </button>
             <button
               onClick={() => submitRound(currentDarts)}
               disabled={currentDarts.length === 0}
-              className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 disabled:opacity-50 rounded-xl font-bold text-white"
+              className="flex-1 h-10 sm:h-auto sm:py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 disabled:opacity-50 rounded-xl font-bold text-sm sm:text-base text-white"
             >
               Submit Round
             </button>

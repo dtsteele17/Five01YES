@@ -221,40 +221,40 @@ export default function JDCChallengePage() {
       case 'single':
         // Show Single, Double, and Triple buttons for rounds 1-6 (10s-15s)
         return (
-          <div className="space-y-3 mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <button
                 onClick={() => handleDartInput(currentTarget.number!, 1, `S${currentTarget.number}`)}
                 disabled={disabled}
-                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white border border-slate-600"
+                className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-xs sm:text-lg text-white border border-slate-600"
               >
                 <span className="text-green-400">S{currentTarget.number}</span>
-                <span className="block text-sm text-gray-500">{currentTarget.number} pts</span>
+                <span className="hidden sm:block text-sm text-gray-500">{currentTarget.number} pts</span>
               </button>
               <button
                 onClick={() => handleDartInput(currentTarget.number!, 2, `D${currentTarget.number}`)}
                 disabled={disabled}
-                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white border border-emerald-500/50"
+                className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-xs sm:text-lg text-white border border-emerald-500/50"
               >
                 <span className="text-emerald-400">D{currentTarget.number}</span>
-                <span className="block text-sm text-emerald-500">{currentTarget.number! * 2} pts</span>
+                <span className="hidden sm:block text-sm text-emerald-500">{currentTarget.number! * 2} pts</span>
               </button>
               <button
                 onClick={() => handleDartInput(currentTarget.number!, 3, `T${currentTarget.number}`)}
                 disabled={disabled}
-                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white border border-amber-500/50"
+                className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-xs sm:text-lg text-white border border-amber-500/50"
               >
                 <span className="text-amber-400">T{currentTarget.number}</span>
-                <span className="block text-sm text-amber-500">{currentTarget.number! * 3} pts</span>
+                <span className="hidden sm:block text-sm text-amber-500">{currentTarget.number! * 3} pts</span>
               </button>
             </div>
             <button
               onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={disabled}
-              className="w-full h-14 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+              className="w-full h-10 sm:h-14 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-sm sm:text-lg text-gray-500"
             >
               Miss
-              <span className="block text-sm text-gray-600">0</span>
+              <span className="hidden sm:block text-sm text-gray-600">0</span>
             </button>
           </div>
         );
@@ -262,22 +262,22 @@ export default function JDCChallengePage() {
       case 'triple':
         // Only show Treble button for the target number
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
             <button
               onClick={() => handleDartInput(currentTarget.number!, 3, `T${currentTarget.number}`)}
               disabled={disabled}
-              className="h-20 rounded-xl bg-amber-900/30 border border-amber-500/50 hover:bg-amber-900/50 disabled:opacity-50 font-bold text-lg text-white"
+              className="h-10 sm:h-20 rounded-xl bg-amber-900/30 border border-amber-500/50 hover:bg-amber-900/50 disabled:opacity-50 font-bold text-xs sm:text-lg text-white"
             >
               Treble {currentTarget.number}
-              <span className="block text-sm text-amber-400">{currentTarget.number! * 3}</span>
+              <span className="hidden sm:block text-sm text-amber-400">{currentTarget.number! * 3}</span>
             </button>
             <button
               onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={disabled}
-              className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+              className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-xs sm:text-lg text-gray-500"
             >
               Miss
-              <span className="block text-sm text-gray-600">0</span>
+              <span className="hidden sm:block text-sm text-gray-600">0</span>
             </button>
           </div>
         );
@@ -286,13 +286,13 @@ export default function JDCChallengePage() {
         // Show all doubles D1-D20
         return (
           <>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3 sm:mb-4">
               {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
                 <button
                   key={`D${num}`}
                   onClick={() => handleDartInput(num, 2, `D${num}`)}
                   disabled={disabled}
-                  className="h-14 rounded-xl bg-emerald-900/30 border border-emerald-500/50 hover:bg-emerald-900/50 disabled:opacity-50 font-bold text-white"
+                  className="h-10 sm:h-14 rounded-xl bg-emerald-900/30 border border-emerald-500/50 hover:bg-emerald-900/50 disabled:opacity-50 font-bold text-xs sm:text-base text-white"
                 >
                   D{num}
                 </button>
@@ -301,10 +301,10 @@ export default function JDCChallengePage() {
             <button
               onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={disabled}
-              className="w-full h-16 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+              className="w-full h-10 sm:h-16 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-sm sm:text-lg text-gray-500"
             >
               Miss
-              <span className="block text-sm text-gray-600">0</span>
+              <span className="hidden sm:block text-sm text-gray-600">0</span>
             </button>
           </>
         );
@@ -312,32 +312,32 @@ export default function JDCChallengePage() {
       case 'bull':
         // Show Outer Bull and Bullseye
         return (
-          <div className="space-y-3 mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <button
                 onClick={() => handleDartInput(25, 1, '25')}
                 disabled={disabled}
-                className="h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-white"
+                className="h-10 sm:h-20 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-xs sm:text-lg text-white"
               >
                 Outer Bull
-                <span className="block text-sm text-gray-500">25</span>
+                <span className="hidden sm:block text-sm text-gray-500">25</span>
               </button>
               <button
                 onClick={() => handleDartInput(50, 1, 'BULL')}
                 disabled={disabled}
-                className="h-20 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-lg text-white"
+                className="h-10 sm:h-20 rounded-xl bg-red-900/30 border border-red-500/50 hover:bg-red-900/50 disabled:opacity-50 font-bold text-xs sm:text-lg text-white"
               >
                 Bullseye
-                <span className="block text-sm text-red-400">50</span>
+                <span className="hidden sm:block text-sm text-red-400">50</span>
               </button>
             </div>
             <button
               onClick={() => handleDartInput(0, 1, 'Miss')}
               disabled={disabled}
-              className="w-full h-14 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-lg text-gray-500"
+              className="w-full h-10 sm:h-14 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 font-bold text-sm sm:text-lg text-gray-500"
             >
               Miss
-              <span className="block text-sm text-gray-600">0</span>
+              <span className="hidden sm:block text-sm text-gray-600">0</span>
             </button>
           </div>
         );
@@ -470,9 +470,9 @@ export default function JDCChallengePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Current Target Card */}
-        <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-500/30 rounded-2xl p-8 mb-6">
+        <div className="bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-500/30 rounded-2xl p-4 sm:p-8 mb-4 sm:mb-6">
           <div className="text-center">
             <p className="text-gray-400 mb-2">Current Target</p>
             <h2 className="text-3xl sm:text-5xl font-bold text-white mb-2">{currentTarget.description}</h2>
@@ -481,7 +481,7 @@ export default function JDCChallengePage() {
         </div>
 
         {/* Progress */}
-        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 mb-6">
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-3 sm:p-4 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-400">Progress</span>
             <span className="text-sm text-blue-400">{currentRound} / {JDC_TARGETS.length}</span>
@@ -490,13 +490,13 @@ export default function JDCChallengePage() {
         </div>
 
         {/* Darts Display */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
           {[0, 1, 2].map((i) => {
             const dart = currentDarts[i];
             return (
               <div
                 key={i}
-                className={`h-24 rounded-xl flex flex-col items-center justify-center border-2 ${
+                className={`h-16 sm:h-24 rounded-xl flex flex-col items-center justify-center border-2 ${
                   dart
                     ? 'bg-slate-800 border-blue-500'
                     : 'bg-slate-900 border-slate-700 border-dashed'
@@ -504,16 +504,16 @@ export default function JDCChallengePage() {
               >
                 {dart ? (
                   <>
-                    <span className="text-xs text-gray-500">Dart {i + 1}</span>
-                    <span className="text-2xl font-bold text-white">
+                    <span className="text-[10px] sm:text-xs text-gray-500">Dart {i + 1}</span>
+                    <span className="text-sm sm:text-2xl font-bold text-white">
                       {dart.segment}
                     </span>
-                    <span className="text-xs text-blue-400">
+                    <span className="text-[10px] sm:text-xs text-blue-400">
                       {dart.score * dart.multiplier} pts
                     </span>
                   </>
                 ) : (
-                  <span className="text-gray-600">{i + 1}</span>
+                  <span className="text-sm sm:text-base text-gray-600">{i + 1}</span>
                 )}
               </div>
             );
@@ -521,22 +521,22 @@ export default function JDCChallengePage() {
         </div>
 
         {/* Scoring Interface */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-3 sm:p-6">
           {renderScoringButtons()}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 mt-4">
+          <div className="flex gap-2 sm:gap-3 mt-3 sm:mt-4">
             <button
               onClick={() => setCurrentDarts([])}
               disabled={currentDarts.length === 0}
-              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl font-bold text-white"
+              className="flex-1 h-10 sm:h-auto sm:py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm sm:text-base text-white"
             >
               Clear
             </button>
             <button
               onClick={() => submitRound(currentDarts)}
               disabled={currentDarts.length === 0}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-50 rounded-xl font-bold text-white"
+              className="flex-1 h-10 sm:h-auto sm:py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 disabled:opacity-50 rounded-xl font-bold text-sm sm:text-base text-white"
             >
               Submit Round
             </button>

@@ -76,6 +76,12 @@ function FinishTrainingContent() {
     loadSession();
   }, [sessionId, router]);
 
+  useEffect(() => {
+    if (window.innerWidth < 640) {
+      setInputMode('typed');
+    }
+  }, []);
+
   const loadSession = async () => {
     if (!sessionId) return;
 
@@ -553,9 +559,9 @@ function FinishTrainingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-2 sm:p-4">
       {LevelUpToastComponent}
-      <div className="max-w-4xl mx-auto flex flex-col gap-4">
+      <div className="max-w-4xl mx-auto flex flex-col gap-3 sm:gap-4">
           {/* Animated Header */}
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
@@ -609,10 +615,10 @@ function FinishTrainingContent() {
             transition={{ delay: 0.1 }}
             className="shrink-0"
           >
-            <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700/50 p-4 backdrop-blur-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700/50 p-3 sm:p-4 backdrop-blur-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                 {/* Target */}
-                <div className="text-center space-y-1">
+                <div className="hidden sm:block text-center space-y-1">
                   <div className="flex items-center justify-center gap-2 text-emerald-400">
                     <Target className="h-4 w-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">Target</span>
@@ -656,7 +662,7 @@ function FinishTrainingContent() {
               </div>
               
               {/* Progress bar for attempts */}
-              <div className="mt-4">
+              <div className="mt-3 sm:mt-4">
                 <Progress value={(attemptNo / 3) * 100} className="h-2 bg-slate-700" />
               </div>
             </Card>
@@ -668,7 +674,7 @@ function FinishTrainingContent() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="shrink-0"
+                className="hidden sm:block shrink-0"
               >
                 <Card className="bg-slate-800/50 border-slate-700/50 p-3 backdrop-blur-sm">
                   <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Current Darts</div>
@@ -715,9 +721,9 @@ function FinishTrainingContent() {
             transition={{ delay: 0.2 }}
             className="flex-1 min-h-0"
           >
-            <Card className="bg-slate-800/50 border-slate-700/50 p-4 backdrop-blur-sm h-full flex flex-col">
+            <Card className="bg-slate-800/50 border-slate-700/50 p-3 sm:p-4 backdrop-blur-sm h-full flex flex-col">
               <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')} className="flex flex-col h-full">
-                <TabsList className="bg-slate-700/50 w-full grid grid-cols-1 sm:grid-cols-2 mb-3 shrink-0">
+                <TabsList className="hidden sm:grid bg-slate-700/50 w-full grid-cols-1 sm:grid-cols-2 mb-3 shrink-0">
                   <TabsTrigger value="dart_pad" className="data-[state=active]:bg-emerald-500">
                     Dart by Dart
                   </TabsTrigger>
@@ -726,7 +732,7 @@ function FinishTrainingContent() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="dart_pad" className="flex-1 flex flex-col min-h-0 mt-0">
+                <TabsContent value="dart_pad" className="hidden sm:flex flex-1 flex-col min-h-0 mt-0">
                   <div className="space-y-3 flex flex-col h-full">
                     <Tabs value={scoringTab} onValueChange={(v) => setScoringTab(v as any)} className="flex flex-col flex-1">
                       <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 sm:grid-cols-4 mb-3 shrink-0">
@@ -921,7 +927,7 @@ function FinishTrainingContent() {
                       </Button>
                       <Button
                         onClick={handleBustClick}
-                        className="h-12 bg-red-600 hover:bg-red-700 text-white"
+                        className="hidden sm:inline-flex h-12 bg-red-600 hover:bg-red-700 text-white"
                       >
                         BUST
                       </Button>

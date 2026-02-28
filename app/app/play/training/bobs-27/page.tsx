@@ -290,13 +290,13 @@ export default function Bobs27Page() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
 
           {/* Left — Target & Darts */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Target */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6 text-center">
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-3 sm:p-6 text-center">
               <p className="text-sm text-slate-400 mb-1">Throw 3 darts at</p>
               <div className="text-2xl sm:text-4xl sm:text-6xl font-black text-white mb-2">{target.label}</div>
               <p className="text-slate-400 text-sm">
@@ -307,9 +307,9 @@ export default function Bobs27Page() {
             </div>
 
             {/* Darts thrown this round */}
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
-              <h3 className="font-semibold text-white mb-4 text-center">Darts This Round</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-3 sm:p-6">
+              <h3 className="font-semibold text-white mb-3 text-center text-sm sm:text-base">Darts This Round</h3>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {[0, 1, 2].map((i) => {
                   const thrown = i < dartsThrown;
                   // Determine if this dart was a hit: first N hits are hits, rest are misses
@@ -320,28 +320,28 @@ export default function Bobs27Page() {
                   return (
                     <div
                       key={i}
-                      className={`aspect-square rounded-xl border-2 flex items-center justify-center ${
+                      className={`h-16 sm:aspect-square rounded-xl border-2 flex items-center justify-center ${
                         !thrown ? 'border-slate-700 border-dashed' : 'border-slate-600 bg-slate-800/50'
                       }`}
                     >
                       {thrown ? (
-                        <Target className="w-8 h-8 text-slate-400" />
+                        <Target className="w-5 h-5 sm:w-8 sm:h-8 text-slate-400" />
                       ) : (
-                        <span className="text-2xl text-slate-600 font-bold">{i + 1}</span>
+                        <span className="text-lg sm:text-2xl text-slate-600 font-bold">{i + 1}</span>
                       )}
                     </div>
                   );
                 })}
               </div>
               <div className="mt-3 text-center">
-                <span className="text-emerald-400 font-bold">{hitsThisRound}</span>
-                <span className="text-slate-500"> hit{hitsThisRound !== 1 ? 's' : ''} so far</span>
+                <span className="text-emerald-400 font-bold text-sm sm:text-base">{hitsThisRound}</span>
+                <span className="text-slate-500 text-sm"> hit{hitsThisRound !== 1 ? 's' : ''} so far</span>
               </div>
             </div>
 
             {/* Recent rounds */}
             {roundResults.length > 0 && (
-              <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 max-h-48 overflow-y-auto">
+              <div className="hidden sm:block bg-slate-900 rounded-2xl border border-slate-800 p-4 max-h-48 overflow-y-auto">
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">History</p>
                 {[...roundResults].reverse().slice(0, 5).map((r, i) => (
                   <div key={i} className="flex items-center justify-between py-1.5 text-sm border-b border-slate-800 last:border-0">
@@ -357,30 +357,30 @@ export default function Bobs27Page() {
           </div>
 
           {/* Right — Scoring Buttons */}
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-6">
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-3 sm:p-6">
             <h3 className="font-semibold text-white mb-2 text-center">Did you hit {target.label}?</h3>
-            <p className="text-slate-500 text-xs text-center mb-6">Dart {dartsThrown + 1} of 3</p>
+            <p className="text-slate-500 text-xs text-center mb-3 sm:mb-6">Dart {dartsThrown + 1} of 3</p>
 
-            <div className="space-y-4">
+            <div className="space-y-2 sm:space-y-4">
               <button
                 onClick={() => handleDart(true)}
                 disabled={dartsThrown >= 3}
-                className="w-full h-20 rounded-xl font-bold text-xl transition-all bg-emerald-600/20 border-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/30 hover:border-emerald-500/60 active:scale-[0.98] disabled:opacity-30"
+                className="w-full h-12 sm:h-20 rounded-xl font-bold text-sm sm:text-xl transition-all bg-emerald-600/20 border-2 border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/30 hover:border-emerald-500/60 active:scale-[0.98] disabled:opacity-30"
               >
                 <div className="flex items-center justify-center gap-3">
-                  <Check className="w-7 h-7" />
+                  <Check className="w-4 h-4 sm:w-7 sm:h-7" />
                   <span>HIT {target.label}</span>
                 </div>
-                <p className="text-emerald-400/60 text-sm font-normal mt-1">+{target.value} points</p>
+                <p className="hidden sm:block text-emerald-400/60 text-sm font-normal mt-1">+{target.value} points</p>
               </button>
 
               <button
                 onClick={() => handleDart(false)}
                 disabled={dartsThrown >= 3}
-                className="w-full h-20 rounded-xl font-bold text-xl transition-all bg-red-600/10 border-2 border-red-500/30 text-red-400 hover:bg-red-600/20 hover:border-red-500/50 active:scale-[0.98] disabled:opacity-30"
+                className="w-full h-12 sm:h-20 rounded-xl font-bold text-sm sm:text-xl transition-all bg-red-600/10 border-2 border-red-500/30 text-red-400 hover:bg-red-600/20 hover:border-red-500/50 active:scale-[0.98] disabled:opacity-30"
               >
                 <div className="flex items-center justify-center gap-3">
-                  <X className="w-7 h-7" />
+                  <X className="w-4 h-4 sm:w-7 sm:h-7" />
                   <span>MISS</span>
                 </div>
               </button>
