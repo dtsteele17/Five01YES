@@ -116,7 +116,7 @@ function TrainingModeCard({ mode }: { mode: TrainingMode }) {
           >
             {mode.icon}
           </div>
-          <DifficultyBadge level={mode.difficulty} />
+          {/* Difficulty badge removed */}
         </div>
 
         {/* Content */}
