@@ -430,12 +430,18 @@ export default function PlayPage() {
           return;
         }
 
-        const [roomsCountRes, profileRes, rankedStateRes] = await Promise.all([
+        const [activeRoomsRes, openLobbiesRes, profileRes, rankedStateRes] = await Promise.all([
+          // Count active games in progress
           supabase
             .from('match_rooms')
             .select('id', { count: 'exact', head: true })
-            .eq('status', 'active')
+            .in('status', ['active', 'waiting'])
             .eq('match_type', 'quick'),
+          // Count open lobbies waiting for players
+          supabase
+            .from('quick_match_lobbies')
+            .select('id', { count: 'exact', head: true })
+            .in('status', ['open', 'waiting']),
           supabase
             .from('profiles')
             .select('ranked_points')
@@ -444,14 +450,9 @@ export default function PlayPage() {
           supabase.rpc('rpc_ranked_get_my_state'),
         ]);
 
-        let quickCount = roomsCountRes.count ?? 0;
-        if (roomsCountRes.error) {
-          const { count: lobbiesCount } = await supabase
-            .from('quick_match_lobbies')
-            .select('id', { count: 'exact', head: true })
-            .in('status', ['open', 'waiting', 'full']);
-          quickCount = lobbiesCount ?? 0;
-        }
+        const activeGames = activeRoomsRes.count ?? 0;
+        const openLobbies = openLobbiesRes.count ?? 0;
+        let quickCount = activeGames + openLobbies;
 
         const rpFromProfile = profileRes.data?.ranked_points;
         const rpFromRpc = rankedStateRes.data?.player_state?.rp;
@@ -541,7 +542,7 @@ export default function PlayPage() {
             description="Jump into a fast-paced match against players worldwide. Perfect for casual games."
             icon={<Zap className="w-7 h-7 text-white" />}
             badge={{ text: 'Popular', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' }}
-            stats={{ label: 'Active', value: menuStatsLoading ? '...' : quickMatchActiveCount.toLocaleString() }}
+            stats={{ label: 'Playing Now', value: menuStatsLoading ? '...' : quickMatchActiveCount.toLocaleString() }}
             featured
             color="bg-gradient-to-br from-emerald-500 to-teal-600"
           />
