@@ -134,6 +134,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   const [currentMatchId, setCurrentMatchId] = useState<string | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [nextRoundCountdown, setNextRoundCountdown] = useState<number | null>(null); // seconds remaining
+  const [nextRoundTotal, setNextRoundTotal] = useState<number>(60); // total countdown duration
   const [nextRoundMatchId, setNextRoundMatchId] = useState<string | null>(null);
   const nextRoundTimerRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -149,13 +150,24 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     };
   }, [tournamentId]);
 
+  // When user is identified AND tournament is in progress, immediately check for matches
+  useEffect(() => {
+    if (currentUserId && tournament?.status === 'in_progress') {
+      console.log('[Tournament] User ready + in_progress, checking for matches immediately');
+      checkForReadyUpMatch();
+    }
+  }, [currentUserId, tournament?.status]);
+
   // SMART TOURNAMENT TIMER: Checks more frequently as start time approaches
   useEffect(() => {
     if (!tournament?.start_at) return;
     if (!['registration', 'scheduled', 'checkin'].includes(tournament?.status || '')) {
       // If already in_progress, check for ready-up matches every 10s (regardless of countdown state — user may return from match)
       if (tournament?.status === 'in_progress') {
-        // Check every 5 seconds for next round matches
+        // Check immediately on page load/return
+        console.log('[Tournament] Status is in_progress, starting ready-up polling');
+        checkForReadyUpMatch();
+        // Then check every 5 seconds
         const matchInterval = setInterval(() => {
           checkForReadyUpMatch();
         }, 5000);
@@ -500,14 +512,16 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         // If we already showed ready-up for this match, don't show again
         if (readyUpShownForRef.current === myNextMatch.id) return;
 
-        // Start 1-minute countdown
-        console.log('🎯 Starting 60s countdown for match:', myNextMatch.id);
+        // Round 1: 60s countdown. Later rounds: 10s (players already waiting)
+        const countdownDuration = myNextMatch.round <= 1 ? 60 : 10;
+        console.log(`🎯 Starting ${countdownDuration}s countdown for match:`, myNextMatch.id, 'round:', myNextMatch.round);
         countdownStartedForRef.current = myNextMatch.id;
         setNextRoundMatchId(myNextMatch.id);
-        setNextRoundCountdown(60);
+        setNextRoundTotal(countdownDuration);
+        setNextRoundCountdown(countdownDuration);
         
         if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
-        let remaining = 60;
+        let remaining = countdownDuration;
         nextRoundTimerRef.current = setInterval(() => {
           remaining--;
           setNextRoundCountdown(remaining);
@@ -1231,7 +1245,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
               <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-white rounded-full transition-all duration-1000"
-                  style={{ width: `${((60 - nextRoundCountdown) / 60) * 100}%` }}
+                  style={{ width: `${((nextRoundTotal - nextRoundCountdown) / nextRoundTotal) * 100}%` }}
                 />
               </div>
             </div>
