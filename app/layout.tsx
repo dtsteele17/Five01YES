@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   title: 'FIVE01',
   description: 'Play darts online, track stats, compete in ranked matches and tournaments.',
   icons: {
-    icon: '/favicon.jpg',
-    apple: '/favicon.jpg',
+    icon: '/favicon.png',
+    apple: '/favicon.png',
   },
   openGraph: {
     images: [
