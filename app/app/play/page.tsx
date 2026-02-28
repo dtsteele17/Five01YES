@@ -527,10 +527,7 @@ export default function PlayPage() {
             <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">Game Modes</p>
             <h2 className="text-xl sm:text-2xl font-bold text-white">Choose Your Match</h2>
           </div>
-          <Badge className="bg-slate-700 text-slate-300">
-            <Activity className="w-3 h-3 mr-1" />
-            1.2k Online
-          </Badge>
+
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
