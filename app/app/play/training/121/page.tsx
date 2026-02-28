@@ -475,31 +475,31 @@ export default function OneTwentyOnePage() {
         </div>
 
         {/* Main Stats Card */}
-        <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-slate-700 p-4 sm:p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-            <div className="space-y-1">
-              <div className="text-xs text-slate-400 uppercase tracking-wider">Current Target</div>
-              <div className={`text-2xl sm:text-4xl font-bold bg-gradient-to-r ${getProgressColor()} bg-clip-text text-transparent`}>
+        <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-slate-700 p-3 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
+            <div className="space-y-0.5 sm:space-y-1">
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider">Current Target</div>
+              <div className={`text-xl sm:text-4xl font-bold bg-gradient-to-r ${getProgressColor()} bg-clip-text text-transparent`}>
                 {currentTarget}
               </div>
-              <Badge variant="outline" className="border-slate-600 text-slate-400 text-xs">
+              <Badge variant="outline" className="border-slate-600 text-slate-400 text-[10px] sm:text-xs px-1.5 py-0 sm:px-2 sm:py-0.5">
                 {getDifficultyLabel()}
               </Badge>
             </div>
-            <div className="space-y-1">
-              <div className="text-xs text-slate-400 uppercase tracking-wider">Remaining</div>
-              <div className="text-2xl sm:text-4xl font-bold text-white">{remaining}</div>
-              <div className="text-xs text-slate-500">Visit {visitNumber}/3</div>
+            <div className="space-y-0.5 sm:space-y-1">
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider">Remaining</div>
+              <div className="text-xl sm:text-4xl font-bold text-white">{remaining}</div>
+              <div className="text-[10px] sm:text-xs text-slate-500">Visit {visitNumber}/3</div>
             </div>
-            <div className="space-y-1">
-              <div className="text-xs text-slate-400 uppercase tracking-wider">Best Target</div>
-              <div className="text-2xl sm:text-4xl font-bold text-emerald-400">{highestTargetReached}</div>
-              <div className="text-xs text-emerald-500">Personal Best</div>
+            <div className="space-y-0.5 sm:space-y-1">
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider">Best Target</div>
+              <div className="text-xl sm:text-4xl font-bold text-emerald-400">{highestTargetReached}</div>
+              <div className="text-[10px] sm:text-xs text-emerald-500">Personal Best</div>
             </div>
-            <div className="space-y-1">
-              <div className="text-xs text-slate-400 uppercase tracking-wider">Streak</div>
-              <div className="text-2xl sm:text-4xl font-bold text-orange-400">{streak}</div>
-              <div className="text-xs text-orange-500">Best: {bestStreak}</div>
+            <div className="space-y-0.5 sm:space-y-1">
+              <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider">Streak</div>
+              <div className="text-xl sm:text-4xl font-bold text-orange-400">{streak}</div>
+              <div className="text-[10px] sm:text-xs text-orange-500">Best: {bestStreak}</div>
             </div>
           </div>
         </Card>
@@ -589,7 +589,7 @@ export default function OneTwentyOnePage() {
         {/* Scoring Panel */}
         <Card className="bg-slate-800/50 border-slate-700 p-4 sm:p-6">
           <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'dart_pad' | 'typed')}>
-            <TabsList className="bg-slate-700/50 w-full grid grid-cols-1 sm:grid-cols-2 mb-4">
+            <TabsList className="hidden sm:grid bg-slate-700/50 w-full sm:grid-cols-2 mb-4">
               <TabsTrigger value="dart_pad" className="data-[state=active]:bg-orange-500">
                 Dart by Dart
               </TabsTrigger>
@@ -598,7 +598,7 @@ export default function OneTwentyOnePage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dart_pad">
+            <TabsContent value="dart_pad" className="hidden sm:block">
               <Tabs value={scoringTab} onValueChange={(v) => setScoringTab(v as any)}>
                 <TabsList className="bg-slate-700/50 w-full grid grid-cols-2 sm:grid-cols-4 mb-4">
                   <TabsTrigger value="singles" className="data-[state=active]:bg-blue-500">
@@ -732,6 +732,38 @@ export default function OneTwentyOnePage() {
               </div>
             </TabsContent>
           </Tabs>
+
+          <div className="sm:hidden max-w-md mx-auto space-y-4">
+            <div className="text-center text-slate-400 text-xs mb-2">
+              Enter the total score for this visit (0-180)
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min="0"
+                max="180"
+                value={typedScore}
+                onChange={(e) => setTypedScore(e.target.value)}
+                placeholder="Enter score..."
+                className="flex-1 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-lg focus:outline-none focus:border-orange-500"
+              />
+              <Button
+                onClick={handleTypedSubmit}
+                disabled={!typedScore || !gameActive}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-4 text-sm disabled:opacity-50"
+              >
+                Submit
+              </Button>
+            </div>
+            <Button
+              onClick={() => handleRoundFail(currentDarts, true)}
+              disabled={!gameActive}
+              variant="destructive"
+              className="w-full text-sm"
+            >
+              Bust / Give Up This Round
+            </Button>
+          </div>
         </Card>
 
         {/* History */}

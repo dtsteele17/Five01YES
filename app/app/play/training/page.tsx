@@ -359,7 +359,7 @@ function DartBotConfigCard() {
             <label className="text-slate-400 text-sm font-medium mb-3 block">
               Match Format
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[1, 3, 5, 7, 9, 11].map((legs) => (
                 <button
                   key={legs}
@@ -1117,7 +1117,7 @@ export default function TrainingHubPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {otherTrainingModes.map((mode) => (
               <TrainingModeCard key={mode.id} mode={mode} />
             ))}
