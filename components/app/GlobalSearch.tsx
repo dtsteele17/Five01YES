@@ -44,14 +44,28 @@ export function GlobalSearch({ className = '', inputClassName = '', placeholder 
 
     setLoading(true);
     try {
-      const searchTerm = `%${q.trim()}%`;
+      // Try RPC first (SECURITY DEFINER, bypasses RLS), fallback to direct query
+      let players: any[] = [];
 
-      const playersRes = await supabase
-        .from('profiles')
-        .select('user_id, username, display_name, avatar_url')
-        .or(`username.ilike.${searchTerm},display_name.ilike.${searchTerm}`)
-        .order('username', { ascending: true })
-        .limit(8);
+      const { data: rpcData, error: rpcError } = await supabase.rpc('rpc_search_users', {
+        p_query: q.trim(),
+        p_limit: 8,
+      });
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        players = rpcData;
+      } else {
+        // Fallback to direct query
+        const { data: directData } = await supabase
+          .from('profiles')
+          .select('user_id, username, display_name, avatar_url')
+          .or(`username.ilike.%${q.trim()}%,display_name.ilike.%${q.trim()}%`)
+          .order('username', { ascending: true })
+          .limit(8);
+        players = directData || [];
+      }
+
+      const playersRes = { data: players };
 
       const searchResults: SearchResult[] = [];
 
