@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlayerStatsCard } from '@/components/stats/PlayerStatsCard';
+import { ThreeDartAvgChart } from '@/components/stats/ThreeDartAvgChart';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { ModernMatchCard } from '@/components/match/ModernMatchCard';
 import { usePlayerStats } from '@/lib/hooks/usePlayerStats';
@@ -365,6 +366,9 @@ export default function StatsPage() {
         </Card>
       </div>
 
+      {/* 3-Dart Average Graph */}
+      <ThreeDartAvgChart />
+
       {/* Tournament Wins - show when tournament filter active */}
       {matchTypeFilter === 'tournament' && (
         <Card className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 p-4 sm:p-5">
@@ -401,20 +405,6 @@ export default function StatsPage() {
             </div>
           </div>
           <div className="p-4 sm:p-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 sm:mb-6">
-              <div className="rounded-lg border border-slate-700/50 bg-slate-900/50 p-3 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-emerald-400">{displayStats.wins}</p>
-                <p className="text-xs text-slate-400">Wins</p>
-              </div>
-              <div className="rounded-lg border border-slate-700/50 bg-slate-900/50 p-3 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-red-400">{displayStats.losses}</p>
-                <p className="text-xs text-slate-400">Losses</p>
-              </div>
-              <div className="col-span-2 md:col-span-1 rounded-lg border border-slate-700/50 bg-slate-900/50 p-3 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-white">{calculateWinRate(displayStats)}%</p>
-                <p className="text-xs text-slate-400">Win Rate</p>
-              </div>
-            </div>
             <PlayerStatsCard
               stats={displayStats}
               title=""

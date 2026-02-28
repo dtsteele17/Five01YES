@@ -55,22 +55,6 @@ export function PlayerStatsCard({ stats, title, icon }: PlayerStatsCardProps) {
         </span>
       </div>
 
-      {/* Win/Loss Record */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-6">
-        <div className="text-center">
-          <div className="text-2xl sm:text-3xl font-bold text-emerald-400">{stats.wins}</div>
-          <div className="text-xs text-slate-400">Wins</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl sm:text-3xl font-bold text-red-400">{stats.losses}</div>
-          <div className="text-xs text-slate-400">Losses</div>
-        </div>
-        <div className="text-center col-span-2 sm:col-span-1">
-          <div className="text-2xl sm:text-3xl font-bold text-white">{winPercentage}%</div>
-          <div className="text-xs text-slate-400">Win Rate</div>
-        </div>
-      </div>
-
       {/* Averages */}
       <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-6">
         <div className="bg-slate-800/50 rounded-lg p-3 sm:p-4">
