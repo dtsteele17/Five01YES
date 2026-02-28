@@ -618,14 +618,14 @@ function ScoringPanel({
         </div>
       </div>
 
-      <div className="text-center mb-2">
+      <div className="text-center mb-2 sm:mb-2">
         <span className="text-sm text-gray-400">Current Visit: </span>
         <span className="text-xl font-bold text-white">{visitTotal}</span>
         <span className="text-sm text-gray-400 ml-2">→ {previewRemaining}</span>
       </div>
 
-      {/* Current Darts */}
-      <div className="flex justify-center gap-2 mb-4">
+      {/* Current Darts - desktop only */}
+      <div className="hidden sm:flex justify-center gap-2 mb-4">
         {currentDarts.map((dart, idx) => (
           <div key={idx} className={`w-12 h-12 rounded-lg flex items-center justify-center text-sm font-bold ${
             dart.is_double ? 'bg-red-500/20 text-red-400 border border-red-500/50' :
@@ -640,8 +640,8 @@ function ScoringPanel({
         ))}
       </div>
 
-      {/* Dart Controls */}
-      <div className="flex gap-2 mb-2">
+      {/* Dart Controls - desktop only */}
+      <div className="hidden sm:flex gap-2 mb-2">
         <Button
           size="sm"
           variant={activeTab === 'singles' ? 'default' : 'outline'}
@@ -676,8 +676,8 @@ function ScoringPanel({
         </Button>
       </div>
 
-      {/* Number Pad */}
-      <div className="flex-1 grid grid-cols-3 sm:grid-cols-5 gap-1 mb-4">
+      {/* Number Pad - desktop only */}
+      <div className="hidden sm:grid flex-1 grid-cols-3 sm:grid-cols-5 gap-1 mb-4">
         {activeTab === 'bulls' ? (
           <>
             <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">
@@ -705,8 +705,8 @@ function ScoringPanel({
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2">
+      {/* Action Buttons - desktop only */}
+      <div className="hidden sm:flex gap-2">
         <Button
           variant="outline"
           onClick={onUndoDart}
@@ -4206,7 +4206,7 @@ export default function QuickMatchRoomPage() {
       {/* Main Content - Single camera (shows active player's camera to BOTH users) + game panel */}
       <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 overflow-hidden">
         {/* LEFT: Active Player Camera - Both users see whoever's turn it is */}
-        <div className="flex flex-col">
+        <div className="flex flex-col h-[40vh] sm:h-auto">
           <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
             <div className={`flex items-center justify-between p-3 border-b border-white/5 ${isMyTurn ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
               <div className="flex items-center gap-2">
@@ -4417,7 +4417,7 @@ export default function QuickMatchRoomPage() {
         {/* RIGHT: Player Cards + Scoring Panel OR Visit History */}
         <div className="flex flex-col gap-4 overflow-hidden">
           {/* Player Cards - Stats reset per leg */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <QuickMatchPlayerCard
               name={myPlayer.name}
               remaining={myPlayer.remaining}
