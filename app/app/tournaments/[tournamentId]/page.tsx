@@ -155,9 +155,10 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     if (!['registration', 'scheduled', 'checkin'].includes(tournament?.status || '')) {
       // If already in_progress, check for ready-up matches every 10s (regardless of countdown state — user may return from match)
       if (tournament?.status === 'in_progress') {
+        // Check every 5 seconds for next round matches
         const matchInterval = setInterval(() => {
-          loadTournamentMatches().then(() => checkForReadyUpMatch());
-        }, 10000);
+          checkForReadyUpMatch();
+        }, 5000);
         return () => clearInterval(matchInterval);
       }
       return;
@@ -436,76 +437,93 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     }
   };
 
+  // Use ref to track if we've already started a countdown for a match
+  const countdownStartedForRef = useRef<string | null>(null);
+  const readyUpShownForRef = useRef<string | null>(null);
+
   const checkForReadyUpMatch = async () => {
     if (!currentUserId) return;
-    // Don't check if already showing ready-up or next-round countdown
-    if (showReadyUpModal) return;
 
     try {
-      // Fetch fresh matches to avoid stale state
+      // Fetch fresh matches directly from DB
       const { data: freshMatches } = await supabase
         .from('tournament_matches')
         .select('*')
         .eq('tournament_id', tournamentId);
       
-      const matchList = freshMatches || matches;
+      if (!freshMatches) return;
       
-      // First: check canonical logic
-      let activeMatch = findActiveUserMatch(matchList, currentUserId);
-      
-      // Fallback: check for any match where both players are set and match is pending/ready (DB may not have updated status)
-      if (!activeMatch) {
-        activeMatch = matchList.find((m: any) => {
-          const isParticipant = m.player1_id === currentUserId || m.player2_id === currentUserId;
-          const bothPlayersSet = m.player1_id && m.player2_id;
-          const isWaiting = ['pending', 'ready', 'ready_check'].includes(m.status);
-          const notCompleted = !m.match_room_id; // No match room yet
-          return isParticipant && bothPlayersSet && isWaiting && notCompleted;
-        }) || null;
-        if (activeMatch) {
-          console.log('[ReadyCheck] Found next-round match via fallback:', activeMatch.id, 'status:', activeMatch.status);
-          // Also update the status to 'ready' in the DB since both players are here
-          supabase.from('tournament_matches').update({ status: 'ready' }).eq('id', activeMatch.id).then(() => {});
-        }
+      console.log('[ReadyCheck] Checking matches:', freshMatches.map((m: any) => ({
+        id: m.id.substring(0, 8),
+        round: m.round,
+        p1: m.player1_id?.substring(0, 8),
+        p2: m.player2_id?.substring(0, 8),
+        status: m.status,
+        room: m.match_room_id?.substring(0, 8),
+      })));
+
+      // Find any match where:
+      // 1. I'm a participant
+      // 2. Both players are set
+      // 3. Match hasn't started yet (no match_room_id)
+      // 4. Not completed/cancelled
+      const myNextMatch = freshMatches.find((m: any) => {
+        const isParticipant = m.player1_id === currentUserId || m.player2_id === currentUserId;
+        const bothPlayersSet = m.player1_id && m.player2_id;
+        const notStarted = !m.match_room_id;
+        const notDone = !['completed', 'cancelled', 'forfeited', 'bye', 'in_game'].includes(m.status);
+        return isParticipant && bothPlayersSet && notStarted && notDone;
+      });
+
+      // Also check for in-progress matches to redirect to
+      const myLiveMatch = freshMatches.find((m: any) => {
+        const isParticipant = m.player1_id === currentUserId || m.player2_id === currentUserId;
+        return isParticipant && m.match_room_id && ['in_game', 'in_progress'].includes(m.status);
+      });
+
+      if (myLiveMatch) {
+        console.log('[ReadyCheck] Found live match, redirecting:', myLiveMatch.id);
+        router.push(`/app/play/quick-match/match/${myLiveMatch.match_room_id}?tournamentMatch=${myLiveMatch.id}&tournamentId=${tournamentId}`);
+        return;
       }
-      
-      if (activeMatch) {
-        const matchStatus = getMatchRedirect(activeMatch, tournamentId, currentUserId);
-        const shouldReadyUp = matchStatus.shouldShowReadyUp || 
-          (['pending', 'ready', 'ready_check'].includes(activeMatch.status) && activeMatch.player1_id && activeMatch.player2_id && !activeMatch.match_room_id);
+
+      if (myNextMatch) {
+        console.log('[ReadyCheck] Found next match:', myNextMatch.id, 'round:', myNextMatch.round, 'status:', myNextMatch.status);
         
-        if (shouldReadyUp || matchStatus.canRedirect) {
-          if (shouldReadyUp) {
-            // Both players are in the match and it's ready — start 1-minute countdown if not already
-            if (nextRoundCountdown === null && nextRoundMatchId !== activeMatch.id) {
-              console.log('🎯 Next round match detected, starting 60s countdown:', activeMatch.id);
-              setNextRoundMatchId(activeMatch.id);
-              setNextRoundCountdown(60);
-              
-              // Start countdown timer
-              if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
-              let remaining = 60;
-              nextRoundTimerRef.current = setInterval(() => {
-                remaining--;
-                setNextRoundCountdown(remaining);
-                if (remaining <= 0) {
-                  if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
-                  nextRoundTimerRef.current = null;
-                  setNextRoundCountdown(null);
-                  // Now show the 3-minute ready-up modal
-                  setCurrentMatchId(activeMatch.id);
-                  setShowReadyUpModal(true);
-                }
-              }, 1000);
-            }
-          } else if (matchStatus.redirectUrl) {
-            // Redirect to live match
-            router.push(matchStatus.redirectUrl);
-          }
+        // Update status to 'ready' if it's still pending
+        if (myNextMatch.status === 'pending') {
+          await supabase.from('tournament_matches').update({ status: 'ready' }).eq('id', myNextMatch.id);
         }
+
+        // If we already started countdown for this match, don't restart
+        if (countdownStartedForRef.current === myNextMatch.id) return;
+        // If we already showed ready-up for this match, don't show again
+        if (readyUpShownForRef.current === myNextMatch.id) return;
+
+        // Start 1-minute countdown
+        console.log('🎯 Starting 60s countdown for match:', myNextMatch.id);
+        countdownStartedForRef.current = myNextMatch.id;
+        setNextRoundMatchId(myNextMatch.id);
+        setNextRoundCountdown(60);
+        
+        if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+        let remaining = 60;
+        nextRoundTimerRef.current = setInterval(() => {
+          remaining--;
+          setNextRoundCountdown(remaining);
+          if (remaining <= 0) {
+            if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+            nextRoundTimerRef.current = null;
+            setNextRoundCountdown(null);
+            // Show 3-minute ready-up modal
+            readyUpShownForRef.current = myNextMatch.id;
+            setCurrentMatchId(myNextMatch.id);
+            setShowReadyUpModal(true);
+          }
+        }, 1000);
       }
     } catch (error) {
-      console.error('Error checking for ready-up match:', error);
+      console.error('[ReadyCheck] Error:', error);
     }
   };
 
