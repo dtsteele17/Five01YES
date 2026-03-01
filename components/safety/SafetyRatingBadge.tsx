@@ -95,16 +95,16 @@ export function SafetyRatingDetailed({
   totalRatings,
   breakdown 
 }: SafetyRatingDetailedProps) {
-  if (!grade || !average) {
+  if (!grade || !average || totalRatings === 0) {
     return (
       <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center">
-            <span className="text-slate-500 text-lg">-</span>
+            <span className="text-slate-500 text-lg">?</span>
           </div>
           <div>
-            <h3 className="font-bold text-slate-400">Trust Rating</h3>
-            <p className="text-slate-500 text-sm">No Rating</p>
+            <h3 className="font-bold text-slate-400">Unrated</h3>
+            <p className="text-slate-500 text-sm">No trust ratings yet</p>
           </div>
         </div>
       </div>
