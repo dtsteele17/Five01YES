@@ -3546,6 +3546,11 @@ export default function QuickMatchRoomPage() {
           console.error('[AFK] Error sending afk_warning signal:', err);
         }
       }
+    } else {
+      // Opponent's timer expired on MY screen - they might be AFK
+      // Don't rely solely on receiving their afk_warning signal (they may have closed/backgrounded the tab)
+      console.log('[AFK] Opponent turn timer expired on my side, showing AFK notice');
+      setShowOpponentAfk(true);
     }
   }, [room, currentUserId, matchState, matchId, supabase]);
 
