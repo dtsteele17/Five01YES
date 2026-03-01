@@ -66,7 +66,7 @@ export function WebsiteMobileMenu({ isOpen, onClose, scrollToSection }: WebsiteM
 
             <Link href="/signup" onClick={onClose}>
               <Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white font-semibold">
-                Join League
+                Register Now
               </Button>
             </Link>
           </div>

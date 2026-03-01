@@ -60,7 +60,7 @@ export function TopNav({ scrollToSection }: TopNavProps) {
               </Link>
               <Link href="/signup">
                 <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white font-semibold">
-                  Join League
+                  Register Now
                 </Button>
               </Link>
             </div>

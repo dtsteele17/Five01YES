@@ -304,14 +304,7 @@ function HeroSection({ scrollToSection }: any) {
                   </div>
                 ))}
               </div>
-              <div className="text-left">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-muted-foreground text-sm">Trusted by 12,000+ players</p>
-              </div>
+
             </motion.div>
           </div>
 
@@ -1481,7 +1474,6 @@ function FinalCTA() {
               Ready to Throw?
             </h2>
             <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
-              Join 12,000+ players already competing on FIVE01. 
               Create your account and start playing in minutes.
             </p>
           </FadeIn>
