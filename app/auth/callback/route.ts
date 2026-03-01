@@ -20,10 +20,10 @@ export async function GET(request: Request) {
       if (data?.user) {
         console.log('[Auth Callback] User authenticated:', data.user.id);
 
-        // Verify profile exists (should be created by trigger)
+        // Verify profile exists and check if setup is complete
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, username')
+          .select('id, username, display_name, created_at')
           .eq('id', data.user.id)
           .maybeSingle();
 
@@ -35,23 +35,31 @@ export async function GET(request: Request) {
           console.warn('[Auth Callback] Profile not found, creating fallback profile');
 
           // Fallback: create profile manually if trigger didn't work
-          const username = data.user.email?.split('@')[0] || 'user';
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
               id: data.user.id,
               user_id: data.user.id,
-              username,
-              display_name: data.user.user_metadata?.full_name || username,
+              username: null, // Will be set in setup
+              display_name: null, // Will be set in setup
+              avatar_url: data.user.user_metadata?.avatar_url,
             });
 
           if (insertError) {
             console.error('[Auth Callback] Failed to create profile:', insertError);
+            return NextResponse.redirect(new URL('/app', request.url));
           } else {
-            console.log('[Auth Callback] Fallback profile created successfully');
+            console.log('[Auth Callback] Fallback profile created, redirecting to setup');
+            return NextResponse.redirect(new URL('/app/setup', request.url));
           }
         } else {
           console.log('[Auth Callback] Profile verified:', profile.username);
+          
+          // Check if profile setup is complete
+          if (!profile.username || !profile.display_name) {
+            console.log('[Auth Callback] Profile incomplete, redirecting to setup');
+            return NextResponse.redirect(new URL('/app/setup', request.url));
+          }
         }
       }
     } catch (error) {

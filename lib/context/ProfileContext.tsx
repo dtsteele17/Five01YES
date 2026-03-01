@@ -10,6 +10,8 @@ export interface UserProfile {
   avatar_url: string | null;
   location: string | null;
   about: string | null;
+  bio: string | null;
+  last_display_name_change: string | null;
   favorite_format: '301' | '501' | null;
   playing_since: number | null;
   preferred_hand: 'Left' | 'Right' | null;
@@ -53,7 +55,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           *,
           trust_rating_letter,
           trust_rating_avg,
-          trust_rating_count
+          trust_rating_count,
+          bio,
+          last_display_name_change
         `)
         .eq('id', user.id)
         .single();

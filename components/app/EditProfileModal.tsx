@@ -32,11 +32,13 @@ interface EditProfileModalProps {
 export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
   const { profile, updateProfile } = useProfile();
   const [loading, setLoading] = useState(false);
+  const [canChangeDisplayName, setCanChangeDisplayName] = useState(true);
   const [formData, setFormData] = useState({
+    username: '',
     display_name: '',
     avatar_url: '',
     location: '',
-    about: '',
+    bio: '',
     favorite_format: '' as '301' | '501' | '',
     playing_since: '',
     preferred_hand: '' as 'Left' | 'Right' | '',
@@ -45,48 +47,90 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
   useEffect(() => {
     if (profile) {
       setFormData({
+        username: profile.username || '',
         display_name: profile.display_name || '',
         avatar_url: profile.avatar_url || '',
         location: profile.location || '',
-        about: profile.about || '',
+        bio: profile.bio || '',
         favorite_format: profile.favorite_format || '',
         playing_since: profile.playing_since?.toString() || '',
         preferred_hand: profile.preferred_hand || '',
       });
+
+      // Check if display name can be changed (once per month rule)
+      if (profile.last_display_name_change) {
+        const lastChange = new Date(profile.last_display_name_change);
+        const now = new Date();
+        const monthsSinceChange = (now.getTime() - lastChange.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        setCanChangeDisplayName(monthsSinceChange >= 1);
+      } else {
+        setCanChangeDisplayName(true);
+      }
     }
   }, [profile, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate username
+    if (!formData.username || formData.username.length < 3) {
+      toast.error('Username must be at least 3 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      toast.error('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    // Validate display name
     if (!formData.display_name || formData.display_name.length < 2) {
       toast.error('Name must be at least 2 characters');
       return;
     }
 
-    if (formData.about && formData.about.length > 400) {
-      toast.error('About text must be 400 characters or less');
+    // Check if display name changed and if it's allowed
+    const displayNameChanged = profile?.display_name !== formData.display_name;
+    if (displayNameChanged && !canChangeDisplayName) {
+      toast.error('Display name can only be changed once per month');
+      return;
+    }
+
+    if (formData.bio && formData.bio.length > 400) {
+      toast.error('Bio must be 400 characters or less');
       return;
     }
 
     setLoading(true);
 
     try {
-      await updateProfile({
+      const updates: any = {
+        username: formData.username,
         display_name: formData.display_name,
         avatar_url: formData.avatar_url || null,
         location: formData.location || null,
-        about: formData.about || null,
+        bio: formData.bio || null,
         favorite_format: formData.favorite_format || null,
         playing_since: formData.playing_since ? parseInt(formData.playing_since) : null,
         preferred_hand: formData.preferred_hand || null,
-      });
+      };
+
+      // If display name changed, update the last change timestamp
+      if (displayNameChanged) {
+        updates.last_display_name_change = new Date().toISOString();
+      }
+
+      await updateProfile(updates);
 
       toast.success('Profile updated successfully');
       onClose();
-    } catch (error) {
-      toast.error('Failed to update profile');
-      console.error(error);
+    } catch (error: any) {
+      if (error.message?.includes('duplicate key')) {
+        toast.error('This username is already taken. Please choose another.');
+      } else {
+        toast.error('Failed to update profile');
+        console.error(error);
+      }
     } finally {
       setLoading(false);
     }
@@ -142,8 +186,32 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="display_name" className="text-gray-300">
-                Name <span className="text-red-400">*</span>
+              <Label htmlFor="username" className="text-gray-300">
+                Username <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                id="username"
+                type="text"
+                required
+                minLength={3}
+                placeholder="your_username"
+                value={formData.username}
+                onChange={(e) =>
+                  setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })
+                }
+                className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-emerald-500/50"
+              />
+              <p className="text-xs text-gray-400">
+                Only letters, numbers, and underscores allowed. Must be unique.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="display_name" className="text-gray-300 flex items-center gap-2">
+                Display Name <span className="text-red-400">*</span>
+                {!canChangeDisplayName && (
+                  <span className="text-amber-400 text-xs">(Can change once per month)</span>
+                )}
               </Label>
               <Input
                 id="display_name"
@@ -157,6 +225,14 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
                 }
                 className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-emerald-500/50"
               />
+              {!canChangeDisplayName && (
+                <p className="text-xs text-amber-400">
+                  You can change your display name again in{' '}
+                  {profile?.last_display_name_change ? 
+                    Math.ceil(30 - (new Date().getTime() - new Date(profile.last_display_name_change).getTime()) / (1000 * 60 * 60 * 24)) 
+                    : 0} days
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -176,22 +252,22 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="about" className="text-gray-300">
-                About
+              <Label htmlFor="bio" className="text-gray-300">
+                Bio
               </Label>
               <Textarea
-                id="about"
+                id="bio"
                 placeholder="Tell us about yourself and your darts journey..."
-                value={formData.about}
+                value={formData.bio}
                 onChange={(e) =>
-                  setFormData({ ...formData, about: e.target.value })
+                  setFormData({ ...formData, bio: e.target.value })
                 }
                 maxLength={400}
                 rows={4}
                 className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-emerald-500/50 resize-none"
               />
               <p className="text-xs text-gray-400 text-right">
-                {formData.about.length}/400 characters
+                {formData.bio.length}/400 characters
               </p>
             </div>
 

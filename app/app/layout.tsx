@@ -8,6 +8,7 @@ import { LeaguesProvider } from '@/lib/context/LeaguesContext';
 import { TournamentsProvider } from '@/lib/context/TournamentsContext';
 import { TrainingProvider } from '@/lib/context/TrainingContext';
 import { NotificationsProvider } from '@/lib/context/NotificationsContext';
+import { ProfileSetupGuard } from '@/components/app/ProfileSetupGuard';
 import TournamentMatchMonitor from '@/components/app/TournamentMatchMonitor';
 import GlobalTournamentMonitor from '@/components/app/GlobalTournamentMonitor';
 
@@ -37,7 +38,9 @@ export default function AppLayout({
           <LeaguesProvider>
             <TournamentsProvider>
               <TrainingProvider>
-                {children}
+                <ProfileSetupGuard>
+                  {children}
+                </ProfileSetupGuard>
               </TrainingProvider>
             </TournamentsProvider>
           </LeaguesProvider>
@@ -52,19 +55,21 @@ export default function AppLayout({
         <LeaguesProvider>
           <TournamentsProvider>
             <TrainingProvider>
-              <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20">
-                <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-900/50 to-slate-950 pointer-events-none" />
+              <ProfileSetupGuard>
+                <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20">
+                  <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-900/50 to-slate-950 pointer-events-none" />
 
-                <TopBar />
-                {/* Global tournament monitor - shows countdown/ready-up from any page */}
-                <GlobalTournamentMonitor />
+                  <TopBar />
+                  {/* Global tournament monitor - shows countdown/ready-up from any page */}
+                  <GlobalTournamentMonitor />
 
-                <main className="relative overflow-x-hidden pt-20 pb-12 px-6 lg:px-8">
-                  <div className="container mx-auto max-w-7xl overflow-x-hidden">
-                    {children}
-                  </div>
-                </main>
-              </div>
+                  <main className="relative overflow-x-hidden pt-20 pb-12 px-6 lg:px-8">
+                    <div className="container mx-auto max-w-7xl overflow-x-hidden">
+                      {children}
+                    </div>
+                  </main>
+                </div>
+              </ProfileSetupGuard>
             </TrainingProvider>
           </TournamentsProvider>
         </LeaguesProvider>
