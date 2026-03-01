@@ -19,8 +19,9 @@ DECLARE
   _display_name text;
   _avatar_url text;
 BEGIN
-  -- Generate username from email or metadata
+  -- Get username from signup metadata first, then fallback to email prefix
   _username := COALESCE(
+    new.raw_user_meta_data->>'username',
     new.raw_user_meta_data->>'preferred_username',
     split_part(new.email, '@', 1)
   );
@@ -30,17 +31,15 @@ BEGIN
   
   -- Ensure username is not empty
   IF _username = '' OR _username IS NULL THEN
-    _username := 'user';
+    _username := 'user_' || substr(md5(random()::text), 1, 4);
   END IF;
   
-  -- Make username unique by appending random suffix
-  _username := _username || '_' || substr(md5(random()::text), 1, 4);
-  
-  -- Get display name from metadata or email
+  -- Get display name from metadata or use username
   _display_name := COALESCE(
+    new.raw_user_meta_data->>'display_name',
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'name',
-    split_part(new.email, '@', 1),
+    _username,
     'Player'
   );
   
