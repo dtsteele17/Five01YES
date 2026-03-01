@@ -333,7 +333,8 @@ function ScoringPanel({
         </div>
       )}
 
-      <div className="mb-3">
+      {/* Desktop text input */}
+      <div className="hidden sm:block mb-3">
         <div className="flex gap-2">
           <Input type="number" placeholder="Type score (0-180)" value={scoreInput}
             onChange={(e) => onScoreInputChange(e.target.value)}
@@ -344,6 +345,48 @@ function ScoringPanel({
           <Button onClick={onTypeScoreSubmit} disabled={!scoreInput || submitting}
             className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50">
             {submitting ? '...' : 'Submit'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Numpad */}
+      <div className="sm:hidden mb-3">
+        <div className="bg-slate-800/50 rounded-lg p-2 border border-white/10 mb-2">
+          <span className="text-2xl font-bold text-white text-center block min-h-[36px]">
+            {scoreInput || <span className="text-slate-500">0</span>}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[1,2,3,4,5,6,7,8,9].map((n) => (
+            <Button
+              key={n}
+              variant="outline"
+              className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
+              onClick={() => onScoreInputChange(scoreInput + n.toString())}
+            >
+              {n}
+            </Button>
+          ))}
+          <Button
+            variant="outline"
+            className="h-14 text-lg font-bold bg-slate-700 border-white/10 text-red-400 hover:bg-red-500/20 active:bg-red-500/30"
+            onClick={() => onScoreInputChange(scoreInput.slice(0, -1))}
+          >
+            ⌫
+          </Button>
+          <Button
+            variant="outline"
+            className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
+            onClick={() => onScoreInputChange(scoreInput + '0')}
+          >
+            0
+          </Button>
+          <Button
+            className="h-14 text-lg font-bold bg-emerald-500 hover:bg-emerald-600 text-white active:bg-emerald-700"
+            disabled={!scoreInput || submitting}
+            onClick={() => onTypeScoreSubmit()}
+          >
+            {submitting ? '...' : '✓'}
           </Button>
         </div>
       </div>
