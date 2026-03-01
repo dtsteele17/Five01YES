@@ -29,7 +29,7 @@ import { toast } from 'sonner';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, findBestCheckoutRoute } from '@/lib/botThrowEngine';
-import { getCheckoutSuggestion as getCheckoutFromRoutes } from '@/lib/darts/checkoutRoutes';
+import { getCheckoutSuggestion as getCheckoutFromRoutes, formatDartLabel } from '@/lib/darts/checkoutRoutes';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
 import { awardXP } from '@/lib/training/xpTracker';
@@ -316,11 +316,12 @@ function ScoringPanel({
               <div className="flex items-center justify-center gap-2 text-lg font-bold">
                 {checkoutSuggestion.map((dart, idx) => (
                   <span key={idx} className={`px-2 py-1 rounded-lg text-sm ${
+                    dart === 'DB' || dart === 'D25' ? 'bg-red-500/40 text-red-200 border border-red-400' :
                     dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
                     dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
-                    dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
+                    dart === 'SB' ? 'bg-green-500/30 text-green-300' :
                     'bg-slate-700 text-white'
-                  }`}>{dart}</span>
+                  }`}>{formatDartLabel(dart)}</span>
                 ))}
               </div>
             ) : dartsRemaining < 3 ? (
