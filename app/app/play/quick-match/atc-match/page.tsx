@@ -1139,7 +1139,7 @@ export default function ATCMatchPage() {
   const dbTarget = currentPlayer?.current_target;
   const mode = match.atc_settings.mode;
   const isIncreaseMode = mode === 'increase' && match.atc_settings.order === 'sequential';
-  const opponent = match.players.find(p => p.id !== currentUser);
+  const myPlayer = match.players.find(p => p.id === currentUser);
   
   // Use previewTarget for buttons (updates after each dart), dbTarget for initial display
   const target = pendingDarts.length > 0 ? previewTarget : dbTarget;
@@ -1213,8 +1213,267 @@ export default function ATCMatchPage() {
         </div>
       </motion.div>
       
-      {/* Main Game Area */}
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 overflow-hidden">
+      {/* Main Game Area - Mobile */}
+      <div className="flex-1 flex flex-col gap-3 p-3 overflow-y-auto sm:hidden">
+        <div className={`shrink-0 ${isMyTurn() ? 'h-[30vh]' : 'h-[40vh]'}`}>
+          <Card className={`h-full bg-slate-800/50 border-white/10 overflow-hidden flex flex-col ${isMyTurn() ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
+            <div className={`flex items-center justify-between p-2 border-b border-white/5 ${isMyTurn() ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}>
+              <span className={`text-xs font-bold ${isMyTurn() ? 'text-emerald-400' : 'text-blue-400'}`}>
+                {isMyTurn() ? `🎯 ${currentPlayer?.username}'S TURN (You)` : `🎯 ${currentPlayer?.username}'S TURN`}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={toggleCamera}
+                >
+                  {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={handleRefreshCamera}
+                  disabled={isRefreshingCamera}
+                >
+                  {isRefreshingCamera ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex-1 relative bg-slate-900">
+              <div className="w-full h-full">
+                {isMyTurn() ? (
+                  <div className="relative w-full h-full bg-slate-800">
+                    <div className="absolute top-2 left-2 z-10 bg-emerald-500/80 px-2 py-1 rounded text-[10px] font-bold text-white">
+                      YOUR TURN 🎯
+                    </div>
+                    {localStream ? (
+                      <video
+                        ref={setLocalVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-3">
+                        <CameraOff className="w-10 h-10 mb-2 opacity-50" />
+                        <span className="text-sm text-center">Your camera is off</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative w-full h-full bg-slate-800">
+                    <div className="absolute top-2 left-2 z-10 bg-blue-500/80 px-2 py-1 rounded text-[10px] font-bold text-white">
+                      {currentTurnPlayer?.username}'s TURN
+                    </div>
+                    {activeStream ? (
+                      <video
+                        key={`active-mobile-${activePlayerId}`}
+                        ref={setRemoteVideoRef}
+                        autoPlay
+                        playsInline
+                        muted={isCurrentUserTurn}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 p-3">
+                        <UserPlus className="w-10 h-10 mb-2 opacity-50" />
+                        <span className="text-sm text-center">
+                          Waiting for {currentTurnPlayer?.username}...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {!isMyTurn() ? (
+          <>
+            <div className="grid grid-flow-col auto-cols-[minmax(145px,1fr)] gap-2 overflow-x-auto pb-1">
+              {match.players.map((player) => (
+                <div
+                  key={`mobile-score-${player.id}`}
+                  className={`rounded-xl border p-2 bg-slate-900/60 min-w-[145px] ${
+                    player.id === currentPlayer?.id ? 'border-emerald-400' : 'border-slate-700/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-slate-700 text-slate-100 text-xs font-bold flex items-center justify-center">
+                      {player.username.charAt(0).toUpperCase()}
+                    </div>
+                    <p className="text-xs font-semibold text-white truncate">{player.username}</p>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Target</span>
+                    <span className="text-sm font-black text-white">{getTargetLabel(player.current_target || 1)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Progress</span>
+                    <span className="text-xs font-bold text-emerald-400">{player.completed_targets?.length || 0}/21</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-auto rounded-xl border border-slate-700/60 bg-slate-900/60 px-3 py-2 text-center text-sm text-slate-300">
+              Waiting for <span className="font-bold text-white">{currentPlayer?.username}</span>...
+            </div>
+          </>
+        ) : (
+          <>
+            {myPlayer && (
+              <div className="rounded-xl border border-emerald-500/30 bg-slate-900/60 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-white">{myPlayer.username}</p>
+                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-[10px]">You</Badge>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Current Target</span>
+                  <span className="text-2xl font-black text-white">{getTargetLabel(target || 1)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Progress</span>
+                  <span className="text-sm font-bold text-emerald-400">{myPlayer.completed_targets?.length || 0}/21</span>
+                </div>
+              </div>
+            )}
+
+            <Card className="bg-slate-800/50 border-white/10 p-3">
+              <div className={`${pendingDarts.length >= 3 ? 'opacity-50 pointer-events-none' : ''}`}>
+                {target === 'bull' ? (
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {(mode === 'singles' || mode === 'increase') && (
+                        <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+                          <Button
+                            onClick={() => handleDartThrow('SB')}
+                            className="h-12 w-full text-sm font-bold bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white"
+                          >
+                            Single Bull
+                          </Button>
+                        </motion.div>
+                      )}
+                      {(mode === 'doubles' || mode === 'increase') && (
+                        <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+                          <Button
+                            onClick={() => handleDartThrow('DB')}
+                            className="h-12 w-full text-sm font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white"
+                          >
+                            Double Bull
+                          </Button>
+                        </motion.div>
+                      )}
+                    </div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                      <Button
+                        onClick={() => handleDartThrow('MISS')}
+                        className="h-12 w-full text-sm font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        Miss
+                      </Button>
+                    </motion.div>
+                  </div>
+                ) : isIncreaseMode ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+                      <Button
+                        onClick={() => handleDartThrow('S', target as number)}
+                        className="h-12 w-full text-lg font-black bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white"
+                      >
+                        S{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.05 }}>
+                      <Button
+                        onClick={() => handleDartThrow('D', target as number)}
+                        className="h-12 w-full text-lg font-black bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white"
+                      >
+                        D{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                      <Button
+                        onClick={() => handleDartThrow('T', target as number)}
+                        className="h-12 w-full text-lg font-black bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white"
+                      >
+                        T{target}
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.15 }}>
+                      <Button
+                        onClick={() => handleDartThrow('MISS')}
+                        className="h-12 w-full text-sm font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        Miss
+                      </Button>
+                    </motion.div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap">
+                      <Button
+                        onClick={() => handleDartThrow(
+                          mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T',
+                          target as number
+                        )}
+                        className={`h-12 w-full text-lg font-black ${
+                          mode === 'singles'
+                            ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500' :
+                          mode === 'doubles'
+                            ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500' :
+                            'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500'
+                        } text-white`}
+                      >
+                        Hit ({mode === 'singles' ? 'S' : mode === 'doubles' ? 'D' : 'T'}{target})
+                      </Button>
+                    </motion.div>
+                    <motion.div variants={buttonVariants} initial="initial" animate="animate" whileHover="hover" whileTap="tap" transition={{ delay: 0.1 }}>
+                      <Button
+                        onClick={() => handleDartThrow('MISS')}
+                        className="h-12 w-full text-sm font-bold bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        Miss
+                      </Button>
+                    </motion.div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-2 gap-2 mt-auto">
+              <Button
+                onClick={handleUndoLastDart}
+                variant="outline"
+                disabled={pendingDarts.length === 0}
+                className="h-12 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Undo2 className="w-4 h-4 mr-1" />
+                Undo
+              </Button>
+              <Button
+                onClick={handleSubmitVisit}
+                disabled={pendingDarts.length === 0}
+                className="h-12 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+                Submit
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Main Game Area - Desktop (unchanged) */}
+      <div className="hidden sm:grid sm:flex-1 sm:grid-cols-2 sm:gap-4 sm:p-4 sm:overflow-hidden">
         {/* LEFT: Camera - EXACTLY like 501/301 matches */}
         <div className="flex flex-col">
           <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn() ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
