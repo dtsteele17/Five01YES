@@ -1,17 +1,21 @@
 -- ============================================================================
--- FIX: handle_new_user trigger for auth.users
+-- FIX: Drop ALL old profile creation triggers, create one clean trigger
 -- ============================================================================
--- This trigger fires when a new user signs up (email/password or OAuth).
--- It creates the initial profile row in the profiles table.
--- The "Database error saving new user" error means this trigger is failing,
--- usually because columns have NOT NULL constraints that aren't being filled.
+-- Run this ENTIRE block in Supabase SQL Editor
 -- ============================================================================
 
--- Drop existing trigger and function first
+-- STEP 1: Drop ALL existing profile creation triggers on auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP TRIGGER IF EXISTS create_profile_on_signup ON auth.users;
+DROP TRIGGER IF EXISTS create_user_profile ON auth.users;
+DROP TRIGGER IF EXISTS handle_new_user_trigger ON auth.users;
 
--- Recreate the function with proper defaults for all required fields
+-- STEP 2: Drop ALL existing profile creation functions
+DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.create_profile_for_user();
+DROP FUNCTION IF EXISTS public.create_user_profile();
+
+-- STEP 3: Create the one correct function
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -19,106 +23,52 @@ DECLARE
   _display_name text;
   _avatar_url text;
 BEGIN
-  -- Get username from signup metadata first, then fallback to email prefix
   _username := COALESCE(
     new.raw_user_meta_data->>'username',
     new.raw_user_meta_data->>'preferred_username',
     split_part(new.email, '@', 1)
   );
-  
-  -- Clean username: lowercase, only alphanumeric + underscore
   _username := lower(regexp_replace(_username, '[^a-zA-Z0-9_]', '', 'g'));
-  
-  -- Ensure username is not empty
   IF _username = '' OR _username IS NULL THEN
     _username := 'user_' || substr(md5(random()::text), 1, 4);
   END IF;
-  
-  -- Get display name from metadata or use username
   _display_name := COALESCE(
     new.raw_user_meta_data->>'display_name',
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'name',
-    _username,
-    'Player'
+    _username
   );
-  
-  -- Get avatar URL from metadata (Google/OAuth provides this)
   _avatar_url := new.raw_user_meta_data->>'avatar_url';
 
-  -- Insert profile row
-  INSERT INTO public.profiles (
-    id,
-    user_id,
-    username,
-    display_name,
-    avatar_url,
-    created_at,
-    updated_at
-  ) VALUES (
-    new.id,
-    new.id,
-    _username,
-    _display_name,
-    _avatar_url,
-    now(),
-    now()
-  );
+  INSERT INTO public.profiles (id, user_id, username, display_name, avatar_url)
+  VALUES (new.id, new.id, _username, _display_name, _avatar_url);
 
   RETURN new;
-EXCEPTION
-  WHEN unique_violation THEN
-    -- Username collision - try again with longer random suffix
-    _username := _username || substr(md5(random()::text), 1, 4);
-    
-    INSERT INTO public.profiles (
-      id,
-      user_id,
-      username,
-      display_name,
-      avatar_url,
-      created_at,
-      updated_at
-    ) VALUES (
-      new.id,
-      new.id,
-      _username,
-      _display_name,
-      _avatar_url,
-      now(),
-      now()
-    );
-    
-    RETURN new;
-  WHEN OTHERS THEN
-    -- Log the error but don't block user creation
-    RAISE WARNING 'handle_new_user error: % %', SQLERRM, SQLSTATE;
-    RETURN new;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'handle_new_user: % %', SQLERRM, SQLSTATE;
+  RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create the trigger on auth.users
+-- STEP 4: Create the trigger
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
--- Verify
+-- STEP 5: Verify - check no other triggers remain
 DO $$
+DECLARE
+  trigger_count integer;
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_trigger WHERE tgname = 'on_auth_user_created'
-  ) THEN
-    RAISE NOTICE 'SUCCESS: on_auth_user_created trigger created';
-  ELSE
-    RAISE NOTICE 'ERROR: trigger was not created';
-  END IF;
+  SELECT count(*) INTO trigger_count
+  FROM pg_trigger
+  WHERE tgrelid = 'auth.users'::regclass
+  AND tgname NOT LIKE 'RI_%';
   
-  IF EXISTS (
-    SELECT 1 FROM pg_proc WHERE proname = 'handle_new_user'
-  ) THEN
-    RAISE NOTICE 'SUCCESS: handle_new_user function created';
-  ELSE
-    RAISE NOTICE 'ERROR: function was not created';
+  RAISE NOTICE 'Triggers on auth.users: %', trigger_count;
+  
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'handle_new_user') THEN
+    RAISE NOTICE 'handle_new_user function: OK';
   END IF;
 END $$;
