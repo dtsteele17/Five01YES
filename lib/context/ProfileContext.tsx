@@ -15,6 +15,7 @@ export interface UserProfile {
   favorite_format: '301' | '501' | null;
   playing_since: number | null;
   preferred_hand: 'Left' | 'Right' | null;
+  preferred_double: string | null;
   ranked_points: number;
   trust_rating_letter?: string | null;
   trust_rating_avg?: number | null;

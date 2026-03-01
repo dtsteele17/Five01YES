@@ -42,6 +42,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     favorite_format: '' as '301' | '501' | '',
     playing_since: '',
     preferred_hand: '' as 'Left' | 'Right' | '',
+    preferred_double: '',
   });
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
         favorite_format: profile.favorite_format || '',
         playing_since: profile.playing_since?.toString() || '',
         preferred_hand: profile.preferred_hand || '',
+        preferred_double: profile.preferred_double || '',
       });
 
       // Check if display name can be changed (once per month rule)
@@ -113,6 +115,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
         favorite_format: formData.favorite_format || null,
         playing_since: formData.playing_since ? parseInt(formData.playing_since) : null,
         preferred_hand: formData.preferred_hand || null,
+        preferred_double: formData.preferred_double || null,
       };
 
       // If display name changed, update the last change timestamp
@@ -342,6 +345,32 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
                     </SelectItem>
                     <SelectItem value="Left" className="text-white hover:bg-white/10">
                       Left
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="preferred_double" className="text-gray-300">
+                  Preferred Double
+                </Label>
+                <Select
+                  value={formData.preferred_double}
+                  onValueChange={(value: string) =>
+                    setFormData({ ...formData, preferred_double: value })
+                  }
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-emerald-500/50">
+                    <SelectValue placeholder="Select double" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10 max-h-60">
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                      <SelectItem key={n} value={`D${n}`} className="text-white hover:bg-white/10">
+                        D{n}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="D25" className="text-white hover:bg-white/10">
+                      Bull (D25)
                     </SelectItem>
                   </SelectContent>
                 </Select>
