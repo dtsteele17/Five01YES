@@ -726,18 +726,14 @@ export default function DashboardPage() {
                   <h3 className="text-base sm:text-xl font-bold text-white mb-2">No upcoming games</h3>
                   <p className="text-slate-400 text-sm mb-4">Join a tournament or league to see scheduled matches here</p>
                   <div className="flex justify-center gap-3">
-                    <Link href="/app/tournaments">
-                      <Button className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
-                        <Trophy className="w-4 h-4 mr-2" />
-                        Browse Tournaments
-                      </Button>
-                    </Link>
-                    <Link href="/app/leagues">
-                      <Button className="bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30">
-                        <Shield className="w-4 h-4 mr-2" />
-                        Browse Leagues
-                      </Button>
-                    </Link>
+                    <Button disabled className="bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60">
+                      <Lock className="w-4 h-4 mr-2" />
+                      Tournaments — Coming Soon
+                    </Button>
+                    <Button disabled className="bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60">
+                      <Lock className="w-4 h-4 mr-2" />
+                      Leagues — Coming Soon
+                    </Button>
                   </div>
                 </div>
               )}
