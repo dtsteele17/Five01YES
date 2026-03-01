@@ -4452,12 +4452,42 @@ export default function QuickMatchRoomPage() {
               ) : (
                 /* OPPONENT'S TURN: Show THEIR remote camera */
                 remoteStream ? (
-                  <video 
-                    ref={setRemoteVideoRef}
-                    autoPlay 
-                    playsInline 
-                    className="w-full h-full object-cover"
-                  />
+                  <div className="relative w-full h-full">
+                    <video 
+                      ref={setRemoteVideoRef}
+                      autoPlay 
+                      playsInline 
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Refresh opponent camera overlay button */}
+                    <div className="absolute bottom-4 right-4">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm"
+                              variant="secondary"
+                              className="bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
+                              onClick={handleRefreshConnection}
+                              disabled={isRefreshingConnection}
+                            >
+                              {isRefreshingConnection ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <RotateCcw className="w-4 h-4 mr-2" />
+                                  Refresh
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left">
+                            <p>Refresh opponent's camera if it's frozen</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 p-4 sm:p-6">
                     <UserPlus className="w-16 h-16 mb-4 opacity-50" />
