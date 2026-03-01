@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bell, Shield, Palette, Key, Lock, Volume2, Target, User, Camera, Save, Loader2, AlertTriangle, ChevronLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -81,6 +82,7 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
+  const [preferredDouble, setPreferredDouble] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export default function SettingsPage() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, username, display_name, bio, location, avatar_url, username_changed_at, last_display_name_change')
+        .select('user_id, username, display_name, bio, location, avatar_url, username_changed_at, last_display_name_change, preferred_double')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -129,6 +131,7 @@ export default function SettingsPage() {
         setDisplayName(data.display_name || '');
         setBio(data.bio || '');
         setLocation(data.location || '');
+        setPreferredDouble(data.preferred_double || '');
         setAvatarPreview(data.avatar_url);
 
         if (data.username_changed_at) {
@@ -326,6 +329,7 @@ export default function SettingsPage() {
       const updates: Record<string, any> = {
         bio: bio || null,
         location: location || null,
+        preferred_double: preferredDouble || null,
       };
 
       if (displayName !== (profile?.display_name || '')) {
@@ -573,6 +577,30 @@ export default function SettingsPage() {
               placeholder="e.g. London, UK"
               maxLength={50}
             />
+          </div>
+
+          {/* Preferred Double */}
+          <div className="space-y-2">
+            <Label className="text-white">Preferred Double</Label>
+            <Select
+              value={preferredDouble}
+              onValueChange={(value: string) => setPreferredDouble(value)}
+            >
+              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-emerald-500/50">
+                <SelectValue placeholder="Select your favourite double" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-white/10 max-h-60">
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                  <SelectItem key={n} value={`D${n}`} className="text-white hover:bg-white/10">
+                    D{n}
+                  </SelectItem>
+                ))}
+                <SelectItem value="D25" className="text-white hover:bg-white/10">
+                  Bull (D25)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-slate-500 text-xs">Checkout suggestions will prioritise this double when possible</p>
           </div>
 
           <Button
