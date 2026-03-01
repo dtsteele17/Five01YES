@@ -706,6 +706,7 @@ export default function QuickMatchLobbyPage() {
   const [currentJoinRequest, setCurrentJoinRequest] = useState<JoinRequest | null>(null);
   const [processingRequest, setProcessingRequest] = useState(false);
   const [pendingLobbyId, setPendingLobbyId] = useState<string | null>(null);
+  const [pendingLobbyHostUsername, setPendingLobbyHostUsername] = useState<string | null>(null);
   
   const [showATCLobbyModal, setShowATCLobbyModal] = useState(false);
   const [showJoinAcceptedPopup, setShowJoinAcceptedPopup] = useState(false);
@@ -838,9 +839,11 @@ export default function QuickMatchLobbyPage() {
           }
         } else if (request.status === 'declined') {
           console.log('[REALTIME] Request declined');
+          const hostName = pendingLobbyHostUsername || 'The host';
           setPendingLobbyId(null);
+          setPendingLobbyHostUsername(null);
           setJoining(null);
-          toast.error('Join request was declined');
+          toast.error(`${hostName} has declined your join request`);
         }
       })
       .subscribe();
@@ -1414,6 +1417,8 @@ export default function QuickMatchLobbyPage() {
       if (requestError) throw new Error(`Failed to send join request: ${requestError.message}`);
 
       setPendingLobbyId(lobbyId);
+      const hostLobby = lobbies.find(l => l.id === lobbyId);
+      setPendingLobbyHostUsername(hostLobby?.player1?.username || 'The host');
       toast.success('Join request sent! Waiting for host approval...');
 
       // Poll for request status
@@ -1511,9 +1516,11 @@ export default function QuickMatchLobbyPage() {
         } else if (request.status === 'declined') {
           console.log('[POLL] Request DECLINED');
           clearInterval(checkInterval);
+          const hostName = pendingLobbyHostUsername || 'The host';
           setJoining(null);
           setPendingLobbyId(null);
-          toast.error('Join request was declined by the host');
+          setPendingLobbyHostUsername(null);
+          toast.error(`${hostName} has declined your join request`);
         }
         // else: still pending, continue polling
       } catch (error) {
@@ -2285,6 +2292,7 @@ export default function QuickMatchLobbyPage() {
                       <Button
                         onClick={() => joinLobby(lobby.id)}
                         disabled={
+                          !!pendingLobbyId ||
                           joining === lobby.id || 
                           (lobby.game_type === 'atc' && 
                            (lobby.players?.length || 1) >= (lobby.atc_settings?.player_count || 2))
@@ -2505,24 +2513,6 @@ export default function QuickMatchLobbyPage() {
               className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 ml-2"
             >
               Check
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={async () => {
-                // FORCE JOIN - show popup which will handle fetching
-                console.log('[FORCE] Attempting force join...');
-                if (pendingLobbyId) {
-                  setPendingLobbyId(null);
-                  setJoining(null);
-                  setAcceptedLobbyId(pendingLobbyId);
-                  setShowJoinAcceptedPopup(true);
-                  toast.success('Joining lobby...');
-                }
-              }}
-              className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-            >
-              Force
             </Button>
             <Button variant="ghost" size="sm" onClick={() => { setPendingLobbyId(null); setJoining(null); }} className="text-slate-400 hover:text-white">
               Cancel
