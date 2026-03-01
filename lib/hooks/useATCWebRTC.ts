@@ -183,7 +183,7 @@ export function useATCWebRTC({
     if (!matchId || !myUserId) return;
 
     const sub = supabase
-      .channel(`atc-${matchId}`)
+      .channel(`atc-${matchId}-${myUserId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -191,7 +191,8 @@ export function useATCWebRTC({
         filter: `match_id=eq.${matchId}`
       }, (payload) => {
         const s = payload.new as any;
-        if (s.sender_id !== myUserId) {
+        // Only process signals addressed to me (or broadcast)
+        if (s.sender_id !== myUserId && (!s.recipient_id || s.recipient_id === myUserId)) {
           handleSignal(s);
         }
       })
@@ -264,12 +265,13 @@ export function useATCWebRTC({
     await startCamera();
   };
 
-  // Auto-start on my turn
+  // Auto-start camera when match is active (all players keep camera on)
+  // This ensures the current turn player's stream is always available to others
   useEffect(() => {
-    if (isMyTurn && isMatchActive && !isCameraOn) {
+    if (isMatchActive && !isCameraOn && allPlayerIds.length >= 2) {
       startCamera();
     }
-  }, [isMyTurn, isMatchActive]);
+  }, [isMatchActive, allPlayerIds.length]);
 
   return {
     localStream,
