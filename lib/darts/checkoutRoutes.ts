@@ -317,13 +317,101 @@ export const CHECKOUT_1: Record<number, string[]> = {
   2: ['D1'],
 };
 
+// All valid doubles for finishing
+const ALL_DOUBLES = [
+  'D1','D2','D3','D4','D5','D6','D7','D8','D9','D10',
+  'D11','D12','D13','D14','D15','D16','D17','D18','D19','D20','D25'
+];
+
+// All valid single darts (for building routes)
+const ALL_SINGLES = [
+  ...Array.from({length: 20}, (_, i) => `S${i+1}`),
+  'SB' // single bull = 25
+];
+
+// All valid trebles
+const ALL_TREBLES = Array.from({length: 20}, (_, i) => `T${i+1}`);
+
+/**
+ * Try to find a checkout route ending with the preferred double.
+ * Returns null if no valid route exists for that double.
+ */
+function findRouteWithPreferredDouble(
+  remaining: number,
+  dartsLeft: number,
+  preferredDouble: string
+): string[] | null {
+  const dblValue = dartValue(preferredDouble);
+  if (dblValue > remaining || dblValue <= 0) return null;
+
+  // 1 dart: only works if remaining === double value
+  if (dartsLeft === 1) {
+    return remaining === dblValue ? [preferredDouble] : null;
+  }
+
+  const needBefore = remaining - dblValue;
+
+  // 2 darts: need 1 dart scoring exactly `needBefore`
+  if (dartsLeft === 2) {
+    if (needBefore === 0) return [preferredDouble];
+    // Try single, double, treble, bulls
+    const allDarts = [...ALL_SINGLES, ...ALL_DOUBLES, ...ALL_TREBLES, 'DB'];
+    for (const d of allDarts) {
+      if (dartValue(d) === needBefore) {
+        return [d, preferredDouble];
+      }
+    }
+    return null;
+  }
+
+  // 3 darts: need 2 darts scoring exactly `needBefore`
+  if (dartsLeft >= 3) {
+    if (needBefore === 0) return [preferredDouble];
+    const allDarts = [...ALL_TREBLES, ...ALL_SINGLES, ...ALL_DOUBLES, 'DB', 'SB'];
+    
+    // 1 setup dart
+    for (const d of allDarts) {
+      if (dartValue(d) === needBefore) {
+        return [d, preferredDouble];
+      }
+    }
+    
+    // 2 setup darts — try trebles first for efficiency
+    for (const d1 of allDarts) {
+      const v1 = dartValue(d1);
+      if (v1 >= needBefore) continue;
+      const need2 = needBefore - v1;
+      for (const d2 of allDarts) {
+        if (dartValue(d2) === need2) {
+          return [d1, d2, preferredDouble];
+        }
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
 /**
  * Get the best checkout suggestion based on remaining score and darts left.
- * Returns null if no checkout is possible.
+ * If preferredDouble is set, tries to find a route ending with that double first.
+ * Falls back to standard routes if not possible.
  */
-export function getCheckoutSuggestion(remaining: number, dartsLeft: number): string[] | null {
+export function getCheckoutSuggestion(
+  remaining: number,
+  dartsLeft: number,
+  preferredDouble?: string | null
+): string[] | null {
   if (remaining <= 0 || remaining > 170) return null;
+
+  // Try preferred double route first
+  if (preferredDouble) {
+    const prefRoute = findRouteWithPreferredDouble(remaining, dartsLeft, preferredDouble);
+    if (prefRoute) return prefRoute;
+  }
   
+  // Fall back to standard routes
   if (dartsLeft >= 3) return CHECKOUT_3[remaining] || null;
   if (dartsLeft === 2) return CHECKOUT_2[remaining] || null;
   if (dartsLeft === 1) return CHECKOUT_1[remaining] || null;

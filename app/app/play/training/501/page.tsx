@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, findBestCheckoutRoute } from '@/lib/botThrowEngine';
+import { getCheckoutSuggestion as getCheckoutFromRoutes } from '@/lib/darts/checkoutRoutes';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
 import { awardXP } from '@/lib/training/xpTracker';
@@ -251,6 +252,7 @@ function ScoringPanel({
   submitting,
   currentRemaining,
   doubleOut,
+  preferredDouble,
 }: {
   scoreInput: string;
   onScoreInputChange: (value: string) => void;
@@ -265,6 +267,7 @@ function ScoringPanel({
   submitting: boolean;
   currentRemaining: number;
   doubleOut: boolean;
+  preferredDouble?: string | null;
 }) {
   const [activeTab, setActiveTab] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
 
@@ -276,17 +279,19 @@ function ScoringPanel({
   // Bogey numbers - no checkout possible with 3 darts
   const BOGEY_NUMBERS = [159, 162, 163, 166, 168, 169];
   
-  // Get checkout suggestion based on remaining score and darts left
-  const getCheckoutSuggestion = () => {
+  // Get checkout suggestion based on remaining score, darts left, and preferred double
+  const getCheckoutSuggestionLocal = () => {
     if (previewRemaining <= 0 || previewRemaining > 170) return null;
     if (BOGEY_NUMBERS.includes(previewRemaining)) return 'BOGEY';
     
-    // Use the engine's checkout finder which handles dynamic dart counts
-    // This will find the best route considering how many darts we have left
+    // Try preferred-double-aware route first, then fall back to standard
+    const prefRoute = getCheckoutFromRoutes(previewRemaining, dartsRemaining, preferredDouble);
+    if (prefRoute) return prefRoute;
+    
     return findBestCheckoutRoute(previewRemaining, dartsRemaining);
   };
 
-  const checkoutSuggestion = getCheckoutSuggestion();
+  const checkoutSuggestion = getCheckoutSuggestionLocal();
 
   return (
     <div className="h-full flex flex-col">
@@ -598,11 +603,17 @@ export default function DartbotMatchPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const supabase = createClient();
   
-  // Get current user on mount
+  const [preferredDouble, setPreferredDouble] = useState<string | null>(null);
+
+  // Get current user on mount + preferred double
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: profile } = await supabase.from('profiles').select('preferred_double').eq('id', user.id).single();
+        if (profile?.preferred_double) setPreferredDouble(profile.preferred_double);
+      }
     };
     getUser();
   }, []);
@@ -1769,6 +1780,7 @@ export default function DartbotMatchPage() {
                 submitting={submitting}
                 currentRemaining={player1Score}
                 doubleOut={config.doubleOut}
+                preferredDouble={preferredDouble}
               />
             ) : (
               <VisitHistoryPanel 

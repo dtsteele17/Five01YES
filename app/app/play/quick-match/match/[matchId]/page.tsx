@@ -562,7 +562,7 @@ function ScoringPanel({
   const dartsRemaining = 3 - dartsThrown;
 
   // Get checkout suggestion using verified routes (imported from lib/darts/checkoutRoutes)
-  const checkoutSuggestion = getCheckoutSuggestion(previewRemaining, dartsRemaining);
+  const checkoutSuggestion = getCheckoutSuggestion(previewRemaining, dartsRemaining, preferredDouble);
 
   return (
     <div className="h-full flex flex-col">
@@ -785,6 +785,7 @@ export default function QuickMatchRoomPage() {
   const [scoreInput, setScoreInput] = useState('');
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [preferredDouble, setPreferredDouble] = useState<string | null>(null);
 
   // Camera state
   const cameraInitAttempted = useRef(false);
@@ -1064,6 +1065,15 @@ export default function QuickMatchRoomPage() {
       console.log('[CAMERA] localStream:', localStream ? 'YES' : 'NO', 'remoteStream:', remoteStream ? 'YES' : 'NO');
     }
   }, [localStream, remoteStream]);
+
+  // Fetch user's preferred double for checkout suggestions
+  useEffect(() => {
+    if (!currentUserId) return;
+    supabase.from('profiles').select('preferred_double').eq('id', currentUserId).single()
+      .then(({ data }) => {
+        if (data?.preferred_double) setPreferredDouble(data.preferred_double);
+      });
+  }, [currentUserId, supabase]);
 
   // Subscribe to trust rating notifications
   useEffect(() => {
