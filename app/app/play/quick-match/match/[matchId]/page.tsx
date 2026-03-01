@@ -529,6 +529,7 @@ function ScoringPanel({
   submitting,
   currentRemaining,
   doubleOut,
+  preferredDouble,
 }: {
   scoreInput: string;
   onScoreInputChange: (value: string) => void;
@@ -543,6 +544,7 @@ function ScoringPanel({
   submitting: boolean;
   currentRemaining: number;
   doubleOut: boolean;
+  preferredDouble?: string | null;
 }) {
   const [activeTab, setActiveTab] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -4617,6 +4619,7 @@ export default function QuickMatchRoomPage() {
                 submitting={submitting}
                 currentRemaining={myPlayer.remaining}
                 doubleOut={room.double_out}
+                preferredDouble={preferredDouble}
               />
             ) : (
               <VisitHistoryPanel
