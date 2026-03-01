@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,24 @@ export function DartsAtDoubleModal({
     }
   }, [isOpen]);
 
+  // Keyboard shortcut: press 0-3 to select, Enter to confirm
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const num = parseInt(e.key);
+      if (!isNaN(num) && validOptionsRef.current.includes(num)) {
+        setSelectedDarts(num);
+        setError('');
+      } else if (e.key === 'Enter' && selectedDarts > 0) {
+        handleConfirm();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, selectedDarts]);
+
   const getMaxOptions = () => {
     if (minDarts === 3) return [0, 1];
     if (minDarts === 2) return [0, 1, 2];
@@ -66,6 +84,8 @@ export function DartsAtDoubleModal({
 
   const options = getMaxOptions();
   const validOptions = isCheckout ? options.filter(opt => opt >= 1) : options;
+  const validOptionsRef = useRef(validOptions);
+  validOptionsRef.current = validOptions;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
