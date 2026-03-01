@@ -499,8 +499,23 @@ export function useMatchWebRTC({
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
+      // Re-negotiate so opponent picks up the new stream
+      if (isPlayer1 && roomId && myUserId && opponentUserId) {
+        try {
+          makingOfferRef.current = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+            offer: pc.localDescription?.toJSON(),
+          });
+        } catch (e) {
+          console.error('[WebRTC] Re-offer after refreshCamera error:', e);
+        } finally {
+          makingOfferRef.current = false;
+        }
+      }
     }
-  }, [startCamera, stopCamera]);
+  }, [startCamera, stopCamera, isPlayer1, roomId, myUserId, opponentUserId]);
 
   // ========== SWITCH CAMERA (front/back) ==========
   const switchCamera = useCallback(async () => {
@@ -523,7 +538,28 @@ export function useMatchWebRTC({
         // Replace the track on the existing sender
         const sender = pc.getSenders().find(s => s.track?.kind === 'video');
         if (sender) {
-          await sender.replaceTrack(videoTrack);
+          try {
+            await sender.replaceTrack(videoTrack);
+          } catch (e) {
+            console.warn('[WebRTC] replaceTrack failed, falling back to remove+add:', e);
+            try { pc.removeTrack(sender); } catch (_) {}
+            pc.addTrack(videoTrack, stream);
+            // Re-negotiate after track change
+            if (isPlayer1 && roomId && myUserId && opponentUserId) {
+              try {
+                makingOfferRef.current = true;
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                await sendSignal(roomId, myUserId, opponentUserId, 'offer', {
+                  offer: pc.localDescription?.toJSON(),
+                });
+              } catch (err) {
+                console.error('[WebRTC] Re-offer after switchCamera fallback error:', err);
+              } finally {
+                makingOfferRef.current = false;
+              }
+            }
+          }
         } else {
           pc.addTrack(videoTrack, stream);
         }

@@ -441,7 +441,37 @@ export default function ATCMatchPage() {
     console.log('[ATC CAMERA DEBUG] isMyTurn:', isCurrentUserTurn);
     console.log('[ATC CAMERA DEBUG] ==========');
   }, [localStream, remoteStreams, activeStream, activePlayerId, isCameraOn, callStatus, currentTurnPlayer, isCurrentUserTurn]);
-  
+
+  // Notify other players when this player leaves or navigates away
+  useEffect(() => {
+    if (!matchId || !currentUser || !match || match.status !== 'in_progress') return;
+    const otherIds = allPlayerIds.filter((id: string) => id !== currentUser);
+    if (otherIds.length === 0) return;
+
+    const sendLeaveSignals = () => {
+      otherIds.forEach((playerId: string) => {
+        supabase.rpc('rpc_send_atc_signal', {
+          p_match_id: matchId,
+          p_recipient_id: playerId,
+          p_signal_type: 'player_left',
+          p_signal_data: { message: 'Player navigated away', at: new Date().toISOString() }
+        }).catch(() => {});
+      });
+    };
+
+    const handleBeforeUnload = () => sendLeaveSignals();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') sendLeaveSignals();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [matchId, currentUser, match?.status, allPlayerIds, supabase]);
+
   // Load match data
   useEffect(() => {
     const loadMatch = async () => {

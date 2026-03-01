@@ -31,8 +31,12 @@ export function useATCWebRTC({
   // Store peer connections for each player
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const processedSignals = useRef<Set<string>>(new Set());
   const pendingSignals = useRef<Map<string, any[]>>(new Map());
+  const rebuildingPeersRef = useRef<Set<string>>(new Set());
+  const healthIssueStartedAtRef = useRef<Map<string, number>>(new Map());
+  const reconnectBroadcastSentRef = useRef(false);
 
   // Get other player IDs
   const otherPlayerIds = allPlayerIds.filter(id => id !== myUserId);
@@ -54,6 +58,18 @@ export function useATCWebRTC({
     });
   }, [matchId, myUserId, supabase]);
 
+  const attachLocalTracks = useCallback((pc: RTCPeerConnection) => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+
+    const senders = pc.getSenders();
+    stream.getTracks().forEach(track => {
+      if (!senders.find(s => s.track === track)) {
+        pc.addTrack(track, stream);
+      }
+    });
+  }, []);
+
   // Create peer connection
   const createPeerConnection = useCallback((playerId: string) => {
     if (peerConnectionsRef.current.has(playerId)) {
@@ -71,6 +87,7 @@ export function useATCWebRTC({
       iceServers: getIceServers(),
       iceCandidatePoolSize: 10
     });
+    let disconnectedTimer: ReturnType<typeof setTimeout> | null = null;
 
     peerConnectionsRef.current.set(playerId, pc);
 
@@ -78,6 +95,43 @@ export function useATCWebRTC({
       console.log(`[ATC Camera] Connection ${playerId}: ${pc.connectionState}`);
       if (pc.connectionState === 'connected') {
         setCallStatus('connected');
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[ATC Camera] ICE ${playerId}: ${pc.iceConnectionState}`);
+
+      if (pc.iceConnectionState === 'disconnected') {
+        if (disconnectedTimer) {
+          clearTimeout(disconnectedTimer);
+        }
+        disconnectedTimer = setTimeout(() => {
+          if (
+            peerConnectionsRef.current.get(playerId) === pc &&
+            pc.iceConnectionState === 'disconnected'
+          ) {
+            try {
+              console.log(`[ATC Camera] ICE disconnected for ${playerId}, restarting ICE`);
+              pc.restartIce();
+            } catch (err) {
+              console.error(`[ATC Camera] ICE restart failed for ${playerId}:`, err);
+            }
+          }
+        }, 3000);
+      } else if (pc.iceConnectionState === 'failed') {
+        if (disconnectedTimer) {
+          clearTimeout(disconnectedTimer);
+          disconnectedTimer = null;
+        }
+        try {
+          console.log(`[ATC Camera] ICE failed for ${playerId}, restarting ICE`);
+          pc.restartIce();
+        } catch (err) {
+          console.error(`[ATC Camera] Immediate ICE restart failed for ${playerId}:`, err);
+        }
+      } else if (disconnectedTimer) {
+        clearTimeout(disconnectedTimer);
+        disconnectedTimer = null;
       }
     };
 
@@ -93,6 +147,7 @@ export function useATCWebRTC({
         setRemoteStreams(prev => {
           const next = new Map(prev);
           next.set(playerId, e.streams[0]);
+          remoteStreamsRef.current = next;
           return next;
         });
       }
@@ -100,6 +155,57 @@ export function useATCWebRTC({
 
     return pc;
   }, [sendSignal]);
+
+  const teardownPeerConnection = useCallback((playerId: string) => {
+    const existing = peerConnectionsRef.current.get(playerId);
+    if (existing) {
+      try {
+        existing.onicecandidate = null;
+        existing.ontrack = null;
+        existing.onconnectionstatechange = null;
+        existing.oniceconnectionstatechange = null;
+        existing.close();
+      } catch (err) {
+        console.warn(`[ATC Camera] Error closing peer ${playerId}:`, err);
+      }
+      peerConnectionsRef.current.delete(playerId);
+    }
+
+    pendingSignals.current.delete(playerId);
+    healthIssueStartedAtRef.current.delete(playerId);
+
+    setRemoteStreams(prev => {
+      const next = new Map(prev);
+      next.delete(playerId);
+      remoteStreamsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const rebuildPeerConnection = useCallback(async (playerId: string, reason: string) => {
+    if (!myUserId || rebuildingPeersRef.current.has(playerId)) return;
+    rebuildingPeersRef.current.add(playerId);
+
+    try {
+      console.log(`[ATC Camera] Rebuilding peer ${playerId} (${reason})`);
+      setCallStatus('connecting');
+      teardownPeerConnection(playerId);
+
+      const pc = createPeerConnection(playerId);
+      attachLocalTracks(pc);
+
+      // Keep deterministic initiator for all player counts, including 2-player matches.
+      if (myUserId < playerId) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await sendSignal(playerId, 'offer', { offer: pc.localDescription?.toJSON() });
+      }
+    } catch (err) {
+      console.error(`[ATC Camera] Failed rebuilding peer ${playerId}:`, err);
+    } finally {
+      rebuildingPeersRef.current.delete(playerId);
+    }
+  }, [attachLocalTracks, createPeerConnection, myUserId, sendSignal, teardownPeerConnection]);
 
   // Process pending signals for a player
   const processPendingSignals = useCallback(async (playerId: string) => {
@@ -130,6 +236,11 @@ export function useATCWebRTC({
 
     console.log(`[ATC Camera] ${signal.signal_type} from ${senderId}`);
 
+    if (signal.signal_type === 'reconnect') {
+      await rebuildPeerConnection(senderId, 'remote_reconnect_signal');
+      return;
+    }
+
     const pc = createPeerConnection(senderId);
 
     try {
@@ -137,14 +248,7 @@ export function useATCWebRTC({
         // Only process if we haven't already set remote description for this offer
         if (pc.signalingState === 'stable') {
           // Add local stream
-          if (localStreamRef.current) {
-            const senders = pc.getSenders();
-            localStreamRef.current.getTracks().forEach(track => {
-              if (!senders.find(s => s.track === track)) {
-                pc.addTrack(track, localStreamRef.current!);
-              }
-            });
-          }
+          attachLocalTracks(pc);
 
           await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data.offer));
           const answer = await pc.createAnswer();
@@ -176,7 +280,7 @@ export function useATCWebRTC({
     } catch (err) {
       console.error(`[ATC Camera] Signal error:`, err);
     }
-  }, [createPeerConnection, sendSignal, processPendingSignals]);
+  }, [attachLocalTracks, createPeerConnection, processPendingSignals, rebuildPeerConnection, sendSignal]);
 
   // Subscribe to signals
   useEffect(() => {
@@ -203,6 +307,9 @@ export function useATCWebRTC({
       peerConnectionsRef.current.forEach(pc => pc.close());
       peerConnectionsRef.current.clear();
       pendingSignals.current.clear();
+      rebuildingPeersRef.current.clear();
+      healthIssueStartedAtRef.current.clear();
+      remoteStreamsRef.current = new Map();
     };
   }, [matchId, myUserId, handleSignal, supabase]);
 
@@ -223,11 +330,7 @@ export function useATCWebRTC({
         const pc = createPeerConnection(playerId);
         
         // Add tracks
-        stream.getTracks().forEach(track => {
-          if (!pc.getSenders().find(s => s.track === track)) {
-            pc.addTrack(track, stream);
-          }
-        });
+        attachLocalTracks(pc);
 
         // Determine who initiates (lower ID initiates)
         if (myUserId! < playerId) {
@@ -254,8 +357,11 @@ export function useATCWebRTC({
     peerConnectionsRef.current.forEach(pc => pc.close());
     peerConnectionsRef.current.clear();
     pendingSignals.current.clear();
+    rebuildingPeersRef.current.clear();
+    healthIssueStartedAtRef.current.clear();
     
     setRemoteStreams(new Map());
+    remoteStreamsRef.current = new Map();
     setCallStatus('idle');
   };
 
@@ -272,6 +378,72 @@ export function useATCWebRTC({
       startCamera();
     }
   }, [isMatchActive, allPlayerIds.length]);
+
+  useEffect(() => {
+    remoteStreamsRef.current = remoteStreams;
+  }, [remoteStreams]);
+
+  // Recovery path for page refreshes while the match is already active.
+  useEffect(() => {
+    if (!isMatchActive || !matchId || !myUserId || otherPlayerIds.length === 0) {
+      reconnectBroadcastSentRef.current = false;
+      return;
+    }
+    if (reconnectBroadcastSentRef.current) return;
+
+    reconnectBroadcastSentRef.current = true;
+    Promise.all(
+      otherPlayerIds.map(playerId =>
+        sendSignal(playerId, 'reconnect', {
+          reason: 'page_refresh_recovery',
+          at: new Date().toISOString(),
+        })
+      )
+    ).catch(err => {
+      console.error('[ATC Camera] Failed sending reconnect broadcast:', err);
+    });
+  }, [isMatchActive, matchId, myUserId, otherPlayerIds, sendSignal]);
+
+  // Stream health watchdog: rebuild stale peers with no live remote tracks for >5s.
+  useEffect(() => {
+    if (!isMatchActive) {
+      healthIssueStartedAtRef.current.clear();
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const streamEntries = Array.from(remoteStreamsRef.current.entries());
+      const activeRemoteIds = new Set(streamEntries.map(([playerId]) => playerId));
+
+      for (const trackedId of Array.from(healthIssueStartedAtRef.current.keys())) {
+        if (!activeRemoteIds.has(trackedId)) {
+          healthIssueStartedAtRef.current.delete(trackedId);
+        }
+      }
+
+      streamEntries.forEach(([playerId, stream]) => {
+        const hasLiveTrack = stream.getTracks().some(track => track.readyState === 'live');
+        if (hasLiveTrack) {
+          healthIssueStartedAtRef.current.delete(playerId);
+          return;
+        }
+
+        const startedAt = healthIssueStartedAtRef.current.get(playerId);
+        if (!startedAt) {
+          healthIssueStartedAtRef.current.set(playerId, now);
+          return;
+        }
+
+        if (now - startedAt > 5000) {
+          healthIssueStartedAtRef.current.delete(playerId);
+          rebuildPeerConnection(playerId, 'health_watchdog_no_live_tracks');
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isMatchActive, rebuildPeerConnection]);
 
   return {
     localStream,
