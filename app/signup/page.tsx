@@ -603,12 +603,7 @@ export default function SignupPage() {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border"></div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-card text-muted-foreground">or continue with</span>
             </div>
-          </div>
-
-          <GoogleButton onClick={handleGoogleSignup} disabled={loading} />
 
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{' '}
