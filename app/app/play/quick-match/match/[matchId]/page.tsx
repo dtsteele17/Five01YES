@@ -4285,6 +4285,17 @@ export default function QuickMatchRoomPage() {
   const opponentPlayer = matchState.youArePlayer === 1 ? matchState.players[1] : matchState.players[0];
   const isMyTurn = matchState.currentTurnPlayer === matchState.youArePlayer;
   const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+  const myVisitPlayerId = currentUserId || (matchState.youArePlayer === 1 ? room.player1_id : room.player2_id);
+  const opponentVisitPlayerId = opponentId || (matchState.youArePlayer === 1 ? room.player2_id : room.player1_id);
+  const mobileCurrentLegVisits = visits.filter((visit) => visit.leg === room.current_leg);
+  const mobileMyRecentVisits = mobileCurrentLegVisits
+    .filter((visit) => visit.player_id === myVisitPlayerId)
+    .sort((a, b) => b.turn_no - a.turn_no)
+    .slice(0, 2);
+  const mobileOpponentRecentVisits = mobileCurrentLegVisits
+    .filter((visit) => visit.player_id === opponentVisitPlayerId)
+    .sort((a, b) => b.turn_no - a.turn_no)
+    .slice(0, 2);
 
   return (
     <>
@@ -4381,8 +4392,158 @@ export default function QuickMatchRoomPage() {
         )}
       </button>
 
+      {/* Main Content - Mobile */}
+      <div className="sm:hidden flex-1 p-3 overflow-hidden">
+        <div className="h-full flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Card className={`bg-slate-800/50 border p-2 ${isMyTurn && room.status === 'active' ? 'border-emerald-500/30' : 'border-white/10'}`}>
+              <div className="text-[10px] uppercase tracking-wide text-slate-400 truncate">{myPlayer.name}</div>
+              <div className="text-xl leading-none font-bold text-emerald-400 mt-1">{myPlayer.remaining}</div>
+              <div className="text-[10px] text-slate-500 mt-1">Legs {myPlayer.legsWon}/{matchState.legsToWin}</div>
+            </Card>
+            <Card className={`bg-slate-800/50 border p-2 ${!isMyTurn && room.status === 'active' ? 'border-blue-500/30' : 'border-white/10'}`}>
+              <div className="text-[10px] uppercase tracking-wide text-slate-400 truncate text-right">{opponentPlayer.name}</div>
+              <div className="text-xl leading-none font-bold text-blue-400 mt-1 text-right">{opponentPlayer.remaining}</div>
+              <div className="text-[10px] text-slate-500 mt-1 text-right">Legs {opponentPlayer.legsWon}/{matchState.legsToWin}</div>
+            </Card>
+          </div>
+
+          {isMyTurn ? (
+            <>
+              <Card className="bg-slate-800/50 border-white/10 overflow-hidden rounded-xl">
+                <div className="px-2 py-1 border-b border-white/5 bg-emerald-500/10 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-emerald-400 truncate">{myPlayer.name} camera</span>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={toggleCamera}>
+                      {isCameraOn ? <Camera className="w-3.5 h-3.5" /> : <CameraOff className="w-3.5 h-3.5" />}
+                    </Button>
+                    {isCameraOn && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={switchCamera} title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}>
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    <TurnTimer
+                      isMyTurn={isMyTurn}
+                      isActive={room.status === 'active' && !showPreGameLobby && !showCoinToss}
+                      turnStartedAt={turnStartedAt}
+                      onTimerExpired={handleTurnTimerExpired}
+                    />
+                  </div>
+                </div>
+                <div className="relative h-[15vh] max-h-[15vh] bg-slate-900">
+                  {localStream ? (
+                    <video
+                      ref={setLocalVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">Camera off</div>
+                  )}
+                </div>
+              </Card>
+
+              <Card className="flex-1 bg-slate-800/50 border-white/10 p-2 overflow-hidden">
+                <ScoringPanel
+                  scoreInput={scoreInput}
+                  onScoreInputChange={setScoreInput}
+                  onTypeScoreSubmit={handleInputScoreSubmit}
+                  onSubmitVisit={handleSubmitVisit}
+                  onMiss={handleMiss}
+                  onBust={handleBust}
+                  currentDarts={currentVisit}
+                  onDartClick={handleDartClick}
+                  onUndoDart={handleUndoDart}
+                  onClearVisit={handleClearVisit}
+                  submitting={submitting}
+                  currentRemaining={myPlayer.remaining}
+                  doubleOut={room.double_out}
+                  preferredDouble={preferredDouble}
+                />
+              </Card>
+            </>
+          ) : (
+            <>
+              <Card className="flex-1 bg-slate-800/50 border-blue-500/30 overflow-hidden rounded-xl">
+                <div className="px-2 py-1 border-b border-white/5 bg-blue-500/10 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-blue-400 truncate">{opponentPlayer.name} camera</span>
+                  <div className="flex items-center gap-2">
+                    <TurnTimer
+                      isMyTurn={isMyTurn}
+                      isActive={room.status === 'active' && !showPreGameLobby && !showCoinToss}
+                      turnStartedAt={turnStartedAt}
+                      onTimerExpired={handleTurnTimerExpired}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={handleRefreshConnection}
+                      disabled={isRefreshingConnection}
+                    >
+                      {isRefreshingConnection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 bg-slate-900">
+                  {remoteStream ? (
+                    <video
+                      ref={setRemoteVideoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm p-4 text-center">
+                      {callStatus === 'failed' ? 'Connection failed' : `Waiting for ${opponentPlayer.name} camera`}
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              <Card className="bg-slate-800/50 border-white/10 p-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-[10px] font-semibold text-emerald-400 mb-1 truncate">{myPlayer.name}</div>
+                    <div className="space-y-1">
+                      {mobileMyRecentVisits.length > 0 ? (
+                        mobileMyRecentVisits.map((visit) => (
+                          <div key={visit.id} className="rounded-md bg-slate-900/70 px-2 py-1">
+                            <div className="text-sm font-bold text-white">{visit.score}</div>
+                            <div className="text-[10px] text-slate-500">#{visit.turn_no} -> {visit.remaining_after}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-md bg-slate-900/50 px-2 py-2 text-[10px] text-slate-500 text-center">No visits</div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold text-blue-400 mb-1 truncate text-right">{opponentPlayer.name}</div>
+                    <div className="space-y-1">
+                      {mobileOpponentRecentVisits.length > 0 ? (
+                        mobileOpponentRecentVisits.map((visit) => (
+                          <div key={visit.id} className="rounded-md bg-slate-900/70 px-2 py-1">
+                            <div className="text-sm font-bold text-white text-right">{visit.score}</div>
+                            <div className="text-[10px] text-slate-500 text-right">#{visit.turn_no} -> {visit.remaining_after}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-md bg-slate-900/50 px-2 py-2 text-[10px] text-slate-500 text-center">No visits</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Main Content - Single camera (shows active player's camera to BOTH users) + game panel */}
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 overflow-hidden">
+      <div className="hidden sm:grid flex-1 grid-cols-1 sm:grid-cols-2 gap-4 p-4 overflow-hidden">
         {/* LEFT: Active Player Camera - Both users see whoever's turn it is */}
         <div className="flex flex-col h-[40vh] sm:h-auto">
           <Card className={`bg-slate-800/50 border-white/10 overflow-hidden flex-1 flex flex-col ${isMyTurn ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/10' : 'border-blue-500/30 shadow-lg shadow-blue-500/10'}`}>
