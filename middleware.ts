@@ -15,9 +15,8 @@ function getLondonMinutesNow() {
 }
 
 export function middleware(req: NextRequest) {
-  // Toggle via env var — set NEXT_PUBLIC_TEST_WINDOW_ENABLED=true to enable
-  const enabled = process.env.NEXT_PUBLIC_TEST_WINDOW_ENABLED === "true";
-  if (!enabled) return NextResponse.next();
+  // Toggle: set to false to disable the time gate
+  const enabled = true;
 
   // 18:00 → 21:30 London time
   const now = getLondonMinutesNow();
