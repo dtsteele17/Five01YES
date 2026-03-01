@@ -25,6 +25,7 @@ import {
   Shield,
   Calendar,
   Clock,
+  Lock,
 } from 'lucide-react';
 import { MatchHistoryList } from '@/components/stats/MatchHistoryList';
 import { useProfile } from '@/lib/context/ProfileContext';
@@ -624,12 +625,10 @@ export default function DashboardPage() {
                       Ranked Active
                     </div>
                   )}
-                  <Link href="/app/ranked">
-                    <Button className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-sm sm:text-base shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 transition-all">
-                      <Shield className="w-5 h-5 mr-2" />
-                      Play Ranked
-                    </Button>
-                  </Link>
+                  <Button disabled className="w-full sm:w-auto bg-slate-700 text-slate-400 font-bold px-4 sm:px-8 py-4 sm:py-6 text-sm sm:text-base cursor-not-allowed opacity-60">
+                    <Lock className="w-5 h-5 mr-2" />
+                    Coming Soon
+                  </Button>
                 </div>
               </div>
 

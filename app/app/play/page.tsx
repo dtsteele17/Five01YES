@@ -546,14 +546,14 @@ export default function PlayPage() {
 
           {/* Ranked */}
           <GameModeCard
-            href="/app/ranked"
+            href="#"
             title="Ranked Match"
             subtitle="Competitive"
             description="Compete for ranked points and climb the divisions. Prove your skills."
             icon={<Shield className="w-7 h-7 text-white" />}
-            badge={{ text: 'Ranked', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }}
-            stats={{ label: 'Points', value: menuStatsLoading ? '...' : (rankedPoints ?? 0).toLocaleString() }}
+            badge={{ text: 'Soon', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }}
             color="bg-gradient-to-br from-amber-500 to-orange-600"
+            disabled
           />
 
           {/* Private Match */}

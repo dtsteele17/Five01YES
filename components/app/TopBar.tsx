@@ -18,6 +18,7 @@ import {
   Menu,
   Award,
   UserPlus,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 // Input no longer needed - GlobalSearch handles it
@@ -42,8 +43,8 @@ const navLinks = [
   { href: '/app', label: 'Dashboard', icon: Home },
   { href: '/app/play', label: 'Play', icon: Play },
   { href: '/app/ranked-divisions', label: 'Ranked Divisions', icon: Award },
-  { href: '/app/leagues', label: 'Leagues', icon: Users },
-  { href: '/app/tournaments', label: 'Tournaments', icon: Trophy },
+  { href: '#', label: 'Leagues', icon: Users, locked: true },
+  { href: '#', label: 'Tournaments', icon: Trophy, locked: true },
   { href: '/app/stats', label: 'Stats', icon: TrendingUp },
 ];
 
@@ -100,6 +101,25 @@ export function TopBar() {
               {navLinks.map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
+
+                if (link.locked) {
+                  return (
+                    <div key={link.label} className="relative group">
+                      <Button
+                        variant="ghost"
+                        disabled
+                        className="relative px-4 py-2 text-gray-500 cursor-not-allowed opacity-50"
+                      >
+                        <Icon className="w-4 h-4 mr-2" />
+                        {link.label}
+                        <Lock className="w-3 h-3 ml-1" />
+                      </Button>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-xs text-slate-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        Coming Soon
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <Link key={link.href} href={link.href}>

@@ -24,6 +24,7 @@ import {
   Flame,
   Edit3,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { SafetyRatingDetailed } from '@/components/safety/SafetyRatingBadge';
@@ -539,12 +540,10 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="px-4 sm:px-6 pb-4 sm:pb-6">
-              <Link href="/app/ranked">
-                <Button className="w-full bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Play Ranked
-                </Button>
-              </Link>
+              <Button disabled className="w-full bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60">
+                <Lock className="w-4 h-4 mr-2" />
+                Coming Soon
+              </Button>
             </div>
           </Card>
         </div>
