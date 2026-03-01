@@ -1058,6 +1058,9 @@ export default function QuickMatchRoomPage() {
     forceTurnAndRestart,
     switchCamera,
     facingMode,
+    videoDevices,
+    selectedDeviceId,
+    selectDevice,
   } = webrtc;
   
   // Expose streams to window for debugging
@@ -4364,6 +4367,20 @@ export default function QuickMatchRoomPage() {
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={switchCamera} title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}>
                         <RotateCcw className="w-4 h-4" />
                       </Button>
+                    )}
+                    {isCameraOn && videoDevices.length > 1 && (
+                      <select
+                        className="hidden sm:block h-8 bg-slate-800 border border-white/10 rounded text-white text-xs px-2 max-w-[160px] truncate"
+                        value={selectedDeviceId || ''}
+                        onChange={(e) => selectDevice(e.target.value)}
+                        title="Select camera"
+                      >
+                        {videoDevices.map((device) => (
+                          <option key={device.deviceId} value={device.deviceId}>
+                            {device.label || `Camera ${videoDevices.indexOf(device) + 1}`}
+                          </option>
+                        ))}
+                      </select>
                     )}
                     {isCameraOn && (
                       <TooltipProvider>

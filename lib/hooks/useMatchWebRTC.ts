@@ -25,6 +25,9 @@ export interface UseMatchWebRTCReturn {
   forceTurnAndRestart: () => void;
   switchCamera: () => Promise<void>;
   facingMode: 'user' | 'environment';
+  videoDevices: MediaDeviceInfo[];
+  selectedDeviceId: string | null;
+  selectDevice: (deviceId: string) => Promise<void>;
 }
 
 /**
@@ -56,6 +59,8 @@ export function useMatchWebRTC({
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -86,18 +91,32 @@ export function useMatchWebRTC({
   }, [roomId, myUserId, opponentUserId]);
 
   // ========== START CAMERA ==========
-  const startCamera = useCallback(async (overrideFacing?: 'user' | 'environment'): Promise<MediaStream | null> => {
+  const startCamera = useCallback(async (overrideFacing?: 'user' | 'environment', overrideDeviceId?: string): Promise<MediaStream | null> => {
+    const deviceId = overrideDeviceId || selectedDeviceId;
     const facing = overrideFacing || facingModeRef.current;
-    console.log('[WebRTC] Starting camera...', { facingMode: facing });
+    console.log('[WebRTC] Starting camera...', { facingMode: facing, deviceId });
     try {
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+      };
+      // Use specific device if selected, otherwise use facingMode
+      if (deviceId) {
+        videoConstraints.deviceId = { exact: deviceId };
+      } else {
+        videoConstraints.facingMode = facing;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: facing,
-        },
+        video: videoConstraints,
         audio: false,
       });
+
+      // Enumerate devices after getting permission
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const vidDevices = devices.filter(d => d.kind === 'videoinput');
+        setVideoDevices(vidDevices);
+      } catch (_) {}
 
       console.log('[WebRTC] Camera stream obtained');
       setLocalStream(stream);
@@ -567,6 +586,35 @@ export function useMatchWebRTC({
     }
   }, [startCamera]);
 
+  // ========== SELECT SPECIFIC CAMERA DEVICE ==========
+  const selectDevice = useCallback(async (deviceId: string) => {
+    console.log('[WebRTC] Selecting device:', deviceId);
+    setSelectedDeviceId(deviceId);
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+
+    const stream = await startCamera(undefined, deviceId);
+    if (stream && peerConnectionRef.current) {
+      const pc = peerConnectionRef.current;
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          try {
+            await sender.replaceTrack(videoTrack);
+          } catch (e) {
+            try { pc.removeTrack(sender); } catch (_) {}
+            pc.addTrack(videoTrack, stream);
+          }
+        } else {
+          pc.addTrack(videoTrack, stream);
+        }
+      }
+    }
+  }, [startCamera]);
+
   // ========== REFRESH CONNECTION ==========
   const refreshConnection = useCallback(async (refreshRole = false, notifyOpponent = true) => {
     if (!roomId || !myUserId || !opponentUserId) return;
@@ -752,5 +800,8 @@ export function useMatchWebRTC({
     forceTurnAndRestart,
     switchCamera,
     facingMode,
+    videoDevices,
+    selectedDeviceId,
+    selectDevice,
   };
 }
