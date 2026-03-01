@@ -47,6 +47,9 @@ END $$;
 -- AFK FORFEIT RPC FUNCTION
 -- ============================================================================
 
+-- Drop existing function if it exists with different signature
+DROP FUNCTION IF EXISTS rpc_forfeit_afk_opponent(uuid);
+
 CREATE OR REPLACE FUNCTION rpc_forfeit_afk_opponent(match_room_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -129,6 +132,9 @@ $$;
 -- ============================================================================
 -- USER SEARCH RPC FUNCTION  
 -- ============================================================================
+
+-- Drop existing function if it exists with different signature
+DROP FUNCTION IF EXISTS rpc_search_users(text, integer);
 
 CREATE OR REPLACE FUNCTION rpc_search_users(search_term text, limit_count integer DEFAULT 10)
 RETURNS TABLE(
