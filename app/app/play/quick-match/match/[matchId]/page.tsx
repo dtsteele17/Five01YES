@@ -1800,6 +1800,44 @@ export default function QuickMatchRoomPage() {
     };
   }, [matchId]);
 
+  // Notify opponent when this player leaves or navigates away
+  useEffect(() => {
+    if (!matchId || !currentUserId) return;
+    const opponentId = room?.player1_id === currentUserId ? room?.player2_id : room?.player1_id;
+    if (!opponentId) return;
+    if (['completed', 'finished', 'forfeited'].includes(room?.status ?? '')) return;
+
+    const sendLeaveSignal = () => {
+      // Fire-and-forget RPC call to notify opponent
+      supabase.rpc('rpc_send_match_signal', {
+        p_room_id: matchId,
+        p_from_user_id: currentUserId,
+        p_to_user_id: opponentId,
+        p_type: 'player_left',
+        p_payload: { message: 'Player navigated away' }
+      }).then(() => console.log('[LEAVE] Sent player_left signal'))
+        .catch(() => {});
+    };
+
+    const handleBeforeUnload = () => {
+      sendLeaveSignal();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sendLeaveSignal();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [matchId, currentUserId, room?.player1_id, room?.player2_id, room?.status, supabase]);
+
   // Safety-net sync for turn state in case realtime misses updates.
   useEffect(() => {
     if (!matchId || !currentUserId || room?.status !== 'active') return;
@@ -2349,6 +2387,12 @@ export default function QuickMatchRoomPage() {
             setShowOpponentForfeitModal(true);
             toast.success('You won by forfeit!');
             setTimeout(() => cleanupMatchRef.current?.(), 100);
+          }
+          // Handle player left signals (opponent navigated away / closed tab)
+          if (signal.type === 'player_left' && signal.from_user_id !== currentUserId) {
+            console.log('[LEAVE] Opponent left the match');
+            setShowOpponentAfk(true);
+            toast.warning('Your opponent may have left the match');
           }
           // Handle player connected signals
           if (signal.type === 'player_connected') {
