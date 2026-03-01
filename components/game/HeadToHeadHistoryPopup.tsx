@@ -77,18 +77,29 @@ export function HeadToHeadHistoryPopup({
 
       if (error) throw error;
 
-      const { data: matchHistory } = await supabase
+      const { data: matchHistory, error: historyError } = await supabase
         .from('match_history')
-        .select('room_id, user_id, three_dart_avg, result')
+        .select('room_id, user_id, three_dart_avg, avg_3dart, result')
         .in('room_id', matches?.map(m => m.id) || []);
+
+      if (historyError) {
+        console.error('[H2H] Error fetching match history:', historyError);
+      }
 
       const processedMatches = matches?.map(match => {
         const p1History = matchHistory?.find(h => h.room_id === match.id && h.user_id === player1.id);
         const p2History = matchHistory?.find(h => h.room_id === match.id && h.user_id === player2.id);
+        
+        // Try both three_dart_avg and avg_3dart fields
+        const p1Avg = p1History?.three_dart_avg || p1History?.avg_3dart || 0;
+        const p2Avg = p2History?.three_dart_avg || p2History?.avg_3dart || 0;
+        
+        console.log('[H2H] Match', match.id, 'P1 avg:', p1Avg, 'P2 avg:', p2Avg);
+        
         return {
           ...match,
-          player1_avg: p1History?.three_dart_avg || 0,
-          player2_avg: p2History?.three_dart_avg || 0,
+          player1_avg: p1Avg,
+          player2_avg: p2Avg,
         };
       }) || [];
 
@@ -238,61 +249,55 @@ export function HeadToHeadHistoryPopup({
               );
             })()}
 
-            {/* Recent Matches - visual timeline style */}
+            {/* Recent Matches - clearer format */}
             {stats.recentMatches.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-4 h-4 text-amber-400" />
                   <h3 className="font-bold text-white text-sm">Recent Form</h3>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {stats.recentMatches.map((match, index) => {
                     const score = getMatchScore(match);
                     const p1Won = match.winner_id === player1.id;
+                    const p2Won = match.winner_id === player2.id;
                     const p1Avg = getPlayerAvg(match, player1.id);
                     const p2Avg = getPlayerAvg(match, player2.id);
+                    const winnerName = p1Won ? player1.username : p2Won ? player2.username : 'Draw';
                     
                     return (
                       <div 
                         key={match.id}
-                        className={`flex items-center rounded-lg px-3 py-2 text-sm border ${
-                          p1Won 
-                            ? 'bg-emerald-500/5 border-emerald-500/20' 
-                            : 'bg-orange-500/5 border-orange-500/20'
-                        }`}
+                        className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50"
                       >
-                        {/* P1 avg */}
-                        <div className="w-12 text-right">
-                          <span className={`font-mono font-bold text-xs ${p1Avg > p2Avg ? 'text-emerald-400' : 'text-slate-400'}`}>
-                            {p1Avg > 0 ? p1Avg.toFixed(1) : '—'}
-                          </span>
-                        </div>
-
-                        {/* Score bar */}
-                        <div className="flex-1 flex items-center justify-center gap-2 px-3">
-                          <span className={`font-black text-base ${p1Won ? 'text-emerald-400' : 'text-slate-500'}`}>{score.p1}</span>
-                          <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden flex">
-                            <div 
-                              className={`h-full rounded-l-full ${p1Won ? 'bg-emerald-500' : 'bg-slate-600'}`}
-                              style={{ width: `${(score.p1 / Math.max(score.p1 + score.p2, 1)) * 100}%` }}
-                            />
-                            <div 
-                              className={`h-full rounded-r-full ${!p1Won ? 'bg-orange-500' : 'bg-slate-600'}`}
-                              style={{ width: `${(score.p2 / Math.max(score.p1 + score.p2, 1)) * 100}%` }}
-                            />
+                        {/* Winner and Score */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Trophy className={`w-4 h-4 ${p1Won ? 'text-emerald-400' : p2Won ? 'text-orange-400' : 'text-slate-400'}`} />
+                            <span className="text-white text-sm font-bold">
+                              {winnerName} won {score.p1}-{score.p2}
+                            </span>
                           </div>
-                          <span className={`font-black text-base ${!p1Won ? 'text-orange-400' : 'text-slate-500'}`}>{score.p2}</span>
+                          <span className="text-slate-500 text-xs">{formatDate(match.created_at)}</span>
                         </div>
 
-                        {/* P2 avg */}
-                        <div className="w-12">
-                          <span className={`font-mono font-bold text-xs ${p2Avg > p1Avg ? 'text-emerald-400' : 'text-slate-400'}`}>
-                            {p2Avg > 0 ? p2Avg.toFixed(1) : '—'}
-                          </span>
+                        {/* Player Stats */}
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${p1Won ? 'bg-emerald-400' : 'bg-slate-600'}`}></div>
+                            <span className="text-slate-300">{player1.username}</span>
+                            <span className={`font-mono font-bold ${p1Won ? 'text-emerald-400' : 'text-slate-400'}`}>
+                              {p1Avg > 0 ? p1Avg.toFixed(1) : '—'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-mono font-bold ${p2Won ? 'text-orange-400' : 'text-slate-400'}`}>
+                              {p2Avg > 0 ? p2Avg.toFixed(1) : '—'}
+                            </span>
+                            <span className="text-slate-300">{player2.username}</span>
+                            <div className={`w-3 h-3 rounded-full ${p2Won ? 'bg-orange-400' : 'bg-slate-600'}`}></div>
+                          </div>
                         </div>
-
-                        {/* Date */}
-                        <span className="text-slate-600 text-xs w-14 text-right ml-1">{formatDate(match.created_at)}</span>
                       </div>
                     );
                   })}
