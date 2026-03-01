@@ -1807,16 +1807,20 @@ export default function QuickMatchRoomPage() {
     if (!opponentId) return;
     if (['completed', 'finished', 'forfeited'].includes(room?.status ?? '')) return;
 
-    const sendLeaveSignal = () => {
+    const sendLeaveSignal = async () => {
       // Fire-and-forget RPC call to notify opponent
-      supabase.rpc('rpc_send_match_signal', {
-        p_room_id: matchId,
-        p_from_user_id: currentUserId,
-        p_to_user_id: opponentId,
-        p_type: 'player_left',
-        p_payload: { message: 'Player navigated away' }
-      }).then(() => console.log('[LEAVE] Sent player_left signal'))
-        .catch(() => {});
+      try {
+        await supabase.rpc('rpc_send_match_signal', {
+          p_room_id: matchId,
+          p_from_user_id: currentUserId,
+          p_to_user_id: opponentId,
+          p_type: 'player_left',
+          p_payload: { message: 'Player navigated away' }
+        });
+        console.log('[LEAVE] Sent player_left signal');
+      } catch {
+        // Silently fail
+      }
     };
 
     const handleBeforeUnload = () => {

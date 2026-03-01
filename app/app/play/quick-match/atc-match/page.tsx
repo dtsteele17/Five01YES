@@ -449,13 +449,17 @@ export default function ATCMatchPage() {
     if (otherIds.length === 0) return;
 
     const sendLeaveSignals = () => {
-      otherIds.forEach((playerId: string) => {
-        supabase.rpc('rpc_send_atc_signal', {
-          p_match_id: matchId,
-          p_recipient_id: playerId,
-          p_signal_type: 'player_left',
-          p_signal_data: { message: 'Player navigated away', at: new Date().toISOString() }
-        }).catch(() => {});
+      otherIds.forEach(async (playerId: string) => {
+        try {
+          await supabase.rpc('rpc_send_atc_signal', {
+            p_match_id: matchId,
+            p_recipient_id: playerId,
+            p_signal_type: 'player_left',
+            p_signal_data: { message: 'Player navigated away', at: new Date().toISOString() }
+          });
+        } catch {
+          // Silently fail
+        }
       });
     };
 
