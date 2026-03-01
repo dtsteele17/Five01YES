@@ -46,6 +46,7 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
   const [isMatchStarting, setIsMatchStarting] = useState(false);
   const [isInLobby, setIsInLobby] = useState(false);
   const [showLeaveOption, setShowLeaveOption] = useState(false);
+  const [expectedPlayerCount, setExpectedPlayerCount] = useState(0);
   const supabase = createClient();
   const channelRef = useRef<any>(null);
 
@@ -80,6 +81,7 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           const me = lobbyData.players?.find((p: ATCPlayer) => p.id === userId);
           setIsReady(me?.is_ready || false);
           setIsInLobby(true);
+          setExpectedPlayerCount(lobbyData.players?.length || 0);
           setLoading(false);
         } else {
           console.log('[POPUP] User not in players yet, waiting for realtime update...');
@@ -111,6 +113,14 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
           const updatedLobby = payload.new;
           console.log('[POPUP] Lobby update received:', updatedLobby);
           
+          // Check if lobby was cancelled or closed
+          if (updatedLobby.status === 'cancelled' || updatedLobby.status === 'closed') {
+            console.log('[POPUP] Lobby was cancelled or closed');
+            toast.error('The lobby has been closed by the host.');
+            onLeave();
+            return;
+          }
+          
           // Update lobby data
           setLobbyData(updatedLobby);
           setPlayers(updatedLobby.players || []);
@@ -125,8 +135,31 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
             if (!isInLobby) {
               console.log('[POPUP] User added to lobby!');
               setIsInLobby(true);
+              setExpectedPlayerCount(updatedLobby.players?.length || 0);
             }
             setLoading(false);
+            
+            // Check if player count decreased (someone left)
+            const currentPlayerCount = updatedLobby.players?.length || 0;
+            if (expectedPlayerCount > 0 && currentPlayerCount < expectedPlayerCount && isInLobby) {
+              console.log('[POPUP] Player left! Expected:', expectedPlayerCount, 'Current:', currentPlayerCount);
+              toast.error('The other player has left the lobby.');
+              
+              // Return to quick match page after brief delay
+              setTimeout(() => {
+                if (isMounted) {
+                  onLeave();
+                }
+              }, 2000);
+              return;
+            }
+            setExpectedPlayerCount(currentPlayerCount);
+          } else if (isInLobby) {
+            // User was removed from lobby
+            console.log('[POPUP] User removed from lobby!');
+            toast.error('You have been removed from the lobby.');
+            onLeave();
+            return;
           }
           
           // Check if match is starting
@@ -139,6 +172,21 @@ export function JoinAcceptedPopup({ lobbyId, userId, onLeave, onMatchStart }: Jo
               }
             }, 1500);
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'quick_match_lobbies',
+          filter: `id=eq.${lobbyId}`,
+        },
+        (payload) => {
+          if (!isMounted) return;
+          console.log('[POPUP] Lobby was deleted');
+          toast.error('The lobby has been deleted.');
+          onLeave();
         }
       )
       .subscribe((status) => {

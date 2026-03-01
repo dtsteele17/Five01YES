@@ -1366,6 +1366,23 @@ export default function QuickMatchLobbyPage() {
     setJoining(lobbyId);
 
     try {
+      // Check if there's already a pending join request for this lobby
+      const { data: existingRequests, error: existingError } = await supabase
+        .from('quick_match_join_requests')
+        .select('requester_username, created_at')
+        .eq('lobby_id', lobbyId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+
+      if (existingError) throw new Error(`Failed to check existing requests: ${existingError.message}`);
+
+      if (existingRequests && existingRequests.length > 0) {
+        const firstRequester = existingRequests[0];
+        setJoining(null);
+        toast.error(`${firstRequester.requester_username} has already requested to join this lobby. Please try another one.`);
+        return;
+      }
+
       // Get user profile and stats
       const [{ data: userProfile }, { data: userStats }] = await Promise.all([
         supabase.from('profiles').select('username, avatar_url').eq('user_id', userId).maybeSingle(),
