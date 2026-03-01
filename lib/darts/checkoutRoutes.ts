@@ -317,30 +317,20 @@ export const CHECKOUT_1: Record<number, string[]> = {
   2: ['D1'],
 };
 
-// All valid doubles for finishing (D25/Bull last to deprioritise)
+// All valid doubles for finishing
 const ALL_DOUBLES = [
   'D1','D2','D3','D4','D5','D6','D7','D8','D9','D10',
   'D11','D12','D13','D14','D15','D16','D17','D18','D19','D20','D25'
 ];
 
-// All valid single darts (SB/bull last to deprioritise)
+// All valid single darts (for building routes)
 const ALL_SINGLES = [
   ...Array.from({length: 20}, (_, i) => `S${i+1}`),
-  'SB'
+  'SB' // single bull = 25
 ];
 
 // All valid trebles
 const ALL_TREBLES = Array.from({length: 20}, (_, i) => `T${i+1}`);
-
-/**
- * Format a dart label for display. Converts DB → Bull, SB → S.Bull, D25 → Bull
- */
-export function formatDartLabel(label: string): string {
-  if (label === 'DB') return 'Bull';
-  if (label === 'SB') return 'S.Bull';
-  if (label === 'D25') return 'Bull';
-  return label;
-}
 
 /**
  * Try to find a checkout route ending with the preferred double.

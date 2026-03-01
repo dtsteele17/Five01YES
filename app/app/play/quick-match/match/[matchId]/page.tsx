@@ -55,7 +55,7 @@ import { PreGameLobby } from '@/components/match/PreGameLobby';
 import { TurnTimer } from '@/components/game/TurnTimer';
 import { AfkWarningModal } from '@/components/game/AfkWarningModal';
 import { OpponentAfkNotice } from '@/components/game/OpponentAfkNotice';
-import { getCheckoutSuggestion, formatDartLabel } from '@/lib/darts/checkoutRoutes';
+import { getCheckoutSuggestion } from '@/lib/darts/checkoutRoutes';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -580,13 +580,12 @@ function ScoringPanel({
                 {checkoutSuggestion.map((dart, idx) => (
                   <span key={idx} className={`
                     px-3 py-1 rounded-lg
-                    ${dart === 'DB' || dart === 'D25' ? 'bg-red-500/40 text-red-200 border border-red-400' :
-                      dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
+                    ${dart.startsWith('D') ? 'bg-red-500/30 text-red-300' : 
                       dart.startsWith('T') ? 'bg-amber-500/30 text-amber-300' :
-                      dart === 'SB' ? 'bg-green-500/30 text-green-300' :
+                      dart === 'DB' ? 'bg-red-500/40 text-red-200 border border-red-400' :
                       'bg-slate-700 text-white'}
                   `}>
-                    {formatDartLabel(dart)}
+                    {dart}
                   </span>
                 ))}
               </div>
