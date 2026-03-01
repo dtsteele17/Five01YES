@@ -16,7 +16,7 @@ function getLondonMinutesNow() {
 
 export function middleware(req: NextRequest) {
   // Toggle: set to false to disable the time gate
-  const enabled = true;
+  const enabled = false;
 
   // 18:00 → 21:30 London time
   const now = getLondonMinutesNow();
