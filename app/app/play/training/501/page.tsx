@@ -332,6 +332,8 @@ function ScoringPanel({
           <Input type="number" placeholder="Type score (0-180)" value={scoreInput}
             onChange={(e) => onScoreInputChange(e.target.value)}
             className="flex-1 bg-slate-800 border-white/10 text-white"
+            autoFocus
+            id="dartbot-score-input"
             onKeyDown={(e) => e.key === 'Enter' && onTypeScoreSubmit()} />
           <Button onClick={onTypeScoreSubmit} disabled={!scoreInput || submitting}
             className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50">
@@ -528,6 +530,17 @@ export default function DartbotMatchPage() {
   const [currentLeg, setCurrentLeg] = useState<LegData>({ legNumber: 1, winner: null, visits: [], player1DartsThrown: 0, player2DartsThrown: 0, player1First9DartsThrown: 0, player1First9PointsScored: 0, player2First9DartsThrown: 0, player2First9PointsScored: 0 });
   const [allLegs, setAllLegs] = useState<LegData[]>([]);
   const [scoreInput, setScoreInput] = useState('');
+  
+  // Auto-focus the score input after each submission (when scoreInput resets to '')
+  useEffect(() => {
+    if (scoreInput === '') {
+      setTimeout(() => {
+        const el = document.getElementById('dartbot-score-input') as HTMLInputElement | null;
+        if (el) el.focus();
+      }, 100);
+    }
+  }, [scoreInput]);
+  
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [matchWinner, setMatchWinner] = useState<'player1' | 'player2' | null>(null);
   const [currentVisit, setCurrentVisit] = useState<Dart[]>([]);
