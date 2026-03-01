@@ -159,7 +159,9 @@ export default function SettingsPage() {
   const clampCropOffset = (zoomValue: number, nextOffset: { x: number; y: number }) => {
     if (!cropImage) return { x: 0, y: 0 };
     const canvasSize = 320;
-    const baseScale = Math.max(canvasSize / cropImage.width, canvasSize / cropImage.height);
+    const baseScale = zoomValue < 1
+      ? Math.min(canvasSize / cropImage.width, canvasSize / cropImage.height)
+      : Math.max(canvasSize / cropImage.width, canvasSize / cropImage.height);
     const drawW = cropImage.width * baseScale * zoomValue;
     const drawH = cropImage.height * baseScale * zoomValue;
     const maxX = Math.max(0, (drawW - canvasSize) / 2);
@@ -188,7 +190,9 @@ export default function SettingsPage() {
     canvas.width = canvasSize;
     canvas.height = canvasSize;
 
-    const baseScale = Math.max(canvasSize / cropImage.width, canvasSize / cropImage.height);
+    const baseScale = cropZoom < 1
+      ? Math.min(canvasSize / cropImage.width, canvasSize / cropImage.height)
+      : Math.max(canvasSize / cropImage.width, canvasSize / cropImage.height);
     const scale = baseScale * cropZoom;
     const drawW = cropImage.width * scale;
     const drawH = cropImage.height * scale;
@@ -196,6 +200,8 @@ export default function SettingsPage() {
     const y = (canvasSize - drawH) / 2 + cropOffset.y;
 
     ctx.clearRect(0, 0, canvasSize, canvasSize);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
     ctx.drawImage(cropImage, x, y, drawW, drawH);
   }, [cropImage, cropZoom, cropOffset, cropModalOpen]);
 
@@ -268,12 +274,16 @@ export default function SettingsPage() {
       const ctx = outputCanvas.getContext('2d');
       if (!ctx) throw new Error('Failed to initialize image cropper');
 
-      const baseScale = Math.max(outputSize / cropImage.width, outputSize / cropImage.height);
+      const baseScale = cropZoom < 1
+        ? Math.min(outputSize / cropImage.width, outputSize / cropImage.height)
+        : Math.max(outputSize / cropImage.width, outputSize / cropImage.height);
       const scale = baseScale * cropZoom;
       const drawW = cropImage.width * scale;
       const drawH = cropImage.height * scale;
       const x = (outputSize - drawW) / 2 + cropOffset.x * (outputSize / 320);
       const y = (outputSize - drawH) / 2 + cropOffset.y * (outputSize / 320);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, outputSize, outputSize);
       ctx.drawImage(cropImage, x, y, drawW, drawH);
 
       const blob = await new Promise<Blob | null>((resolve) => outputCanvas.toBlob(resolve, 'image/jpeg', 0.9));
@@ -785,7 +795,7 @@ export default function SettingsPage() {
               <Label className="text-white">Zoom</Label>
               <input
                 type="range"
-                min={1}
+                min={0.2}
                 max={3}
                 step={0.01}
                 value={cropZoom}
