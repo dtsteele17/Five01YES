@@ -1927,11 +1927,13 @@ export default function QuickMatchLobbyPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-        <HeroStat value={totalOpenLobbies} label="Available Matches" icon={Gamepad2} color="bg-blue-500" />
-        <HeroStat value={inProgressMatches} label="Matches In Play" icon={Zap} color="bg-emerald-500" />
-        <HeroStat value={last5Record} label="Last 5 Matches" icon={Target} color="bg-purple-500" />
-        <HeroStat value={realtimeStatus === 'connected' ? 'Live' : 'Connecting'} label="Status" icon={Activity} color="bg-orange-500" />
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-4">
+        <HeroStat value={totalOpenLobbies} label="Available" icon={Gamepad2} color="bg-blue-500" />
+        <HeroStat value={inProgressMatches} label="In Play" icon={Zap} color="bg-emerald-500" />
+        <HeroStat value={last5Record} label="Last 5" icon={Target} color="bg-purple-500" />
+        <div className="hidden sm:block">
+          <HeroStat value={realtimeStatus === 'connected' ? 'Live' : 'Connecting'} label="Status" icon={Activity} color="bg-orange-500" />
+        </div>
       </div>
 
       {/* Stale Lobby Warning */}
@@ -2051,7 +2053,8 @@ export default function QuickMatchLobbyPage() {
                 )
               ) : (
                 // CREATE LOBBY FORM
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
+                  <div className={`grid gap-3 ${isATCMode ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-1'}`}>
                   <div className="space-y-2">
                     <Label className="text-slate-300 text-sm">Game Mode</Label>
                     <Select value={gameMode} onValueChange={setGameMode}>
@@ -2064,6 +2067,26 @@ export default function QuickMatchLobbyPage() {
                         <SelectItem value="atc">Around The Clock</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {!isATCMode && (
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm">Match Format</Label>
+                      <Select value={matchFormat} onValueChange={setMatchFormat}>
+                        <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-700">
+                          <SelectItem value="best-of-1">Best of 1</SelectItem>
+                          <SelectItem value="best-of-3">Best of 3</SelectItem>
+                          <SelectItem value="best-of-5">Best of 5</SelectItem>
+                          <SelectItem value="best-of-7">Best of 7</SelectItem>
+                          <SelectItem value="best-of-9">Best of 9</SelectItem>
+                          <SelectItem value="best-of-11">Best of 11</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   </div>
 
                   {isATCMode && (
@@ -2127,25 +2150,6 @@ export default function QuickMatchLobbyPage() {
                         </Select>
                       </div>
                     </>
-                  )}
-
-                  {!isATCMode && (
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm">Match Format</Label>
-                      <Select value={matchFormat} onValueChange={setMatchFormat}>
-                        <SelectTrigger className="bg-slate-900/50 border-slate-700 text-white h-12">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-700">
-                          <SelectItem value="best-of-1">Best of 1</SelectItem>
-                          <SelectItem value="best-of-3">Best of 3</SelectItem>
-                          <SelectItem value="best-of-5">Best of 5</SelectItem>
-                          <SelectItem value="best-of-7">Best of 7</SelectItem>
-                          <SelectItem value="best-of-9">Best of 9</SelectItem>
-                          <SelectItem value="best-of-11">Best of 11</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   )}
 
                   <Button
