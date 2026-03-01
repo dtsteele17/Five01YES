@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       if (data?.user) {
         console.log('[Auth Callback] User authenticated:', data.user.id);
 
-        // Verify profile exists and check if setup is complete
+        // Check if profile exists
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id, username, display_name, created_at')
@@ -34,32 +34,33 @@ export async function GET(request: Request) {
         if (!profile) {
           console.warn('[Auth Callback] Profile not found, creating fallback profile');
 
-          // Fallback: create profile manually if trigger didn't work
+          // Generate a temporary username from email
+          const emailPrefix = data.user.email?.split('@')[0] || 'user';
+          const tempUsername = emailPrefix.replace(/[^a-zA-Z0-9_]/g, '') + '_' + Math.random().toString(36).slice(2, 6);
+          const displayName = data.user.user_metadata?.full_name || emailPrefix;
+
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
               id: data.user.id,
               user_id: data.user.id,
-              username: null, // Will be set in setup
-              display_name: null, // Will be set in setup
-              avatar_url: data.user.user_metadata?.avatar_url,
+              username: tempUsername,
+              display_name: displayName,
+              avatar_url: data.user.user_metadata?.avatar_url || null,
             });
 
           if (insertError) {
             console.error('[Auth Callback] Failed to create profile:', insertError);
+            // Still redirect to app — the DB trigger may have created it
             return NextResponse.redirect(new URL('/app', request.url));
-          } else {
-            console.log('[Auth Callback] Fallback profile created, redirecting to setup');
-            return NextResponse.redirect(new URL('/app/setup', request.url));
           }
+
+          console.log('[Auth Callback] New profile created, redirecting to setup');
+          return NextResponse.redirect(new URL('/app/setup', request.url));
         } else {
-          console.log('[Auth Callback] Profile verified:', profile.username);
-          
-          // Check if profile setup is complete
-          if (!profile.username || !profile.display_name) {
-            console.log('[Auth Callback] Profile incomplete, redirecting to setup');
-            return NextResponse.redirect(new URL('/app/setup', request.url));
-          }
+          console.log('[Auth Callback] Existing profile found:', profile.username);
+          // Existing user — go straight to dashboard
+          return NextResponse.redirect(new URL('/app', request.url));
         }
       }
     } catch (error) {
