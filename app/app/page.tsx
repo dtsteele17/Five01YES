@@ -556,8 +556,10 @@ export default function DashboardPage() {
             <div className="absolute top-0 left-1/4 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl" />
             <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl" />
             
-            {/* Top Accent Line */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+            {/* Top Accent Line - only show when ranked */}
+            {rankedState && !rankedState.provisional_games_remaining && (
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+            )}
             
             <div className="relative z-10 p-4 sm:p-8">
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 sm:gap-8">
@@ -596,9 +598,11 @@ export default function DashboardPage() {
                       {rankedState?.provisional_games_remaining ? '—' : (rankedState?.rp || 0)}
                     </p>
                   </div>
-                  <p className="text-amber-400/80 text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-2">
-                    {rankedState?.provisional_games_remaining ? 'COMPLETE PLACEMENTS' : 'ELO Rating'}
-                  </p>
+                  {!rankedState?.provisional_games_remaining && (
+                    <p className="text-amber-400/80 text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] mt-2">
+                      ELO Rating
+                    </p>
+                  )}
                 </div>
 
                 {/* Right - Play Button & Placement */}
