@@ -55,7 +55,7 @@ export function useMatchWebRTC({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
   // Refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -74,7 +74,7 @@ export function useMatchWebRTC({
     localStreamRef.current = localStream;
   }, [localStream]);
 
-  const facingModeRef = useRef<'user' | 'environment'>('user');
+  const facingModeRef = useRef<'user' | 'environment'>('environment');
   useEffect(() => { facingModeRef.current = facingMode; }, [facingMode]);
 
   const sendReconnectSignal = useCallback(async (reason: string) => {
