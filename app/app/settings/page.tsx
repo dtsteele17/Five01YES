@@ -583,13 +583,16 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label className="text-white">Preferred Double</Label>
             <Select
-              value={preferredDouble}
-              onValueChange={(value: string) => setPreferredDouble(value)}
+              value={preferredDouble || 'none'}
+              onValueChange={(value: string) => setPreferredDouble(value === 'none' ? '' : value)}
             >
               <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-emerald-500/50">
                 <SelectValue placeholder="Select your favourite double" />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-white/10 max-h-60">
+                <SelectItem value="none" className="text-white hover:bg-white/10">
+                  No Preference
+                </SelectItem>
                 {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                   <SelectItem key={n} value={`D${n}`} className="text-white hover:bg-white/10">
                     D{n}
