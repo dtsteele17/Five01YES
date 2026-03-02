@@ -4399,13 +4399,15 @@ export default function QuickMatchRoomPage() {
           <div className="grid grid-cols-2 gap-2">
             <Card className={`bg-slate-800/50 border p-2 ${isMyTurn && room.status === 'active' ? 'border-emerald-500/30' : 'border-white/10'}`}>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 truncate">{myPlayer.name}</div>
-              <div className="text-xl leading-none font-bold text-emerald-400 mt-1">{myPlayer.remaining}</div>
-              <div className="text-[10px] text-slate-500 mt-1">Legs {myPlayer.legsWon}/{matchState.legsToWin}</div>
+              <div className="text-2xl leading-none font-bold text-emerald-400 mt-1">{myPlayer.remaining}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Avg: {myPlayer.avg?.toFixed(1) || '0.0'}</div>
+              <div className="text-[10px] text-slate-500">Legs {myPlayer.legsWon}/{matchState.legsToWin}</div>
             </Card>
             <Card className={`bg-slate-800/50 border p-2 ${!isMyTurn && room.status === 'active' ? 'border-blue-500/30' : 'border-white/10'}`}>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 truncate text-right">{opponentPlayer.name}</div>
-              <div className="text-xl leading-none font-bold text-blue-400 mt-1 text-right">{opponentPlayer.remaining}</div>
-              <div className="text-[10px] text-slate-500 mt-1 text-right">Legs {opponentPlayer.legsWon}/{matchState.legsToWin}</div>
+              <div className="text-2xl leading-none font-bold text-blue-400 mt-1 text-right">{opponentPlayer.remaining}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5 text-right">Avg: {opponentPlayer.avg?.toFixed(1) || '0.0'}</div>
+              <div className="text-[10px] text-slate-500 text-right">Legs {opponentPlayer.legsWon}/{matchState.legsToWin}</div>
             </Card>
           </div>
 
@@ -4567,6 +4569,21 @@ export default function QuickMatchRoomPage() {
                 />
               </div>
               <div className="flex gap-2">
+                {/* Camera device selector - always visible on desktop when multiple cameras */}
+                {videoDevices.length > 1 && (
+                  <select
+                    className="h-8 bg-slate-800 border border-white/10 rounded text-white text-xs px-2 max-w-[160px] truncate"
+                    value={selectedDeviceId || ''}
+                    onChange={(e) => selectDevice(e.target.value)}
+                    title="Select camera"
+                  >
+                    {videoDevices.map((device) => (
+                      <option key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Camera ${videoDevices.indexOf(device) + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {/* Show camera controls only if it's my turn AND I'm the active player */}
                 {isMyTurn ? (
                   <>
@@ -4577,20 +4594,6 @@ export default function QuickMatchRoomPage() {
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={switchCamera} title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}>
                         <RotateCcw className="w-4 h-4" />
                       </Button>
-                    )}
-                    {isCameraOn && videoDevices.length > 1 && (
-                      <select
-                        className="hidden sm:block h-8 bg-slate-800 border border-white/10 rounded text-white text-xs px-2 max-w-[160px] truncate"
-                        value={selectedDeviceId || ''}
-                        onChange={(e) => selectDevice(e.target.value)}
-                        title="Select camera"
-                      >
-                        {videoDevices.map((device) => (
-                          <option key={device.deviceId} value={device.deviceId}>
-                            {device.label || `Camera ${videoDevices.indexOf(device) + 1}`}
-                          </option>
-                        ))}
-                      </select>
                     )}
                     {isCameraOn && (
                       <TooltipProvider>
