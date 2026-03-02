@@ -254,155 +254,130 @@ function DartBotConfigCard() {
   };
 
   const currentLevel = botLevels.find(l => l.level === botLevel);
+  const [showMobileConfig, setShowMobileConfig] = useState(false);
 
-  return (
-    <motion.div
-      variants={itemVariants}
-      className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600/20 via-slate-800/60 to-teal-600/20 border border-emerald-500/40 p-4 sm:p-8"
-    >
-      {/* Background Effects */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl" />
-      
-      <div className="relative">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl">
-              <Cpu className="w-10 h-10 text-white" />
+  const renderConfigContent = (mobile = false) => (
+    <>
+      <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
+          <label className="text-slate-400 text-sm font-medium mb-3 block">Bot Level</label>
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => setBotLevel(Math.max(1, botLevel - 1))} className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
+              <Minus className="w-4 h-4 text-slate-300" />
+            </button>
+            <div className="text-center">
+              <span className="text-3xl font-black text-white">{botLevel}</span>
+              <p className="text-xs text-emerald-400 font-medium">{currentLevel?.label}</p>
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                  AI Opponent
-                </Badge>
-                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-                  <Star className="w-3 h-3 mr-1" />
-                  +100 XP
-                </Badge>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-white">DartBot Training</h2>
-              <p className="text-slate-400">Practice against AI with adjustable difficulty</p>
-            </div>
+            <button onClick={() => setBotLevel(Math.min(8, botLevel + 1))} className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
+              <Plus className="w-4 h-4 text-slate-300" />
+            </button>
           </div>
-          <div className="text-right hidden md:block">
-            <p className="text-slate-400 text-sm">8 Difficulty Levels</p>
-            <p className="text-2xl font-bold text-emerald-400">25-95 avg</p>
+          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300" style={{ width: `${(botLevel / 8) * 100}%` }} />
           </div>
+          <p className="text-xs text-slate-500 mt-2 text-center">Average: {currentLevel?.avg} PPR</p>
         </div>
 
-        {/* Configuration Options */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {/* Bot Level Selector */}
-          <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
-            <label className="text-slate-400 text-sm font-medium mb-3 block">
-              Bot Level
-            </label>
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => setBotLevel(Math.max(1, botLevel - 1))}
-                className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
-              >
-                <Minus className="w-4 h-4 text-slate-300" />
+        <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
+          <label className="text-slate-400 text-sm font-medium mb-3 block">Game Mode</label>
+          <div className="flex gap-3">
+            {[301, 501].map((mode) => (
+              <button key={mode} onClick={() => setGameMode(mode as 301 | 501)} className={`flex-1 h-10 sm:h-14 rounded-xl font-bold text-sm sm:text-lg transition-all ${gameMode === mode ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                {mode}
               </button>
-              <div className="text-center">
-                <span className="text-3xl font-black text-white">{botLevel}</span>
-                <p className="text-xs text-emerald-400 font-medium">
-                  {currentLevel?.label}
-                </p>
-              </div>
-              <button
-                onClick={() => setBotLevel(Math.min(8, botLevel + 1))}
-                className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
-              >
-                <Plus className="w-4 h-4 text-slate-300" />
-              </button>
-            </div>
-            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
-                style={{ width: `${(botLevel / 8) * 100}%` }}
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-2 text-center">
-              Average: {currentLevel?.avg} PPR
-            </p>
+            ))}
           </div>
-
-          {/* Game Mode Selector */}
-          <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
-            <label className="text-slate-400 text-sm font-medium mb-3 block">
-              Game Mode
-            </label>
-            <div className="flex gap-3">
-              {[301, 501].map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setGameMode(mode as 301 | 501)}
-                  className={`flex-1 h-10 sm:h-14 rounded-xl font-bold text-sm sm:text-lg transition-all ${
-                    gameMode === mode
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-500 mt-3 text-center">
-              {gameMode === 301 ? 'Quick format - Fast paced' : 'Classic format - Standard play'}
-            </p>
-          </div>
-
-          {/* Legs Selector */}
-          <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
-            <label className="text-slate-400 text-sm font-medium mb-3 block">
-              Match Format
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[1, 3, 5, 7, 9, 11].map((legs) => (
-                <button
-                  key={legs}
-                  onClick={() => setBestOf(legs)}
-                  className={`py-2 px-3 rounded-lg font-semibold text-sm transition-all ${
-                    bestOf === legs
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  Best of {legs}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-500 mt-3 text-center">
-              First to {Math.ceil(bestOf / 2)} legs wins
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 mt-3 text-center">{gameMode === 301 ? 'Quick format - Fast paced' : 'Classic format - Standard play'}</p>
         </div>
 
-        {/* Start Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-slate-400">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              Double Out Enabled
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              Stats Tracked
-            </div>
+        <div className="bg-slate-900/50 rounded-2xl p-3 sm:p-5 border border-slate-700/50">
+          <label className="text-slate-400 text-sm font-medium mb-3 block">Match Format</label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[1, 3, 5, 7, 9, 11].map((legs) => (
+              <button key={legs} onClick={() => setBestOf(legs)} className={`py-2 px-3 rounded-lg font-semibold text-sm transition-all ${bestOf === legs ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                Best of {legs}
+              </button>
+            ))}
           </div>
-          <Button 
-            onClick={handleStart}
-            size="lg"
-            className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-base sm:text-lg shadow-xl hover:shadow-2xl transition-all"
-          >
-            <Play className="w-5 h-5 mr-2" />
-            Start Match
-          </Button>
+          <p className="text-xs text-slate-500 mt-3 text-center">First to {Math.ceil(bestOf / 2)} legs wins</p>
         </div>
       </div>
-    </motion.div>
+
+      <div className={`flex ${mobile ? 'flex-col gap-4' : 'flex-col sm:flex-row sm:items-center sm:justify-between'} gap-4`}>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-slate-400">
+          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" />Double Out Enabled</div>
+          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" />Stats Tracked</div>
+        </div>
+        <Button onClick={handleStart} size="lg" className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-4 sm:px-8 py-4 sm:py-6 text-base sm:text-lg shadow-xl hover:shadow-2xl transition-all">
+          <Play className="w-5 h-5 mr-2" />Start Match
+        </Button>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      <motion.div variants={itemVariants} className="md:hidden relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600/20 via-slate-800/60 to-teal-600/20 border border-emerald-500/40 p-4">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">AI Opponent</Badge>
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30"><Star className="w-3 h-3 mr-1" />+100 XP</Badge>
+              </div>
+              <h2 className="text-xl font-black text-white">DartBot Training</h2>
+              <p className="text-slate-400 text-sm">Level {botLevel} • {gameMode} • Best of {bestOf}</p>
+            </div>
+          </div>
+          <Button onClick={() => setShowMobileConfig(true)} className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-5">Configure DartBot</Button>
+        </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="hidden md:block relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600/20 via-slate-800/60 to-teal-600/20 border border-emerald-500/40 p-4 sm:p-8">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl" />
+        <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl"><Cpu className="w-10 h-10 text-white" /></div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">AI Opponent</Badge>
+                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30"><Star className="w-3 h-3 mr-1" />+100 XP</Badge>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white">DartBot Training</h2>
+                <p className="text-slate-400">Practice against AI with adjustable difficulty</p>
+              </div>
+            </div>
+            <div className="text-right hidden md:block">
+              <p className="text-slate-400 text-sm">8 Difficulty Levels</p>
+              <p className="text-2xl font-bold text-emerald-400">25-95 avg</p>
+            </div>
+          </div>
+          {renderConfigContent()}
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {showMobileConfig && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowMobileConfig(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 md:hidden" />
+            <motion.div initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 32 }} className="fixed inset-x-0 bottom-0 z-50 md:hidden">
+              <div className="bg-slate-900 border-t border-slate-700 rounded-t-3xl p-4 max-h-[88vh] overflow-y-auto">
+                <div className="w-12 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-black text-white">Configure DartBot</h3>
+                  <button onClick={() => setShowMobileConfig(false)} className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"><X className="w-4 h-4 text-slate-400" /></button>
+                </div>
+                {renderConfigContent(true)}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
