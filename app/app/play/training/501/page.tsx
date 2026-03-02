@@ -410,7 +410,7 @@ function ScoringPanel({
         ))}
       </div>
 
-      <div className="flex gap-1 mb-2">
+      <div className="hidden sm:flex gap-1 mb-2">
         {(['singles', 'doubles', 'triples', 'bulls'] as const).map((tab) => (
           <Button key={tab} size="sm" variant={activeTab === tab ? 'default' : 'outline'}
             onClick={() => setActiveTab(tab)} className={`flex-1 text-xs ${
@@ -423,7 +423,7 @@ function ScoringPanel({
         ))}
       </div>
 
-      <div className="flex-1 grid grid-cols-3 sm:grid-cols-5 gap-1 mb-3">
+      <div className="hidden sm:grid flex-1 grid-cols-3 sm:grid-cols-5 gap-1 mb-3">
         {activeTab === 'bulls' ? (
           <>
             <Button onClick={() => onDartClick('bull', 25)} className="h-full bg-green-500/20 text-green-400 hover:bg-green-500/30 text-lg">25</Button>
@@ -445,7 +445,7 @@ function ScoringPanel({
         )}
       </div>
 
-      <div className="flex gap-1">
+      <div className="hidden sm:flex gap-1">
         <Button variant="outline" onClick={onUndoDart} disabled={currentDarts.length === 0}
           className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs">Undo</Button>
         <Button variant="outline" onClick={onClearVisit} disabled={currentDarts.length === 0}
@@ -497,11 +497,10 @@ function VisitHistoryPanel({ visits, myName, botName, currentLeg, onEditVisit, c
                       <span className="text-xs text-gray-500">#{myVisits.length - i}</span>
                       <div className="flex items-center gap-1">
                         <span className={`font-bold text-emerald-400 text-lg`}>{myVisit.score}</span>
-                        {/* Edit button - only show for most recent visit and when editing is allowed */}
-                        {canEdit && i === 0 && onEditVisit && (
+                        {canEdit && onEditVisit && (
                           <button
                             onClick={() => onEditVisit(myVisit)}
-                            className="p-1 bg-slate-700 hover:bg-slate-600 rounded text-gray-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="p-1 bg-slate-700 hover:bg-slate-600 rounded text-gray-300 hover:text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             title="Edit visit"
                           >
                             <Edit2 className="w-3 h-3" />
@@ -1405,9 +1404,7 @@ export default function DartbotMatchPage() {
 
   // Handle edit visit click
   const handleEditVisit = (visit: Visit) => {
-    // Only allow editing the last visit of the current leg
-    const lastVisit = currentLeg.visits[currentLeg.visits.length - 1];
-    if (lastVisit !== visit || visit.player !== 'player1') return;
+    if (visit.player !== 'player1' || visit.legNumber !== currentLeg.legNumber) return;
     
     setEditingVisit(visit);
     setEditScoreInput(visit.score.toString());
@@ -1420,53 +1417,60 @@ export default function DartbotMatchPage() {
     
     const newScore = parseInt(editScoreInput, 10);
     if (isNaN(newScore) || newScore < 0 || newScore > 180) return;
-    
-    const oldScore = editingVisit.score;
-    const oldDartsThrown = editingVisit.dartsThrown || 3;
-    const oldRemainingBefore = editingVisit.remainingBefore ?? editingVisit.remainingScore + oldScore;
-    
-    // Calculate new remaining
-    const newRemaining = oldRemainingBefore - newScore;
-    
-    // Check for bust
+    const targetTimestamp = editingVisit.timestamp;
+    const startScore = getStartScore(config.mode);
+    const targetIndex = currentLeg.visits.findIndex(
+      v => v.player === 'player1' && v.timestamp === targetTimestamp && v.legNumber === editingVisit.legNumber
+    );
+    if (targetIndex < 0) return;
+
+    const oldPlayer1Total = currentLeg.visits
+      .filter(v => v.player === 'player1')
+      .reduce((sum, v) => sum + v.score, 0);
+
+    const newVisits = [...currentLeg.visits];
     const doubleOut = config.doubleOut;
-    const bust = isBust(oldRemainingBefore, newScore, doubleOut);
-    
-    // Update the visit
-    const updatedVisit: Visit = {
-      ...editingVisit,
-      score: bust ? 0 : newScore,
-      remainingScore: bust ? oldRemainingBefore : newRemaining,
-      isBust: bust,
-      isCheckout: newRemaining === 0 && !bust,
-      remainingAfter: bust ? oldRemainingBefore : newRemaining,
-    };
-    
-    // Update current leg
-    setCurrentLeg(prev => {
-      const newVisits = [...prev.visits];
-      newVisits[newVisits.length - 1] = updatedVisit;
-      
-      // Recalculate darts thrown and first 9 stats
-      const player1Visits = newVisits.filter(v => v.player === 'player1');
-      const newDartsThrown = player1Visits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-      const first9Visits = player1Visits.slice(0, 3);
-      const newFirst9Darts = first9Visits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-      const newFirst9Points = first9Visits.reduce((sum, v) => sum + v.score, 0);
-      
-      return {
-        ...prev,
-        visits: newVisits,
-        player1DartsThrown: newDartsThrown,
-        player1First9DartsThrown: newFirst9Darts,
-        player1First9PointsScored: newFirst9Points,
+    let player1Remaining = startScore;
+
+    for (let i = 0; i < newVisits.length; i++) {
+      const visit = newVisits[i];
+      if (visit.player !== 'player1') continue;
+
+      const proposedScore = i === targetIndex ? newScore : visit.score;
+      const bust = isBust(player1Remaining, proposedScore, doubleOut);
+      const appliedScore = bust ? 0 : proposedScore;
+      const remainingAfter = bust ? player1Remaining : player1Remaining - appliedScore;
+
+      newVisits[i] = {
+        ...visit,
+        score: appliedScore,
+        isBust: bust,
+        isCheckout: !bust && remainingAfter === 0,
+        remainingBefore: player1Remaining,
+        remainingAfter,
+        remainingScore: remainingAfter,
       };
-    });
-    
-    // Update score and stats
-    setPlayer1Score(bust ? oldRemainingBefore : newRemaining);
-    setPlayer1MatchTotalScored(prev => prev - oldScore + (bust ? 0 : newScore));
-    setPlayer1MatchDartsThrown(prev => prev - oldDartsThrown + oldDartsThrown); // Darts thrown stays same
+
+      player1Remaining = remainingAfter;
+    }
+
+    const newPlayer1Visits = newVisits.filter(v => v.player === 'player1');
+    const newPlayer1Total = newPlayer1Visits.reduce((sum, v) => sum + v.score, 0);
+    const totalScoredDelta = newPlayer1Total - oldPlayer1Total;
+    const newDartsThrown = newPlayer1Visits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const first9Visits = newPlayer1Visits.slice(0, 3);
+    const newFirst9Darts = first9Visits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const newFirst9Points = first9Visits.reduce((sum, v) => sum + v.score, 0);
+
+    setCurrentLeg(prev => ({
+      ...prev,
+      visits: newVisits,
+      player1DartsThrown: newDartsThrown,
+      player1First9DartsThrown: newFirst9Darts,
+      player1First9PointsScored: newFirst9Points,
+    }));
+    setPlayer1Score(player1Remaining);
+    setPlayer1MatchTotalScored(prev => prev + totalScoredDelta);
     
     setShowEditDialog(false);
     setEditingVisit(null);
@@ -1716,55 +1720,65 @@ export default function DartbotMatchPage() {
         <div className="grid grid-cols-2 gap-2">
           <Card className={`bg-slate-800/50 border p-2 ${currentPlayer === 'player1' ? 'border-emerald-500/30' : 'border-white/10'}`}>
             <div className="text-[10px] uppercase tracking-wide text-slate-400">You {currentPlayer === 'player1' && !matchWinner ? '🎯' : ''}</div>
-            <div className="text-2xl font-bold text-emerald-400 leading-none mt-1">{player1Score}</div>
+            <div className="mt-1 flex items-end justify-between">
+              <div className="text-2xl font-bold text-emerald-400 leading-none">{player1Score}</div>
+              <div className="text-right leading-none">
+                <div className="text-[9px] uppercase tracking-wide text-slate-500">Legs</div>
+                <div className="text-lg font-bold text-white">{player1LegsWon}</div>
+              </div>
+            </div>
             <div className="text-[10px] text-slate-500 mt-0.5">Avg: {(calculateMatchStats(true) as any)?.threeDartAvg?.toFixed(1) || '0.0'}</div>
-            <div className="text-[10px] text-slate-500">Legs {player1LegsWon}/{legsToWin}</div>
+            <div className="text-[10px] text-slate-500">Race to {legsToWin}</div>
           </Card>
           <Card className={`bg-slate-800/50 border p-2 ${currentPlayer === 'player2' ? 'border-purple-500/30' : 'border-white/10'}`}>
             <div className="text-[10px] uppercase tracking-wide text-slate-400 text-right">{botName} {currentPlayer === 'player2' && !matchWinner ? '🎯' : ''}</div>
-            <div className="text-2xl font-bold text-purple-400 leading-none mt-1 text-right">{player2Score}</div>
+            <div className="mt-1 flex items-end justify-between">
+              <div className="text-lg font-bold text-white">{player2LegsWon}</div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-purple-400 leading-none">{player2Score}</div>
+                <div className="text-[9px] uppercase tracking-wide text-slate-500 mt-0.5">Legs</div>
+              </div>
+            </div>
             <div className="text-[10px] text-slate-500 mt-0.5 text-right">Avg: {(calculateMatchStats(false) as any)?.threeDartAvg?.toFixed(1) || '0.0'}</div>
-            <div className="text-[10px] text-slate-500 text-right">Legs {player2LegsWon}/{legsToWin}</div>
+            <div className="text-[10px] text-slate-500 text-right">Race to {legsToWin}</div>
           </Card>
         </div>
 
-        {/* Bot's turn: show dartboard */}
-        {currentPlayer === 'player2' && !matchWinner ? (
-          <Card className="flex-1 bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
-            <div className="flex-1 relative flex items-center justify-center p-2">
-              <div className="relative w-full max-w-[280px] aspect-square">
-                <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
+        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+          <div className="relative flex items-start justify-center pt-1 pb-2">
+            <div className="relative w-full max-w-[260px] aspect-square -translate-y-1">
+              <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
+            </div>
+          </div>
+          {isBotThinking && (
+            <div className="pb-2 text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                <span className="text-slate-300 text-xs">{botName} is throwing...</span>
               </div>
             </div>
-            {isBotThinking && (
-              <div className="pb-2 text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                  <span className="text-slate-300 text-xs">{botName} is throwing...</span>
-                </div>
+          )}
+          {lastThreeDarts.length > 0 && !isBotThinking && (
+            <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
+              <div className="flex items-center gap-2">
+                {lastThreeDarts.map((dart, i) => (
+                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                    dart.isDouble ? 'bg-red-500/30 text-red-300' :
+                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                    'bg-slate-700 text-white'
+                  }`}>{dart.label}</span>
+                ))}
+                <span className={`font-bold ml-auto text-sm ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {botLastVisitWasBust ? 'BUST' : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
+                </span>
               </div>
-            )}
-            {lastThreeDarts.length > 0 && !isBotThinking && (
-              <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
-                <div className="flex items-center gap-2">
-                  {lastThreeDarts.map((dart, i) => (
-                    <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
-                      dart.isDouble ? 'bg-red-500/30 text-red-300' :
-                      dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
-                      dart.offboard ? 'bg-gray-500/30 text-gray-400' :
-                      'bg-slate-700 text-white'
-                    }`}>{dart.label}</span>
-                  ))}
-                  <span className={`font-bold ml-auto text-sm ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {botLastVisitWasBust ? 'BUST' : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
-                  </span>
-                </div>
-              </div>
-            )}
-          </Card>
-        ) : !matchWinner ? (
-          /* User's turn: show numpad with checkout */
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-3 overflow-auto">
+            </div>
+          )}
+        </Card>
+
+        {!matchWinner && currentPlayer === 'player1' && (
+          <Card className="bg-slate-800/50 border-white/10 p-3">
             <ScoringPanel
               scoreInput={scoreInput}
               onScoreInputChange={setScoreInput}
@@ -1782,7 +1796,18 @@ export default function DartbotMatchPage() {
               preferredDouble={preferredDouble}
             />
           </Card>
-        ) : null}
+        )}
+
+        <Card className="flex-1 bg-slate-800/50 border-white/10 p-2 overflow-hidden min-h-0">
+          <VisitHistoryPanel 
+            visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} 
+            myName="You" 
+            botName={botName} 
+            currentLeg={currentLeg.legNumber} 
+            onEditVisit={handleEditVisit}
+            canEdit={currentLeg.visits.some(v => v.player === 'player1')}
+          />
+        </Card>
       </div>
 
       {/* ===== DESKTOP LAYOUT ===== */}
@@ -1908,7 +1933,7 @@ export default function DartbotMatchPage() {
                 botName={botName} 
                 currentLeg={currentLeg.legNumber} 
                 onEditVisit={handleEditVisit}
-                canEdit={currentLeg.visits.length > 0 && currentLeg.visits[currentLeg.visits.length - 1].player === 'player1'}
+                canEdit={currentLeg.visits.some(v => v.player === 'player1')}
               />
             )}
           </Card>
@@ -1960,9 +1985,9 @@ export default function DartbotMatchPage() {
       <AlertDialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <AlertDialogContent className="bg-slate-900 border-slate-700">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Edit Last Visit</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">Edit Visit</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400">
-              Enter the correct score for your last visit.
+              Enter the correct score for this visit.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
