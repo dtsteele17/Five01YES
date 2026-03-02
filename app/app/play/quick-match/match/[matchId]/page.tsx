@@ -851,6 +851,7 @@ export default function QuickMatchRoomPage() {
   const [showAfkWarning, setShowAfkWarning] = useState(false);
   const [showOpponentAfk, setShowOpponentAfk] = useState(false);
   const [turnStartedAt, setTurnStartedAt] = useState<string | null>(null); // shared timestamp for synced timer
+  const [mobileCameraExpanded, setMobileCameraExpanded] = useState(false);
 
   // Camera refresh state
   const [isRefreshingCamera, setIsRefreshingCamera] = useState(false);
@@ -4287,7 +4288,6 @@ export default function QuickMatchRoomPage() {
   const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
   const myVisitPlayerId = currentUserId || (matchState.youArePlayer === 1 ? room.player1_id : room.player2_id);
   const opponentVisitPlayerId = opponentId || (matchState.youArePlayer === 1 ? room.player2_id : room.player1_id);
-  const [mobileCameraExpanded, setMobileCameraExpanded] = useState(false);
   const mobileCurrentLegVisits = visits.filter((visit) => visit.leg === room.current_leg);
   const mobileMyRecentVisits = mobileCurrentLegVisits
     .filter((visit) => visit.player_id === myVisitPlayerId)
