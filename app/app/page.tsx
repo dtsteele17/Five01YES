@@ -417,7 +417,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6">
+    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 px-2 sm:px-0 overflow-x-hidden">
       {/* Hero Section - Player Card Style */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/50">
         {/* Background Pattern */}
@@ -744,7 +744,7 @@ export default function DashboardPage() {
         {/* Right Column - 1/3 width - Last 5 Games + Online Friends + Achievements */}
         <div className="space-y-3 sm:space-y-6">
           {/* Last 5 Games Record - Now at top */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden max-sm:mx-1 max-sm:rounded-xl">
             <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
@@ -795,7 +795,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Online Friends Detail - Moved below Last 5 Games */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden max-sm:mx-1 max-sm:rounded-xl">
             <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
@@ -853,7 +853,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Achievements */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden">
+          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden max-sm:mx-1 max-sm:rounded-xl">
             <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
