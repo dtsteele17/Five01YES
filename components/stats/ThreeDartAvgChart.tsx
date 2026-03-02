@@ -423,8 +423,7 @@ function ChartArea({ chartData, chartMin, chartMax, valueRange, range, isZoomed,
         {chartData.map((d, i) => {
           const total = chartData.length;
           const freq = labelFrequency;
-          const showLabel = range === 'week' ||
-            (range !== 'week' && (i % freq === 0 || i === total - 1));
+          const showLabel = range === 'week' || (i % freq === 0 || i === total - 1);
           if (!showLabel) return null;
           const xPct = total <= 1 ? 50 : (i / (total - 1)) * 100;
           return (
