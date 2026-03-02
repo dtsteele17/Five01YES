@@ -302,7 +302,13 @@ function SessionRow({ session, isMatch }: { session: MatchEntry | TrainingSessio
         stats.push(
           <div key="co" className="text-right">
             <p className="text-white font-bold text-sm">{count} checkout{count !== 1 ? 's' : ''}</p>
-            <p className="text-slate-500 text-[10px]">{checkouts.join(', ')}</p>
+            <div className="flex flex-wrap justify-end gap-1 mt-1">
+              {checkouts.map((co, i) => (
+                <span key={i} className="inline-block px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 text-xs font-semibold">
+                  {co}
+                </span>
+              ))}
+            </div>
           </div>
         );
       } else {
