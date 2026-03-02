@@ -216,9 +216,9 @@ function CurrentRankCard({
           </div>
         </div>
 
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 sm:gap-10">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-10">
           {/* Left - Rank Badge & Division */}
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+          <div className="flex flex-row items-center gap-3 sm:gap-6">
             <div className="relative">
               {/* Multi-layered glow effect */}
               <div className={`absolute inset-0 ${colors.bg}/60 rounded-3xl blur-2xl animate-pulse`} />
@@ -226,9 +226,9 @@ function CurrentRankCard({
               <div className={`absolute -inset-3 ${colors.bg}/30 rounded-[2rem] blur-lg`} />
               
               {/* Main badge container - consistent large size for all ranks */}
-              <div className="relative w-40 h-40 sm:w-72 sm:h-72 rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50">
+              <div className="relative w-24 h-24 sm:w-72 sm:h-72 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/20 to-transparent" />
-                <div className="relative flex items-center justify-center max-sm:scale-[0.52] sm:scale-100">
+                <div className="relative flex items-center justify-center max-sm:scale-[0.34] sm:scale-100">
                   {playerState.provisional_games_remaining ? (
                     <Trophy className="w-32 h-32 text-slate-400" />
                   ) : (
@@ -247,11 +247,11 @@ function CurrentRankCard({
             
             <div className="text-center sm:text-left">
               <div className="flex items-center gap-3 mb-2">
-                <p className={`${colors.text} text-sm font-black uppercase tracking-[0.2em]`}>Current Rank</p>
+                <p className={`${colors.text} text-[10px] sm:text-sm font-black uppercase tracking-[0.2em]`}>Current Rank</p>
                 {isGrandChampion && <Crown className="w-5 h-5 text-amber-400" />}
               </div>
               <div className="relative">
-                <h2 className={`text-3xl sm:text-5xl font-black text-white tracking-tight break-words drop-shadow-[0_0_20px_${isGrandChampion ? 'rgba(168,85,247,0.6)' : 'rgba(255,255,255,0.4)'}]`}>
+                <h2 className={`text-xl sm:text-5xl font-black text-white tracking-tight break-words drop-shadow-[0_0_20px_${isGrandChampion ? 'rgba(168,85,247,0.6)' : 'rgba(255,255,255,0.4)'}]`}>
                   {playerState.provisional_games_remaining ? 'Unranked' : playerState.division_name}
                 </h2>
                 <div className={`absolute -inset-4 ${colors.bg}/40 rounded-2xl blur-xl -z-10`} />
@@ -277,23 +277,23 @@ function CurrentRankCard({
               <div className={`absolute inset-0 ${colors.bg}/30 rounded-full blur-3xl scale-150 animate-pulse`} />
               <div className={`absolute -inset-8 ${colors.bg}/20 rounded-full blur-2xl`} />
               
-              <p className={`relative text-5xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white ${isGrandChampion ? 'via-purple-200 to-purple-400' : 'via-slate-200 to-slate-400'} drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`}>
+              <p className={`relative text-2xl sm:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white ${isGrandChampion ? 'via-purple-200 to-purple-400' : 'via-slate-200 to-slate-400'} drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`}>
                 {playerState.provisional_games_remaining ? '—' : playerState.rp}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-3">
               <Activity className={`w-4 h-4 ${colors.text}`} />
-              <p className={`${colors.text} text-sm font-black uppercase tracking-[0.3em]`}>
+              <p className={`${colors.text} text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] sm:tracking-[0.3em]`}>
                 {playerState.provisional_games_remaining ? 'COMPLETE PLACEMENTS' : 'ELO Rating'}
               </p>
             </div>
           </div>
 
           {/* Right - Status & Next Tier */}
-          <div className="flex flex-col items-stretch sm:items-end gap-4 w-full xl:w-auto">
+          <div className="flex flex-row sm:flex-col items-stretch sm:items-end gap-2 sm:gap-4 w-full xl:w-auto">
             {playerState.provisional_games_remaining ? (
-              <div className="w-full sm:w-56 bg-slate-900/60 rounded-2xl p-4 border border-amber-500/30 backdrop-blur-sm">
-                <div className="flex justify-between text-sm mb-3">
+              <div className="w-full sm:w-56 bg-slate-900/60 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-amber-500/30 backdrop-blur-sm">
+                <div className="flex justify-between text-[11px] sm:text-sm mb-2 sm:mb-3">
                   <span className="text-amber-400 font-bold">Placement Matches</span>
                   <span className="text-white font-black">{Math.max(0, 5 - Math.min(5, playerState.provisional_games_remaining))}/5</span>
                 </div>
@@ -313,7 +313,7 @@ function CurrentRankCard({
             )}
             
             {nextTier && (
-              <div className="text-left sm:text-right p-4 bg-slate-900/40 rounded-2xl border border-white/5 backdrop-blur-sm">
+              <div className="text-left sm:text-right p-2 sm:p-4 bg-slate-900/40 rounded-xl sm:rounded-2xl border border-white/5 backdrop-blur-sm">
                 <p className="text-slate-400 text-sm mb-1">Next Rank</p>
                 <p className="text-emerald-400 font-bold text-lg">{nextTier.division_name}</p>
                 <div className="flex items-center gap-2 mt-2">
@@ -551,7 +551,7 @@ function TierNavigator({
           </p>
 
           {/* Rank Cards Grid - Ultra Premium Styling */}
-          <div className={`grid gap-4 sm:gap-5 ${isGrandChampionPage ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'}`}>
+          <div className={`grid gap-2 sm:gap-5 ${isGrandChampionPage ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-4 sm:grid-cols-2 md:grid-cols-4'}`}>
             <AnimatePresence mode="wait">
               {currentTiers.map((tier, index) => {
                 const isCurrent = playerState && 
@@ -569,7 +569,7 @@ function TierNavigator({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.95 }}
                     transition={{ delay: index * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className={`relative overflow-hidden rounded-3xl p-4 sm:p-6 border-2 transition-all duration-500 group cursor-pointer ${
+                    className={`relative overflow-hidden rounded-xl sm:rounded-3xl p-2 sm:p-6 border transition-all duration-500 group cursor-pointer ${
                       isCurrent 
                         ? `bg-gradient-to-br ${tierColors.gradient} border-white/70 shadow-[0_0_40px_-10px] ${tierColors.glow} ${isGrandChampion ? 'ring-2 ring-amber-400/60' : ''} scale-105` 
                         : isGrandChampion
@@ -609,20 +609,21 @@ function TierNavigator({
                     
                     <div className="relative">
                       {/* Icon container - consistent size for all ranks */}
-                      <div className="w-full max-w-[180px] aspect-square rounded-2xl flex items-center justify-center mb-4 mx-auto bg-slate-800/80 border border-slate-700 transition-transform group-hover:scale-105">
-                        {getTierIcon(tier.tier_name, 180)}
+                      <div className="w-full max-w-[56px] sm:max-w-[180px] aspect-square rounded-lg sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-4 mx-auto bg-slate-800/80 border border-slate-700 transition-transform group-hover:scale-105">
+                        {getTierIcon(tier.tier_name, 90)}
                       </div>
                       
-                      <p className={`text-xs uppercase tracking-[0.15em] mb-1 font-bold ${
+                      <p className={`text-[9px] sm:text-xs uppercase tracking-[0.08em] sm:tracking-[0.15em] mb-1 font-bold truncate ${
                         isCurrent ? 'text-white/90' : isGrandChampion ? 'text-amber-300' : tierColors.text
                       }`}>
                         {tier.tier_name}
                       </p>
-                      <h3 className={`text-2xl font-black mb-5 ${isGrandChampion ? 'text-white drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]' : 'text-white'}`}>
+                      <h3 className={`text-xs sm:text-2xl font-black mb-2 sm:mb-5 ${isGrandChampion ? 'text-white drop-shadow-[0_0_15px_rgba(168,85,247,0.6)]' : 'text-white'}`}>
                         {tier.division_name}
                       </h3>
+                      <p className="sm:hidden text-[10px] text-slate-300 font-semibold">{tier.rp_min}{isGrandChampion ? '+' : ''}</p>
                       
-                      <div className="space-y-2.5">
+                      <div className="hidden sm:block space-y-2.5">
                         <div className={`flex items-center justify-between text-sm px-4 py-2.5 rounded-xl ${
                           isCurrent ? 'bg-white/15 backdrop-blur-sm' : isGrandChampion ? 'bg-purple-500/20 border border-purple-400/30 backdrop-blur-sm' : 'bg-slate-800/80 border border-slate-700/50'
                         }`}>
