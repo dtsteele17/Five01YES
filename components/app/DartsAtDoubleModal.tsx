@@ -35,23 +35,26 @@ export function DartsAtDoubleModal({
     }
   }, [isOpen]);
 
-  // Keyboard shortcut: press 0-3 to select, Enter to confirm
+  // Keyboard shortcut: press 0-3 to instantly confirm (no Enter needed)
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const num = parseInt(e.key);
       if (!isNaN(num) && validOptionsRef.current.includes(num)) {
-        setSelectedDarts(num);
-        setError('');
-      } else if (e.key === 'Enter' && selectedDarts > 0) {
-        handleConfirm();
+        e.preventDefault();
+        // Auto-confirm immediately on keypress
+        if (isCheckout && num === 0) {
+          // Can't select 0 on checkout
+          return;
+        }
+        onConfirm(num);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, selectedDarts]);
+  }, [isOpen, isCheckout, onConfirm]);
 
   const getMaxOptions = () => {
     if (minDarts === 3) return [0, 1];

@@ -77,24 +77,44 @@ export function HeadToHeadHistoryPopup({
 
       if (error) throw error;
 
+      const matchIds = matches?.map(m => m.id) || [];
+
       const { data: matchHistory, error: historyError } = await supabase
         .from('match_history')
         .select('room_id, user_id, three_dart_avg, avg_3dart, result')
-        .in('room_id', matches?.map(m => m.id) || []);
+        .in('room_id', matchIds);
 
       if (historyError) {
         console.error('[H2H] Error fetching match history:', historyError);
       }
 
+      // Also fetch visit data to compute averages when match_history doesn't have them
+      const { data: visitData } = await supabase
+        .from('match_visits')
+        .select('room_id, player_id, score, darts_thrown')
+        .in('room_id', matchIds);
+
+      // Helper: compute average from visits for a player in a match
+      const computeAvgFromVisits = (roomId: string, playerId: string): number => {
+        const visits = visitData?.filter(v => v.room_id === roomId && v.player_id === playerId) || [];
+        if (visits.length === 0) return 0;
+        const totalScore = visits.reduce((sum, v) => sum + (v.score || 0), 0);
+        const totalDarts = visits.reduce((sum, v) => sum + (v.darts_thrown || 3), 0);
+        return totalDarts > 0 ? (totalScore / totalDarts) * 3 : 0;
+      };
+
       const processedMatches = matches?.map(match => {
         const p1History = matchHistory?.find(h => h.room_id === match.id && h.user_id === player1.id);
         const p2History = matchHistory?.find(h => h.room_id === match.id && h.user_id === player2.id);
         
-        // Try both three_dart_avg and avg_3dart fields
-        const p1Avg = p1History?.three_dart_avg || p1History?.avg_3dart || 0;
-        const p2Avg = p2History?.three_dart_avg || p2History?.avg_3dart || 0;
+        // Try match_history first, then compute from visits
+        let p1Avg = p1History?.three_dart_avg || p1History?.avg_3dart || 0;
+        let p2Avg = p2History?.three_dart_avg || p2History?.avg_3dart || 0;
         
-        console.log('[H2H] Match', match.id, 'P1 avg:', p1Avg, 'P2 avg:', p2Avg);
+        if (p1Avg === 0) p1Avg = computeAvgFromVisits(match.id, player1.id);
+        if (p2Avg === 0) p2Avg = computeAvgFromVisits(match.id, player2.id);
+        
+        console.log('[H2H] Match', match.id, 'P1 avg:', p1Avg.toFixed(1), 'P2 avg:', p2Avg.toFixed(1));
         
         return {
           ...match,

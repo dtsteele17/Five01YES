@@ -198,7 +198,7 @@ export default function LocalMatchPage() {
       const newScore = currentScore - score;
       const isCheckout = newScore === 0;
 
-      if (minDarts !== null && doubleOut) {
+      if (minDarts !== null && doubleOut && currentScore <= 50) {
         setPendingVisitData({ score, minDarts, isCheckout });
         setShowDartsAtDoubleModal(true);
       } else {

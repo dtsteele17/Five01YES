@@ -2925,8 +2925,8 @@ export default function QuickMatchRoomPage() {
       return;
     }
     
-    // Check if player was on a checkout before this visit (could have thrown at a double)
-    const wasOnCheckout = room.double_out !== false && isInCheckoutRange(currentRemaining);
+    // Check if player was realistically throwing at doubles (remaining ≤ 50 before the visit)
+    const wasOnCheckout = room.double_out !== false && currentRemaining <= 50 && isInCheckoutRange(currentRemaining);
     
     if (wasOnCheckout) {
       // Ask how many darts were thrown at a double
@@ -2953,6 +2953,20 @@ export default function QuickMatchRoomPage() {
     }
     setScoreInput('');
   };
+
+  // Keyboard shortcuts for darts at double dialog (press 0-3 to instantly select)
+  useEffect(() => {
+    if (!showDartsAtDoubleDialog) return;
+    const handler = (e: KeyboardEvent) => {
+      const n = parseInt(e.key);
+      if (!isNaN(n) && n >= 0 && n <= 3) {
+        e.preventDefault();
+        handleDartsAtDoubleSubmit(n);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [showDartsAtDoubleDialog]);
 
   // Handle checkout/bust details submission from dialog
   // Handle "darts at double" dialog for typed scores when on a checkout
@@ -4614,8 +4628,8 @@ export default function QuickMatchRoomPage() {
                 />
               </div>
               <div className="flex gap-2">
-                {/* Camera device selector - always visible on desktop when multiple cameras */}
-                {videoDevices.length > 1 && (
+                {/* Camera device selector - always visible when camera is available */}
+                {videoDevices.length >= 1 && (
                   <select
                     className="h-8 bg-slate-800 border border-white/10 rounded text-white text-xs px-2 max-w-[160px] truncate"
                     value={selectedDeviceId || ''}

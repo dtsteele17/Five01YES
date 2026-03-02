@@ -1306,7 +1306,7 @@ export default function DartbotMatchPage() {
     const doubleOut = config.doubleOut;
     const newScore = currentScore - score;
     const isCheckout = newScore === 0;
-    const isCheckoutAttempt = currentScore <= 170 && currentScore > 0;
+    const isCheckoutAttempt = currentScore <= 50 && currentScore > 0;
     
     // IMPORTANT: For typed scores, checkout does NOT require double-out
     // The user is entering their actual score, so if they say they checked out, they did
