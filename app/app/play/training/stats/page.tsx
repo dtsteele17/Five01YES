@@ -193,17 +193,46 @@ function getBobs27Accuracy(s: TrainingSession): number {
 
 // ── Components ──────────────────────────────────────────────
 
-function FilterButton({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+function FilterButton({ active, onClick, children, activeColor }: { active?: boolean; onClick?: () => void; children: React.ReactNode; activeColor?: string }) {
   return (
     <button
       onClick={onClick}
       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-        active ? 'bg-purple-500 text-white' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'
+        active ? `${activeColor || 'bg-purple-500'} text-white` : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'
       }`}
     >
       {children}
     </button>
   );
+}
+
+// Get the solid bg colour for a mode (for buttons, badges)
+function getModeSolidColor(mode: string): string {
+  const map: Record<string, string> = {
+    'all': 'bg-purple-500',
+    '121': 'bg-blue-500',
+    'around-the-clock': 'bg-indigo-500',
+    'bobs-27': 'bg-cyan-500',
+    'finish-training': 'bg-orange-500',
+    'jdc-challenge': 'bg-purple-500',
+    'killer': 'bg-rose-500',
+    'pdc-challenge': 'bg-amber-500',
+  };
+  return map[mode] || 'bg-purple-500';
+}
+
+function getModeBadgeColors(mode: string): string {
+  const map: Record<string, string> = {
+    'all': 'bg-purple-500/20 text-purple-400',
+    '121': 'bg-blue-500/20 text-blue-400',
+    'around-the-clock': 'bg-indigo-500/20 text-indigo-400',
+    'bobs-27': 'bg-cyan-500/20 text-cyan-400',
+    'finish-training': 'bg-orange-500/20 text-orange-400',
+    'jdc-challenge': 'bg-purple-500/20 text-purple-400',
+    'killer': 'bg-rose-500/20 text-rose-400',
+    'pdc-challenge': 'bg-amber-500/20 text-amber-400',
+  };
+  return map[mode] || 'bg-purple-500/20 text-purple-400';
 }
 
 function StatCard({ value, label, icon, color, sublabel }: {
@@ -687,7 +716,7 @@ export default function TrainingStatsPage() {
           <label className="text-slate-400 text-sm mb-3 block font-medium">Training Mode</label>
           <div className="flex flex-wrap gap-2">
             {MODE_FILTERS.map((mode) => (
-              <FilterButton key={mode.value} active={modeFilter === mode.value} onClick={() => setModeFilter(mode.value)}>
+              <FilterButton key={mode.value} active={modeFilter === mode.value} onClick={() => setModeFilter(mode.value)} activeColor={getModeSolidColor(mode.value)}>
                 {mode.label}
               </FilterButton>
             ))}
@@ -698,7 +727,7 @@ export default function TrainingStatsPage() {
               <label className="text-slate-400 text-sm mb-2 block font-medium">Game Mode</label>
               <div className="flex flex-wrap gap-2">
                 {ATC_SUB_MODES.map((sub) => (
-                  <FilterButton key={sub.value} active={atcSubFilter === sub.value} onClick={() => setAtcSubFilter(sub.value)}>
+                  <FilterButton key={sub.value} active={atcSubFilter === sub.value} onClick={() => setAtcSubFilter(sub.value)} activeColor="bg-indigo-500">
                     {sub.label}
                   </FilterButton>
                 ))}
@@ -708,7 +737,7 @@ export default function TrainingStatsPage() {
           {isFiltered && (
             <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center gap-2">
               <span className="text-slate-400 text-sm">Active:</span>
-              <Badge className="bg-purple-500/20 text-purple-400">{formatModeName(modeFilter)}</Badge>
+              <Badge className={getModeBadgeColors(modeFilter)}>{formatModeName(modeFilter)}</Badge>
               {modeFilter === 'around-the-clock' && atcSubFilter !== 'all' && (
                 <Badge className="bg-slate-700 text-slate-300">{ATC_SUB_MODES.find(s => s.value === atcSubFilter)?.label}</Badge>
               )}
@@ -724,7 +753,7 @@ export default function TrainingStatsPage() {
           value={String(aggregated.totalSessions)}
           label="Total Sessions"
           icon={<Target className="w-5 h-5 text-white" />}
-          color="bg-purple-500"
+          color={getModeSolidColor(modeFilter)}
         />
         {modeCards.card2 && (
           <StatCard
