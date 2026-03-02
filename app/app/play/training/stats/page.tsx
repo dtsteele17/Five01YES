@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
+import { useTrainingStats } from '@/lib/hooks/useTrainingStats';
 import {
   ArrowLeft,
   BarChart3,
@@ -23,6 +24,7 @@ import {
   RefreshCw,
   Star,
   Calendar,
+  Shield,
   Crosshair,
 } from 'lucide-react';
 
@@ -417,7 +419,7 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       return (
         <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
           <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest Score</p>
-          <p className="text-white font-bold">{best > 0 ? best : 'No Score Yet'}</p>
+          <p className="text-white font-bold text-base">{best > 0 ? best : 'No Score Yet'}</p>
         </div>
       );
     }
@@ -427,7 +429,7 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       return (
         <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
           <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest Score</p>
-          <p className="text-white font-bold">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
+          <p className="text-white font-bold text-base">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
         </div>
       );
     }
@@ -438,11 +440,11 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
         <>
           <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
             <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Total Checkouts</p>
-            <p className="text-white font-bold">{totalCheckouts}</p>
+            <p className="text-white font-bold text-base">{totalCheckouts}</p>
           </div>
           <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
             <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest CO</p>
-            <p className="text-white font-bold">{highest > 0 ? highest : '-'}</p>
+            <p className="text-white font-bold text-base">{highest > 0 ? highest : '-'}</p>
           </div>
         </>
       );
@@ -455,11 +457,11 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
         <>
           <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
             <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Most Points</p>
-            <p className="text-white font-bold">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
+            <p className="text-white font-bold text-base">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
           </div>
           <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
             <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Average</p>
-            <p className="text-white font-bold">{avg > 0 ? `${avg.toFixed(1)} pts` : '-'}</p>
+            <p className="text-white font-bold text-base">{avg > 0 ? `${avg.toFixed(1)} pts` : '-'}</p>
           </div>
         </>
       );
@@ -470,7 +472,7 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       return (
         <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
           <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Fewest Darts</p>
-          <p className="text-white font-bold">{best > 0 ? best : 'No Score Yet'}</p>
+          <p className="text-white font-bold text-base">{best > 0 ? best : 'No Score Yet'}</p>
         </div>
       );
     }
@@ -480,7 +482,7 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       return (
         <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
           <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest Points</p>
-          <p className="text-white font-bold">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
+          <p className="text-white font-bold text-base">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
         </div>
       );
     }
@@ -503,7 +505,7 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
             {getModeIcon(mode)}
           </div>
           <div className="flex-1">
-            <p className="text-white font-bold">{formatModeName(mode)}</p>
+            <p className="text-white font-bold text-base">{formatModeName(mode)}</p>
             <p className="text-slate-500 text-xs">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -533,6 +535,7 @@ export default function TrainingStatsPage() {
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
+  const { level: trainingLevel } = useTrainingStats();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -659,13 +662,10 @@ export default function TrainingStatsPage() {
         card3: null,
       };
     }
-    // Default (all)
-    const validAvgs = filteredMatches.filter(m => m.three_dart_avg && m.three_dart_avg > 0).map(m => m.three_dart_avg!);
-    const avg3Dart = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : 0;
-    const bestCheckout = filteredMatches.reduce((max, m) => Math.max(max, m.highest_checkout || 0), 0);
+    // Default (all) — show training progress level
     return {
-      card2: { value: avg3Dart > 0 ? avg3Dart.toFixed(1) : '-', label: 'Avg 3-Dart', icon: <TrendingUp className="w-5 h-5 text-white" />, color: 'bg-emerald-500', sublabel: 'Across training sessions' },
-      card3: { value: bestCheckout > 0 ? String(bestCheckout) : '-', label: 'Best Checkout', icon: <Trophy className="w-5 h-5 text-white" />, color: 'bg-amber-500' },
+      card2: { value: `Level ${trainingLevel || 1}`, label: 'Training Progress', icon: <Shield className="w-5 h-5 text-white" />, color: 'bg-emerald-500' },
+      card3: null,
     };
   }, [modeFilter, filteredTraining, filteredMatches]);
 
@@ -869,5 +869,7 @@ export default function TrainingStatsPage() {
     </div>
   );
 }
+
+
 
 
