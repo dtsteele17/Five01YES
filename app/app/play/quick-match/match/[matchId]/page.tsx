@@ -3679,14 +3679,14 @@ export default function QuickMatchRoomPage() {
 
       // Record in match_history for BOTH players (forfeit win/loss, no 3-dart avg)
       try {
-        const myAvg = (myPlayer as any)?.avg || 0;
-        const oppAvg = (opponentPlayer as any)?.avg || 0;
+        const myAvg = myPlayer?.threeDartAvg || 0;
+        const oppAvg = opponentPlayer?.threeDartAvg || 0;
         await supabase.from('match_history').insert([
           {
             user_id: currentUserId,
             opponent_id: opponentId,
             result: 'win',
-            match_type: room.game_type || '501',
+            match_type: room.match_type || '501',
             match_format: room.match_format || 'best-of-1',
             legs_won: myPlayer?.legsWon || 0,
             legs_lost: opponentPlayer?.legsWon || 0,
@@ -3698,7 +3698,7 @@ export default function QuickMatchRoomPage() {
             user_id: opponentId,
             opponent_id: currentUserId,
             result: 'loss',
-            match_type: room.game_type || '501',
+            match_type: room.match_type || '501',
             match_format: room.match_format || 'best-of-1',
             legs_won: opponentPlayer?.legsWon || 0,
             legs_lost: myPlayer?.legsWon || 0,
@@ -4445,13 +4445,13 @@ export default function QuickMatchRoomPage() {
             <Card className={`bg-slate-800/50 border p-2 ${isMyTurn && room.status === 'active' ? 'border-emerald-500/30' : 'border-white/10'}`}>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 truncate">{myPlayer.name}</div>
               <div className="text-2xl leading-none font-bold text-emerald-400 mt-1">{myPlayer.remaining}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Avg: {myPlayer.avg?.toFixed(1) || '0.0'}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Avg: {myPlayer.threeDartAvg?.toFixed(1) || '0.0'}</div>
               <div className="text-[10px] text-slate-500">Legs {myPlayer.legsWon}/{matchState.legsToWin}</div>
             </Card>
             <Card className={`bg-slate-800/50 border p-2 ${!isMyTurn && room.status === 'active' ? 'border-blue-500/30' : 'border-white/10'}`}>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 truncate text-right">{opponentPlayer.name}</div>
               <div className="text-2xl leading-none font-bold text-blue-400 mt-1 text-right">{opponentPlayer.remaining}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5 text-right">Avg: {opponentPlayer.avg?.toFixed(1) || '0.0'}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5 text-right">Avg: {opponentPlayer.threeDartAvg?.toFixed(1) || '0.0'}</div>
               <div className="text-[10px] text-slate-500 text-right">Legs {opponentPlayer.legsWon}/{matchState.legsToWin}</div>
             </Card>
           </div>
