@@ -183,7 +183,9 @@ export default function AroundTheClockPage() {
 
     try {
       // Calculate XP based on darts thrown (fewer = more XP)
-      const xp = calculateXP('around-the-clock-singles', 100 - totalThrows, { completed: true });
+      const segRule = config?.atcSettings?.segmentRule || 'singles';
+      const atcMode = `around-the-clock-${segRule}`;
+      const xp = calculateXP(atcMode as any, 100 - totalThrows, { completed: true });
       setXpResult(xp);
 
       // Update training_sessions record
@@ -209,11 +211,20 @@ export default function AroundTheClockPage() {
         console.error('[ATC] Failed to complete session:', error);
       }
 
+      // Calculate accuracy from state
+      const acc = state ? getAccuracy(state) : 0;
+
       // Award XP to player total
-      const result = await awardXP('around-the-clock-singles', 100 - totalThrows, {
+      const result = await awardXP(atcMode, totalThrows, {
         completed: true,
         xpOverride: xp.totalXP,
-        sessionData: { totalThrows },
+        sessionData: {
+          totalThrows,
+          total_darts: totalThrows,
+          totalDarts: totalThrows,
+          accuracy: acc.toFixed(1),
+          segmentRule: segRule,
+        },
       });
 
       if (result.levelUp) {
