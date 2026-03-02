@@ -55,6 +55,8 @@ interface MatchEntry {
 const TRAINING_FORMAT_VALUES = [
   '121', 'around-the-clock', 'around-the-clock-singles', 'around-the-clock-doubles',
   'around-the-clock-trebles', 'around-the-clock-mixed',
+  'around-the-clock-singles_only', 'around-the-clock-doubles_only',
+  'around-the-clock-trebles_only', 'around-the-clock-increase_by_segment',
   'bobs-27', 'bobs27', 'finish-training', 'jdc-challenge', 'jdc_challenge',
   'killer', 'pdc-challenge', 'pdc_challenge',
 ];
@@ -70,10 +72,10 @@ function canonicalMode(mode: string): string {
 
 // ATC sub-mode from a training_mode string
 function getATCSubMode(mode: string): string | null {
-  if (mode === 'around-the-clock-singles') return 'Singles';
-  if (mode === 'around-the-clock-doubles') return 'Doubles';
-  if (mode === 'around-the-clock-trebles') return 'Trebles';
-  if (mode === 'around-the-clock-mixed') return 'Mixed';
+  if (mode === 'around-the-clock-singles' || mode === 'around-the-clock-singles_only') return 'Singles';
+  if (mode === 'around-the-clock-doubles' || mode === 'around-the-clock-doubles_only') return 'Doubles';
+  if (mode === 'around-the-clock-trebles' || mode === 'around-the-clock-trebles_only') return 'Trebles';
+  if (mode === 'around-the-clock-mixed' || mode === 'around-the-clock-increase_by_segment') return 'Mixed';
   if (mode === 'around-the-clock') return null;
   return null;
 }
@@ -469,11 +471,19 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
     if (mode === 'around-the-clock') {
       const darts = sessions.map(s => getATCDarts(s)).filter(s => s > 0);
       const best = darts.length > 0 ? Math.min(...darts) : 0;
+      const accs = sessions.map(s => getATCAccuracy(s)).filter(a => a > 0);
+      const bestAcc = accs.length > 0 ? Math.max(...accs) : 0;
       return (
-        <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
-          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Fewest Darts</p>
-          <p className="text-white font-bold text-base">{best > 0 ? best : 'No Score Yet'}</p>
-        </div>
+        <>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Fewest Darts</p>
+            <p className="text-white font-bold text-base">{best > 0 ? best : 'No Score Yet'}</p>
+          </div>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Best Accuracy</p>
+            <p className="text-white font-bold text-base">{bestAcc > 0 ? `${bestAcc.toFixed(1)}%` : '-'}</p>
+          </div>
+        </>
       );
     }
     if (mode === 'killer') {
@@ -589,7 +599,9 @@ export default function TrainingStatsPage() {
     if (modeFilter === 'around-the-clock' && atcSubFilter !== 'all') {
       sessions = sessions.filter(t => {
         const mode = t.training_mode || t.game_type || '';
-        return mode === atcSubFilter;
+        const sub = getATCSubMode(mode);
+        const filterSub = getATCSubMode(atcSubFilter);
+        return sub === filterSub;
       });
     }
     return sessions;

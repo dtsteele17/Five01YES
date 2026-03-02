@@ -183,8 +183,9 @@ export default function AroundTheClockPage() {
 
     try {
       // Calculate XP based on darts thrown (fewer = more XP)
-      const segRule = config?.atcSettings?.segmentRule || 'singles';
-      const atcMode = `around-the-clock-${segRule}`;
+      const segRule = config?.atcSettings?.segmentRule || 'singles_only';
+      const segMap: Record<string, string> = { singles_only: 'singles', doubles_only: 'doubles', trebles_only: 'trebles', increase_by_segment: 'mixed' };
+      const atcMode = `around-the-clock-${segMap[segRule] || 'singles'}`;
       const xp = calculateXP(atcMode as any, 100 - totalThrows, { completed: true });
       setXpResult(xp);
 
