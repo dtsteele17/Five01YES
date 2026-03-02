@@ -1111,25 +1111,32 @@ export default function DartbotMatchPage() {
 
   const botTakeTurn = useCallback(async () => {
     if (matchOverRef.current || isLegTransitioning) return;
+    if (!config) return;
     const currentScore = player2Score;
     if (currentScore <= 0) { setCurrentPlayer('player1'); return; }
-    if (showVisualization && config) {
-      // Generate exactly 3 darts (or fewer if checkout achieved)
-      const visualVisit = simulateVisit({ 
-        level: config.botAverage, 
-        remaining: currentScore, 
-        doubleOut: config.doubleOut, 
-        formMultiplier: botFormMultiplier, 
-        tracker: botPerformanceTracker, 
-        debug: debugMode,
-        trackCheckoutDarts: true
-      });
+
+    // Generate exactly 3 darts (or fewer if checkout achieved)
+    const visualVisit = simulateVisit({ 
+      level: config.botAverage, 
+      remaining: currentScore, 
+      doubleOut: config.doubleOut, 
+      formMultiplier: botFormMultiplier, 
+      tracker: botPerformanceTracker, 
+      debug: debugMode,
+      trackCheckoutDarts: true
+    });
       
-      // Update performance tracker for calibration
-      setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
-      
-      // Animate only the darts actually thrown — stops at the bust dart
+    // Update performance tracker for calibration
+    setBotPerformanceTracker(prev => updatePerformanceTracker(prev, visualVisit.visitTotal, config.botAverage));
+    
+    // Animate dartboard hits only when visualization is enabled
+    if (showVisualization) {
       await animateBotThrows(visualVisit.darts, visualVisit.bust);
+    } else {
+      clearDartboardAnimationTimer();
+      setDartboardHits([]);
+      setLastThreeDarts([]);
+    }
       
       // CRITICAL: Bot ALWAYS throws exactly 3 darts per visit (unless checkout)
       // Even on bust, we count 3 darts for stats consistency
@@ -1222,8 +1229,7 @@ export default function DartbotMatchPage() {
         return;
       }
       setCurrentPlayer('player1');
-    }
-  }, [isLegTransitioning, player2Score, showVisualization, config, botFormMultiplier, debugMode, botPerformanceTracker, animateBotThrows]);
+  }, [isLegTransitioning, player2Score, showVisualization, config, botFormMultiplier, debugMode, botPerformanceTracker, animateBotThrows, clearDartboardAnimationTimer]);
 
   const scheduleBotTurn = useCallback((reason: string) => {
     // Prevent scheduling if not bot's turn or if already scheduled
@@ -1694,6 +1700,10 @@ export default function DartbotMatchPage() {
     return (<div className="flex items-center justify-center min-h-screen"><div className="text-white">Loading...</div></div>);
   }
 
+  const lastBotVisit = [...allLegs.flatMap(l => l.visits), ...currentLeg.visits]
+    .filter(v => v.player === 'player2')
+    .at(-1);
+
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
       {LevelUpToastComponent}
@@ -1744,7 +1754,7 @@ export default function DartbotMatchPage() {
           </Card>
         </div>
 
-        {(currentPlayer === 'player2' || isBotThinking) && (
+        {showVisualization && (currentPlayer === 'player2' || isBotThinking) && (
           <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
             <div className="relative flex items-start justify-center pt-1 pb-2">
               <div className="relative w-full max-w-[260px] aspect-square -translate-y-1">
@@ -1776,6 +1786,17 @@ export default function DartbotMatchPage() {
                 </div>
               </div>
             )}
+          </Card>
+        )}
+
+        {!showVisualization && (
+          <Card className="bg-slate-800/50 border-white/10 p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">{botName} last visit</span>
+              <span className={`font-bold ${lastBotVisit?.isBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                {lastBotVisit ? (lastBotVisit.isBust ? 'BUST (0)' : `${lastBotVisit.score}`) : '—'}
+              </span>
+            </div>
           </Card>
         )}
 
@@ -1820,64 +1841,74 @@ export default function DartbotMatchPage() {
             <span className="text-xs text-gray-400">Dartboard</span>
             <div className="text-xs text-purple-400">{botName}</div>
           </div>
-          <div className="flex-1 relative flex items-center justify-center p-4">
-            <div className="relative w-full max-w-lg aspect-square">
-              <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
-            </div>
-          </div>
-          {isBotThinking && (
-            <div className="pb-2 text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                <span className="text-slate-300">{botName} is throwing...</span>
+          {showVisualization ? (
+            <>
+              <div className="flex-1 relative flex items-center justify-center p-4">
+                <div className="relative w-full max-w-lg aspect-square">
+                  <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
+                </div>
               </div>
-            </div>
-          )}
-          {/* Show DartBot's last throw - visible after bot completes turn */}
-          {lastThreeDarts.length > 0 && currentPlayer === 'player1' && !isBotThinking && (
-            <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
-              <div className="text-xs text-slate-400 mb-1 font-medium">{botName}&apos;s Last Throw:</div>
-              <div className="flex items-center gap-2">
-                {lastThreeDarts.map((dart, i) => (
-                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
-                    dart.isDouble ? 'bg-red-500/30 text-red-300' :
-                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
-                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
-                    'bg-slate-700 text-white'
-                  }`}>
-                    {dart.label}
-                  </span>
-                ))}
-                <span className={`font-bold ml-auto text-lg ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {botLastVisitWasBust
-                    ? 'BUST'
-                    : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
-                  {!botLastVisitWasBust && lastThreeDarts.some(d => d.isDouble) && player2Score === 0 && (
-                    <span className="text-xs text-emerald-300 ml-2">CHECKOUT!</span>
-                  )}
-                </span>
-              </div>
-            </div>
-          )}
-          
-          {/* Live dart display during bot's turn */}
-          {isBotThinking && lastThreeDarts.length > 0 && (
-            <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/30">
-              <div className="text-xs text-purple-400 mb-1 font-medium">{botName} throwing...</div>
-              <div className="flex items-center gap-2">
-                {lastThreeDarts.map((dart, i) => (
-                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
-                    dart.isDouble ? 'bg-red-500/30 text-red-300' : 
-                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
-                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
-                    'bg-slate-700 text-white'
-                  }`}>
-                    {dart.label}
-                  </span>
-                ))}
-                {lastThreeDarts.length < 3 && (
-                  <span className="w-8 h-8 rounded bg-slate-700/50 border-2 border-dashed border-purple-400/30 animate-pulse" />
-                )}
+              {isBotThinking && (
+                <div className="pb-2 text-center">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                    <span className="text-slate-300">{botName} is throwing...</span>
+                  </div>
+                </div>
+              )}
+              {lastThreeDarts.length > 0 && currentPlayer === 'player1' && !isBotThinking && (
+                <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                  <div className="text-xs text-slate-400 mb-1 font-medium">{botName}&apos;s Last Throw:</div>
+                  <div className="flex items-center gap-2">
+                    {lastThreeDarts.map((dart, i) => (
+                      <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                        dart.isDouble ? 'bg-red-500/30 text-red-300' :
+                        dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                        dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                        'bg-slate-700 text-white'
+                      }`}>
+                        {dart.label}
+                      </span>
+                    ))}
+                    <span className={`font-bold ml-auto text-lg ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {botLastVisitWasBust ? 'BUST' : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
+                      {!botLastVisitWasBust && lastThreeDarts.some(d => d.isDouble) && player2Score === 0 && (
+                        <span className="text-xs text-emerald-300 ml-2">CHECKOUT!</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {isBotThinking && lastThreeDarts.length > 0 && (
+                <div className="p-2 bg-slate-800/50 mx-2 mb-2 rounded border border-purple-500/30">
+                  <div className="text-xs text-purple-400 mb-1 font-medium">{botName} throwing...</div>
+                  <div className="flex items-center gap-2">
+                    {lastThreeDarts.map((dart, i) => (
+                      <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                        dart.isDouble ? 'bg-red-500/30 text-red-300' : 
+                        dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                        dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                        'bg-slate-700 text-white'
+                      }`}>
+                        {dart.label}
+                      </span>
+                    ))}
+                    {lastThreeDarts.length < 3 && (
+                      <span className="w-8 h-8 rounded bg-slate-700/50 border-2 border-dashed border-purple-400/30 animate-pulse" />
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center p-4 gap-3">
+              <div className="text-center text-slate-400 text-sm">Dartboard visualization is off</div>
+              <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-center">
+                <p className="text-xs text-slate-400 mb-1">{botName} last visit</p>
+                <p className={`text-2xl font-black ${lastBotVisit?.isBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {lastBotVisit ? (lastBotVisit.isBust ? 'BUST (0)' : lastBotVisit.score) : '—'}
+                </p>
               </div>
             </div>
           )}
