@@ -1906,9 +1906,31 @@ export default function DartbotMatchPage() {
               <div className="text-center text-slate-400 text-sm">Dartboard visualization is off</div>
               <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-center">
                 <p className="text-xs text-slate-400 mb-1">{botName} last visit</p>
-                <p className={`text-2xl font-black ${lastBotVisit?.isBust ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {lastBotVisit ? (lastBotVisit.isBust ? 'BUST (0)' : lastBotVisit.score) : '—'}
-                </p>
+                {lastBotVisit?.darts && lastBotVisit.darts.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      {lastBotVisit.darts.map((dart, idx) => (
+                        <span key={idx} className={`px-2 py-1 rounded text-sm font-bold ${
+                          dart.multiplier === 3 ? 'bg-red-500/20 text-red-400' :
+                          dart.multiplier === 2 ? 'bg-green-500/20 text-green-400' :
+                          dart.score === 50 ? 'bg-amber-500/20 text-amber-400' :
+                          dart.score === 25 ? 'bg-amber-500/20 text-amber-300' :
+                          dart.score === 0 ? 'bg-slate-700/50 text-slate-500' :
+                          'bg-slate-700/50 text-slate-200'
+                        }`}>
+                          {dart.label}
+                        </span>
+                      ))}
+                    </div>
+                    <p className={`text-2xl font-black ${lastBotVisit.isBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {lastBotVisit.isBust ? 'BUST (0)' : `= ${lastBotVisit.score}`}
+                    </p>
+                  </div>
+                ) : (
+                  <p className={`text-2xl font-black ${lastBotVisit?.isBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {lastBotVisit ? (lastBotVisit.isBust ? 'BUST (0)' : lastBotVisit.score) : '—'}
+                  </p>
+                )}
               </div>
             </div>
           )}
