@@ -78,7 +78,7 @@ export function TopBar() {
         <div className="container mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-2 sm:space-x-6 min-w-0">
-              <Link href="/" className="flex items-center">
+              <Link href="/app" className="flex items-center">
                 <Image 
                   src="/logo.png" 
                   alt="FIVE01" 

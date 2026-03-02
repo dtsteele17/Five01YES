@@ -3679,8 +3679,8 @@ export default function QuickMatchRoomPage() {
 
       // Record in match_history for BOTH players (forfeit win/loss, no 3-dart avg)
       try {
-        const myAvg = myPlayer?.avg || 0;
-        const oppAvg = opponentPlayer?.avg || 0;
+        const myAvg = (myPlayer as any)?.avg || 0;
+        const oppAvg = (opponentPlayer as any)?.avg || 0;
         await supabase.from('match_history').insert([
           {
             user_id: currentUserId,
