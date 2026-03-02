@@ -1710,8 +1710,83 @@ export default function DartbotMatchPage() {
         </div>
       </div>
 
-      {/* Main Content - QuickMatch Style */}
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 overflow-hidden">
+      {/* ===== MOBILE LAYOUT ===== */}
+      <div className="sm:hidden flex-1 flex flex-col p-3 gap-2 overflow-hidden">
+        {/* Compact score tiles */}
+        <div className="grid grid-cols-2 gap-2">
+          <Card className={`bg-slate-800/50 border p-2 ${currentPlayer === 'player1' ? 'border-emerald-500/30' : 'border-white/10'}`}>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">You {currentPlayer === 'player1' && !matchWinner ? '🎯' : ''}</div>
+            <div className="text-2xl font-bold text-emerald-400 leading-none mt-1">{player1Score}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Avg: {(calculateMatchStats(true) as any)?.threeDartAvg?.toFixed(1) || '0.0'}</div>
+            <div className="text-[10px] text-slate-500">Legs {player1LegsWon}/{legsToWin}</div>
+          </Card>
+          <Card className={`bg-slate-800/50 border p-2 ${currentPlayer === 'player2' ? 'border-purple-500/30' : 'border-white/10'}`}>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 text-right">{botName} {currentPlayer === 'player2' && !matchWinner ? '🎯' : ''}</div>
+            <div className="text-2xl font-bold text-purple-400 leading-none mt-1 text-right">{player2Score}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5 text-right">Avg: {(calculateMatchStats(false) as any)?.threeDartAvg?.toFixed(1) || '0.0'}</div>
+            <div className="text-[10px] text-slate-500 text-right">Legs {player2LegsWon}/{legsToWin}</div>
+          </Card>
+        </div>
+
+        {/* Bot's turn: show dartboard */}
+        {currentPlayer === 'player2' && !matchWinner ? (
+          <Card className="flex-1 bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+            <div className="flex-1 relative flex items-center justify-center p-2">
+              <div className="relative w-full max-w-[280px] aspect-square">
+                <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
+              </div>
+            </div>
+            {isBotThinking && (
+              <div className="pb-2 text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                  <span className="text-slate-300 text-xs">{botName} is throwing...</span>
+                </div>
+              </div>
+            )}
+            {lastThreeDarts.length > 0 && !isBotThinking && (
+              <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                <div className="flex items-center gap-2">
+                  {lastThreeDarts.map((dart, i) => (
+                    <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                      dart.isDouble ? 'bg-red-500/30 text-red-300' :
+                      dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                      dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                      'bg-slate-700 text-white'
+                    }`}>{dart.label}</span>
+                  ))}
+                  <span className={`font-bold ml-auto text-sm ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {botLastVisitWasBust ? 'BUST' : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
+                  </span>
+                </div>
+              </div>
+            )}
+          </Card>
+        ) : !matchWinner ? (
+          /* User's turn: show numpad with checkout */
+          <Card className="flex-1 bg-slate-800/50 border-white/10 p-3 overflow-auto">
+            <ScoringPanel
+              scoreInput={scoreInput}
+              onScoreInputChange={setScoreInput}
+              onTypeScoreSubmit={handleTypeScoreSubmit}
+              onSubmitVisit={handleSubmitVisit}
+              onMiss={handleMiss}
+              onBust={handleBust}
+              currentDarts={currentVisit}
+              onDartClick={handleDartClick}
+              onUndoDart={handleUndoDart}
+              onClearVisit={handleClearVisit}
+              submitting={submitting}
+              currentRemaining={player1Score}
+              doubleOut={config.doubleOut}
+              preferredDouble={preferredDouble}
+            />
+          </Card>
+        ) : null}
+      </div>
+
+      {/* ===== DESKTOP LAYOUT ===== */}
+      <div className="hidden sm:grid flex-1 grid-cols-1 sm:grid-cols-2 gap-3 p-3 overflow-hidden">
         {/* LEFT: Dartboard */}
         <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between p-2 border-b border-white/5">
