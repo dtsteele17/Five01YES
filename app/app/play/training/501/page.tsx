@@ -1744,38 +1744,40 @@ export default function DartbotMatchPage() {
           </Card>
         </div>
 
-        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
-          <div className="relative flex items-start justify-center pt-1 pb-2">
-            <div className="relative w-full max-w-[260px] aspect-square -translate-y-1">
-              <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
-            </div>
-          </div>
-          {isBotThinking && (
-            <div className="pb-2 text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                <span className="text-slate-300 text-xs">{botName} is throwing...</span>
+        {(currentPlayer === 'player2' || isBotThinking) && (
+          <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+            <div className="relative flex items-start justify-center pt-1 pb-2">
+              <div className="relative w-full max-w-[260px] aspect-square -translate-y-1">
+                <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
               </div>
             </div>
-          )}
-          {lastThreeDarts.length > 0 && !isBotThinking && (
-            <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
-              <div className="flex items-center gap-2">
-                {lastThreeDarts.map((dart, i) => (
-                  <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
-                    dart.isDouble ? 'bg-red-500/30 text-red-300' :
-                    dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
-                    dart.offboard ? 'bg-gray-500/30 text-gray-400' :
-                    'bg-slate-700 text-white'
-                  }`}>{dart.label}</span>
-                ))}
-                <span className={`font-bold ml-auto text-sm ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {botLastVisitWasBust ? 'BUST' : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
-                </span>
+            {isBotThinking && (
+              <div className="pb-2 text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-800/50 rounded-lg text-sm">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                  <span className="text-slate-300 text-xs">{botName} is throwing...</span>
+                </div>
               </div>
-            </div>
-          )}
-        </Card>
+            )}
+            {lastThreeDarts.length > 0 && !isBotThinking && (
+              <div className={`p-2 mx-2 mb-2 rounded border ${botLastVisitWasBust ? 'bg-red-950/40 border-red-500/30' : 'bg-slate-800/50 border-slate-600/30'}`}>
+                <div className="flex items-center gap-2">
+                  {lastThreeDarts.map((dart, i) => (
+                    <span key={i} className={`text-sm font-bold px-2 py-1 rounded ${
+                      dart.isDouble ? 'bg-red-500/30 text-red-300' :
+                      dart.isTreble ? 'bg-amber-500/30 text-amber-300' :
+                      dart.offboard ? 'bg-gray-500/30 text-gray-400' :
+                      'bg-slate-700 text-white'
+                    }`}>{dart.label}</span>
+                  ))}
+                  <span className={`font-bold ml-auto text-sm ${botLastVisitWasBust ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {botLastVisitWasBust ? 'BUST' : `= ${lastThreeDarts.reduce((sum, d) => sum + d.score, 0)}`}
+                  </span>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
 
         {!matchWinner && currentPlayer === 'player1' && (
           <Card className="bg-slate-800/50 border-white/10 p-3">
