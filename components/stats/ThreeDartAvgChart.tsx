@@ -43,8 +43,8 @@ function formatLabel(dateStr: string, range: TimeRange): string {
   if (range === 'month') {
     return d.getDate().toString();
   }
-  // year – show month abbreviation
-  return d.toLocaleDateString('en-GB', { month: 'short' });
+  // year – show day + month abbreviation
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 export function ThreeDartAvgChart() {
@@ -107,29 +107,40 @@ export function ThreeDartAvgChart() {
     }
   }
 
-  // For year view, aggregate by month
+  // Build complete list of days for the range, filling gaps with null avg
   const chartData = useMemo(() => {
-    if (range !== 'year') return rawData;
-    const byMonth: Record<string, { total: number; count: number }> = {};
-    rawData.forEach((d) => {
-      const key = d.date.slice(0, 7) + '-01'; // YYYY-MM-01
-      if (!byMonth[key]) byMonth[key] = { total: 0, count: 0 };
-      byMonth[key].total += d.avg * d.matchCount;
-      byMonth[key].count += d.matchCount;
-    });
-    return Object.entries(byMonth)
-      .map(([date, v]) => ({ date, avg: v.total / v.count, matchCount: v.count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const dataMap = new Map(rawData.map(d => [d.date, d]));
+    const start = getDateRange(range);
+    const end = new Date();
+    const days: (DayData & { hasData: boolean })[] = [];
+
+    const d = new Date(start);
+    while (d <= end) {
+      const key = d.toISOString().slice(0, 10);
+      const existing = dataMap.get(key);
+      days.push({
+        date: key,
+        avg: existing?.avg || 0,
+        matchCount: existing?.matchCount || 0,
+        hasData: !!existing,
+      });
+      d.setDate(d.getDate() + 1);
+    }
+    return days;
   }, [rawData, range]);
 
-  const maxVal = Math.max(...chartData.map((d) => d.avg), 1);
-  const minVal = Math.min(...chartData.map((d) => d.avg), 0);
-  const chartMin = Math.max(0, minVal - 10);
-  const chartMax = maxVal + 10;
+  // Only days with actual data for line/dots
+  const dataPoints = chartData.filter(d => d.hasData);
+  
+  const maxVal = dataPoints.length > 0 ? Math.max(...dataPoints.map(d => d.avg)) : 100;
+  const minVal = dataPoints.length > 0 ? Math.min(...dataPoints.map(d => d.avg)) : 0;
+  // Round to nice axis values
+  const chartMin = Math.max(0, Math.floor((minVal - 5) / 10) * 10);
+  const chartMax = Math.ceil((maxVal + 5) / 10) * 10;
   const valueRange = chartMax - chartMin || 1;
 
-  const overallAvg = chartData.length > 0
-    ? chartData.reduce((s, d) => s + d.avg * d.matchCount, 0) / chartData.reduce((s, d) => s + d.matchCount, 0)
+  const overallAvg = dataPoints.length > 0
+    ? dataPoints.reduce((s, d) => s + d.avg * d.matchCount, 0) / dataPoints.reduce((s, d) => s + d.matchCount, 0)
     : 0;
 
   return (
@@ -175,7 +186,7 @@ export function ThreeDartAvgChart() {
         <div className="h-48 flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : chartData.length === 0 ? (
+      ) : dataPoints.length === 0 ? (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
           No match data for this period
         </div>
@@ -188,62 +199,102 @@ export function ThreeDartAvgChart() {
           </div>
 
           {/* Chart */}
-          <div className="relative h-48">
-            {/* Grid lines */}
+          <div className="relative h-52" style={{ paddingLeft: '40px', paddingBottom: '24px' }}>
+            {/* Y-axis grid lines & labels */}
             {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-              const val = chartMin + valueRange * (1 - pct);
+              const val = chartMax - valueRange * pct;
               return (
                 <div
                   key={pct}
-                  className="absolute left-8 right-0 border-t border-slate-700/40 flex items-center"
-                  style={{ top: `${pct * 100}%` }}
+                  className="absolute right-0 border-t border-slate-700/30"
+                  style={{ top: `${pct * (100 - 12)}%`, left: '40px' }}
                 >
-                  <span className="absolute -left-1 -translate-x-full text-[10px] text-slate-500 -mt-2">
+                  <span className="absolute -left-2 -translate-x-full text-[10px] text-slate-500" style={{ marginTop: '-6px' }}>
                     {val.toFixed(0)}
                   </span>
                 </div>
               );
             })}
 
-            {/* Line chart via SVG */}
-            <svg className="absolute left-10 right-0 top-0 bottom-6 w-[calc(100%-2.5rem)]" viewBox={`0 0 ${Math.max(chartData.length - 1, 1) * 100} 100`} preserveAspectRatio="none">
-              {/* Area fill */}
-              {chartData.length > 1 && (
-                <path
-                  d={`M0,${100 - ((chartData[0].avg - chartMin) / valueRange) * 100} ${chartData.map((d, i) => `L${i * 100},${100 - ((d.avg - chartMin) / valueRange) * 100}`).join(' ')} L${(chartData.length - 1) * 100},100 L0,100 Z`}
-                  fill="url(#areaGradient)"
-                  opacity="0.3"
-                />
-              )}
-              {/* Line */}
-              {chartData.length > 1 && (
-                <polyline
-                  points={chartData.map((d, i) => `${i * 100},${100 - ((d.avg - chartMin) / valueRange) * 100}`).join(' ')}
-                  fill="none"
-                  stroke="#a855f7"
-                  strokeWidth="3"
-                  vectorEffect="non-scaling-stroke"
-                />
-              )}
-              {/* Dots */}
+            {/* SVG line chart */}
+            {(() => {
+              const totalDays = chartData.length;
+              const w = 1000;
+              const h = 400;
+              const padT = 10;
+              const padB = 10;
+              const chartH = h - padT - padB;
+
+              // Build points only for days with data
+              const pointsWithIndex = chartData
+                .map((d, i) => ({ ...d, idx: i }))
+                .filter(d => d.hasData);
+
+              if (pointsWithIndex.length === 0) return null;
+
+              const getX = (idx: number) => totalDays <= 1 ? w / 2 : (idx / (totalDays - 1)) * w;
+              const getY = (avg: number) => padT + chartH - ((avg - chartMin) / valueRange) * chartH;
+
+              const linePoints = pointsWithIndex.map(p => `${getX(p.idx)},${getY(p.avg)}`).join(' ');
+              
+              // Area path
+              const first = pointsWithIndex[0];
+              const last = pointsWithIndex[pointsWithIndex.length - 1];
+              const areaPath = `M${getX(first.idx)},${getY(first.avg)} ${pointsWithIndex.map(p => `L${getX(p.idx)},${getY(p.avg)}`).join(' ')} L${getX(last.idx)},${h} L${getX(first.idx)},${h} Z`;
+
+              // Dot radius based on number of days
+              const dotR = totalDays <= 7 ? 8 : totalDays <= 31 ? 5 : 3;
+
+              return (
+                <svg
+                  className="absolute"
+                  style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}
+                  viewBox={`0 0 ${w} ${h}`}
+                  preserveAspectRatio="none"
+                >
+                  <defs>
+                    <linearGradient id="avgAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#a855f7" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  {/* Area fill */}
+                  <path d={areaPath} fill="url(#avgAreaGrad)" />
+                  {/* Line */}
+                  <polyline
+                    points={linePoints}
+                    fill="none"
+                    stroke="#a855f7"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  {/* Dots */}
+                  {pointsWithIndex.map((p) => (
+                    <circle
+                      key={p.date}
+                      cx={getX(p.idx)}
+                      cy={getY(p.avg)}
+                      r={dotR}
+                      fill="#a855f7"
+                      stroke="#1e293b"
+                      strokeWidth="2"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
+                </svg>
+              );
+            })()}
+
+            {/* Tooltip overlay */}
+            <div className="absolute flex" style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}>
               {chartData.map((d, i) => {
-                const y = 100 - ((d.avg - chartMin) / valueRange) * 100;
-                return <circle key={i} cx={i * 100} cy={y} r="5" fill="#a855f7" stroke="#1e293b" strokeWidth="2" vectorEffect="non-scaling-stroke" />;
-              })}
-              <defs>
-                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-            </svg>
-            {/* Tooltip dots overlay */}
-            <div className="absolute left-10 right-0 top-0 bottom-6 flex">
-              {chartData.map((d, i) => {
-                const y = ((d.avg - chartMin) / valueRange) * 100;
+                if (!d.hasData) return <div key={d.date} className="flex-1" />;
+                const yPct = ((d.avg - chartMin) / valueRange) * 100;
                 return (
-                  <div key={d.date} className="flex-1 relative group" style={{ height: '100%' }}>
-                    <div className="hidden group-hover:block absolute bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs z-10 whitespace-nowrap shadow-lg -translate-x-1/2 left-1/2" style={{ bottom: `${y + 5}%` }}>
+                  <div key={d.date} className="flex-1 relative group cursor-pointer" style={{ height: '100%' }}>
+                    <div className="hidden group-hover:block absolute bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs z-20 whitespace-nowrap shadow-lg -translate-x-1/2 left-1/2" style={{ bottom: `${yPct + 8}%` }}>
                       <p className="text-white font-bold">{d.avg.toFixed(1)}</p>
                       <p className="text-slate-400">{d.matchCount} match{d.matchCount !== 1 ? 'es' : ''}</p>
                       <p className="text-slate-500">{d.date}</p>
@@ -254,15 +305,17 @@ export function ThreeDartAvgChart() {
             </div>
 
             {/* X-axis labels */}
-            <div className="absolute left-10 right-0 bottom-0 flex">
+            <div className="absolute flex" style={{ left: '40px', bottom: 0, width: 'calc(100% - 40px)', height: '20px' }}>
               {chartData.map((d, i) => {
-                // Show every label for week, every few for month/year
-                const showLabel = range === 'week' || range === 'year' || 
-                  (range === 'month' && (i % Math.ceil(chartData.length / 10) === 0 || i === chartData.length - 1));
+                const total = chartData.length;
+                // For week: show all 7 days. For month: show every 5th + last. For year: show every 30th + last.
+                const showLabel = range === 'week' ||
+                  (range === 'month' && (i % 5 === 0 || i === total - 1)) ||
+                  (range === 'year' && (i % 30 === 0 || i === total - 1));
                 return (
-                  <div key={d.date} className="flex-1 text-center">
+                  <div key={d.date} className="flex-1 text-center overflow-hidden">
                     {showLabel && (
-                      <span className="text-[10px] text-slate-500">{formatLabel(d.date, range)}</span>
+                      <span className="text-[9px] text-slate-500 leading-none">{formatLabel(d.date, range)}</span>
                     )}
                   </div>
                 );
