@@ -106,10 +106,41 @@ export function useMatchWebRTC({
       } else {
         videoConstraints.facingMode = facing;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false,
+        });
+      } catch (firstErr: any) {
+        // If back camera not found, fall back to front camera
+        if (firstErr.name === 'NotFoundError' || firstErr.name === 'OverconstrainedError') {
+          console.warn('[WebRTC] Camera not found with constraints, falling back to any camera');
+          const fallbackConstraints: MediaTrackConstraints = {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          };
+          if (!deviceId) {
+            fallbackConstraints.facingMode = facing === 'environment' ? 'user' : 'environment';
+          }
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: fallbackConstraints,
+              audio: false,
+            });
+            // Update facing mode to match what we actually got
+            if (!deviceId && facing === 'environment') {
+              setFacingMode('user');
+              facingModeRef.current = 'user';
+            }
+          } catch (secondErr: any) {
+            // Last resort: any video device
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          }
+        } else {
+          throw firstErr;
+        }
+      }
 
       // Enumerate devices after getting permission
       try {

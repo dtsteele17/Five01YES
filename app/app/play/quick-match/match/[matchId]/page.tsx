@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home, Shield } from 'lucide-react';
+import { LogOut, Wifi, WifiOff, UserPlus, Camera, CameraOff, Edit2, Trash2, RotateCcw, Check, Loader2, Trophy, Home, Shield, Maximize, Minimize } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';
@@ -4287,6 +4287,7 @@ export default function QuickMatchRoomPage() {
   const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
   const myVisitPlayerId = currentUserId || (matchState.youArePlayer === 1 ? room.player1_id : room.player2_id);
   const opponentVisitPlayerId = opponentId || (matchState.youArePlayer === 1 ? room.player2_id : room.player1_id);
+  const [mobileCameraExpanded, setMobileCameraExpanded] = useState(false);
   const mobileCurrentLegVisits = visits.filter((visit) => visit.leg === room.current_leg);
   const mobileMyRecentVisits = mobileCurrentLegVisits
     .filter((visit) => visit.player_id === myVisitPlayerId)
@@ -4428,9 +4429,12 @@ export default function QuickMatchRoomPage() {
                       turnStartedAt={turnStartedAt}
                       onTimerExpired={handleTurnTimerExpired}
                     />
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setMobileCameraExpanded(!mobileCameraExpanded)}>
+                      {mobileCameraExpanded ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+                    </Button>
                   </div>
                 </div>
-                <div className="relative h-[15vh] max-h-[15vh] bg-slate-900">
+                <div className={`relative bg-slate-900 ${mobileCameraExpanded ? 'h-[50vh]' : 'h-[15vh] max-h-[15vh]'} transition-all duration-300`}>
                   {localStream ? (
                     <video
                       ref={setLocalVideoRef}
@@ -4485,9 +4489,12 @@ export default function QuickMatchRoomPage() {
                     >
                       {isRefreshingConnection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                     </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setMobileCameraExpanded(!mobileCameraExpanded)}>
+                      {mobileCameraExpanded ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+                    </Button>
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 bg-slate-900">
+                <div className={`min-h-0 bg-slate-900 ${mobileCameraExpanded ? 'h-[70vh]' : 'flex-1'} transition-all duration-300`}>
                   {remoteStream ? (
                     <video
                       ref={setRemoteVideoRef}
