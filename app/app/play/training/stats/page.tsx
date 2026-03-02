@@ -415,8 +415,8 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       const scores = sessions.map(s => get121Score(s)).filter(s => s > 121);
       const best = scores.length > 0 ? Math.max(...scores) : 0;
       return (
-        <div className="bg-slate-900/40 rounded-lg p-2">
-          <p className="text-slate-400">Highest Score</p>
+        <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest Score</p>
           <p className="text-white font-bold">{best > 0 ? best : 'No Score Yet'}</p>
         </div>
       );
@@ -425,8 +425,8 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       const scores = sessions.map(s => getBobs27Score(s)).filter(s => s > 0);
       const best = scores.length > 0 ? Math.max(...scores) : 0;
       return (
-        <div className="bg-slate-900/40 rounded-lg p-2">
-          <p className="text-slate-400">Highest Score</p>
+        <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest Score</p>
           <p className="text-white font-bold">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
         </div>
       );
@@ -436,12 +436,12 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       const highest = sessions.reduce((max, t) => Math.max(max, getFinishHighestCheckout(t)), 0);
       return (
         <>
-          <div className="bg-slate-900/40 rounded-lg p-2">
-            <p className="text-slate-400">Total Checkouts</p>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Total Checkouts</p>
             <p className="text-white font-bold">{totalCheckouts}</p>
           </div>
-          <div className="bg-slate-900/40 rounded-lg p-2">
-            <p className="text-slate-400">Highest CO</p>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest CO</p>
             <p className="text-white font-bold">{highest > 0 ? highest : '-'}</p>
           </div>
         </>
@@ -453,12 +453,12 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
       return (
         <>
-          <div className="bg-slate-900/40 rounded-lg p-2">
-            <p className="text-slate-400">Most Points</p>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Most Points</p>
             <p className="text-white font-bold">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
           </div>
-          <div className="bg-slate-900/40 rounded-lg p-2">
-            <p className="text-slate-400">Average</p>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Average</p>
             <p className="text-white font-bold">{avg > 0 ? `${avg.toFixed(1)} pts` : '-'}</p>
           </div>
         </>
@@ -468,8 +468,8 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       const darts = sessions.map(s => getATCDarts(s)).filter(s => s > 0);
       const best = darts.length > 0 ? Math.min(...darts) : 0;
       return (
-        <div className="bg-slate-900/40 rounded-lg p-2">
-          <p className="text-slate-400">Fewest Darts</p>
+        <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Fewest Darts</p>
           <p className="text-white font-bold">{best > 0 ? best : 'No Score Yet'}</p>
         </div>
       );
@@ -478,8 +478,8 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
       const scores = sessions.map(s => s.score || 0).filter(s => s > 0);
       const best = scores.length > 0 ? Math.max(...scores) : 0;
       return (
-        <div className="bg-slate-900/40 rounded-lg p-2">
-          <p className="text-slate-400">Highest Points</p>
+        <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+          <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Highest Points</p>
           <p className="text-white font-bold">{best > 0 ? `${best} pts` : 'No Score Yet'}</p>
         </div>
       );
@@ -487,26 +487,36 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
     return null;
   };
 
+  const colors = getModeColors(mode);
+  const solidColor = getModeSolidColor(mode);
+
   return (
-    <Card className="bg-slate-800/40 border-slate-700/50 p-4">
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`w-9 h-9 rounded-lg ${getModeColors(mode).bg} flex items-center justify-center`}>
-          {getModeIcon(mode)}
+    <Card className="relative overflow-hidden bg-gradient-to-br from-slate-800/60 to-slate-900/80 border-slate-700/50 p-5 hover:border-slate-600/60 transition-all group">
+      {/* Accent bar at top */}
+      <div className={`absolute top-0 left-0 right-0 h-1 ${solidColor}`} />
+      {/* Glow effect */}
+      <div className={`absolute -top-20 -right-20 w-40 h-40 ${solidColor} opacity-[0.07] rounded-full blur-3xl group-hover:opacity-[0.12] transition-opacity`} />
+
+      <div className="relative">
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-11 h-11 rounded-xl ${colors.bg} flex items-center justify-center ring-1 ring-white/10`}>
+            {getModeIcon(mode)}
+          </div>
+          <div className="flex-1">
+            <p className="text-white font-bold">{formatModeName(mode)}</p>
+            <p className="text-slate-500 text-xs">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-white font-bold text-sm">{formatModeName(mode)}</p>
-          <p className="text-slate-500 text-xs">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        {renderKeyStats()}
-        <div className="bg-slate-900/40 rounded-lg p-2">
-          <p className="text-slate-400">Total XP</p>
-          <p className="text-amber-400 font-bold">{totalXp}</p>
-        </div>
-        <div className="bg-slate-900/40 rounded-lg p-2">
-          <p className="text-slate-400">Sessions</p>
-          <p className="text-purple-400 font-bold">{sessions.length}</p>
+        <div className="grid grid-cols-2 gap-2.5 text-xs">
+          {renderKeyStats()}
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Total XP</p>
+            <p className="text-amber-400 font-bold text-sm">{totalXp}</p>
+          </div>
+          <div className="bg-slate-900/50 rounded-lg p-2.5 border border-slate-700/30">
+            <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Sessions</p>
+            <p className={`font-bold text-sm ${colors.text}`}>{sessions.length}</p>
+          </div>
         </div>
       </div>
     </Card>
@@ -809,7 +819,7 @@ export default function TrainingStatsPage() {
             {BREAKDOWN_MODES.every(m => (sessionsByMode[m.value] || []).length === 0) && (
               <div className="text-center py-8">
                 <Target className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-400">No training data yet. Play some training games to see your breakdown.</p>
+                <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">No training data yet. Play some training games to see your breakdown.</p>
               </div>
             )}
           </div>
@@ -859,3 +869,5 @@ export default function TrainingStatsPage() {
     </div>
   );
 }
+
+
