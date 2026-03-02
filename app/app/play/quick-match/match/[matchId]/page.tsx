@@ -4512,7 +4512,7 @@ export default function QuickMatchRoomPage() {
                         mobileMyRecentVisits.map((visit) => (
                           <div key={visit.id} className="rounded-md bg-slate-900/70 px-2 py-1">
                             <div className="text-sm font-bold text-white">{visit.score}</div>
-                            <div className="text-[10px] text-slate-500">#{visit.turn_no} -> {visit.remaining_after}</div>
+                            <div className="text-[10px] text-slate-500">#{visit.turn_no} → {visit.remaining_after}</div>
                           </div>
                         ))
                       ) : (
@@ -4527,7 +4527,7 @@ export default function QuickMatchRoomPage() {
                         mobileOpponentRecentVisits.map((visit) => (
                           <div key={visit.id} className="rounded-md bg-slate-900/70 px-2 py-1">
                             <div className="text-sm font-bold text-white text-right">{visit.score}</div>
-                            <div className="text-[10px] text-slate-500 text-right">#{visit.turn_no} -> {visit.remaining_after}</div>
+                            <div className="text-[10px] text-slate-500 text-right">#{visit.turn_no} → {visit.remaining_after}</div>
                           </div>
                         ))
                       ) : (
