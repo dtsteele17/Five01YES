@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Target, Trophy, ArrowLeft, RotateCcw } from 'lucide-react';
+import { awardXP } from '@/lib/training/xpTracker';
+import { toast } from 'sonner';
 
 type DartHit = 'S' | 'D' | 'T' | 'MISS';
 
@@ -144,16 +146,65 @@ const formatTime = (ms: number): string => {
 export default function SoloAroundTheClockPage() {
   const router = useRouter();
   const [state, setState] = useState<SoloATCState>(makeInitialSoloATCState());
+  const savedRef = useRef(false);
+
+  const saveStats = async (finalState: SoloATCState) => {
+    if (savedRef.current) return;
+    savedRef.current = true;
+    try {
+      const accuracy = finalState.totalDarts > 0
+        ? ((finalState.totalDarts - finalState.misses) / finalState.totalDarts) * 100
+        : 0;
+      const elapsed = finalState.finishedAt
+        ? finalState.finishedAt - finalState.startedAt
+        : Date.now() - finalState.startedAt;
+
+      const result = await awardXP('around-the-clock-singles', finalState.totalDarts, {
+        completed: true,
+        won: true,
+        sessionData: {
+          total_darts: finalState.totalDarts,
+          totalDarts: finalState.totalDarts,
+          total_visits: finalState.totalVisits,
+          total_hits: finalState.totalDarts - finalState.misses,
+          accuracy: accuracy.toFixed(1),
+          singles: finalState.singles,
+          doubles: finalState.doubles,
+          trebles: finalState.trebles,
+          misses: finalState.misses,
+          elapsed_ms: elapsed,
+        },
+      });
+
+      if (result.success) {
+        toast.success(`✅ +${result.xpAwarded || 0} XP saved!`);
+      }
+      if (result.levelUp) {
+        toast.success(`🎉 Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`);
+      }
+    } catch (err) {
+      console.error('Error saving ATC stats:', err);
+    }
+  };
 
   const handleDart = (hit: DartHit) => {
-    setState(prev => applyDart(prev, hit));
+    setState(prev => {
+      const next = applyDart(prev, hit);
+      if (next.isComplete && !prev.isComplete) {
+        // Save stats when game just completed
+        saveStats(next);
+      }
+      return next;
+    });
   };
 
   const handleRetry = () => {
+    savedRef.current = false;
     setState(makeInitialSoloATCState());
   };
 
-  const handleReturn = () => {
+  const handleReturn = async () => {
+    if (state.isComplete) await saveStats(state);
     router.push('/app/play/training');
   };
 
