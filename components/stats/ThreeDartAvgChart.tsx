@@ -22,28 +22,48 @@ const RANGE_LABELS: Record<TimeRange, string> = {
 function getDateRange(range: TimeRange): Date {
   const now = new Date();
   if (range === 'week') {
+    // Start from Monday of the current week
     const d = new Date(now);
-    d.setDate(d.getDate() - 6);
+    const day = d.getDay(); // 0=Sun, 1=Mon, ...
+    const diff = day === 0 ? 6 : day - 1; // days since Monday
+    d.setDate(d.getDate() - diff);
     d.setHours(0, 0, 0, 0);
     return d;
   }
   if (range === 'month') {
-    const d = new Date(now.getFullYear(), now.getMonth(), 1);
-    return d;
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   }
   // year
   return new Date(now.getFullYear(), 0, 1);
 }
 
+function getDateRangeEnd(range: TimeRange): Date {
+  const now = new Date();
+  if (range === 'week') {
+    // End on Sunday of the current week
+    const start = getDateRange('week');
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }
+  if (range === 'month') {
+    // Last day of current month
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
+  // year - Dec 31
+  return new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+}
+
 function formatLabel(dateStr: string, range: TimeRange): string {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = new Date(dateStr + 'T12:00:00'); // noon to avoid DST edge cases
   if (range === 'week') {
     return d.toLocaleDateString('en-GB', { weekday: 'short' });
   }
   if (range === 'month') {
     return d.getDate().toString();
   }
-  // year – show day + month abbreviation
+  // year – show month abbreviation (or day+month for finer resolution)
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
@@ -111,7 +131,7 @@ export function ThreeDartAvgChart() {
   const chartData = useMemo(() => {
     const dataMap = new Map(rawData.map(d => [d.date, d]));
     const start = getDateRange(range);
-    const end = new Date();
+    const end = getDateRangeEnd(range);
     const days: (DayData & { hasData: boolean })[] = [];
 
     const d = new Date(start);
@@ -203,11 +223,12 @@ export function ThreeDartAvgChart() {
             {/* Y-axis grid lines & labels */}
             {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
               const val = chartMax - valueRange * pct;
+              const topPct = pct * 100;
               return (
                 <div
                   key={pct}
-                  className="absolute right-0 border-t border-slate-700/30"
-                  style={{ top: `${pct * (100 - 12)}%`, left: '40px' }}
+                  className="absolute border-t border-slate-700/30"
+                  style={{ top: `${topPct}%`, left: '40px', right: 0, height: 0 }}
                 >
                   <span className="absolute -left-2 -translate-x-full text-[10px] text-slate-500" style={{ marginTop: '-6px' }}>
                     {val.toFixed(0)}
@@ -216,85 +237,104 @@ export function ThreeDartAvgChart() {
               );
             })}
 
-            {/* SVG line chart */}
+            {/* Chart area (line + area fill via SVG, dots via HTML) */}
             {(() => {
               const totalDays = chartData.length;
-              const w = 1000;
-              const h = 400;
-              const padT = 10;
-              const padB = 10;
-              const chartH = h - padT - padB;
 
-              // Build points only for days with data
               const pointsWithIndex = chartData
                 .map((d, i) => ({ ...d, idx: i }))
                 .filter(d => d.hasData);
 
               if (pointsWithIndex.length === 0) return null;
 
-              const getX = (idx: number) => totalDays <= 1 ? w / 2 : (idx / (totalDays - 1)) * w;
-              const getY = (avg: number) => padT + chartH - ((avg - chartMin) / valueRange) * chartH;
+              // Percentage-based positioning for both SVG and HTML dots
+              const getXPct = (idx: number) => totalDays <= 1 ? 50 : (idx / (totalDays - 1)) * 100;
+              const getYPct = (avg: number) => 100 - ((avg - chartMin) / valueRange) * 100;
 
-              const linePoints = pointsWithIndex.map(p => `${getX(p.idx)},${getY(p.avg)}`).join(' ');
-              
-              // Area path
+              // SVG viewBox matches percentage space for the line
+              const w = 1000;
+              const h = 1000;
+              const getXSvg = (idx: number) => totalDays <= 1 ? w / 2 : (idx / (totalDays - 1)) * w;
+              const getYSvg = (avg: number) => h - ((avg - chartMin) / valueRange) * h;
+
+              const linePoints = pointsWithIndex.map(p => `${getXSvg(p.idx)},${getYSvg(p.avg)}`).join(' ');
+
               const first = pointsWithIndex[0];
               const last = pointsWithIndex[pointsWithIndex.length - 1];
-              const areaPath = `M${getX(first.idx)},${getY(first.avg)} ${pointsWithIndex.map(p => `L${getX(p.idx)},${getY(p.avg)}`).join(' ')} L${getX(last.idx)},${h} L${getX(first.idx)},${h} Z`;
+              const areaPath = `M${getXSvg(first.idx)},${getYSvg(first.avg)} ${pointsWithIndex.map(p => `L${getXSvg(p.idx)},${getYSvg(p.avg)}`).join(' ')} L${getXSvg(last.idx)},${h} L${getXSvg(first.idx)},${h} Z`;
 
-              // Dot radius based on number of days
-              const dotR = totalDays <= 7 ? 8 : totalDays <= 31 ? 5 : 3;
+              const dotSize = totalDays <= 7 ? 12 : totalDays <= 31 ? 8 : 5;
 
               return (
-                <svg
-                  className="absolute"
-                  style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}
-                  viewBox={`0 0 ${w} ${h}`}
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient id="avgAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#a855f7" stopOpacity="0.02" />
-                    </linearGradient>
-                  </defs>
-                  {/* Area fill */}
-                  <path d={areaPath} fill="url(#avgAreaGrad)" />
-                  {/* Line */}
-                  <polyline
-                    points={linePoints}
-                    fill="none"
-                    stroke="#a855f7"
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {/* Dots */}
-                  {pointsWithIndex.map((p) => (
-                    <circle
-                      key={p.date}
-                      cx={getX(p.idx)}
-                      cy={getY(p.avg)}
-                      r={dotR}
-                      fill="#a855f7"
-                      stroke="#1e293b"
-                      strokeWidth="2"
+                <>
+                  {/* SVG for line and area only (preserveAspectRatio=none is fine for these) */}
+                  <svg
+                    className="absolute"
+                    style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}
+                    viewBox={`0 0 ${w} ${h}`}
+                    preserveAspectRatio="none"
+                  >
+                    <defs>
+                      <linearGradient id="avgAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#a855f7" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    <path d={areaPath} fill="url(#avgAreaGrad)" />
+                    <polyline
+                      points={linePoints}
+                      fill="none"
+                      stroke="#a855f7"
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
                       vectorEffect="non-scaling-stroke"
                     />
-                  ))}
-                </svg>
+                  </svg>
+
+                  {/* HTML dots – always perfectly round */}
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}
+                  >
+                    {pointsWithIndex.map((p) => (
+                      <div
+                        key={p.date}
+                        className="absolute rounded-full bg-purple-500 border-2 border-slate-800"
+                        style={{
+                          width: dotSize,
+                          height: dotSize,
+                          left: `${getXPct(p.idx)}%`,
+                          top: `${getYPct(p.avg)}%`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
               );
             })()}
 
             {/* Tooltip overlay */}
-            <div className="absolute flex" style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}>
+            <div className="absolute" style={{ left: '40px', top: 0, width: 'calc(100% - 40px)', height: 'calc(100% - 24px)' }}>
               {chartData.map((d, i) => {
-                if (!d.hasData) return <div key={d.date} className="flex-1" />;
-                const yPct = ((d.avg - chartMin) / valueRange) * 100;
+                if (!d.hasData) return null;
+                const totalDays = chartData.length;
+                const xPct = totalDays <= 1 ? 50 : (i / (totalDays - 1)) * 100;
+                const yPct = 100 - ((d.avg - chartMin) / valueRange) * 100;
                 return (
-                  <div key={d.date} className="flex-1 relative group cursor-pointer" style={{ height: '100%' }}>
-                    <div className="hidden group-hover:block absolute bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs z-20 whitespace-nowrap shadow-lg -translate-x-1/2 left-1/2" style={{ bottom: `${yPct + 8}%` }}>
+                  <div
+                    key={d.date}
+                    className="absolute group cursor-pointer"
+                    style={{
+                      left: `${xPct}%`,
+                      top: `${yPct}%`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 24,
+                      height: 24,
+                    }}
+                  >
+                    <div className="hidden group-hover:block absolute bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs z-20 whitespace-nowrap shadow-lg -translate-x-1/2 left-1/2 bottom-full mb-2">
                       <p className="text-white font-bold">{d.avg.toFixed(1)}</p>
                       <p className="text-slate-400">{d.matchCount} match{d.matchCount !== 1 ? 'es' : ''}</p>
                       <p className="text-slate-500">{d.date}</p>
@@ -304,20 +344,23 @@ export function ThreeDartAvgChart() {
               })}
             </div>
 
-            {/* X-axis labels */}
-            <div className="absolute flex" style={{ left: '40px', bottom: 0, width: 'calc(100% - 40px)', height: '20px' }}>
+            {/* X-axis labels – positioned to align with data points */}
+            <div className="absolute" style={{ left: '40px', bottom: 0, width: 'calc(100% - 40px)', height: '20px' }}>
               {chartData.map((d, i) => {
                 const total = chartData.length;
-                // For week: show all 7 days. For month: show every 5th + last. For year: show every 30th + last.
                 const showLabel = range === 'week' ||
                   (range === 'month' && (i % 5 === 0 || i === total - 1)) ||
                   (range === 'year' && (i % 30 === 0 || i === total - 1));
+                if (!showLabel) return null;
+                const xPct = total <= 1 ? 50 : (i / (total - 1)) * 100;
                 return (
-                  <div key={d.date} className="flex-1 text-center overflow-hidden">
-                    {showLabel && (
-                      <span className="text-[9px] text-slate-500 leading-none">{formatLabel(d.date, range)}</span>
-                    )}
-                  </div>
+                  <span
+                    key={d.date}
+                    className="absolute text-[9px] text-slate-500 leading-none -translate-x-1/2"
+                    style={{ left: `${xPct}%` }}
+                  >
+                    {formatLabel(d.date, range)}
+                  </span>
                 );
               })}
             </div>
