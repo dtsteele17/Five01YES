@@ -734,10 +734,13 @@ export default function QuickMatchLobbyPage() {
   // ============================================
   // JOIN ACCEPTED POPUP CALLBACKS
   // ============================================
-  const handleJoinAcceptedLeave = useCallback(() => {
+  const handleJoinAcceptedLeave = useCallback(async () => {
+    // The JoinAcceptedPopup's handleLeave already removes the player from DB
+    // This just cleans up the UI state
     setShowJoinAcceptedPopup(false);
     setAcceptedLobbyId(null);
     setMyLobby(null);
+    fetchLobbies();
   }, []);
 
   const handleJoinAcceptedMatchStart = useCallback((matchId: string) => {
@@ -1033,7 +1036,8 @@ export default function QuickMatchLobbyPage() {
         // Add or update lobby in list
         const exists = prev.some(l => l.id === updatedLobby.id);
         if (exists) {
-          return prev.map(l => l.id === updatedLobby.id ? updatedLobby : l);
+          // Merge with existing data to preserve joined profile info (player1)
+          return prev.map(l => l.id === updatedLobby.id ? { ...l, ...updatedLobby } : l);
         }
         
         // Add new lobby if it's open or a joinable ATC lobby
@@ -1050,8 +1054,14 @@ export default function QuickMatchLobbyPage() {
       if (cancelledLobbyIdsRef.current.has(updatedLobby.id)) {
         return;
       }
-      if (updatedLobby.status === 'open' && updatedLobby.created_by !== currentUserId) {
-        setLobbies(prev => [updatedLobby, ...prev]);
+      const isNewJoinableATC = updatedLobby.game_type === 'atc' && 
+                              (updatedLobby.status === 'waiting' || updatedLobby.status === 'full');
+      if ((updatedLobby.status === 'open' || isNewJoinableATC) && updatedLobby.created_by !== currentUserId) {
+        setLobbies(prev => {
+          // Don't add duplicates
+          if (prev.some(l => l.id === updatedLobby.id)) return prev;
+          return [updatedLobby, ...prev];
+        });
       }
     }
   }
@@ -1839,11 +1849,14 @@ export default function QuickMatchLobbyPage() {
       const currentPlayers = myLobby.players || [];
       const updatedPlayers = currentPlayers.filter((p: ATCPlayer) => p.id !== userId);
       
+      // Set status based on remaining players: 'open' if only host left, 'waiting' if 2+
+      const newStatus = updatedPlayers.length <= 1 ? 'open' : 'waiting';
+
       await supabase
         .from('quick_match_lobbies')
         .update({ 
           players: updatedPlayers,
-          status: 'open'
+          status: newStatus
         })
         .eq('id', lobbyIdToLeave);
 
