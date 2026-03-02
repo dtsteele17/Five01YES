@@ -88,13 +88,13 @@ const ATC_SUB_MODES = [
 // Colors matched to training menu page
 const MODE_FILTERS = [
   { value: 'all', label: 'All Training', icon: Target, color: 'bg-purple-500/20', iconColor: 'text-purple-400' },
-  { value: '121', label: '121', icon: Zap, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
-  { value: 'around-the-clock', label: 'Around the Clock', icon: Clock, color: 'bg-amber-500/20', iconColor: 'text-amber-400' },
-  { value: 'bobs-27', label: "Bob's 27", icon: Dices, color: 'bg-blue-500/20', iconColor: 'text-blue-400' },
-  { value: 'finish-training', label: 'Finish Training', icon: Flame, color: 'bg-red-500/20', iconColor: 'text-red-400' },
-  { value: 'jdc-challenge', label: 'JDC Challenge', icon: TrendingUp, color: 'bg-teal-500/20', iconColor: 'text-teal-400' },
+  { value: '121', label: '121', icon: Zap, color: 'bg-blue-500/20', iconColor: 'text-blue-400' },
+  { value: 'around-the-clock', label: 'Around the Clock', icon: Clock, color: 'bg-indigo-500/20', iconColor: 'text-indigo-400' },
+  { value: 'bobs-27', label: "Bob's 27", icon: Dices, color: 'bg-cyan-500/20', iconColor: 'text-cyan-400' },
+  { value: 'finish-training', label: 'Finish Training', icon: Flame, color: 'bg-orange-500/20', iconColor: 'text-orange-400' },
+  { value: 'jdc-challenge', label: 'JDC Challenge', icon: TrendingUp, color: 'bg-purple-500/20', iconColor: 'text-purple-400' },
   { value: 'killer', label: 'Killer', icon: Activity, color: 'bg-rose-500/20', iconColor: 'text-rose-400' },
-  { value: 'pdc-challenge', label: 'PDC Challenge', icon: Crown, color: 'bg-green-500/20', iconColor: 'text-green-400' },
+  { value: 'pdc-challenge', label: 'PDC Challenge', icon: Crown, color: 'bg-amber-500/20', iconColor: 'text-amber-400' },
 ];
 
 const BREAKDOWN_MODES = MODE_FILTERS.filter(m => m.value !== 'all');
