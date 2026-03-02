@@ -99,35 +99,35 @@ export function PreGameLobby({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <Card className="bg-slate-900 border-white/10 p-8 max-w-lg w-full mx-4">
+      <Card className="bg-slate-900 border-white/10 p-4 sm:p-8 max-w-lg w-full mx-4">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-white mb-2">Match Lobby</h2>
-          <p className="text-gray-400">
+        <div className="text-center mb-4 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">Match Lobby</h2>
+          <p className="text-gray-400 text-sm">
             {gameMode} • {matchFormat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
           </p>
         </div>
 
         {/* Timer */}
-        <div className={`mb-8 p-4 rounded-lg border ${getTimerBg()} text-center`}>
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Clock className={`w-5 h-5 ${getTimerColor()}`} />
-            <span className={`text-3xl font-bold ${getTimerColor()}`}>
+        <div className={`mb-4 sm:mb-8 p-2 sm:p-4 rounded-lg border ${getTimerBg()} text-center`}>
+          <div className="flex items-center justify-center gap-2">
+            <Clock className={`w-4 h-4 sm:w-5 sm:h-5 ${getTimerColor()}`} />
+            <span className={`text-2xl sm:text-3xl font-bold ${getTimerColor()}`}>
               {formatTime(timeRemaining)}
             </span>
           </div>
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-400 text-xs sm:text-sm">
             Both players must click Ready to start the match
           </p>
         </div>
 
         {/* Players */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-8">
           {/* Player 1 */}
-          <div className={`p-4 rounded-lg border ${player1.isReady ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
+          <div className={`p-2 sm:p-4 rounded-lg border ${player1.isReady ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
             <div className="flex flex-col items-center text-center">
-              <div className="relative mb-3">
-                <Avatar className="w-16 h-16">
+              <div className="relative mb-2 sm:mb-3">
+                <Avatar className="w-10 h-10 sm:w-16 sm:h-16">
                   {player1.avatar_url ? (
                     <img src={player1.avatar_url} alt={player1.username} className="w-full h-full object-cover rounded-full" />
                   ) : (
@@ -142,19 +142,19 @@ export function PreGameLobby({
                   </div>
                 )}
               </div>
-              <h3 className="font-semibold text-white mb-1">
+              <h3 className="font-semibold text-white mb-1 text-sm sm:text-base">
                 {player1.username}
                 {isPlayer1 && <span className="text-emerald-400 ml-1">(You)</span>}
               </h3>
-              <div className="flex items-center gap-1 text-sm">
-                <Target className="w-4 h-4 text-blue-400" />
+              <div className="flex items-center gap-1 text-xs sm:text-sm">
+                <Target className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
                 <span className="text-blue-400">
                   {player1.threeDartAvg && player1.threeDartAvg > 0
                     ? `${player1.threeDartAvg.toFixed(1)} avg`
                     : 'New Player'}
                 </span>
               </div>
-              <div className="mt-3">
+              <div className="mt-2 sm:mt-3">
                 {player1.isReady ? (
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                     Ready
@@ -169,11 +169,11 @@ export function PreGameLobby({
           </div>
 
           {/* Player 2 */}
-          <div className={`p-4 rounded-lg border ${player2?.isReady ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
+          <div className={`p-2 sm:p-4 rounded-lg border ${player2?.isReady ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white/5 border-white/10'}`}>
             {player2 ? (
               <div className="flex flex-col items-center text-center">
-                <div className="relative mb-3">
-                  <Avatar className="w-16 h-16">
+                <div className="relative mb-2 sm:mb-3">
+                  <Avatar className="w-10 h-10 sm:w-16 sm:h-16">
                     {player2.avatar_url ? (
                       <img src={player2.avatar_url} alt={player2.username} className="w-full h-full object-cover rounded-full" />
                     ) : (
@@ -188,19 +188,19 @@ export function PreGameLobby({
                     </div>
                   )}
                 </div>
-                <h3 className="font-semibold text-white mb-1">
+                <h3 className="font-semibold text-white mb-1 text-sm sm:text-base">
                   {player2.username}
                   {!isPlayer1 && <span className="text-emerald-400 ml-1">(You)</span>}
                 </h3>
-                <div className="flex items-center gap-1 text-sm">
-                  <Target className="w-4 h-4 text-blue-400" />
+                <div className="flex items-center gap-1 text-xs sm:text-sm">
+                  <Target className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
                   <span className="text-blue-400">
                     {player2.threeDartAvg && player2.threeDartAvg > 0
                       ? `${player2.threeDartAvg.toFixed(1)} avg`
                       : 'New Player'}
                   </span>
                 </div>
-                <div className="mt-3">
+                <div className="mt-2 sm:mt-3">
                   {player2.isReady ? (
                     <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                       Ready
@@ -214,8 +214,8 @@ export function PreGameLobby({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-3">
-                  <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
+                <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-slate-800 flex items-center justify-center mb-2 sm:mb-3">
+                  <Loader2 className="w-5 h-5 sm:w-8 sm:h-8 text-gray-500 animate-spin" />
                 </div>
                 <h3 className="text-gray-400">Waiting for opponent...</h3>
               </div>
@@ -224,7 +224,7 @@ export function PreGameLobby({
         </div>
 
         {/* Ready Progress Bar */}
-        <div className="mb-8">
+        <div className="mb-4 sm:mb-8">
           <div className="flex justify-between text-sm text-gray-400 mb-2">
             <span>Ready Status</span>
             <span>
@@ -256,7 +256,7 @@ export function PreGameLobby({
               <Button
                 onClick={handleReady}
                 disabled={hasClickedReady}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-14 text-lg"
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-12 sm:h-14 text-base sm:text-lg"
               >
                 {hasClickedReady ? (
                   <>
