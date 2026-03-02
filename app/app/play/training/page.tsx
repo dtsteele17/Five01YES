@@ -1095,30 +1095,28 @@ export default function TrainingHubPage() {
           </div>
         </div>
 
-        {/* Tips Section */}
-        <motion.div
-          variants={itemVariants}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800/60 to-slate-800/40 border border-slate-700/50 p-4 sm:p-6"
-        >
-          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl" />
-          <div className="relative flex flex-col md:flex-row items-start md:items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="w-6 h-6 text-blue-400" />
+        {/* Training Stats Button */}
+        <motion.div variants={itemVariants}>
+          <Link href="/app/play/training/stats">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600/20 via-slate-800/60 to-indigo-600/20 border border-purple-500/40 hover:border-purple-400/60 p-4 sm:p-6 transition-all group cursor-pointer">
+              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl" />
+              <div className="relative flex flex-col md:flex-row items-start md:items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-500/30 transition-colors">
+                  <BarChart3 className="w-6 h-6 text-purple-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold mb-1 group-hover:text-purple-300 transition-colors">Training Statistics</h3>
+                  <p className="text-slate-400 text-sm">
+                    View detailed stats for all your training sessions. Track progress, scores, and improvements across every training mode.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-purple-400 font-medium group-hover:text-purple-300 transition-colors">
+                  View Stats
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-white font-bold mb-1">Training Tip</h3>
-              <p className="text-slate-400 text-sm">
-                Consistency is key! Try to complete at least 3 training sessions per week to see steady improvement in your game. Focus on one weak area at a time.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
-              onClick={() => toast.info('More tips coming soon!')}
-            >
-              View All Tips
-            </Button>
-          </div>
+          </Link>
         </motion.div>
       </motion.div>
 
