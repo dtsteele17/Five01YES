@@ -7,26 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
 import { useTrainingStats } from '@/lib/hooks/useTrainingStats';
-import {
-  ArrowLeft,
-  BarChart3,
-  Trophy,
-  Target,
-  TrendingUp,
-  Flame,
-  Zap,
-  Clock,
-  Dices,
-  Crown,
-  Activity,
-  Filter,
-  ChevronDown,
-  RefreshCw,
-  Star,
-  Calendar,
-  Shield,
-  Crosshair,
-} from 'lucide-react';
+import { ArrowLeft, ChartBar as BarChart3, Trophy, Target, TrendingUp, Flame, Zap, Clock, Dices, Crown, Activity, Filter, ChevronDown, RefreshCw, Star, Calendar, Shield, Crosshair } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────
 interface TrainingSession {
