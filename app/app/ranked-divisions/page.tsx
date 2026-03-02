@@ -225,9 +225,8 @@ function CurrentRankCard({
               <div className={`absolute inset-0 ${colors.bg}/40 rounded-3xl blur-xl`} />
               <div className={`absolute -inset-3 ${colors.bg}/30 rounded-[2rem] blur-lg`} />
               
-              {/* Main badge container - consistent large size for all ranks */}
-              <div className="relative w-24 h-24 sm:w-72 sm:h-72 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center shadow-2xl ${colors.glow} ring-2 ring-white/40 ring-offset-2 ring-offset-slate-900/50">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/20 to-transparent" />
+              {/* Main badge - no container box */}
+              <div className="relative w-24 h-24 sm:w-72 sm:h-72 flex items-center justify-center">
                 <div className="relative flex items-center justify-center max-sm:scale-[0.34] sm:scale-100">
                   {playerState.provisional_games_remaining ? (
                     <Trophy className="w-32 h-32 text-slate-400" />
@@ -371,7 +370,7 @@ function TierPageHeader({ tierName }: { tierName: string }) {
       
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-          <div className="w-24 h-24 sm:w-40 sm:h-40 rounded-xl flex items-center justify-center bg-white/20 backdrop-blur-sm shadow-lg flex-shrink-0">
+          <div className="w-24 h-24 sm:w-40 sm:h-40 flex items-center justify-center flex-shrink-0">
             {getTierIcon(tierName, 150)}
           </div>
           <div>
@@ -608,9 +607,14 @@ function TierNavigator({
                     )}
                     
                     <div className="relative">
-                      {/* Icon container - consistent size for all ranks */}
-                      <div className="w-full max-w-[56px] sm:max-w-[180px] aspect-square rounded-lg sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-4 mx-auto bg-slate-800/80 border border-slate-700 transition-transform group-hover:scale-105">
-                        {getTierIcon(tier.tier_name, 90)}
+                      {/* Rank icon - no container box, consistent size */}
+                      <div className="w-full max-w-[56px] sm:max-w-[180px] aspect-square flex items-center justify-center mb-2 sm:mb-4 mx-auto transition-transform group-hover:scale-105">
+                        <img 
+                          src={getRankImageUrl(tier.tier_name)} 
+                          alt={tier.tier_name}
+                          className="w-full h-full object-contain"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
                       </div>
                       
                       <p className={`text-[9px] sm:text-xs uppercase tracking-[0.08em] sm:tracking-[0.15em] mb-1 font-bold truncate ${
