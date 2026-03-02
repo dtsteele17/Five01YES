@@ -545,7 +545,8 @@ export default function TrainingStatsPage() {
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
-  const { level: trainingLevel } = useTrainingStats();
+  const { stats: trainingStatsData } = useTrainingStats();
+  const trainingLevel = trainingStatsData.level;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
