@@ -177,7 +177,7 @@ export default function SoloAroundTheClockPage() {
       });
 
       if (result.success) {
-        toast.success(`✅ +${result.xpAwarded || 0} XP saved!`);
+        toast.success(`✅ +${result.xpBreakdown.total || 0} XP saved!`);
       }
       if (result.levelUp) {
         toast.success(`🎉 Level Up! ${result.levelUp.oldLevel} → ${result.levelUp.newLevel}`);
