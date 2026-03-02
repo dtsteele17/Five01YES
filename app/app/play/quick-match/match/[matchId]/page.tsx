@@ -3652,25 +3652,27 @@ export default function QuickMatchRoomPage() {
     if (!room || !currentUserId || !matchState) return;
     if (['completed', 'finished', 'forfeited'].includes(room.status)) return;
 
-    console.log('[AFK] Opponent AFK timeout — auto-forfeiting opponent via RPC');
+    console.log('[AFK] Opponent AFK timeout — auto-forfeiting opponent');
     setShowOpponentAfk(false);
 
+    // Immediately show the forfeit modal so the user knows they won
+    setShowOpponentForfeitModal(true);
+    toast.success('Opponent forfeited due to inactivity! You win! 🎉');
+
+    // Try to update the database in the background
     try {
-      // Use dedicated RPC that allows the waiting player to forfeit the AFK opponent
-      const { data, error } = await supabase.rpc('rpc_forfeit_afk_opponent', {
+      // Try dedicated AFK RPC first
+      const { error: afkError } = await supabase.rpc('rpc_forfeit_afk_opponent', {
         p_room_id: matchId
       });
 
-      if (error) {
-        console.error('[AFK] RPC error forfeiting opponent:', error);
-        toast.error('Failed to end match');
-        return;
-      }
-
-      if (!data?.ok) {
-        console.error('[AFK] Forfeit opponent failed:', data?.error);
-        toast.error(data?.error || 'Failed to forfeit opponent');
-        return;
+      if (afkError) {
+        console.warn('[AFK] rpc_forfeit_afk_opponent failed, trying direct update:', afkError.message);
+        // Fallback: directly update room status
+        const opponentId = matchState.youArePlayer === 1 ? room.player2_id : room.player1_id;
+        await supabase.from('match_rooms')
+          .update({ status: 'forfeited', winner_id: currentUserId, forfeiter_id: opponentId })
+          .eq('id', matchId);
       }
 
       // Send forfeit signal to opponent (best effort)
@@ -3700,8 +3702,6 @@ export default function QuickMatchRoomPage() {
           console.error('[AFK] Tournament bracket error:', err);
         }
       }
-
-      toast.success('Opponent forfeited due to inactivity! You win! 🎉');
     } catch (err) {
       console.error('[AFK] Opponent forfeit error:', err);
       toast.error('Something went wrong');
