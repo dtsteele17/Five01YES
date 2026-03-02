@@ -85,15 +85,16 @@ const ATC_SUB_MODES = [
 ];
 
 // ── Mode config ─────────────────────────────────────────────
+// Colors matched to training menu page
 const MODE_FILTERS = [
-  { value: 'all', label: 'All Training', icon: Target },
-  { value: '121', label: '121', icon: Zap },
-  { value: 'around-the-clock', label: 'Around the Clock', icon: Clock },
-  { value: 'bobs-27', label: "Bob's 27", icon: Dices },
-  { value: 'finish-training', label: 'Finish Training', icon: Flame },
-  { value: 'jdc-challenge', label: 'JDC Challenge', icon: TrendingUp },
-  { value: 'killer', label: 'Killer', icon: Activity },
-  { value: 'pdc-challenge', label: 'PDC Challenge', icon: Crown },
+  { value: 'all', label: 'All Training', icon: Target, color: 'bg-purple-500/20', iconColor: 'text-purple-400' },
+  { value: '121', label: '121', icon: Zap, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
+  { value: 'around-the-clock', label: 'Around the Clock', icon: Clock, color: 'bg-amber-500/20', iconColor: 'text-amber-400' },
+  { value: 'bobs-27', label: "Bob's 27", icon: Dices, color: 'bg-blue-500/20', iconColor: 'text-blue-400' },
+  { value: 'finish-training', label: 'Finish Training', icon: Flame, color: 'bg-red-500/20', iconColor: 'text-red-400' },
+  { value: 'jdc-challenge', label: 'JDC Challenge', icon: TrendingUp, color: 'bg-teal-500/20', iconColor: 'text-teal-400' },
+  { value: 'killer', label: 'Killer', icon: Activity, color: 'bg-rose-500/20', iconColor: 'text-rose-400' },
+  { value: 'pdc-challenge', label: 'PDC Challenge', icon: Crown, color: 'bg-green-500/20', iconColor: 'text-green-400' },
 ];
 
 const BREAKDOWN_MODES = MODE_FILTERS.filter(m => m.value !== 'all');
@@ -104,11 +105,18 @@ function formatModeName(mode: string): string {
   return found?.label || mode;
 }
 
+function getModeColors(mode: string): { bg: string; text: string } {
+  const canonical = canonicalMode(mode);
+  const found = MODE_FILTERS.find(m => m.value === canonical);
+  return { bg: found?.color || 'bg-purple-500/20', text: found?.iconColor || 'text-purple-400' };
+}
+
 function getModeIcon(mode: string) {
   const canonical = canonicalMode(mode);
   const found = MODE_FILTERS.find(m => m.value === canonical);
   const Icon = found?.icon || Target;
-  return <Icon className="w-5 h-5" />;
+  const colors = getModeColors(mode);
+  return <Icon className={`w-5 h-5 ${colors.text}`} />;
 }
 
 function timeAgo(dateStr: string): string {
@@ -340,7 +348,7 @@ function SessionRow({ session, isMatch }: { session: MatchEntry | TrainingSessio
 
   return (
     <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-slate-700/30 hover:border-slate-600/50 transition-colors">
-      <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+      <div className={`w-10 h-10 rounded-lg ${getModeColors(mode).bg} flex items-center justify-center shrink-0`}>
         {getModeIcon(mode)}
       </div>
       <div className="flex-1 min-w-0">
@@ -447,7 +455,7 @@ function ModeBreakdownCard({ mode, sessions }: { mode: string; sessions: Trainin
   return (
     <Card className="bg-slate-800/40 border-slate-700/50 p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-9 h-9 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+        <div className={`w-9 h-9 rounded-lg ${getModeColors(mode).bg} flex items-center justify-center`}>
           {getModeIcon(mode)}
         </div>
         <div>
