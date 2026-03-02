@@ -106,8 +106,10 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
   return (
     <motion.div variants={itemVariants} className="h-full">
       <Link href={href} className="h-full block">
-        <Card className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${featured ? 'bg-slate-800/60 border-emerald-500/30' : 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50'} p-4 sm:p-6`}>
-          <div className={`absolute inset-0 ${color} opacity-0 group-hover:opacity-10 transition-opacity`} />
+        <Card className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${featured ? 'bg-gradient-to-br from-slate-800/80 to-slate-900/70 border-emerald-500/35 shadow-[0_0_0_1px_rgba(16,185,129,0.18),0_10px_40px_rgba(2,6,23,0.45)]' : 'bg-gradient-to-br from-slate-800/70 to-slate-900/60 border-slate-700/60 hover:border-slate-500/70 shadow-[0_0_0_1px_rgba(100,116,139,0.12),0_10px_30px_rgba(2,6,23,0.42)]'} p-4 sm:p-6`}>
+          <div className={`absolute inset-0 ${color} opacity-5 group-hover:opacity-15 transition-opacity`} />
+          <div className={`absolute -top-10 -right-10 h-28 w-28 rounded-full ${color} opacity-20 blur-2xl`} />
+          <div className={`absolute -bottom-10 -left-10 h-24 w-24 rounded-full ${color} opacity-10 blur-2xl`} />
           
           <div className="relative z-10 h-full flex flex-col">
             <div className="flex items-start justify-between mb-3 sm:mb-4">
