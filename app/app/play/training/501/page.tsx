@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trophy, RotateCcw, Home, X, Check, Bot, BarChart3, Wifi, WifiOff, Edit2, Trash2 } from 'lucide-react';
+import { Trophy, RotateCcw, Chrome as Home, X, Check, Bot, ChartBar as BarChart3, Wifi, WifiOff, CreditCard as Edit2, Trash2 } from 'lucide-react';
 import { isBust, getLegsToWin, isValidCheckout, calculateCheckoutPercentage } from '@/lib/match-logic';
 import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
 import { createClient } from '@/lib/supabase/client';
