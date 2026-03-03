@@ -345,8 +345,44 @@ export function formatDartLabel(label: string): string {
 }
 
 /**
+ * Score a route for quality. Lower is better.
+ * Penalises: small trebles (T1-T6), bull usage, more darts.
+ * Prefers: big trebles (T20-T15), clean singles, fewer darts.
+ */
+function scoreRoute(route: string[]): number {
+  let penalty = 0;
+  // More darts = worse (strongly prefer 2-dart over 3-dart)
+  penalty += route.length * 100;
+  
+  for (const dart of route) {
+    // Penalise bull heavily (unless it's the only option)
+    if (dart === 'DB') penalty += 50;
+    if (dart === 'SB') penalty += 30;
+    
+    // Penalise small trebles (T1-T6) — singles are much easier to hit
+    const trebleMatch = dart.match(/^T(\d+)$/);
+    if (trebleMatch) {
+      const num = parseInt(trebleMatch[1]);
+      if (num <= 6) penalty += 40;       // T1-T6: strongly avoid
+      else if (num <= 10) penalty += 15;  // T7-T10: slight penalty
+      else penalty += 5;                  // T11-T20: fine, small base cost
+    }
+    
+    // Small doubles penalty (harder to hit)
+    const doubleMatch = dart.match(/^D(\d+)$/);
+    if (doubleMatch) {
+      const num = parseInt(doubleMatch[1]);
+      if (num <= 3) penalty += 20;
+      else if (num <= 6) penalty += 10;
+    }
+  }
+  return penalty;
+}
+
+/**
  * Try to find a checkout route ending with the preferred double.
- * Returns null if no valid route exists for that double.
+ * Returns the best (lowest penalty) route. Avoids small trebles, bull,
+ * and prefers fewer darts.
  */
 function findRouteWithPreferredDouble(
   remaining: number,
@@ -362,53 +398,55 @@ function findRouteWithPreferredDouble(
   }
 
   const needBefore = remaining - dblValue;
+  const candidates: string[][] = [];
 
-  // 2 darts: need 1 dart scoring exactly `needBefore`
-  if (dartsLeft === 2) {
-    if (needBefore === 0) return [preferredDouble];
-    // Try single, double, treble, bulls
-    const allDarts = [...ALL_SINGLES, ...ALL_DOUBLES, ...ALL_TREBLES, 'DB'];
-    for (const d of allDarts) {
-      if (dartValue(d) === needBefore) {
-        return [d, preferredDouble];
-      }
-    }
-    return null;
+  // Direct double (0 setup darts needed)
+  if (needBefore === 0) {
+    candidates.push([preferredDouble]);
   }
 
-  // 3 darts: need 2 darts scoring exactly `needBefore`
-  if (dartsLeft >= 3) {
-    if (needBefore === 0) return [preferredDouble];
-    const allDarts = [...ALL_TREBLES, ...ALL_SINGLES, ...ALL_DOUBLES, 'DB', 'SB'];
-    
-    // 1 setup dart
-    for (const d of allDarts) {
+  // All possible setup darts (ordered by preference: singles, big trebles, doubles, bulls last)
+  const setupDarts = [
+    ...ALL_SINGLES,
+    ...ALL_TREBLES,
+    ...ALL_DOUBLES,
+    'SB', 'DB'
+  ];
+
+  // 1 setup dart (2-dart checkout) — try for all dart counts
+  if (dartsLeft >= 2) {
+    for (const d of setupDarts) {
       if (dartValue(d) === needBefore) {
-        return [d, preferredDouble];
+        candidates.push([d, preferredDouble]);
       }
     }
-    
-    // 2 setup darts — try trebles first for efficiency
-    for (const d1 of allDarts) {
+  }
+
+  // 2 setup darts (3-dart checkout) — only if we have 3 darts
+  if (dartsLeft >= 3 && needBefore > 0) {
+    for (const d1 of setupDarts) {
       const v1 = dartValue(d1);
-      if (v1 >= needBefore) continue;
+      if (v1 >= needBefore || v1 <= 0) continue;
       const need2 = needBefore - v1;
-      for (const d2 of allDarts) {
+      for (const d2 of setupDarts) {
         if (dartValue(d2) === need2) {
-          return [d1, d2, preferredDouble];
+          candidates.push([d1, d2, preferredDouble]);
         }
       }
     }
-    return null;
   }
 
-  return null;
+  if (candidates.length === 0) return null;
+
+  // Pick the best route (lowest penalty)
+  candidates.sort((a, b) => scoreRoute(a) - scoreRoute(b));
+  return candidates[0];
 }
 
 /**
  * Get the best checkout suggestion based on remaining score and darts left.
  * If preferredDouble is set, tries to find a route ending with that double first.
- * Falls back to standard routes if not possible.
+ * Falls back to standard routes. Prefers 2-dart non-bull routes over 3-dart routes.
  */
 export function getCheckoutSuggestion(
   remaining: number,
@@ -423,8 +461,20 @@ export function getCheckoutSuggestion(
     if (prefRoute) return prefRoute;
   }
   
-  // Fall back to standard routes
-  if (dartsLeft >= 3) return CHECKOUT_3[remaining] || null;
+  // Standard routes — but prefer 2-dart non-bull routes over 3-dart routes
+  if (dartsLeft >= 3) {
+    // Check if a 2-dart route exists that doesn't use bull
+    const twoRoute = CHECKOUT_2[remaining];
+    if (twoRoute && !twoRoute.includes('DB') && !twoRoute.includes('SB')) {
+      return twoRoute;
+    }
+    // Check 3-dart standard route
+    const threeRoute = CHECKOUT_3[remaining];
+    if (threeRoute) return threeRoute;
+    // Fall back to 2-dart even with bull if no 3-dart exists
+    if (twoRoute) return twoRoute;
+    return null;
+  }
   if (dartsLeft === 2) return CHECKOUT_2[remaining] || null;
   if (dartsLeft === 1) return CHECKOUT_1[remaining] || null;
   return null;
