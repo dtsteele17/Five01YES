@@ -718,13 +718,16 @@ export default function DartbotMatchPage() {
   // Calculate match stats for display
   const calculateMatchStats = useCallback((isPlayer1: boolean) => {
     const allVisits = [...allLegs.flatMap(l => l.visits), ...currentLeg.visits];
-    const playerVisits = allVisits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2') && !v.isBust);
-    const totalDarts = playerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    const totalScored = playerVisits.reduce((sum, v) => sum + v.score, 0);
+    const allPlayerVisits = allVisits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
+    const scoringVisits = allPlayerVisits.filter(v => !v.isBust);
+    // Count ALL darts (including bust visits) for darts thrown stat
+    const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    const totalScored = scoringVisits.reduce((sum, v) => sum + v.score, 0);
     const threeDartAverage = totalDarts > 0 ? (totalScored / totalDarts) * 3 : 0;
-    const currentLegVisits = currentLeg.visits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2') && !v.isBust);
-    const dartsThisLeg = currentLegVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
-    return { average: threeDartAverage, lastScore: currentLegVisits.length > 0 ? currentLegVisits[currentLegVisits.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
+    const allCurrentLegVisits = currentLeg.visits.filter(v => v.player === (isPlayer1 ? 'player1' : 'player2'));
+    const currentLegScoring = allCurrentLegVisits.filter(v => !v.isBust);
+    const dartsThisLeg = allCurrentLegVisits.reduce((sum, v) => sum + (v.dartsThrown || 3), 0);
+    return { average: threeDartAverage, lastScore: currentLegScoring.length > 0 ? currentLegScoring[currentLegScoring.length - 1].score : 0, dartsThrown: dartsThisLeg, totalDartsThrown: totalDarts, totalScore: totalScored };
   }, [allLegs, currentLeg]);
 
   const calculatePlayerStatsFromVisits = (visitData: Visit[], isPlayer1: boolean, playerName: string, legsWon: number, allLegsData?: LegData[]) => {
