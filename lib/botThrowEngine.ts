@@ -268,9 +268,10 @@ export const LEVEL_BASE_SIGMA: Record<number, number> = {
   25: 0.240,  // Novice
 };
 
-// Form multiplier range (85% to 115% of base skill)
-export const FORM_MIN = 0.85;
-export const FORM_MAX = 1.15;
+// Form multiplier range (90% to 110% of base skill)
+// Tighter range ensures bot doesn't average more than ~10 below its level
+export const FORM_MIN = 0.90;
+export const FORM_MAX = 1.10;
 
 // Dartboard numbers in clockwise order starting from the top (20)
 // Standard dartboard layout: 20 is at 12 o'clock position
@@ -1013,8 +1014,15 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     }
     const sigma = getBaseSigma(level) * formMultiplier * checkoutPressure;
 
-    // Simulate the throw
-    const dart = simulateDart(aimTarget, sigma);
+    // Simulate the throw — retry if miss and bot level warrants competence
+    let dart = simulateDart(aimTarget, sigma);
+    if (dart.offboard && !isAimingAtDouble && level >= 30) {
+      // Competence floor: rethrow with tighter sigma (bot corrects bad throw)
+      const recoveryChance = Math.min(0.9, level / 100);
+      if (Math.random() < recoveryChance) {
+        dart = simulateDart(aimTarget, sigma * 0.7);
+      }
+    }
     darts.push(dart);
 
     // Update remaining score

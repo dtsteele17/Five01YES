@@ -1605,7 +1605,22 @@ export default function DartbotMatchPage() {
   const handleUndoDart = () => setCurrentVisit((prev) => prev.slice(0, -1));
   const handleMiss = () => {
     if (currentVisit.length >= 3 || currentPlayer !== 'player1') return;
-    setCurrentVisit([...currentVisit, { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }]);
+    const dart: Dart = { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false };
+    const newDarts = [...currentVisit, dart];
+    setCurrentVisit(newDarts);
+    
+    // Auto-submit after 3 darts (same as handleDartClick)
+    if (newDarts.length === 3) {
+      setTimeout(() => {
+        const visitTotal = newDarts.reduce((sum, d) => sum + d.value, 0);
+        const validation = validateCheckout(visitTotal, newDarts);
+        if (validation.isBust) {
+          submitScore(0, true, newDarts, false);
+        } else {
+          submitScore(visitTotal, false, newDarts, validation.isCheckout);
+        }
+      }, 300);
+    }
   };
 
   const validateCheckout = (score: number, darts: Dart[]): { valid: boolean; isCheckout: boolean; isBust: boolean } => {
