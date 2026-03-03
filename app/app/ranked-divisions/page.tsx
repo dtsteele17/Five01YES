@@ -167,14 +167,10 @@ function getTierIcon(tierName: string, size: number = 180) {
 function CurrentRankCard({ 
   playerState, 
   season,
-  nextTier,
-  rpToNext,
   rankedAverage
 }: { 
   playerState: PlayerState; 
   season: Season | null;
-  nextTier: RankedTier | null;
-  rpToNext: number;
   rankedAverage: number;
 }) {
   const isUnranked = !!playerState.provisional_games_remaining;
@@ -311,16 +307,7 @@ function CurrentRankCard({
               </div>
             )}
             
-            {nextTier && (
-              <div className="text-left sm:text-right p-2 sm:p-4 bg-slate-900/40 rounded-xl sm:rounded-2xl border border-white/5 backdrop-blur-sm">
-                <p className="text-slate-400 text-sm mb-1">Next Rank</p>
-                <p className="text-emerald-400 font-bold text-lg">{nextTier.division_name}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <p className="text-slate-500 text-xs">{rpToNext} RP needed</p>
-                </div>
-              </div>
-            )}
+            {/* Next Rank panel removed by request */}
           </div>
         </div>
 
@@ -886,14 +873,7 @@ export default function RankedDivisionsPage() {
     playerState.rp >= t.rp_min && playerState.rp <= t.rp_max
   ) : -1;
 
-  // Get next tier (next higher division - moving UP in the array)
-  // If current is Gold 3, next should be Gold 2 (higher division number)
-  const nextTier = currentTierIndex >= 0 && currentTierIndex < tiers.length - 1 
-    ? tiers[currentTierIndex + 1] 
-    : null;
-
-  // Calculate RP to next tier
-  const rpToNext = nextTier ? nextTier.rp_min - (playerState?.rp || 0) : 0;
+  // Next-rank panel removed by request.
 
   if (loading) {
     return (
@@ -967,8 +947,6 @@ export default function RankedDivisionsPage() {
           <CurrentRankCard 
             playerState={playerState} 
             season={season}
-            nextTier={nextTier}
-            rpToNext={rpToNext}
             rankedAverage={rankedAverage}
           />
         </motion.div>
