@@ -4643,14 +4643,15 @@ export default function QuickMatchRoomPage() {
                     ))}
                   </select>
                 )}
-                {/* Show camera controls only if it's my turn AND I'm the active player */}
+                {/* Camera on/off always available; switch camera only on mobile */}
                 {isMyTurn ? (
                   <>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
                       {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
                     </Button>
+                    {/* Switch camera (front/back) — only on mobile/tablet */}
                     {isCameraOn && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={switchCamera} title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 sm:hidden" onClick={switchCamera} title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}>
                         <RotateCcw className="w-4 h-4" />
                       </Button>
                     )}
@@ -4684,6 +4685,10 @@ export default function QuickMatchRoomPage() {
                   </>
                 ) : (
                   <>
+                    {/* Camera toggle always available even when not your turn */}
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={toggleCamera}>
+                      {isCameraOn ? <Camera className="w-4 h-4" /> : <CameraOff className="w-4 h-4" />}
+                    </Button>
                     {callStatus === 'connected' ? (
                       <span className="text-xs text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded">
                         <Wifi className="w-3 h-3" /> Connected
