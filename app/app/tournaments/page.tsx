@@ -77,8 +77,9 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
     const isToday = date.toDateString() === now.toDateString();
     const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === date.toDateString();
     
-    if (isToday) return `Today ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
-    if (isTomorrow) return `Tomorrow ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+    const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    if (isToday) return `Today, ${time}`;
+    if (isTomorrow) return `Tomorrow, ${time}`;
     return date.toLocaleDateString('en-US', { 
       weekday: 'short',
       month: 'short', 
@@ -117,13 +118,17 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
             </Badge>
           </div>
 
-          {/* Game info */}
+          {/* Game info — colour-coded */}
           <div className="flex items-center gap-3">
-            <Badge className="bg-slate-800/80 text-slate-300 border-slate-700 text-sm px-3 py-1">
+            <Badge className={`text-sm px-3 py-1 border ${
+              tournament.game_mode === 301 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+              tournament.game_mode === 501 ? 'bg-blue-500/15 text-blue-400 border-blue-500/30' :
+              'bg-slate-800/80 text-slate-300 border-slate-700'
+            }`}>
               <Target className="w-3.5 h-3.5 mr-1.5" />
               {tournament.game_mode}
             </Badge>
-            <Badge className="bg-slate-800/80 text-slate-300 border-slate-700 text-sm px-3 py-1">
+            <Badge className="bg-purple-500/15 text-purple-400 border-purple-500/30 text-sm px-3 py-1">
               Best of {tournament.legs_per_match}
             </Badge>
           </div>
@@ -151,10 +156,14 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
                 <CheckCircle className="w-4 h-4 mr-1.5" />
                 Joined
               </Badge>
-            ) : (
+            ) : ['registration', 'scheduled', 'checkin'].includes(tournament.status) ? (
               <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 shadow-lg shadow-emerald-500/20">
                 Join
               </Button>
+            ) : (
+              <Badge variant="outline" className="text-slate-400 border-slate-600 text-sm px-4 py-1.5">
+                View
+              </Badge>
             )}
           </div>
         </div>
