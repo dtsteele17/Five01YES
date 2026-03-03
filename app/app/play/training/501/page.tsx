@@ -1203,7 +1203,7 @@ export default function DartbotMatchPage() {
       if (!visualVisit.bust) {
         setPlayer2MatchTotalScored(prev => prev + visualVisit.visitTotal);
       } else {
-        console.log(`[DartBot] BUST: ${actualDartsThrown} actual darts, counting ${dartsThrown} toward stats`);
+        console.log(`[DartBot] BUST: ${realDartsThrown} actual darts, counting ${dartsThrown} toward stats`);
       }
       setPlayer2MatchDartsThrown(prev => {
         const newTotal = prev + dartsThrown;
