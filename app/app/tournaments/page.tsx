@@ -80,12 +80,15 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
     if (isToday) return `Today ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
     if (isTomorrow) return `Tomorrow ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
     return date.toLocaleDateString('en-US', { 
+      weekday: 'short',
       month: 'short', 
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
     });
   };
+
+  const spotsLeft = tournament.max_participants - (tournament.participant_count || 0);
 
   return (
     <motion.div
@@ -94,97 +97,67 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <Card 
-        className="bg-slate-900/60 backdrop-blur-sm border-white/10 hover:border-white/20 hover:shadow-xl hover:shadow-slate-900/25 transition-all duration-300 cursor-pointer h-full overflow-hidden group rounded-2xl"
+        className="bg-slate-900/60 backdrop-blur-sm border-white/10 hover:border-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer h-full overflow-hidden group rounded-2xl"
         onClick={onClick}
       >
-        <CardHeader className="pb-4 relative">
-          {/* Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          
-          <div className="flex items-start justify-between gap-3 relative">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors duration-200 truncate leading-tight">
-                {tournament.name}
-              </CardTitle>
-              <CardDescription className="text-slate-400 text-sm mt-1 flex items-center gap-2">
-                <Target className="w-3 h-3" />
-                {tournament.game_mode} • Best of {tournament.legs_per_match}
-              </CardDescription>
-            </div>
+        {/* Top accent bar */}
+        <div className="h-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
+        
+        <div className="p-5 space-y-4">
+          {/* Header: Name + Status */}
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-xl font-black text-white group-hover:text-emerald-400 transition-colors leading-tight">
+              {tournament.name}
+            </h3>
             <Badge
-              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''} shadow-sm`}
+              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
             >
-              <StatusIcon className="w-3 h-3 mr-1.5" />
+              <StatusIcon className="w-3 h-3 mr-1" />
               {statusInfo.label}
             </Badge>
           </div>
-        </CardHeader>
-        
-        <CardContent className="pt-0 space-y-4">
-          {/* Participants */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-slate-300">
-              <div className="w-8 h-8 bg-slate-800/50 rounded-lg flex items-center justify-center">
-                <Users className="w-4 h-4 text-slate-400" />
-              </div>
-              <span className="font-medium">{tournament.participant_count || 0}/{tournament.max_participants}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {[...Array(Math.min(3, tournament.participant_count || 0))].map((_, i) => (
-                <Avatar key={i} className="w-7 h-7 border-2 border-white/20 shadow-sm">
-                  <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-xs font-semibold text-slate-300">
-                    {String.fromCharCode(65 + i)}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {(tournament.participant_count || 0) > 3 && (
-                <div className="w-7 h-7 rounded-full bg-slate-700 border-2 border-white/20 flex items-center justify-center text-xs font-semibold text-slate-300 shadow-sm">
-                  +{(tournament.participant_count || 0) - 3}
-                </div>
-              )}
-            </div>
+
+          {/* Game info */}
+          <div className="flex items-center gap-3">
+            <Badge className="bg-slate-800/80 text-slate-300 border-slate-700 text-sm px-3 py-1">
+              <Target className="w-3.5 h-3.5 mr-1.5" />
+              {tournament.game_mode}
+            </Badge>
+            <Badge className="bg-slate-800/80 text-slate-300 border-slate-700 text-sm px-3 py-1">
+              Best of {tournament.legs_per_match}
+            </Badge>
           </div>
 
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-slate-400 font-medium">
-              <span>Registration Progress</span>
-              <span>{Math.round(((tournament.participant_count || 0) / tournament.max_participants) * 100)}%</span>
+          {/* Date & Time — prominent */}
+          {tournament.start_at && (
+            <div className="flex items-center gap-2.5 bg-slate-800/40 rounded-xl px-4 py-3">
+              <Calendar className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span className="text-white font-bold text-base">{formatDate(tournament.start_at)}</span>
             </div>
-            <div className="w-full bg-slate-800/50 rounded-full h-2.5 overflow-hidden backdrop-blur-sm">
-              <motion.div 
-                className="bg-gradient-to-r from-emerald-500 to-blue-500 h-full rounded-full shadow-sm"
-                initial={{ width: 0 }}
-                animate={{ width: `${((tournament.participant_count || 0) / tournament.max_participants) * 100}%` }}
-                transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-              />
-            </div>
-          </div>
+          )}
 
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-2">
+          {/* Players + Join */}
+          <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
-              {tournament.start_at && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/30 px-2 py-1 rounded-lg">
-                  <Calendar className="w-3 h-3" />
-                  <span>{formatDate(tournament.start_at)}</span>
-                </div>
+              <Users className="w-4 h-4 text-slate-400" />
+              <span className="text-white font-bold text-lg">{tournament.participant_count || 0}<span className="text-slate-500 font-normal">/{tournament.max_participants}</span></span>
+              {spotsLeft > 0 && spotsLeft <= 5 && (
+                <span className="text-amber-400 text-xs font-medium ml-1">{spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left</span>
               )}
             </div>
             
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-slate-400 border-slate-600 text-xs">
-                {tournament.entry_type === 'open' ? 'Open' : 'Invite Only'}
+            {tournament.is_registered ? (
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-sm font-bold px-4 py-1.5">
+                <CheckCircle className="w-4 h-4 mr-1.5" />
+                Joined
               </Badge>
-              {tournament.is_registered && (
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs font-semibold shadow-sm">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Joined
-                </Badge>
-              )}
-            </div>
+            ) : (
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 shadow-lg shadow-emerald-500/20">
+                Join
+              </Button>
+            )}
           </div>
-        </CardContent>
+        </div>
       </Card>
     </motion.div>
   );
@@ -373,9 +346,9 @@ export default function TournamentsPage() {
 
       setTournaments(tournamentsData);
       
-      // Featured tournaments - prioritize live/starting soon tournaments
+      // Featured tournaments - only show live or starting soon (not user-created open registration)
       const featured = tournamentsData
-        .filter(t => ['in_progress', 'ready', 'registration', 'scheduled', 'checkin'].includes(t.status))
+        .filter(t => ['in_progress', 'ready'].includes(t.status))
         .slice(0, 3);
       setFeaturedTournaments(featured);
       
@@ -406,6 +379,15 @@ export default function TournamentsPage() {
       default:
         return matchesSearch;
     }
+  }).sort((a, b) => {
+    // Sort open tournaments by soonest start time first
+    if (activeTab === 'open') {
+      const aTime = a.start_at ? new Date(a.start_at).getTime() : Infinity;
+      const bTime = b.start_at ? new Date(b.start_at).getTime() : Infinity;
+      return aTime - bTime;
+    }
+    // Live and completed: most recent first
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   // Get counts for tab badges
