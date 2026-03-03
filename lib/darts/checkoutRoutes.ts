@@ -108,12 +108,12 @@ export const CHECKOUT_3: Record<number, string[]> = {
   82: ['T14', 'D20'],
   81: ['T19', 'D12'],
   80: ['T20', 'D10'],             // Don't go T16,D16 – S16 needs triple or DB
-  79: ['T19', 'D11'],             // Higher % than T13,D20; S19 → 60 (easier than 66)
+  79: ['T13', 'D20'],             // S13 leaves 66 (T10,D18); even double chain
   78: ['T18', 'D12'],
   77: ['T19', 'D10'],             // T15 won't get below 60 on a miss
-  76: ['T16', 'D14'],             // All numbers around T16 get you below 70
+  76: ['T20', 'D8'],              // S20 leaves 56 (T16,D4); even double chain
   75: ['T17', 'D12'],
-  74: ['T16', 'D13'],             // T8 also puts you on DB
+  74: ['T14', 'D16'],             // S14 leaves 60; S16 on D16 leaves D8 — even double chain
   73: ['T19', 'D8'],
   72: ['T16', 'D12'],
   71: ['T13', 'D16'],             // Also T19,D7 – T7 gets to DB!
@@ -214,25 +214,25 @@ export const CHECKOUT_2: Record<number, string[]> = {
   82: ['T14', 'D20'],
   81: ['T19', 'D12'],
   80: ['T20', 'D10'],
-  79: ['T19', 'D11'],
+  79: ['T13', 'D20'],             // Even double; S13 leaves 66
   78: ['T18', 'D12'],
   77: ['T19', 'D10'],
-  76: ['T16', 'D14'],
+  76: ['T20', 'D8'],              // Even double; S20 leaves 56
   75: ['T17', 'D12'],
-  74: ['T16', 'D13'],
+  74: ['T14', 'D16'],             // Even double; S14 leaves 60, S16 leaves D8
   73: ['T19', 'D8'],
   72: ['T16', 'D12'],
   71: ['T13', 'D16'],
   70: ['T18', 'D8'],
   69: ['T19', 'D6'],
-  68: ['T18', 'D7'],
+  68: ['T20', 'D4'],              // Even double; S20 leaves 48
   67: ['T17', 'D8'],
   66: ['T10', 'D18'],
   65: ['T15', 'D10'],
-  64: ['T14', 'D11'],
+  64: ['T16', 'D8'],              // Even double; S16 leaves 48
   63: ['T13', 'D12'],
-  62: ['T12', 'D13'],
-  61: ['T11', 'D14'],
+  62: ['T10', 'D16'],             // Even double; S10 leaves 52
+  61: ['T15', 'D8'],              // Even double; S15 leaves 46
   60: ['S20', 'D20'],
   59: ['S19', 'D20'],
   58: ['S18', 'D20'],
@@ -368,12 +368,14 @@ function scoreRoute(route: string[]): number {
       else penalty += 5;                  // T11-T20: fine, small base cost
     }
     
-    // Small doubles penalty (harder to hit)
+    // Doubles penalty: prefer even doubles (miss leaves another double)
     const doubleMatch = dart.match(/^D(\d+)$/);
     if (doubleMatch) {
       const num = parseInt(doubleMatch[1]);
-      if (num <= 3) penalty += 20;
-      else if (num <= 6) penalty += 10;
+      // Odd doubles are bad — miss leaves odd remainder with no checkout
+      if (num % 2 === 1) penalty += 25;
+      if (num <= 3) penalty += 15;
+      else if (num <= 6) penalty += 5;
     }
   }
   return penalty;
