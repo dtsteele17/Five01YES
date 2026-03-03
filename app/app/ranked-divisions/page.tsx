@@ -222,12 +222,12 @@ function CurrentRankCard({
               <div className={`absolute -inset-3 ${colors.bg}/30 rounded-[2rem] blur-lg`} />
               
               {/* Main badge - no container box */}
-              <div className="relative w-24 h-24 sm:w-72 sm:h-72 flex items-center justify-center">
+              <div className="relative w-20 h-20 sm:w-48 sm:h-48 flex items-center justify-center">
                 <div className="relative flex items-center justify-center max-sm:scale-[0.34] sm:scale-100">
                   {playerState.provisional_games_remaining ? (
-                    <Trophy className="w-32 h-32 text-slate-400" />
+                    <Trophy className="w-24 h-24 text-slate-400" />
                   ) : (
-                    getTierIcon(playerState.division_name, 260)
+                    getTierIcon(playerState.division_name, 180)
                   )}
                 </div>
               </div>
@@ -357,8 +357,8 @@ function TierPageHeader({ tierName }: { tierName: string }) {
       
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-          <div className="w-24 h-24 sm:w-40 sm:h-40 flex items-center justify-center flex-shrink-0">
-            {getTierIcon(tierName, 150)}
+          <div className="w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center flex-shrink-0">
+            {getTierIcon(tierName, 100)}
           </div>
           <div>
             <p className="text-white/80 text-sm font-semibold uppercase tracking-wider">
@@ -555,7 +555,7 @@ function TierNavigator({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.95 }}
                     transition={{ delay: index * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className={`relative overflow-hidden rounded-xl sm:rounded-3xl p-2 sm:p-6 border transition-all duration-500 group cursor-pointer ${
+                    className={`relative overflow-hidden rounded-xl sm:rounded-2xl p-2 sm:p-4 border transition-all duration-500 group cursor-pointer ${
                       isCurrent 
                         ? `bg-gradient-to-br ${tierColors.gradient} border-white/70 shadow-[0_0_40px_-10px] ${tierColors.glow} ${isGrandChampion ? 'ring-2 ring-amber-400/60' : ''} scale-105` 
                         : isGrandChampion
@@ -595,7 +595,7 @@ function TierNavigator({
                     
                     <div className="relative">
                       {/* Rank icon - no container box, consistent size */}
-                      <div className="w-full max-w-[56px] sm:max-w-[180px] aspect-square flex items-center justify-center mb-2 sm:mb-4 mx-auto transition-transform group-hover:scale-105">
+                      <div className="w-full max-w-[48px] sm:max-w-[120px] aspect-square flex items-center justify-center mb-2 sm:mb-3 mx-auto transition-transform group-hover:scale-105">
                         <img 
                           src={getRankImageUrl(tier.tier_name)} 
                           alt={tier.tier_name}
