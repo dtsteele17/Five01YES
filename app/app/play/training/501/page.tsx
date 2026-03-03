@@ -1138,11 +1138,10 @@ export default function DartbotMatchPage() {
       setLastThreeDarts([]);
     }
       
-      // Count actual darts thrown (real darts, not MISS padding)
-      // On bust after 1 dart, bot threw 1 dart. On bust after 2 darts, 2 darts. etc.
+      // Bot always throws 3 darts per visit (even on bust — the turn is over but 3 darts were "used")
+      // Only on a checkout (finished), count actual darts thrown (may be 1 or 2)
       const realDartsThrown = visualVisit.darts.filter(d => !(d.label === 'MISS' && d.x === 1.5)).length;
-      // For stats: use real darts thrown (even on bust)
-      const dartsThrown = realDartsThrown;
+      const dartsThrown = visualVisit.finished ? realDartsThrown : 3;
       
       // Track checkout stats for DartBot
       // Use dartsAtDouble from simulateVisit — tracks darts AIMED at doubles (not just hits)
