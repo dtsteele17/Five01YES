@@ -961,6 +961,3 @@ export default function KillerTrainingPage() {
     </div>
   );
 }
-
-
-
