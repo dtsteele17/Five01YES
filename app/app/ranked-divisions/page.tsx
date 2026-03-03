@@ -344,7 +344,7 @@ function TierPageHeader({ tierName }: { tierName: string }) {
   const isGrandChampion = tierKey === 'grandchampion';
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.gradient} p-4 sm:p-6 mb-6 shadow-2xl ${colors.glow} border border-white/10`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${colors.gradient} p-3 sm:p-4 mb-4 shadow-2xl ${colors.glow} border border-white/10`}>
       {/* Animated background effects */}
       <div className="absolute inset-0 bg-black/20" />
       <div className={`absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.1)_50%,transparent_75%)]`} />
@@ -357,8 +357,8 @@ function TierPageHeader({ tierName }: { tierName: string }) {
       
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-          <div className="w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center flex-shrink-0">
-            {getTierIcon(tierName, 100)}
+          <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center flex-shrink-0">
+            {getTierIcon(tierName, 72)}
           </div>
           <div>
             <p className="text-white/80 text-sm font-semibold uppercase tracking-wider">
@@ -555,7 +555,7 @@ function TierNavigator({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.95 }}
                     transition={{ delay: index * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                    className={`relative overflow-hidden rounded-xl sm:rounded-2xl p-2 sm:p-4 border transition-all duration-500 group cursor-pointer ${
+                    className={`relative overflow-hidden rounded-xl sm:rounded-2xl p-2 sm:p-3 border transition-all duration-500 group cursor-pointer ${
                       isCurrent 
                         ? `bg-gradient-to-br ${tierColors.gradient} border-white/70 shadow-[0_0_40px_-10px] ${tierColors.glow} ${isGrandChampion ? 'ring-2 ring-amber-400/60' : ''} scale-105` 
                         : isGrandChampion
@@ -595,7 +595,7 @@ function TierNavigator({
                     
                     <div className="relative">
                       {/* Rank icon - no container box, consistent size */}
-                      <div className="w-full max-w-[48px] sm:max-w-[120px] aspect-square flex items-center justify-center mb-2 sm:mb-3 mx-auto transition-transform group-hover:scale-105">
+                      <div className="w-full max-w-[44px] sm:max-w-[90px] aspect-square flex items-center justify-center mb-1 sm:mb-2 mx-auto transition-transform group-hover:scale-105">
                         <img 
                           src={getRankImageUrl(tier.tier_name)} 
                           alt={tier.tier_name}
