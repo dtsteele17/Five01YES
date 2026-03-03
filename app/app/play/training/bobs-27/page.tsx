@@ -399,5 +399,3 @@ export default function Bobs27Page() {
     </div>
   );
 }
-
-
