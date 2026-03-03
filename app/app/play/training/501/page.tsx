@@ -1,4 +1,138 @@
+'use client';
 
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Trophy, RotateCcw, Chrome as Home, X, Check, Bot, ChartBar as BarChart3, Wifi, WifiOff, CreditCard as Edit2, Trash2 } from 'lucide-react';
+import { isBust, getLegsToWin, isValidCheckout, calculateCheckoutPercentage } from '@/lib/match-logic';
+import { useTraining, BOT_DIFFICULTY_CONFIG } from '@/lib/context/TrainingContext';
+import { createClient } from '@/lib/supabase/client';
+import { getStartScore } from '@/lib/game-modes';
+import { checkScoreAchievements } from '@/lib/utils/achievements';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
+import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
+import { toast } from 'sonner';
+import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
+import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
+import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, findBestCheckoutRoute } from '@/lib/botThrowEngine';
+import { getCheckoutSuggestion as getCheckoutFromRoutes, formatDartLabel } from '@/lib/darts/checkoutRoutes';
+import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
+import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
+import { awardXP } from '@/lib/training/xpTracker';
+import { useLevelUpToast } from '@/components/training/LevelUpToast';
+import type { PlayerStats } from '@/lib/match/recordMatchCompletion';
+import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
+import { computeMatchStats } from '@/lib/stats/computeMatchStats';
+import Link from 'next/link';
+import { DartbotWinnerPopup } from '@/components/game/DartbotWinnerPopup';
+import { QuickMatchPlayerCard } from '@/components/match/QuickMatchPlayerCard';
+import { calculateDartbotLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
+
+interface Visit {
+  player: 'player1' | 'player2';
+  score: number;
+  remainingScore: number;
+  isBust: boolean;
+  isCheckout: boolean;
+  timestamp: number;
+  lastDartType?: 'S' | 'D' | 'T' | 'BULL' | 'SBULL';
+  bustReason?: string;
+  darts?: { type: string; number: number; value: number; multiplier: number; label: string; score: number; is_double: boolean }[];
+  dartsThrown?: number;
+  dartsAtDouble?: number; // Number of darts thrown at double (for checkout percentage)
+  remainingBefore?: number;
+  remainingAfter?: number;
+  legNumber: number;
+}
+
+interface LegData {
+  legNumber: number;
+  winner: 'player1' | 'player2' | null;
+  visits: Visit[];
+  player1DartsThrown: number;
+  player2DartsThrown: number;
+  player1First9DartsThrown: number;
+  player1First9PointsScored: number;
+  player2First9DartsThrown: number;
+  player2First9PointsScored: number;
+}
+
+interface Dart {
+  type: 'single' | 'double' | 'triple' | 'bull';
+  number: number;
+  value: number;
+  multiplier: number;
+  label: string;
+  score: number;
+  is_double: boolean;
+}
+
+// Professional Checkout Routes - Based on PDC/BDO Standards
+// All routes mathematically verified
+// Format: ['first', 'second', 'third'] where T=triple, D=double, SB=single bull, DB=double bull
+// Bogey numbers (impossible): 159, 162, 163, 166, 168, 169
+
+const CHECKOUT_ROUTES: Record<number, string[]> = {
+  // === THREE DART CHECKOUTS (101-170) ===
+  170: ['T20', 'T20', 'DB'],     // 60 + 60 + 50 = 170 ✓
+  167: ['T20', 'T19', 'DB'],     // 60 + 57 + 50 = 167 ✓
+  164: ['T20', 'T18', 'DB'],     // 60 + 54 + 50 = 164 ✓
+  161: ['T20', 'T17', 'DB'],     // 60 + 51 + 50 = 161 ✓
+  160: ['T20', 'T20', 'D20'],    // 60 + 60 + 40 = 160 ✓
+  158: ['T20', 'T20', 'D19'],    // 60 + 60 + 38 = 158 ✓
+  157: ['T20', 'T19', 'D20'],    // 60 + 57 + 40 = 157 ✓
+  156: ['T20', 'T20', 'D18'],    // 60 + 60 + 36 = 156 ✓
+  155: ['T20', 'T19', 'D19'],    // 60 + 57 + 38 = 155 ✓
+  154: ['T20', 'T18', 'D20'],    // 60 + 54 + 40 = 154 ✓
+  153: ['T20', 'T19', 'D18'],    // 60 + 57 + 36 = 153 ✓
+  152: ['T20', 'T20', 'D16'],    // 60 + 60 + 32 = 152 ✓
+  151: ['T20', 'T17', 'D20'],    // 60 + 51 + 40 = 151 ✓
+  150: ['T20', 'T18', 'D18'],    // 60 + 54 + 36 = 150 ✓
+  149: ['T20', 'T19', 'D16'],    // 60 + 57 + 32 = 149 ✓
+  148: ['T20', 'T20', 'D14'],    // 60 + 60 + 28 = 148 ✓
+  147: ['T20', 'T17', 'D18'],    // 60 + 51 + 36 = 147 ✓
+  146: ['T20', 'T18', 'D16'],    // 60 + 54 + 32 = 146 ✓
+  145: ['T20', 'T19', 'D14'],    // 60 + 57 + 28 = 145 ✓
+  144: ['T20', 'T20', 'D12'],    // 60 + 60 + 24 = 144 ✓
+  143: ['T20', 'T17', 'D16'],    // 60 + 51 + 32 = 143 ✓
+  142: ['T20', 'T14', 'D20'],    // 60 + 42 + 40 = 142 ✓
+  141: ['T20', 'T19', 'D12'],    // 60 + 57 + 24 = 141 ✓
+  140: ['T20', 'T20', 'D10'],    // 60 + 60 + 20 = 140 ✓
+  139: ['T20', 'T13', 'D20'],    // 60 + 39 + 40 = 139 ✓
+  138: ['T20', 'T18', 'D12'],    // 60 + 54 + 24 = 138 ✓
+  137: ['T20', 'T19', 'D10'],    // 60 + 57 + 20 = 137 ✓
+  136: ['T20', 'T20', 'D8'],     // 60 + 60 + 16 = 136 ✓
+  135: ['T20', 'T17', 'D12'],    // 60 + 51 + 24 = 135 ✓
+  134: ['T20', 'T14', 'D16'],    // 60 + 42 + 32 = 134 ✓
+  133: ['T20', 'T19', 'D8'],     // 60 + 57 + 16 = 133 ✓
+  132: ['T20', 'T16', 'D12'],    // 60 + 48 + 24 = 132 ✓
+  131: ['T20', 'T13', 'D16'],    // 60 + 39 + 32 = 131 ✓
+  130: ['T20', 'T20', 'D5'],     // 60 + 60 + 10 = 130 ✓
+  129: ['T20', 'T19', 'D6'],     // 60 + 57 + 12 = 129 ✓
+  128: ['T20', 'T18', 'D7'],     // 60 + 54 + 14 = 128 ✓
+  127: ['T20', 'T17', 'D8'],     // 60 + 51 + 16 = 127 ✓
+  126: ['T20', 'T16', 'D9'],     // 60 + 48 + 18 = 126 ✓
+  125: ['T20', 'T19', 'D4'],     // 60 + 57 + 8 = 125 ✓
+  124: ['T20', 'T16', 'D8'],     // 60 + 48 + 16 = 124 ✓
+  123: ['T20', 'T13', 'D12'],    // 60 + 39 + 24 = 123 ✓
+  122: ['T20', 'T18', 'D4'],     // 60 + 54 + 8 = 122 ✓
+  121: ['T20', 'T15', 'D8'],     // 60 + 45 + 16 = 121 ✓
+  120: ['T20', 'T20', 'D10'],    // 60 + 60 + 20 = 120 ✓
+  119: ['T19', 'T20', 'D10'],    // 57 + 60 + 20 = 119 ✓
   118: ['T20', 'T18', 'D8'],     // 60 + 54 + 16 = 118 ✓
   117: ['T20', 'T17', 'D8'],     // 60 + 51 + 16 = 117 ✓
   116: ['T20', 'T16', 'D8'],     // 60 + 48 + 16 = 116 ✓
