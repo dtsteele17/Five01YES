@@ -591,7 +591,7 @@ export default function SettingsPage() {
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-white/10 max-h-60">
                 <SelectItem value="none" className="text-white hover:bg-white/10">
-                  No Preference
+                  No preferred double
                 </SelectItem>
                 {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                   <SelectItem key={n} value={`D${n}`} className="text-white hover:bg-white/10">
