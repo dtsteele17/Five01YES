@@ -1138,32 +1138,22 @@ export default function DartbotMatchPage() {
       setLastThreeDarts([]);
     }
       
-      // CRITICAL: Bot ALWAYS throws exactly 3 darts per visit (unless checkout)
-      // Even on bust, we count 3 darts for stats consistency
-      const actualDartsThrown = visualVisit.darts.length;
-      const dartsThrown = visualVisit.finished ? actualDartsThrown : 3; // Force 3 darts except on checkout
+      // Count actual darts thrown (real darts, not MISS padding)
+      // On bust after 1 dart, bot threw 1 dart. On bust after 2 darts, 2 darts. etc.
+      const realDartsThrown = visualVisit.darts.filter(d => !(d.label === 'MISS' && d.x === 1.5)).length;
+      // For stats: use real darts thrown (even on bust)
+      const dartsThrown = realDartsThrown;
       
       // Track checkout stats for DartBot
-      // Calculate darts at double properly like dartcounter.net
-      // Only count darts that are ACTUALLY thrown at a double
+      // Use dartsAtDouble from simulateVisit — tracks darts AIMED at doubles (not just hits)
       const isOnValidCheckout = config?.doubleOut !== false ? isValidCheckout(currentScore) : currentScore > 0 && currentScore <= 180;
-      let botDartsAtDouble = 0;
-      if (isOnValidCheckout) {
-        if (currentScore <= 40) {
-          // When on 40 or less, every dart is an attempt at double
-          botDartsAtDouble = dartsThrown;
-        } else {
-          // When above 40, only count darts that actually hit a double
-          const doublesHit = visualVisit.darts.filter(d => d.isDouble).length;
-          botDartsAtDouble = doublesHit;
-        }
-      }
+      const botDartsAtDouble = visualVisit.dartsAtDouble;
       
       if (visualVisit.wasCheckoutAttempt) {
         setPlayer2CheckoutAttempts(prev => prev + 1);
       }
       // Track darts at double only when on a valid checkout
-      if (isOnValidCheckout) {
+      if (isOnValidCheckout && botDartsAtDouble > 0) {
         setPlayer2TotalDartsAtDouble(prev => prev + botDartsAtDouble);
       }
       if (visualVisit.finished) {
