@@ -19,13 +19,12 @@ export function dartValue(label: string): number {
   return parseInt(label) || 0;
 }
 
-// 3-dart checkouts (170 down to 2)
-// Default routes used when no preferred double is set.
-// Based on professional strategy with safety-valve considerations.
+// Master checkout chart (3 darts available).
+// Professional standard routes — the definitive checkout guide.
 export const CHECKOUT_3: Record<number, string[]> = {
   170: ['T20', 'T20', 'DB'],
   167: ['T20', 'T19', 'DB'],
-  164: ['T19', 'T19', 'DB'],      // Easier rhythm than T20, T18, DB
+  164: ['T20', 'T18', 'DB'],
   161: ['T20', 'T17', 'DB'],
   160: ['T20', 'T20', 'D20'],
   158: ['T20', 'T20', 'D19'],
@@ -47,48 +46,48 @@ export const CHECKOUT_3: Record<number, string[]> = {
   142: ['T20', 'T14', 'D20'],
   141: ['T20', 'T19', 'D12'],
   140: ['T20', 'T20', 'D10'],
-  139: ['T20', 'T13', 'D20'],     // Safety: miss T19 → still leave 40
+  139: ['T20', 'T13', 'D20'],
   138: ['T20', 'T18', 'D12'],
   137: ['T20', 'T19', 'D10'],
   136: ['T20', 'T20', 'D8'],
   135: ['T20', 'T17', 'D12'],
-  134: ['T20', 'T16', 'D13'],     // Safety: T8 on 2nd dart leaves DB
+  134: ['T20', 'T14', 'D16'],
   133: ['T20', 'T19', 'D8'],
   132: ['T20', 'T16', 'D12'],
   131: ['T20', 'T13', 'D16'],
-  130: ['T20', 'T20', 'D5'],      // Miss 1st T20 → still on 110 (2-dart out)
+  130: ['T20', 'T18', 'D8'],
   129: ['T19', 'T16', 'D12'],
   128: ['T18', 'T14', 'D16'],
-  127: ['T20', 'T17', 'D8'],      // S20 on 1st still leaves 107 (2-dart out)
-  126: ['T19', 'T19', 'D6'],      // Both darts same target; S19 leaves 107
-  125: ['T18', 'T19', 'D7'],
-  124: ['T20', 'T14', 'D11'],     // Miss 1st → T18,DB; miss 2nd → DB
+  127: ['T20', 'T17', 'D8'],
+  126: ['T19', 'T19', 'D6'],
+  125: ['T20', 'T15', 'D10'],
+  124: ['T20', 'T16', 'D8'],
   123: ['T19', 'T16', 'D9'],
   122: ['T18', 'T18', 'D7'],
-  121: ['T20', 'T11', 'D14'],
+  121: ['T20', 'T11', 'D4'],
   120: ['T20', 'S20', 'D20'],
   119: ['T19', 'T12', 'D13'],
   118: ['T20', 'S18', 'D20'],
   117: ['T20', 'S17', 'D20'],
-  116: ['T19', 'S19', 'D20'],     // S19 on 1st → 97 (T19,D20); two darts at 19 area
-  115: ['T19', 'S18', 'D20'],     // S19 on 1st → 96 (T20,D18) easier than 95
+  116: ['T20', 'S16', 'D20'],
+  115: ['T20', 'S15', 'D20'],
   114: ['T20', 'S14', 'D20'],
-  113: ['T19', 'S16', 'D20'],     // Safety: S3 or T3 next to T19 still leaves out
-  112: ['T20', 'T12', 'D8'],      // S12 on 2nd leaves D20
+  113: ['T20', 'S13', 'D20'],
+  112: ['T20', 'S12', 'D20'],
   111: ['T20', 'S11', 'D20'],
-  110: ['T20', 'T10', 'D10'],     // S10 on 2nd → D20; S13 safety on T19 route
-  109: ['T20', 'S9', 'D20'],      // T9 and S9 both put you on out from 49
-  108: ['T20', 'S16', 'D16'],     // D16/D8/S8/T8 all leave an out from 48
-  107: ['T19', 'T10', 'D10'],     // Safety: S7 and S3 on 1st still give 2-dart outs
-  106: ['T20', 'T10', 'D8'],      // Safety: missed S5 on 1st dart still works
-  105: ['T20', 'S13', 'D16'],     // Two safety valves on 1st dart
-  104: ['T19', 'S15', 'D16'],     // Only shot where a miss won't kill you
-  103: ['T19', 'S10', 'D18'],     // 6-10 area guarantees 3rd dart out
+  110: ['T20', 'DB', 'D16'],
+  109: ['T20', 'S9', 'D20'],
+  108: ['T20', 'S16', 'D16'],
+  107: ['T19', 'DB', 'D16'],
+  106: ['T20', 'S6', 'D20'],
+  105: ['T20', 'S13', 'D16'],
+  104: ['T18', 'DB', 'D16'],
+  103: ['T17', 'S12', 'D20'],
   102: ['T20', 'S10', 'D16'],
-  101: ['T20', 'S9', 'D16'],      // Never T17 first – S2 will kill you
-  // 100 and below: use 2-dart where possible (shown with fewer darts)
-  100: ['T20', 'D20'],
+  101: ['T17', 'DB', 'D16'],
   99: ['T19', 'S10', 'D16'],
+  // 100 and below: show shortest route
+  100: ['T20', 'D20'],
   98: ['T20', 'D19'],
   97: ['T19', 'D20'],
   96: ['T20', 'D18'],
@@ -97,55 +96,55 @@ export const CHECKOUT_3: Record<number, string[]> = {
   93: ['T19', 'D18'],
   92: ['T20', 'D16'],
   91: ['T17', 'D20'],
-  90: ['T20', 'D15'],             // S20 on 1st → 70 (T20,D5); S20 on 2nd → DB
+  90: ['T18', 'D18'],
   89: ['T19', 'D16'],
-  88: ['T20', 'D14'],             // Never T16 first – S16 won't get below 70
+  88: ['T16', 'D20'],
   87: ['T17', 'D18'],
   86: ['T18', 'D16'],
-  85: ['T19', 'D14'],
+  85: ['T15', 'D20'],
   84: ['T20', 'D12'],
   83: ['T17', 'D16'],
   82: ['T14', 'D20'],
   81: ['T19', 'D12'],
-  80: ['T20', 'D10'],             // Don't go T16,D16 – S16 needs triple or DB
-  79: ['T13', 'D20'],             // S13 leaves 66 (T10,D18); even double chain
+  80: ['T20', 'D10'],
+  79: ['T13', 'D15'],
   78: ['T18', 'D12'],
-  77: ['T19', 'D10'],             // T15 won't get below 60 on a miss
-  76: ['T20', 'D8'],              // S20 leaves 56 (T16,D4); even double chain
-  75: ['T17', 'D12'],
-  74: ['T14', 'D16'],             // S14 leaves 60; S16 on D16 leaves D8 — even double chain
-  73: ['T19', 'D8'],
+  77: ['T19', 'D10'],
+  76: ['T20', 'D8'],
+  75: ['T15', 'D15'],
+  74: ['T14', 'D16'],
+  73: ['T11', 'D20'],
   72: ['T16', 'D12'],
-  71: ['T13', 'D16'],             // Also T19,D7 – T7 gets to DB!
+  71: ['T13', 'D16'],
   70: ['T18', 'D8'],
   69: ['T19', 'D6'],
-  68: ['T16', 'D10'],             // Ensures below 60 for 2nd dart
-  67: ['T9', 'D20'],              // 3-dart: all large numbers around T9; T17,D8 for 2-dart
-  66: ['T10', 'D18'],             // T10 has big numbers around it
-  65: ['T11', 'D16'],             // T11 ensures below 60 for 2nd dart
-  64: ['T16', 'D8'],              // T8 also puts you on D20
-  63: ['T17', 'D6'],
+  68: ['T16', 'D10'],
+  67: ['T17', 'D8'],
+  66: ['T10', 'D18'],
+  65: ['T15', 'D10'],
+  64: ['T8', 'D20'],
+  63: ['T9', 'D18'],
   62: ['T10', 'D16'],
-  61: ['T15', 'D8'],
+  61: ['S11', 'DB'],
   60: ['S20', 'D20'],
   59: ['S19', 'D20'],
   58: ['S18', 'D20'],
   57: ['S17', 'D20'],
-  56: ['T16', 'D4'],
+  56: ['S16', 'D20'],
   55: ['S15', 'D20'],
   54: ['S14', 'D20'],
   53: ['S13', 'D20'],
-  52: ['T12', 'D8'],              // Stay away from S20,D16 – too easy to bust
+  52: ['S12', 'D20'],
   51: ['S11', 'D20'],
-  50: ['S10', 'D20'],             // Only go DB if it's your last dart
-  49: ['S9', 'D20'],              // Careful – large triples like T17 can bust
-  48: ['S16', 'D16'],             // Aim for wire between 8 and 16
-  47: ['S15', 'D16'],
-  46: ['S6', 'D20'],              // S6-S10 segment split – huge target
-  45: ['S13', 'D16'],
-  44: ['S12', 'D16'],
-  43: ['S11', 'D16'],
-  42: ['S10', 'D16'],
+  50: ['DB'],
+  49: ['S9', 'D20'],
+  48: ['S8', 'D20'],
+  47: ['S7', 'D20'],
+  46: ['S6', 'D20'],
+  45: ['S5', 'D20'],
+  44: ['S4', 'D20'],
+  43: ['S3', 'D20'],
+  42: ['S2', 'D20'],
   41: ['S9', 'D16'],
   40: ['D20'],
   39: ['S7', 'D16'],
@@ -156,21 +155,21 @@ export const CHECKOUT_3: Record<number, string[]> = {
   34: ['D17'],
   33: ['S1', 'D16'],
   32: ['D16'],
-  31: ['S15', 'D8'],              // Or 7-3 area of the board
+  31: ['S15', 'D8'],
   30: ['D15'],
   29: ['S13', 'D8'],
   28: ['D14'],
-  27: ['S19', 'D4'],              // Better chance than S11,D8
+  27: ['S11', 'D8'],
   26: ['D13'],
-  25: ['S17', 'D4'],
+  25: ['S9', 'D8'],
   24: ['D12'],
   23: ['S7', 'D8'],
   22: ['D11'],
   21: ['S5', 'D8'],
   20: ['D10'],
-  19: ['S11', 'D4'],              // Watch out – S19 will bust
+  19: ['S3', 'D8'],
   18: ['D9'],
-  17: ['S9', 'D4'],               // Stay away from S1,D8 – 20 and 18 will bust
+  17: ['S1', 'D8'],
   16: ['D8'],
   15: ['S7', 'D4'],
   14: ['D7'],
@@ -188,7 +187,7 @@ export const CHECKOUT_3: Record<number, string[]> = {
   2: ['D1'],
 };
 
-// 2-dart checkouts
+// 2-dart checkouts (used when only 2 darts remain)
 export const CHECKOUT_2: Record<number, string[]> = {
   110: ['T20', 'DB'],
   107: ['T19', 'DB'],
@@ -205,53 +204,53 @@ export const CHECKOUT_2: Record<number, string[]> = {
   91: ['T17', 'D20'],
   90: ['T18', 'D18'],
   89: ['T19', 'D16'],
-  88: ['T20', 'D14'],
+  88: ['T16', 'D20'],
   87: ['T17', 'D18'],
   86: ['T18', 'D16'],
-  85: ['T19', 'D14'],
+  85: ['T15', 'D20'],
   84: ['T20', 'D12'],
   83: ['T17', 'D16'],
   82: ['T14', 'D20'],
   81: ['T19', 'D12'],
   80: ['T20', 'D10'],
-  79: ['T13', 'D20'],             // Even double; S13 leaves 66
+  79: ['T13', 'D15'],
   78: ['T18', 'D12'],
   77: ['T19', 'D10'],
-  76: ['T20', 'D8'],              // Even double; S20 leaves 56
-  75: ['T17', 'D12'],
-  74: ['T14', 'D16'],             // Even double; S14 leaves 60, S16 leaves D8
-  73: ['T19', 'D8'],
+  76: ['T20', 'D8'],
+  75: ['T15', 'D15'],
+  74: ['T14', 'D16'],
+  73: ['T11', 'D20'],
   72: ['T16', 'D12'],
   71: ['T13', 'D16'],
   70: ['T18', 'D8'],
   69: ['T19', 'D6'],
-  68: ['T20', 'D4'],              // Even double; S20 leaves 48
+  68: ['T16', 'D10'],
   67: ['T17', 'D8'],
   66: ['T10', 'D18'],
   65: ['T15', 'D10'],
-  64: ['T16', 'D8'],              // Even double; S16 leaves 48
-  63: ['T13', 'D12'],
-  62: ['T10', 'D16'],             // Even double; S10 leaves 52
-  61: ['T15', 'D8'],              // Even double; S15 leaves 46
+  64: ['T8', 'D20'],
+  63: ['T9', 'D18'],
+  62: ['T10', 'D16'],
+  61: ['S11', 'DB'],
   60: ['S20', 'D20'],
   59: ['S19', 'D20'],
   58: ['S18', 'D20'],
   57: ['S17', 'D20'],
-  56: ['T16', 'D4'],
+  56: ['S16', 'D20'],
   55: ['S15', 'D20'],
   54: ['S14', 'D20'],
-  53: ['S17', 'D18'],             // S3 leaves DB safety
-  52: ['T12', 'D8'],
-  51: ['S15', 'D18'],
+  53: ['S13', 'D20'],
+  52: ['S12', 'D20'],
+  51: ['S11', 'D20'],
   50: ['DB'],
   49: ['S9', 'D20'],
-  48: ['S16', 'D16'],
-  47: ['S7', 'D20'],              // Safety: S19,D14
+  48: ['S8', 'D20'],
+  47: ['S7', 'D20'],
   46: ['S6', 'D20'],
-  45: ['S13', 'D16'],
-  44: ['S4', 'D20'],              // Safety: S18,D13
-  43: ['S3', 'D20'],              // Safety: S19,D12 or S17,D13
-  42: ['S10', 'D16'],
+  45: ['S5', 'D20'],
+  44: ['S4', 'D20'],
+  43: ['S3', 'D20'],
+  42: ['S2', 'D20'],
   41: ['S9', 'D16'],
   40: ['D20'],
   39: ['S7', 'D16'],
@@ -260,23 +259,23 @@ export const CHECKOUT_2: Record<number, string[]> = {
   36: ['D18'],
   35: ['S3', 'D16'],
   34: ['D17'],
-  33: ['S17', 'D8'],              // Safety: S3,D15
+  33: ['S1', 'D16'],
   32: ['D16'],
   31: ['S15', 'D8'],
   30: ['D15'],
   29: ['S13', 'D8'],
   28: ['D14'],
-  27: ['S19', 'D4'],              // Better board area than S11,D8
+  27: ['S11', 'D8'],
   26: ['D13'],
-  25: ['S17', 'D4'],
+  25: ['S9', 'D8'],
   24: ['D12'],
   23: ['S7', 'D8'],
   22: ['D11'],
   21: ['S5', 'D8'],
   20: ['D10'],
-  19: ['S11', 'D4'],              // S19 will bust – avoid S3,D8
+  19: ['S3', 'D8'],
   18: ['D9'],
-  17: ['S9', 'D4'],               // S1,D8 too risky – 20 and 18 bust
+  17: ['S1', 'D8'],
   16: ['D8'],
   15: ['S7', 'D4'],
   14: ['D7'],
@@ -346,33 +345,28 @@ export function formatDartLabel(label: string): string {
 
 /**
  * Score a route for quality. Lower is better.
- * Penalises: small trebles (T1-T6), bull usage, more darts.
- * Prefers: big trebles (T20-T15), clean singles, fewer darts.
+ * Penalises: small trebles (T1-T6), bull usage, more darts, odd doubles.
+ * Prefers: big trebles (T20-T15), clean singles, fewer darts, even doubles.
  */
 function scoreRoute(route: string[]): number {
   let penalty = 0;
-  // More darts = worse (strongly prefer 2-dart over 3-dart)
   penalty += route.length * 100;
   
   for (const dart of route) {
-    // Penalise bull heavily (unless it's the only option)
     if (dart === 'DB') penalty += 50;
     if (dart === 'SB') penalty += 30;
     
-    // Penalise small trebles (T1-T6) — singles are much easier to hit
     const trebleMatch = dart.match(/^T(\d+)$/);
     if (trebleMatch) {
       const num = parseInt(trebleMatch[1]);
-      if (num <= 6) penalty += 40;       // T1-T6: strongly avoid
-      else if (num <= 10) penalty += 15;  // T7-T10: slight penalty
-      else penalty += 5;                  // T11-T20: fine, small base cost
+      if (num <= 6) penalty += 40;
+      else if (num <= 10) penalty += 15;
+      else penalty += 5;
     }
     
-    // Doubles penalty: prefer even doubles (miss leaves another double)
     const doubleMatch = dart.match(/^D(\d+)$/);
     if (doubleMatch) {
       const num = parseInt(doubleMatch[1]);
-      // Odd doubles are bad — miss leaves odd remainder with no checkout
       if (num % 2 === 1) penalty += 25;
       if (num <= 3) penalty += 15;
       else if (num <= 6) penalty += 5;
@@ -383,8 +377,7 @@ function scoreRoute(route: string[]): number {
 
 /**
  * Try to find a checkout route ending with the preferred double.
- * Returns the best (lowest penalty) route. Avoids small trebles, bull,
- * and prefers fewer darts.
+ * Returns the best (lowest penalty) route.
  */
 function findRouteWithPreferredDouble(
   remaining: number,
@@ -394,7 +387,6 @@ function findRouteWithPreferredDouble(
   const dblValue = dartValue(preferredDouble);
   if (dblValue > remaining || dblValue <= 0) return null;
 
-  // 1 dart: only works if remaining === double value
   if (dartsLeft === 1) {
     return remaining === dblValue ? [preferredDouble] : null;
   }
@@ -402,12 +394,10 @@ function findRouteWithPreferredDouble(
   const needBefore = remaining - dblValue;
   const candidates: string[][] = [];
 
-  // Direct double (0 setup darts needed)
   if (needBefore === 0) {
     candidates.push([preferredDouble]);
   }
 
-  // All possible setup darts (ordered by preference: singles, big trebles, doubles, bulls last)
   const setupDarts = [
     ...ALL_SINGLES,
     ...ALL_TREBLES,
@@ -415,7 +405,6 @@ function findRouteWithPreferredDouble(
     'SB', 'DB'
   ];
 
-  // 1 setup dart (2-dart checkout) — try for all dart counts
   if (dartsLeft >= 2) {
     for (const d of setupDarts) {
       if (dartValue(d) === needBefore) {
@@ -424,7 +413,6 @@ function findRouteWithPreferredDouble(
     }
   }
 
-  // 2 setup darts (3-dart checkout) — only if we have 3 darts
   if (dartsLeft >= 3 && needBefore > 0) {
     for (const d1 of setupDarts) {
       const v1 = dartValue(d1);
@@ -439,8 +427,6 @@ function findRouteWithPreferredDouble(
   }
 
   if (candidates.length === 0) return null;
-
-  // Pick the best route (lowest penalty)
   candidates.sort((a, b) => scoreRoute(a) - scoreRoute(b));
   return candidates[0];
 }
@@ -448,7 +434,7 @@ function findRouteWithPreferredDouble(
 /**
  * Get the best checkout suggestion based on remaining score and darts left.
  * If preferredDouble is set, tries to find a route ending with that double first.
- * Falls back to standard routes. Prefers 2-dart non-bull routes over 3-dart routes.
+ * Falls back to standard routes.
  */
 export function getCheckoutSuggestion(
   remaining: number,
@@ -463,20 +449,8 @@ export function getCheckoutSuggestion(
     if (prefRoute) return prefRoute;
   }
   
-  // Standard routes — but prefer 2-dart non-bull routes over 3-dart routes
-  if (dartsLeft >= 3) {
-    // Check if a 2-dart route exists that doesn't use bull
-    const twoRoute = CHECKOUT_2[remaining];
-    if (twoRoute && !twoRoute.includes('DB') && !twoRoute.includes('SB')) {
-      return twoRoute;
-    }
-    // Check 3-dart standard route
-    const threeRoute = CHECKOUT_3[remaining];
-    if (threeRoute) return threeRoute;
-    // Fall back to 2-dart even with bull if no 3-dart exists
-    if (twoRoute) return twoRoute;
-    return null;
-  }
+  // Standard routes based on darts available
+  if (dartsLeft >= 3) return CHECKOUT_3[remaining] || null;
   if (dartsLeft === 2) return CHECKOUT_2[remaining] || null;
   if (dartsLeft === 1) return CHECKOUT_1[remaining] || null;
   return null;
