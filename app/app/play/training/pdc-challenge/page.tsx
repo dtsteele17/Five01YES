@@ -236,7 +236,7 @@ export default function PDCChallengePage() {
             {/* XP Reward Display */}
             {xpResult && <XPRewardDisplay xpResult={xpResult} />}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800 rounded-xl p-4 text-center">
                 <p className="text-gray-400 text-sm mb-1">Total Score</p>
                 <p className="text-2xl sm:text-4xl font-bold text-white">{totalScore}</p>
@@ -497,5 +497,7 @@ export default function PDCChallengePage() {
     </div>
   );
 }
+
+
 
 

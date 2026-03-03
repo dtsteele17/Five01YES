@@ -198,7 +198,7 @@ export default function Bobs27Page() {
               </p>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-slate-800 rounded-xl p-4">
                 <p className="text-xs text-slate-400">Final Score</p>
                 <p className={`text-3xl font-bold ${getScoreColor(Math.max(0, score))}`}>{Math.max(0, score)}</p>
@@ -399,3 +399,5 @@ export default function Bobs27Page() {
     </div>
   );
 }
+
+

@@ -532,7 +532,7 @@ export default function KillerTrainingPage() {
         </div>
 
         {/* Player Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {/* User Card */}
           <Card className={`p-4 border-2 ${user.eliminated ? 'bg-slate-800/50 border-slate-700 opacity-50' : user.isKiller ? 'bg-red-500/10 border-red-500/50' : 'bg-emerald-500/10 border-emerald-500/30'}`}>
             <div className="flex items-center justify-between mb-3">
@@ -707,7 +707,7 @@ export default function KillerTrainingPage() {
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+              <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                 <Button
                   onClick={() => handleDartClick({ 
                     segment: 'SB', 
@@ -771,7 +771,7 @@ export default function KillerTrainingPage() {
 
         {/* Round Over / Match Over Modal */}
         <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm max-h-[85vh] overflow-y-auto max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-center">
                 {gamePhase === 'match-over' ? (
@@ -863,7 +863,7 @@ export default function KillerTrainingPage() {
                 <div className="text-slate-400 text-xs uppercase tracking-wider mb-3 text-center">
                   Round {currentRound} Stats
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <div className="text-slate-400 text-xs mb-1">Your Kills</div>
                     <div className="text-2xl font-bold text-emerald-400">{userKills}</div>
@@ -961,4 +961,6 @@ export default function KillerTrainingPage() {
     </div>
   );
 }
+
+
 

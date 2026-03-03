@@ -838,7 +838,7 @@ function FinishTrainingContent() {
                       </TabsContent>
 
                       <TabsContent value="bulls" className="flex-1 mt-0">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 h-full content-center">
+                        <div className="grid grid-cols-2 gap-6 h-full content-center">
                           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                             <Button
                               onClick={() =>
@@ -873,7 +873,7 @@ function FinishTrainingContent() {
                       </TabsContent>
                     </Tabs>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 shrink-0">
+                    <div className="grid grid-cols-2 gap-4 pt-2 shrink-0">
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full">
                         <Button
                           onClick={() =>
@@ -917,7 +917,7 @@ function FinishTrainingContent() {
                         className="bg-slate-700/50 border-slate-600 text-white text-lg h-14"
                       />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <Button
                         onClick={handleTypedVisitSubmit}
                         disabled={!typedVisitValue}
@@ -994,7 +994,7 @@ function FinishTrainingContent() {
       </div>
 
       <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 text-white max-w-md">
+        <DialogContent className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 text-white max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-bold text-center">
               <Trophy className="h-8 w-8 text-yellow-400" />
@@ -1026,7 +1026,7 @@ function FinishTrainingContent() {
               <div className="text-3xl sm:text-5xl font-black text-white">{totalDarts}</div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-700/30 rounded-xl p-4 text-center border border-slate-600/30">
                 <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
                   Attempts
@@ -1119,4 +1119,7 @@ export default function FinishTrainingPage() {
     </Suspense>
   );
 }
+
+
+
 

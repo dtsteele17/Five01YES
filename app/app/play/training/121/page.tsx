@@ -661,7 +661,7 @@ export default function OneTwentyOnePage() {
                 </TabsContent>
 
                 <TabsContent value="bulls">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+                  <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                     <Button
                       onClick={() => handleDartClick({ segment: 'SB', value: 25, label: 'SB' })}
                       disabled={!gameActive}
@@ -680,7 +680,7 @@ export default function OneTwentyOnePage() {
                 </TabsContent>
               </Tabs>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 max-w-2xl mx-auto">
+              <div className="grid grid-cols-2 gap-4 mt-4 max-w-2xl mx-auto">
                 <Button
                   onClick={handleMiss}
                   disabled={!gameActive}
@@ -832,7 +832,7 @@ export default function OneTwentyOnePage() {
 
         {/* Stats Modal */}
         <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-center mb-4">
                 121 Training Session Stats
@@ -861,7 +861,7 @@ export default function OneTwentyOnePage() {
                 <div className="text-2xl sm:text-4xl sm:text-6xl font-bold text-orange-400">{highestTargetReached}</div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-700/30 rounded-lg p-4 text-center">
                   <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
                     Total Darts
@@ -879,7 +879,7 @@ export default function OneTwentyOnePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-700/30 rounded-lg p-4 text-center">
                   <div className="text-slate-400 text-xs uppercase tracking-wider mb-2">
                     Best Streak
@@ -944,3 +944,5 @@ export default function OneTwentyOnePage() {
     </div>
   );
 }
+
+
