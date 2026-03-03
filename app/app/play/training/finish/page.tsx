@@ -1119,7 +1119,3 @@ export default function FinishTrainingPage() {
     </Suspense>
   );
 }
-
-
-
-
