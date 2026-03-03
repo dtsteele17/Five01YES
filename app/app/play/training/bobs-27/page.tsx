@@ -120,6 +120,12 @@ export default function Bobs27Page() {
         },
       });
 
+      // Capture level BEFORE awarding XP for this specific training game
+      const { data: preLevelData } = await supabase.rpc('get_player_training_level', {
+        p_user_id: user.id,
+      });
+      const preGameLevel = preLevelData?.level;
+
       // Calculate XP for display
       const xp = calculateXP('bobs-27', Math.max(0, finalScore), { completed });
       setXpResult(xp);
@@ -131,7 +137,7 @@ export default function Bobs27Page() {
         sessionData: { score: finalScore, roundsCompleted: results.length, totalHits, accuracy },
       });
       if (awardResult.levelUp) {
-        triggerLevelUp(awardResult.levelUp.oldLevel, awardResult.levelUp.newLevel);
+        triggerLevelUp(preGameLevel ?? awardResult.levelUp.oldLevel, awardResult.levelUp.newLevel);
       }
     } catch (error) {
       console.error('Failed to save game:', error);
