@@ -68,6 +68,7 @@ export default function CareerPage() {
   const [saves, setSaves] = useState<any[]>([]);
   const [showSaveSelect, setShowSaveSelect] = useState(false);
   const [playingEvent, setPlayingEvent] = useState(false);
+  const [activeBracket, setActiveBracket] = useState<any>(null);
 
   // Settings dialog
   const [showSettings, setShowSettings] = useState(false);
@@ -98,6 +99,19 @@ export default function CareerPage() {
         return;
       }
       setData(homeData);
+
+      // Load active bracket data if current event is an active tournament
+      if (homeData.next_event?.bracket_size) {
+        const { data: bracketData } = await supabase
+          .from('career_brackets')
+          .select('bracket_data, current_round, status')
+          .eq('event_id', homeData.next_event.id)
+          .eq('career_id', careerId)
+          .single();
+        if (bracketData?.bracket_data?.matches) {
+          setActiveBracket(bracketData.bracket_data);
+        }
+      }
 
       // Show tournament choice if Tier 1, Day 1, first event is a trial
       if (homeData.career.tier === 1 && homeData.career.day === 1 && homeData.next_event?.event_type === 'trial_tournament') {
@@ -490,44 +504,85 @@ export default function CareerPage() {
                       <p className="text-slate-400 text-sm mb-4 capitalize">{next_event.event_type.replace('_', ' ')}</p>
 
                       {next_event.bracket_size ? (
-                        /* Visual bracket preview */
+                        /* Visual bracket - show real bracket if active, placeholder if not started */
                         <div className="bg-slate-900/60 rounded-xl border border-white/5 p-4 overflow-x-auto">
-                          <div className="flex items-stretch gap-3 min-w-fit justify-center">
-                            {Array.from({ length: bracketRounds }).map((_, roundIdx) => {
-                              const matchesInRound = bracketSize / Math.pow(2, roundIdx + 1);
-                              const roundNames = ['Quarter-Finals', 'Semi-Finals', 'Final'];
-                              const roundLabel = bracketRounds <= 3
-                                ? (roundIdx === bracketRounds - 1 ? 'Final' : roundIdx === bracketRounds - 2 ? 'Semi-Finals' : 'Quarter-Finals')
-                                : `Round ${roundIdx + 1}`;
-                              return (
-                                <div key={roundIdx} className="flex flex-col items-center gap-1 min-w-[100px]">
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{roundLabel}</span>
-                                  <div className="flex flex-col gap-2 justify-center flex-1">
-                                    {Array.from({ length: matchesInRound }).map((_, matchIdx) => (
-                                      <div key={matchIdx} className="border border-white/[0.08] rounded-lg overflow-hidden bg-slate-800/50">
-                                        <div className="px-2.5 py-1.5 border-b border-white/[0.04] flex items-center gap-1.5">
-                                          <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                                          <span className="text-[10px] text-slate-500 font-medium truncate">TBD</span>
+                          {activeBracket?.matches ? (
+                            /* Real bracket data */
+                            <div className="flex items-stretch gap-3 min-w-fit justify-center">
+                              {Array.from({ length: activeBracket.totalRounds }).map((_: any, roundIdx: number) => {
+                                const roundMatches = activeBracket.matches.filter((m: any) => m.round === roundIdx + 1);
+                                const roundLabel = roundIdx === activeBracket.totalRounds - 1 ? 'Final'
+                                  : roundIdx === activeBracket.totalRounds - 2 ? 'Semi-Final'
+                                  : roundIdx === activeBracket.totalRounds - 3 ? 'Quarter-Final'
+                                  : `Round ${roundIdx + 1}`;
+                                const isCurrentRound = roundIdx + 1 === activeBracket.currentRound;
+                                return (
+                                  <div key={roundIdx} className="flex flex-col items-center gap-1 min-w-[110px]">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isCurrentRound ? 'text-amber-400' : 'text-slate-500'}`}>{roundLabel}</span>
+                                    <div className="flex flex-col gap-2 justify-center flex-1">
+                                      {roundMatches.map((match: any, mi: number) => (
+                                        <div key={mi} className={`border rounded-lg overflow-hidden ${match.isPlayerMatch && isCurrentRound ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/[0.08] bg-slate-800/50'}`}>
+                                          <div className={`px-2.5 py-1.5 border-b border-white/[0.04] flex items-center justify-between gap-1.5 ${match.winnerId === match.participant1?.id ? 'bg-white/5' : ''}`}>
+                                            <span className={`text-[10px] font-medium truncate ${match.participant1?.isPlayer ? 'text-amber-400' : match.winnerId === match.participant1?.id ? 'text-white' : 'text-slate-400'}`}>
+                                              {match.participant1?.name || 'TBD'}
+                                            </span>
+                                            {match.score && <span className="text-[10px] text-slate-500 font-bold">{match.score.p1Legs}</span>}
+                                          </div>
+                                          <div className={`px-2.5 py-1.5 flex items-center justify-between gap-1.5 ${match.winnerId === match.participant2?.id ? 'bg-white/5' : ''}`}>
+                                            <span className={`text-[10px] font-medium truncate ${match.participant2?.isPlayer ? 'text-amber-400' : match.winnerId === match.participant2?.id ? 'text-white' : 'text-slate-400'}`}>
+                                              {match.participant2?.name || 'TBD'}
+                                            </span>
+                                            {match.score && <span className="text-[10px] text-slate-500 font-bold">{match.score.p2Legs}</span>}
+                                          </div>
                                         </div>
-                                        <div className="px-2.5 py-1.5 flex items-center gap-1.5">
-                                          <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                                          <span className="text-[10px] text-slate-500 font-medium truncate">TBD</span>
-                                        </div>
-                                      </div>
-                                    ))}
+                                      ))}
+                                    </div>
                                   </div>
+                                );
+                              })}
+                              <div className="flex flex-col items-center justify-center min-w-[50px]">
+                                <span className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider mb-2">Winner</span>
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/20 flex items-center justify-center">
+                                  <Trophy className="w-6 h-6 text-amber-400" />
                                 </div>
-                              );
-                            })}
-                            {/* Trophy at end */}
-                            <div className="flex flex-col items-center justify-center min-w-[50px]">
-                              <span className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider mb-2">Winner</span>
-                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/20 flex items-center justify-center">
-                                <Trophy className="w-6 h-6 text-amber-400" />
                               </div>
                             </div>
-                          </div>
-                          <p className="text-center text-slate-500 text-[10px] mt-3 font-medium">Draw revealed when you enter the tournament</p>
+                          ) : (
+                            /* Placeholder bracket - not yet started */
+                            <div className="flex items-stretch gap-3 min-w-fit justify-center">
+                              {Array.from({ length: bracketRounds }).map((_, roundIdx) => {
+                                const matchesInRound = bracketSize / Math.pow(2, roundIdx + 1);
+                                const roundLabel = bracketRounds <= 3
+                                  ? (roundIdx === bracketRounds - 1 ? 'Final' : roundIdx === bracketRounds - 2 ? 'Semi-Finals' : 'Quarter-Finals')
+                                  : `Round ${roundIdx + 1}`;
+                                return (
+                                  <div key={roundIdx} className="flex flex-col items-center gap-1 min-w-[100px]">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{roundLabel}</span>
+                                    <div className="flex flex-col gap-2 justify-center flex-1">
+                                      {Array.from({ length: matchesInRound }).map((_, matchIdx) => (
+                                        <div key={matchIdx} className="border border-white/[0.08] rounded-lg overflow-hidden bg-slate-800/50">
+                                          <div className="px-2.5 py-1.5 border-b border-white/[0.04] flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                                            <span className="text-[10px] text-slate-500 font-medium truncate">TBD</span>
+                                          </div>
+                                          <div className="px-2.5 py-1.5 flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                                            <span className="text-[10px] text-slate-500 font-medium truncate">TBD</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div className="flex flex-col items-center justify-center min-w-[50px]">
+                                <span className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider mb-2">Winner</span>
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/20 flex items-center justify-center">
+                                  <Trophy className="w-6 h-6 text-amber-400" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="bg-slate-900/60 rounded-xl border border-white/5 p-6 text-center">

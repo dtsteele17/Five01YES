@@ -83,12 +83,12 @@ BEGIN
     'seed', v_player_seed
   );
 
-  -- Pick opponents from career_opponents for this tier
+  -- Pick opponents from career_opponents for this tier (deterministic order using career_seed + event sequence)
   FOR v_opponent IN
     SELECT id, first_name, last_name, nickname, skill_rating, archetype
     FROM career_opponents
     WHERE career_id = p_career_id AND tier = v_career.tier
-    ORDER BY random()
+    ORDER BY md5(id::TEXT || v_career.career_seed::TEXT || v_event.sequence_no::TEXT)
     LIMIT (v_bracket_size - 1)
   LOOP
     v_count := v_count + 1;
@@ -115,7 +115,7 @@ BEGIN
       FROM career_opponents
       WHERE career_id = p_career_id AND tier = v_career.tier
       AND id NOT IN (SELECT (elem->>'id')::UUID FROM jsonb_array_elements(v_participants) elem WHERE elem->>'id' != 'player')
-      ORDER BY random()
+      ORDER BY md5(id::TEXT || v_career.career_seed::TEXT || v_event.sequence_no::TEXT)
       LIMIT (v_bracket_size - 1 - v_count)
     LOOP
       v_count := v_count + 1;
@@ -133,9 +133,9 @@ BEGIN
   -- Mark event as active
   UPDATE career_events SET status = 'active' WHERE id = p_event_id;
 
-  -- Create bracket record (bracket_data will be populated client-side and saved back)
+  -- Create bracket record (bracket_data will be generated client-side on first load and saved back)
   INSERT INTO career_brackets (event_id, career_id, bracket_size, rounds_total, current_round, bracket_data, status)
-  VALUES (p_event_id, p_career_id, v_bracket_size, (log(2, v_bracket_size))::SMALLINT, 1, '[]'::JSONB, 'active')
+  VALUES (p_event_id, p_career_id, v_bracket_size, (log(2, v_bracket_size))::SMALLINT, 1, NULL, 'active')
   RETURNING id INTO v_bracket_id;
 
   RETURN json_build_object(
@@ -179,7 +179,7 @@ BEGIN
   UPDATE career_brackets SET
     bracket_data = p_bracket_data,
     current_round = p_current_round,
-    winner_id = CASE WHEN p_winner_id IS NOT NULL THEN p_winner_id::UUID ELSE NULL END,
+    winner_id = CASE WHEN p_winner_id IS NOT NULL AND p_winner_id != 'player' THEN p_winner_id::UUID ELSE NULL END,
     player_eliminated_round = p_player_eliminated_round,
     status = CASE WHEN p_completed THEN 'completed' ELSE 'active' END
   WHERE id = p_bracket_id;
@@ -341,25 +341,30 @@ BEGIN
       v_event_seq := v_event.sequence_no;
       v_is_retry := (v_event_seq >= 2);
 
-      IF NOT v_is_retry THEN
-        -- First tournament
+      IF v_event_seq = 1 THEN
+        -- First tournament: need to reach the final to promote
         IF v_reached_final THEN
           v_should_promote := TRUE;
           v_promo_message := 'I''m giving the pub leagues a shot.';
         END IF;
-      ELSE
-        -- Retry tournament
+      ELSIF v_event_seq = 2 THEN
+        -- Second tournament: need at least semi-final
         IF v_reached_final THEN
           v_should_promote := TRUE;
           v_promo_message := 'Alright, I''m giving the pub leagues a real shot.';
         ELSIF v_reached_semi THEN
           v_should_promote := TRUE;
           v_promo_message := 'Well… got to start somewhere.';
+        END IF;
+      ELSIF v_event_seq = 3 THEN
+        -- Third and final tournament: promote regardless (last chance)
+        v_should_promote := TRUE;
+        IF v_reached_final THEN
+          v_promo_message := 'Proved myself. Time for the pub leagues.';
+        ELSIF v_reached_semi THEN
+          v_promo_message := 'Close enough. Let''s see what the pub leagues are about.';
         ELSE
-          -- First round exit on retry: forced training then promote anyway
-          v_should_promote := TRUE;
-          v_promo_message := 'Two training sessions. Then we try the pub leagues.';
-          -- TODO: schedule forced training events before promotion
+          v_promo_message := 'It''s time to move on. The pub leagues await.';
         END IF;
       END IF;
 
