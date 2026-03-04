@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { awardXP } from '@/lib/training/xpTracker';
+import { trackStat } from '@/lib/achievementTracker';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import { createClient } from '@/lib/supabase/client';
@@ -351,6 +352,9 @@ export default function KillerTrainingPage() {
       if (xpResult.levelUp) {
         triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
       }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await trackStat(user.id, 'training_matches', 1);
     } catch (error) {
       console.error('Error saving training stats:', error);
     } finally {

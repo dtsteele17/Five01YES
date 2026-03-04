@@ -8,6 +8,7 @@ import { Zap, ArrowLeft, Trophy, Skull, Target, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { awardXP } from '@/lib/training/xpTracker';
+import { trackStat } from '@/lib/achievementTracker';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import { useLevelUpToast } from '@/components/training/LevelUpToast';
@@ -139,6 +140,10 @@ export default function Bobs27Page() {
       if (awardResult.levelUp) {
         triggerLevelUp(preGameLevel ?? awardResult.levelUp.oldLevel, awardResult.levelUp.newLevel);
       }
+
+      // Track training matches achievement
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) await trackStat(user.id, 'training_matches', 1);
     } catch (error) {
       console.error('Failed to save game:', error);
       toast.error('Failed to save score');

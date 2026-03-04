@@ -41,6 +41,7 @@ import { WinnerPopup } from '@/components/game/WinnerPopup';
 import { TournamentWinnerPopup } from '@/components/game/TournamentWinnerPopup';
 import { TournamentChampionScreen } from '@/components/game/TournamentChampionScreen';
 import { calculateLegByLegStats, type LegStats } from '@/lib/stats/legByLegStats';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
 
 interface Dart {
   type: 'single' | 'double' | 'triple' | 'bull';
@@ -1151,6 +1152,17 @@ export default function QuickMatchRoomPage() {
         // Load leg-by-leg stats
         const legData = await calculateLegByLegStats(matchId, currentUserId, opponentId);
         setLegStats(legData);
+
+        // Track match end achievement
+        trackMatchEnd(currentUserId, {
+          won: matchHistory.result === 'win',
+          matchType: isTournamentMatch ? 'tournament' : room.match_type === 'ranked' ? 'ranked' : 'quick-match',
+          legsWon: matchHistory.legs_won,
+          legsLost: matchHistory.legs_lost,
+          average: matchHistory.three_dart_avg,
+          opponentAverage: matchHistory.opponent_three_dart_avg,
+          opponentId: room.player1_id === currentUserId ? room.player2_id : room.player1_id,
+        });
       }
     } catch (error) {
       console.error('Failed to load match completion stats:', error);
@@ -1551,6 +1563,16 @@ export default function QuickMatchRoomPage() {
       }
 
       console.log('[SUBMIT] RPC success:', data);
+
+      // Track achievements
+      if (currentUserId && !isBust) {
+        trackScoreAchievement(score, currentUserId, {
+          isCheckout: isCheckout || data.leg_won,
+          checkoutValue: (isCheckout || data.leg_won) ? score : undefined,
+          isBull: darts.some(d => d.type === 'bull' && d.value === 50) && (isCheckout || data.leg_won),
+          dartsAtDouble: darts.filter(d => d.type === 'double' || (d.type === 'bull' && d.value === 50)).length,
+        });
+      }
 
       // Update local room state
       if (room && data.remaining_after !== undefined) {

@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { calculateCheckoutXP } from '@/lib/training/xpSystem';
 import { createClient } from '@/lib/supabase/client';
 import { FAILED_ATTEMPT_XP, calculate121CheckoutXP, awardXP } from '@/lib/training/xpTracker';
+import { trackStat } from '@/lib/achievementTracker';
 import { useLevelUpToast } from '@/components/training/LevelUpToast';
 
 interface DartHit {

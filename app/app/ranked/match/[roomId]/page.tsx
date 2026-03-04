@@ -32,6 +32,7 @@ import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
 import { clearMatchState } from '@/lib/utils/match-resume';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
 import { getTrustRatingDisplay, getTrustRatingButtonGradient, getTrustRatingDescription, getUnratedLabel } from '@/lib/utils/trust-rating';
 import { Separator } from '@/components/ui/separator';
 
@@ -441,8 +442,22 @@ export default function RankedMatchPage() {
       }
 
       console.log('[RankedMatch] Match finalized successfully:', data);
-      setRankedResults(data as RankedResult);
+      const result = data as RankedResult;
+      setRankedResults(result);
       setShowResultsModal(true);
+
+      // Track match end achievement
+      if (currentUserId) {
+        const won = result.winner_id === currentUserId;
+        const myData = result.player1.id === currentUserId ? result.player1 : result.player2;
+        const oppData = result.player1.id === currentUserId ? result.player2 : result.player1;
+        trackMatchEnd(currentUserId, {
+          won,
+          matchType: 'ranked',
+          legsWon: myData.legs_won,
+          legsLost: oppData.legs_won,
+        });
+      }
     } catch (err) {
       console.error('[RankedMatch] Unexpected error:', err);
       toast.error('Failed to finalize match');
@@ -560,6 +575,20 @@ export default function RankedMatchPage() {
       }
 
       console.log('[RankedMatch] Score submitted successfully:', data);
+
+      // Track achievements for ranked match
+      if (currentUserId && score > 0) {
+        const myRemainingBefore = matchState.youArePlayer === 1 
+          ? room.player1_remaining 
+          : room.player2_remaining;
+        const isCheckout = (myRemainingBefore - score) === 0;
+        trackScoreAchievement(score, currentUserId, {
+          isCheckout,
+          checkoutValue: isCheckout ? score : undefined,
+          matchType: 'ranked',
+        });
+      }
+
       setCurrentVisit([]);
       setScoreInput('');
       toast.success('Score submitted');

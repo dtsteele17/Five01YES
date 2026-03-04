@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateCheckoutXP, CHECKOUT_XP_TIERS } from '@/lib/training/xpSystem';
 import { awardXP } from '@/lib/training/xpTracker';
+import { trackStat } from '@/lib/achievementTracker';
 import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -543,6 +544,9 @@ function FinishTrainingContent() {
     if (result.levelUp) {
       triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
     }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await trackStat(user.id, 'training_matches', 1);
   };
 
   const handleReturn = async () => {

@@ -21,48 +21,49 @@ export interface StatUpdate {
 }
 
 // Achievement definitions with their stat keys and goals
+// statKey MUST match the actual column name in the user_stats table
 export const ACHIEVEMENT_DEFINITIONS: Record<string, { goal: number; statKey: string; title: string }> = {
-  // 180s
-  'boom': { goal: 1, statKey: 'oneEighties', title: 'Boom!' },
-  'maximum-effort': { goal: 5, statKey: 'oneEighties', title: 'Maximum Effort' },
-  'ton-80-club': { goal: 10, statKey: 'oneEighties', title: 'The Ton 80 Club' },
-  'treble-trouble': { goal: 25, statKey: 'oneEighties', title: 'Treble Trouble' },
-  '180-machine': { goal: 50, statKey: 'oneEighties', title: '180 Machine' },
-  'maximum-overload': { goal: 100, statKey: 'oneEighties', title: 'Maximum Overload' },
-  'treble-factory': { goal: 250, statKey: 'oneEighties', title: 'Treble Factory' },
-  'treble-god': { goal: 500, statKey: 'oneEighties', title: 'Treble God' },
+  // 180s — column: total_180s
+  'boom': { goal: 1, statKey: 'total_180s', title: 'Boom!' },
+  'maximum-effort': { goal: 5, statKey: 'total_180s', title: 'Maximum Effort' },
+  'ton-80-club': { goal: 10, statKey: 'total_180s', title: 'The Ton 80 Club' },
+  'treble-trouble': { goal: 25, statKey: 'total_180s', title: 'Treble Trouble' },
+  '180-machine': { goal: 50, statKey: 'total_180s', title: '180 Machine' },
+  'maximum-overload': { goal: 100, statKey: 'total_180s', title: 'Maximum Overload' },
+  'treble-factory': { goal: 250, statKey: 'total_180s', title: 'Treble Factory' },
+  'treble-god': { goal: 500, statKey: 'total_180s', title: 'Treble God' },
   
-  // 100+ scores
-  'ton-up': { goal: 1, statKey: 'count100Plus', title: 'Ton Up' },
-  'ton-machine': { goal: 10, statKey: 'count100Plus', title: 'Ton Machine' },
+  // 100+ scores — column: total_100_plus
+  'ton-up': { goal: 1, statKey: 'total_100_plus', title: 'Ton Up' },
+  'ton-machine': { goal: 10, statKey: 'total_100_plus', title: 'Ton Machine' },
   
-  // 26s (Funny)
-  'feared-number': { goal: 1, statKey: 'score_26', title: 'The Feared Number' },
-  'double-13-specialist': { goal: 10, statKey: 'score_26', title: 'Double 13 Specialist' },
-  'pain-merchant': { goal: 50, statKey: 'score_26', title: 'Pain Merchant' },
-  'anti-checkout': { goal: 100, statKey: 'score_26', title: 'Anti-Checkout' },
+  // 26s (Funny) — column: score_26_count
+  'feared-number': { goal: 1, statKey: 'score_26_count', title: 'The Feared Number' },
+  'double-13-specialist': { goal: 10, statKey: 'score_26_count', title: 'Double 13 Specialist' },
+  'pain-merchant': { goal: 50, statKey: 'score_26_count', title: 'Pain Merchant' },
+  'anti-checkout': { goal: 100, statKey: 'score_26_count', title: 'Anti-Checkout' },
   
-  // Checkouts
-  'checked-out': { goal: 1, statKey: 'checkoutsMade', title: 'Checked Out' },
+  // Checkouts — column: checkouts_made
+  'checked-out': { goal: 1, statKey: 'checkouts_made', title: 'Checked Out' },
   
-  // Practice
+  // Practice — column: training_matches
   'warm-up': { goal: 10, statKey: 'training_matches', title: 'Warm Up' },
   'dedicated': { goal: 50, statKey: 'training_matches', title: 'Dedicated' },
   'training-arc': { goal: 100, statKey: 'training_matches', title: 'Training Arc' },
   
-  // Around The Clock
+  // Around The Clock — column: atc_completions
   'clock-starter': { goal: 1, statKey: 'atc_completions', title: 'Clock Starter' },
   'clock-master': { goal: 10, statKey: 'atc_completions', title: 'Clock Master' },
   'clock-legend': { goal: 50, statKey: 'atc_completions', title: 'Clock Legend' },
   
-  // Ranked
+  // Ranked — columns: ranked_matches_played, ranked_wins
   'ranked-rookie': { goal: 1, statKey: 'ranked_matches_played', title: 'Ranked Rookie' },
   'on-the-ladder': { goal: 5, statKey: 'ranked_wins', title: 'On The Ladder' },
   'ranked-grinder': { goal: 25, statKey: 'ranked_wins', title: 'Ranked Grinder' },
   'sweaty-hands': { goal: 50, statKey: 'ranked_wins', title: 'Sweaty Hands' },
   'the-tryhard': { goal: 100, statKey: 'ranked_wins', title: 'The Tryhard' },
   
-  // Tournaments
+  // Tournaments — columns: tournament_matches_won, tournaments_won
   'first-blood': { goal: 1, statKey: 'tournament_matches_won', title: 'First Blood' },
   'champion': { goal: 1, statKey: 'tournaments_won', title: 'Champion' },
   'serial-winner': { goal: 5, statKey: 'tournaments_won', title: 'Serial Winner' },
@@ -71,7 +72,7 @@ export const ACHIEVEMENT_DEFINITIONS: Record<string, { goal: number; statKey: st
   'tournament-monster': { goal: 50, statKey: 'tournaments_won', title: 'Tournament Monster' },
   'legendary': { goal: 100, statKey: 'tournaments_won', title: 'Legendary' },
   
-  // League
+  // League — columns: leagues_joined, leagues_won, leagues_created, promotions, relegations
   'joined-ranks': { goal: 1, statKey: 'leagues_joined', title: 'Joined the Ranks' },
   'league-winner': { goal: 1, statKey: 'leagues_won', title: 'League Winner' },
   'dominant-season': { goal: 5, statKey: 'leagues_won', title: 'Dominant Season' },
@@ -293,17 +294,17 @@ export async function trackScoreAchievement(score: number, userId: string, conte
   
   // Track 180s
   if (score === 180) {
-    await trackStat(userId, 'oneEighties', 1);
+    await trackStat(userId, 'total_180s', 1);
   }
   
-  // Track 100+ scores
-  if (score >= 100 && score < 180) {
-    await trackStat(userId, 'count100Plus', 1);
+  // Track 100+ scores (including 180 — counts as 100+ too)
+  if (score >= 100) {
+    await trackStat(userId, 'total_100_plus', 1);
   }
   
   // Track 26s (the feared number)
   if (score === 26) {
-    await trackStat(userId, 'score_26', 1);
+    await trackStat(userId, 'score_26_count', 1);
   }
   
   // Track 69 (Nice.)
@@ -313,7 +314,7 @@ export async function trackScoreAchievement(score: number, userId: string, conte
   
   // Track checkout achievements
   if (context?.isCheckout) {
-    await trackStat(userId, 'checkoutsMade', 1);
+    await trackStat(userId, 'checkouts_made', 1);
     
     // Checkout value achievements
     if (context.checkoutValue && context.checkoutValue >= 170) {

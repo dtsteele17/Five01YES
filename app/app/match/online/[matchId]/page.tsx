@@ -12,6 +12,7 @@ import { Loader2, Trophy, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 import { clearMatchState } from '@/lib/utils/match-resume';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
 
 interface OnlineMatchData {
   match: {
@@ -370,6 +371,15 @@ export default function OnlineMatchPage() {
 
       console.log('[SUBMIT] Visit submitted successfully:', data);
 
+      // Track achievements
+      if (currentUserId && !data.is_bust) {
+        trackScoreAchievement(score, currentUserId, {
+          isCheckout: data.is_checkout || data.leg_won,
+          checkoutValue: (data.is_checkout || data.leg_won) ? score : undefined,
+          matchType: 'online',
+        });
+      }
+
       if (data.is_bust) {
         toast.error('Bust!');
       } else if (data.is_checkout) {
@@ -382,6 +392,21 @@ export default function OnlineMatchPage() {
 
       if (data.match_won) {
         console.log('Match complete!');
+        // Track match end achievement
+        if (currentUserId && matchData) {
+          const myLegsNow = isPlayer1
+            ? matchData.state.player1LegsWon + (data.leg_won ? 1 : 0)
+            : matchData.state.player2LegsWon + (data.leg_won ? 1 : 0);
+          const oppLegsNow = isPlayer1
+            ? matchData.state.player2LegsWon
+            : matchData.state.player1LegsWon;
+          trackMatchEnd(currentUserId, {
+            won: myLegsNow > oppLegsNow,
+            matchType: 'online',
+            legsWon: myLegsNow,
+            legsLost: oppLegsNow,
+          });
+        }
         setShowMatchComplete(true);
       }
 

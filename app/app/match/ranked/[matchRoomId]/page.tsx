@@ -18,6 +18,7 @@ import {
 import { Target, Trophy, TrendingUp, Zap, RotateCcw, Home, Shield, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
+import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
 import { mapRoomToMatchState } from '@/lib/match/mapRoomToMatchState';
 
 interface Dart {
@@ -267,8 +268,22 @@ export default function RankedMatchPage() {
         return;
       }
 
-      setRankedResults(data as RankedResult);
+      const result = data as RankedResult;
+      setRankedResults(result);
       setShowResultsModal(true);
+
+      // Track match end achievement
+      if (currentUserId) {
+        const won = result.winner_id === currentUserId;
+        const myData = result.player1.id === currentUserId ? result.player1 : result.player2;
+        const oppData = result.player1.id === currentUserId ? result.player2 : result.player1;
+        trackMatchEnd(currentUserId, {
+          won,
+          matchType: 'ranked',
+          legsWon: myData.legs_won,
+          legsLost: oppData.legs_won,
+        });
+      }
     } catch (err) {
       console.error('Unexpected error:', err);
       toast.error('Failed to finalize match');
@@ -361,6 +376,19 @@ export default function RankedMatchPage() {
         });
         toast.error('Failed to submit score');
         return;
+      }
+
+      // Track achievements
+      if (currentUserId && matchState && score > 0) {
+        const myRemainingBefore = matchState.youArePlayer === 1
+          ? room.player1_remaining
+          : room.player2_remaining;
+        const isCheckout = (myRemainingBefore - score) === 0;
+        trackScoreAchievement(score, currentUserId, {
+          isCheckout,
+          checkoutValue: isCheckout ? myRemainingBefore : undefined,
+          matchType: 'ranked',
+        });
       }
 
       setCurrentVisit([]);

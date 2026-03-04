@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateXP, XPResult } from '@/lib/training/xpSystem';
 import { awardXP } from '@/lib/training/xpTracker';
+import { trackStat, awardAchievement } from '@/lib/achievementTracker';
 import { XPRewardDisplay } from '@/components/training/XPRewardDisplay';
 import { useLevelUpToast } from '@/components/training/LevelUpToast';
 import {
@@ -230,6 +231,18 @@ export default function AroundTheClockPage() {
 
       if (result.levelUp) {
         triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
+      }
+
+      // Track achievements: ATC completion + training match + speed runner
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await trackStat(user.id, 'atc_completions', 1);
+        await trackStat(user.id, 'training_matches', 1);
+        // Speed Runner: complete ATC under 5 minutes
+        const durationMinutes = (Date.now() - (startTime || Date.now())) / 60000;
+        if (durationMinutes < 5) {
+          await awardAchievement(user.id, 'speed-runner', 'Speed Runner');
+        }
       }
     } catch (err) {
       console.error('[ATC] Exception completing session:', err);
