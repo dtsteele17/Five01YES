@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS career_profiles (
   UNIQUE(user_id, save_slot)
 );
 
-CREATE INDEX idx_career_profiles_user ON career_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_career_profiles_user ON career_profiles(user_id);
 
 -- 2) Career Schedule Templates (defines what happens each week/day per tier)
 CREATE TABLE IF NOT EXISTS career_schedule_templates (
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS career_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_events_career ON career_events(career_id, season, sequence_no);
+CREATE INDEX IF NOT EXISTS idx_career_events_career ON career_events(career_id, season, sequence_no);
 
 -- 4) Career Opponents (persistent generated opponents per career save)
 CREATE TABLE IF NOT EXISTS career_opponents (
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS career_opponents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_opponents_career_tier ON career_opponents(career_id, tier);
+CREATE INDEX IF NOT EXISTS idx_career_opponents_career_tier ON career_opponents(career_id, tier);
 
 -- 5) Career Matches (links career event to actual match played)
 CREATE TABLE IF NOT EXISTS career_matches (
@@ -106,8 +106,8 @@ CREATE TABLE IF NOT EXISTS career_matches (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_matches_career ON career_matches(career_id);
-CREATE INDEX idx_career_matches_event ON career_matches(event_id);
+CREATE INDEX IF NOT EXISTS idx_career_matches_career ON career_matches(career_id);
+CREATE INDEX IF NOT EXISTS idx_career_matches_event ON career_matches(event_id);
 
 -- 6) Career League Tables (standings per season per tier)
 CREATE TABLE IF NOT EXISTS career_league_standings (
@@ -127,11 +127,11 @@ CREATE TABLE IF NOT EXISTS career_league_standings (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_standings_career ON career_league_standings(career_id, season, tier);
+CREATE INDEX IF NOT EXISTS idx_career_standings_career ON career_league_standings(career_id, season, tier);
 
 -- Unique constraint: one player row per career/season/tier, one row per opponent per career/season/tier
-CREATE UNIQUE INDEX idx_career_standings_player ON career_league_standings(career_id, season, tier) WHERE is_player = TRUE;
-CREATE UNIQUE INDEX idx_career_standings_opponent ON career_league_standings(career_id, season, tier, opponent_id) WHERE opponent_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_career_standings_player ON career_league_standings(career_id, season, tier) WHERE is_player = TRUE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_career_standings_opponent ON career_league_standings(career_id, season, tier, opponent_id) WHERE opponent_id IS NOT NULL;
 
 -- 7) Career Bracket State (for open/qualifier/trial tournaments)
 CREATE TABLE IF NOT EXISTS career_brackets (
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS career_brackets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_brackets_event ON career_brackets(event_id);
+CREATE INDEX IF NOT EXISTS idx_career_brackets_event ON career_brackets(event_id);
 
 -- 8) Career Sponsors Catalog (available sponsor templates)
 CREATE TABLE IF NOT EXISTS career_sponsor_catalog (
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS career_sponsor_contracts (
   UNIQUE(career_id, slot, status) -- only one active per slot (enforced in app logic too)
 );
 
-CREATE INDEX idx_career_sponsors_career ON career_sponsor_contracts(career_id);
+CREATE INDEX IF NOT EXISTS idx_career_sponsors_career ON career_sponsor_contracts(career_id);
 
 -- 10) Career World Ranking (Tier 5 — tracks ranking points per opponent + player)
 CREATE TABLE IF NOT EXISTS career_world_rankings (
@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS career_world_rankings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_world_rankings_career ON career_world_rankings(career_id);
+CREATE INDEX IF NOT EXISTS idx_career_world_rankings_career ON career_world_rankings(career_id);
 
 -- 11) Career Premier League (overlay season tracking)
 CREATE TABLE IF NOT EXISTS career_premier_league_seasons (
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS career_premier_league_table (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_pl_table_season ON career_premier_league_table(pl_season_id);
+CREATE INDEX IF NOT EXISTS idx_career_pl_table_season ON career_premier_league_table(pl_season_id);
 
 -- 13) Career Milestones / Timeline (career moments)
 CREATE TABLE IF NOT EXISTS career_milestones (
@@ -238,7 +238,7 @@ CREATE TABLE IF NOT EXISTS career_milestones (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_career_milestones_career ON career_milestones(career_id);
+CREATE INDEX IF NOT EXISTS idx_career_milestones_career ON career_milestones(career_id);
 
 -- 14) Enable RLS on all career tables
 ALTER TABLE career_profiles ENABLE ROW LEVEL SECURITY;
@@ -254,44 +254,45 @@ ALTER TABLE career_premier_league_table ENABLE ROW LEVEL SECURITY;
 ALTER TABLE career_milestones ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: users can only access their own career data
-CREATE POLICY career_profiles_user ON career_profiles FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY career_events_user ON career_events FOR ALL USING (
+DROP POLICY IF EXISTS career_profiles_user ON career_profiles; CREATE POLICY career_profiles_user ON career_profiles FOR ALL USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS career_events_user ON career_events; CREATE POLICY career_events_user ON career_events FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_opponents_user ON career_opponents FOR ALL USING (
+DROP POLICY IF EXISTS career_opponents_user ON career_opponents; CREATE POLICY career_opponents_user ON career_opponents FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_matches_user ON career_matches FOR ALL USING (
+DROP POLICY IF EXISTS career_matches_user ON career_matches; CREATE POLICY career_matches_user ON career_matches FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_standings_user ON career_league_standings FOR ALL USING (
+DROP POLICY IF EXISTS career_standings_user ON career_league_standings; CREATE POLICY career_standings_user ON career_league_standings FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_brackets_user ON career_brackets FOR ALL USING (
+DROP POLICY IF EXISTS career_brackets_user ON career_brackets; CREATE POLICY career_brackets_user ON career_brackets FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_sponsors_user ON career_sponsor_contracts FOR ALL USING (
+DROP POLICY IF EXISTS career_sponsors_user ON career_sponsor_contracts; CREATE POLICY career_sponsors_user ON career_sponsor_contracts FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_world_rankings_user ON career_world_rankings FOR ALL USING (
+DROP POLICY IF EXISTS career_world_rankings_user ON career_world_rankings; CREATE POLICY career_world_rankings_user ON career_world_rankings FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_pl_seasons_user ON career_premier_league_seasons FOR ALL USING (
+DROP POLICY IF EXISTS career_pl_seasons_user ON career_premier_league_seasons; CREATE POLICY career_pl_seasons_user ON career_premier_league_seasons FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
-CREATE POLICY career_pl_table_user ON career_premier_league_table FOR ALL USING (
+DROP POLICY IF EXISTS career_pl_table_user ON career_premier_league_table; CREATE POLICY career_pl_table_user ON career_premier_league_table FOR ALL USING (
   pl_season_id IN (
     SELECT id FROM career_premier_league_seasons
     WHERE career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
   )
 );
-CREATE POLICY career_milestones_user ON career_milestones FOR ALL USING (
+DROP POLICY IF EXISTS career_milestones_user ON career_milestones; CREATE POLICY career_milestones_user ON career_milestones FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
 
 -- Schedule templates are read-only for everyone (seeded data)
 ALTER TABLE career_schedule_templates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY career_schedule_read ON career_schedule_templates FOR SELECT USING (true);
+DROP POLICY IF EXISTS career_schedule_read ON career_schedule_templates; CREATE POLICY career_schedule_read ON career_schedule_templates FOR SELECT USING (true);
 -- Sponsor catalog is also read-only
 ALTER TABLE career_sponsor_catalog ENABLE ROW LEVEL SECURITY;
-CREATE POLICY career_sponsor_catalog_read ON career_sponsor_catalog FOR SELECT USING (true);
+DROP POLICY IF EXISTS career_sponsor_catalog_read ON career_sponsor_catalog; CREATE POLICY career_sponsor_catalog_read ON career_sponsor_catalog FOR SELECT USING (true);
+
