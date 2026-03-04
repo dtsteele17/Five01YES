@@ -2,6 +2,10 @@
 -- FIVE01 Career Mode — Seed Data (Schedule Templates + Sponsors)
 -- ============================================================
 
+-- Clear existing seed data before re-inserting
+DELETE FROM career_schedule_templates;
+DELETE FROM career_sponsor_catalog;
+
 -- ===================== TIER 1: Local Circuit Trials (day-based) =====================
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, day_based, metadata) VALUES
 (1, 1, 'trial_tournament', 'The Brass Anchor Open', 'trial_choice', 3, 8, TRUE, '{"day": 1, "description": "Pick one of three local 8-player tournaments to prove yourself."}'),
