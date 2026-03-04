@@ -26,7 +26,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </Link>
       </div>
 
-      <div className="container mx-auto px-4 py-8 min-h-screen flex items-center justify-center">
+      <div className="container mx-auto px-4 py-4 sm:py-8 min-h-screen flex items-center justify-center">
         <div className="grid lg:grid-cols-2 gap-12 max-w-6xl w-full items-center">
           {/* Left side - Branding */}
           <div className="hidden lg:block space-y-8">

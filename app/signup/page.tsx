@@ -357,10 +357,10 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <Card className="p-8 lg:p-10 bg-card/40 backdrop-blur-xl border-border/50 rounded-3xl shadow-2xl">
-        <div className="space-y-6">
+      <Card className="p-5 sm:p-8 lg:p-10 bg-card/40 backdrop-blur-xl border-border/50 rounded-2xl sm:rounded-3xl shadow-2xl">
+        <div className="space-y-4 sm:space-y-6">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold font-display text-foreground">Create account</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold font-display text-foreground">Create account</h1>
             <p className="text-muted-foreground">Join the FIVE01 community today</p>
           </div>
 
@@ -409,7 +409,7 @@ export default function SignupPage() {
                   value={formData.username}
                   onChange={(e) => handleChange('username', e.target.value)}
                   onBlur={() => setTouched({ ...touched, username: true })}
-                  className={`h-12 pl-11 pr-10 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                  className={`h-10 sm:h-12 pl-10 sm:pl-11 pr-10 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
                     errors.username || (touched.username && !validations.username && formData.username)
                       ? 'border-destructive focus:border-destructive'
                       : touched.username && validations.username
@@ -450,7 +450,7 @@ export default function SignupPage() {
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   onBlur={() => setTouched({ ...touched, email: true })}
-                  className={`h-12 pl-11 pr-10 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                  className={`h-10 sm:h-12 pl-10 sm:pl-11 pr-10 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
                     errors.email || (touched.email && !validations.email && formData.email)
                       ? 'border-destructive focus:border-destructive'
                       : touched.email && validations.email
@@ -491,7 +491,7 @@ export default function SignupPage() {
                   value={formData.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   onBlur={() => setTouched({ ...touched, password: true })}
-                  className={`h-12 pl-11 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                  className={`h-10 sm:h-12 pl-10 sm:pl-11 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
                     errors.password ? 'border-destructive' : ''
                   }`}
                   disabled={loading}
@@ -532,7 +532,7 @@ export default function SignupPage() {
                   value={formData.confirmPassword}
                   onChange={(e) => handleChange('confirmPassword', e.target.value)}
                   onBlur={() => setTouched({ ...touched, confirmPassword: true })}
-                  className={`h-12 pl-11 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
+                  className={`h-10 sm:h-12 pl-10 sm:pl-11 pr-12 bg-background/50 border-border focus:border-primary focus:ring-primary/20 transition-all ${
                     errors.confirmPassword || (touched.confirmPassword && !validations.confirmPassword && formData.confirmPassword)
                       ? 'border-destructive focus:border-destructive'
                       : touched.confirmPassword && validations.confirmPassword
@@ -586,7 +586,7 @@ export default function SignupPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-primary-foreground font-semibold text-base shadow-lg shadow-primary/20 transition-all"
+              className="w-full h-10 sm:h-12 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-primary-foreground font-semibold text-base shadow-lg shadow-primary/20 transition-all"
             >
               {loading ? (
                 <>

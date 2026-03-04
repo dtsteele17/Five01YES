@@ -230,14 +230,14 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <Card className="p-8 lg:p-10 bg-card/40 backdrop-blur-xl border-border/50 rounded-3xl shadow-2xl">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold font-display text-foreground">Welcome back</h1>
-            <p className="text-muted-foreground">Sign in to your FIVE01 account</p>
+      <Card className="p-5 sm:p-8 lg:p-10 bg-card/40 backdrop-blur-xl border-border/50 rounded-2xl sm:rounded-3xl shadow-2xl">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-1 sm:space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold font-display text-foreground">Welcome back</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Sign in to your FIVE01 account</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-3 sm:space-y-5">
             {/* API Error Display */}
             <AnimatePresence mode="wait">
               {apiError && (
@@ -366,7 +366,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-primary-foreground font-semibold text-base shadow-lg shadow-primary/20 transition-all"
+              className="w-full h-10 sm:h-12 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-primary-foreground font-semibold text-base shadow-lg shadow-primary/20 transition-all"
             >
               {loading ? (
                 <>
