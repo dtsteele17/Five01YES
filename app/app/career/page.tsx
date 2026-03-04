@@ -174,7 +174,7 @@ export default function CareerPage() {
       setConfig({
         mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
         bestOf: bestOfMap[matchData.best_of] || 'best-of-3', atcOpponent: 'bot',
-        career: { careerId, eventId: matchData.event_id, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
+        career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
       });
       router.push('/app/play/training/501');
     } catch (err: any) {

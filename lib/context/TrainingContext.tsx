@@ -21,6 +21,7 @@ export interface TrainingConfig {
   career?: {
     careerId: string;
     eventId: string;
+    eventName?: string;
     matchId: string;
     opponentId: string;
     opponentName: string;

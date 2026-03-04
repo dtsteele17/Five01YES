@@ -108,7 +108,7 @@ export default function CareerBracketPage() {
     setConfig({
       mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
       bestOf: bestOfMap[formatLegs] || 'best-of-3', atcOpponent: 'bot',
-      career: { careerId, eventId, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
+      career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
         opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound },
     });
     router.push('/app/play/training/501');

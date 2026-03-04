@@ -1060,27 +1060,29 @@ export default function DartbotMatchPage() {
           }
         }
 
-        // Award XP for DartBot match
-        const gameMode = normalizedConfig.mode === '301' ? 301 : 501;
-        const won = currentMatchWinner === 'player1';
-        const xpResult = await awardXP(`${gameMode}-dartbot`, 0, {
-          won,
-          threeDartAvg: userStats.threeDartAverage,
-          completed: true,
-          sessionData: {
-            gameMode,
-            legsWon: p1Legs,
-            legsLost: p2Legs,
-            average: userStats.threeDartAverage,
-            highestCheckout: userStats.highestCheckout,
-            totalDarts: userStats.totalDartsThrown,
-            visits100Plus: userStats.count100Plus,
-            visits140Plus: userStats.count140Plus,
-            visits180: userStats.oneEighties,
-          },
-        });
-        if (xpResult.levelUp) {
-          triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
+        // Award XP for DartBot match (skip for career matches — career has its own REP system)
+        if (!config?.career) {
+          const gameMode = normalizedConfig.mode === '301' ? 301 : 501;
+          const won = currentMatchWinner === 'player1';
+          const xpResult = await awardXP(`${gameMode}-dartbot`, 0, {
+            won,
+            threeDartAvg: userStats.threeDartAverage,
+            completed: true,
+            sessionData: {
+              gameMode,
+              legsWon: p1Legs,
+              legsLost: p2Legs,
+              average: userStats.threeDartAverage,
+              highestCheckout: userStats.highestCheckout,
+              totalDarts: userStats.totalDartsThrown,
+              visits100Plus: userStats.count100Plus,
+              visits140Plus: userStats.count140Plus,
+              visits180: userStats.oneEighties,
+            },
+          });
+          if (xpResult.levelUp) {
+            triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
+          }
         }
       }
       else console.error('Failed to save match:', result.error);
@@ -1595,9 +1597,12 @@ export default function DartbotMatchPage() {
   const handleReturnToPlay = () => {
     if (config?.career) {
       const isBracketMatch = config.career.matchId.startsWith('bracket-');
-      if (isBracketMatch) {
+      const playerWon = matchWinner === 'player1';
+      if (isBracketMatch && playerWon) {
+        // Won bracket match → go back to bracket page to advance to next round
         router.push(`/app/career/bracket?careerId=${config.career.careerId}&eventId=${config.career.eventId}`);
       } else {
+        // Lost (any match) or won league match → back to career home
         router.push(`/app/career?id=${config.career.careerId}`);
       }
     } else {
@@ -2077,6 +2082,18 @@ export default function DartbotMatchPage() {
           onRematch={handleRematch}
           onReturn={handleReturnToPlay}
           legStats={matchLegStats}
+          career={config?.career ? {
+            isCareer: true,
+            playerWon: matchWinner === 'player1',
+            eventName: config.career.eventName || 'Career Match',
+            eventType: config.career.matchId?.startsWith('bracket-') ? 'tournament' : 'league',
+            bracketRound: config.career.bracketRound
+              ? config.career.bracketRound === 1 ? 'Final'
+              : config.career.bracketRound === 2 ? 'Semi-Final'
+              : config.career.bracketRound === 3 ? 'Quarter-Final'
+              : `Round ${config.career.bracketRound}`
+              : undefined,
+          } : undefined}
         />
       )}
 

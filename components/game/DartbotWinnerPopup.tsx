@@ -32,6 +32,14 @@ interface SimplePlayer {
   legs: number;
 }
 
+interface CareerContext {
+  eventName?: string;
+  eventType?: string;
+  bracketRound?: string;
+  isCareer: boolean;
+  playerWon: boolean;
+}
+
 interface DartbotWinnerPopupProps {
   player1: SimplePlayer;
   player2: SimplePlayer;
@@ -43,6 +51,7 @@ interface DartbotWinnerPopupProps {
   onRematch: () => void;
   onReturn: () => void;
   legStats?: LegStats[];
+  career?: CareerContext;
 }
 
 export function DartbotWinnerPopup({
@@ -56,6 +65,7 @@ export function DartbotWinnerPopup({
   onRematch,
   onReturn,
   legStats = [],
+  career,
 }: DartbotWinnerPopupProps) {
   const isPlayer1Winner = player1.id === winnerId;
   const winnerName = isPlayer1Winner ? player1.name : player2.name;
@@ -121,7 +131,15 @@ export function DartbotWinnerPopup({
           </div>
           
           <p className="text-slate-400 text-xs text-center mt-1">
-            {gameMode} • Best of {bestOf} • vs {player2.name}
+            {career?.isCareer ? (
+              <>
+                {career.eventName}
+                {career.bracketRound && <> • {career.bracketRound}</>}
+                {' • vs '}{player2.name}
+              </>
+            ) : (
+              <>{gameMode} • Best of {bestOf} • vs {player2.name}</>
+            )}
           </p>
         </div>
 
@@ -233,30 +251,64 @@ export function DartbotWinnerPopup({
 
         {/* Leg-by-Leg Stats removed — too large for dartbot end screen */}
 
-        {/* Action Buttons - SIMPLIFIED for Dartbot (no waiting for opponent) */}
+        {/* Action Buttons */}
         <div className="px-4 pb-4 pt-3">
-          <div className="flex gap-3">
-            <Button
-              onClick={onRematch}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Play Again
-            </Button>
-            <Button
-              onClick={onReturn}
-              variant="outline"
-              className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
-            >
-              <Undo2 className="w-4 h-4 mr-2" />
-              Return to Play
-            </Button>
-          </div>
-          
-          {/* Simple message instead of ready indicators */}
-          <div className="mt-3 text-center text-xs text-slate-500">
-            Click "Play Again" to start a new match with the same settings
-          </div>
+          {career?.isCareer ? (
+            /* Career mode: single button based on win/loss */
+            <div>
+              <Button
+                onClick={onReturn}
+                className={`w-full py-3 h-auto text-sm font-semibold ${
+                  career.playerWon
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white'
+                    : 'bg-slate-700 hover:bg-slate-600 text-white'
+                }`}
+              >
+                {career.playerWon ? (
+                  <>
+                    <Trophy className="w-4 h-4 mr-2" />
+                    {career.bracketRound ? 'Next Round' : 'Continue Career'}
+                  </>
+                ) : (
+                  <>
+                    <Undo2 className="w-4 h-4 mr-2" />
+                    Back to Career
+                  </>
+                )}
+              </Button>
+              <div className="mt-3 text-center text-xs text-slate-500">
+                {career.playerWon && career.bracketRound
+                  ? 'Advance to the next round of the tournament'
+                  : career.playerWon
+                  ? 'Return to your career dashboard'
+                  : 'Better luck next time'}
+              </div>
+            </div>
+          ) : (
+            /* Normal dartbot mode */
+            <div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={onRematch}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Play Again
+                </Button>
+                <Button
+                  onClick={onReturn}
+                  variant="outline"
+                  className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
+                >
+                  <Undo2 className="w-4 h-4 mr-2" />
+                  Return to Play
+                </Button>
+              </div>
+              <div className="mt-3 text-center text-xs text-slate-500">
+                Click &quot;Play Again&quot; to start a new match with the same settings
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
