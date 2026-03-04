@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS career_events (
   event_name TEXT NOT NULL,
   format_legs SMALLINT NOT NULL DEFAULT 3,
   bracket_size SMALLINT,
+  day SMALLINT,                              -- calendar day within the career (Day 1, Day 2, etc.)
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','completed','skipped')),
   result JSONB,                             -- outcome data (placement, REP earned, etc.)
   completed_at TIMESTAMPTZ,
@@ -127,6 +128,10 @@ CREATE TABLE IF NOT EXISTS career_league_standings (
 );
 
 CREATE INDEX idx_career_standings_career ON career_league_standings(career_id, season, tier);
+
+-- Unique constraint: one player row per career/season/tier, one row per opponent per career/season/tier
+CREATE UNIQUE INDEX idx_career_standings_player ON career_league_standings(career_id, season, tier) WHERE is_player = TRUE;
+CREATE UNIQUE INDEX idx_career_standings_opponent ON career_league_standings(career_id, season, tier, opponent_id) WHERE opponent_id IS NOT NULL;
 
 -- 7) Career Bracket State (for open/qualifier/trial tournaments)
 CREATE TABLE IF NOT EXISTS career_brackets (
@@ -228,6 +233,7 @@ CREATE TABLE IF NOT EXISTS career_milestones (
   tier SMALLINT,
   season SMALLINT,
   week SMALLINT,
+  day SMALLINT,                             -- calendar day within the career
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

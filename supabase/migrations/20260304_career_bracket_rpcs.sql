@@ -317,7 +317,7 @@ BEGIN
     UPDATE career_profiles SET
       rep = rep + v_rep_earned,
       form = GREATEST(-0.05, LEAST(0.05, form + v_form_delta)),
-      day = day + 3, -- Trial tournaments take 3 days
+      day = COALESCE(v_event.day, day), -- Tournament rounds played same day
       updated_at = now()
     WHERE id = p_career_id;
   ELSE
@@ -344,8 +344,8 @@ BEGIN
 
   -- Milestones
   IF p_player_won_tournament THEN
-    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week)
-    SELECT p_career_id, 'first_tournament_win', 'Tournament Champion!', 'Won your first tournament: ' || v_event.event_name, v_career.tier, v_career.season, v_career.week
+    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+    SELECT p_career_id, 'first_tournament_win', 'Tournament Champion!', 'Won your first tournament: ' || v_event.event_name, v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day)
     WHERE NOT EXISTS (SELECT 1 FROM career_milestones WHERE career_id = p_career_id AND milestone_type = 'first_tournament_win');
   END IF;
 
@@ -400,9 +400,15 @@ BEGIN
           updated_at = now()
         WHERE id = p_career_id;
 
-        -- Seed Tier 2 events
-        INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size)
-        SELECT p_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size
+        -- Seed Tier 2 events with day assignments
+        -- Each event gets a day based on sequence. Leagues ~7 days apart, tournaments/opens midweek.
+        INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
+        SELECT p_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+          -- Realistic spacing: each sequence ~5-7 days, tournaments offset by 3
+          CASE
+            WHEN t.event_type IN ('open','qualifier','major','season_finals') THEN t.sequence_no * 6 - 2
+            ELSE t.sequence_no * 6 + 1
+          END
         FROM career_schedule_templates t
         WHERE t.tier = 2
         ORDER BY t.sequence_no;
@@ -423,8 +429,8 @@ BEGIN
         LIMIT 7;
 
         -- Promotion milestone
-        INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week)
-        VALUES (p_career_id, 'promotion_tier2', v_promo_message, 'Promoted to Pub Leagues!', 2, 1, 1);
+        INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+        VALUES (p_career_id, 'promotion_tier2', v_promo_message, 'Promoted to Pub Leagues!', 2, 1, 1, v_career.day);
 
         RETURN json_build_object(
           'success', TRUE,

@@ -40,9 +40,11 @@ BEGIN
   VALUES (v_user_id, p_save_slot, v_seed, p_difficulty, 1, 1, 0, 1)
   RETURNING id INTO v_career_id;
 
-  -- Seed Tier 1 events from templates
-  INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size)
-  SELECT v_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size
+  -- Seed Tier 1 events from templates with day assignments
+  -- Tier 1: Day 1 = first tournament, Day 4 = second, Day 8 = third (tournaments played same day for all rounds)
+  INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
+  SELECT v_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+    CASE t.sequence_no WHEN 1 THEN 1 WHEN 2 THEN 4 WHEN 3 THEN 8 ELSE t.sequence_no END
   FROM career_schedule_templates t
   WHERE t.tier = 1
   ORDER BY t.sequence_no;
@@ -52,8 +54,8 @@ BEGIN
   PERFORM rpc_generate_career_opponents(v_career_id, 1::SMALLINT, 21, v_seed);
 
   -- Create milestone: career started
-  INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week)
-  VALUES (v_career_id, 'career_started', 'The Journey Begins', 'Started a new career on ' || p_difficulty || ' difficulty.', 1, 1, 0);
+  INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+  VALUES (v_career_id, 'career_started', 'The Journey Begins', 'Started a new career on ' || p_difficulty || ' difficulty.', 1, 1, 0, 1);
 
   RETURN json_build_object(
     'success', TRUE,
@@ -224,7 +226,7 @@ BEGIN
   -- Get recent milestones
   SELECT json_agg(row_to_json(m)) INTO v_milestones
   FROM (
-    SELECT milestone_type, title, description, created_at
+    SELECT milestone_type, title, description, day, created_at
     FROM career_milestones WHERE career_id = p_career_id
     ORDER BY created_at DESC LIMIT 5
   ) m;
@@ -272,7 +274,8 @@ BEGIN
       'event_name', v_next_event.event_name,
       'format_legs', v_next_event.format_legs,
       'bracket_size', v_next_event.bracket_size,
-      'sequence_no', v_next_event.sequence_no
+      'sequence_no', v_next_event.sequence_no,
+      'day', v_next_event.day
     ) ELSE NULL END,
     'standings', v_standings,
     'sponsors', v_sponsor,

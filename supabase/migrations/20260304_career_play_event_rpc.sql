@@ -46,7 +46,7 @@ BEGIN
   -- Training events — mark complete and advance, client handles routing
   IF v_event.event_type = 'training' THEN
     UPDATE career_events SET status = 'completed', completed_at = now() WHERE id = v_event.id;
-    UPDATE career_profiles SET day = day + 1, updated_at = now() WHERE id = p_career_id;
+    UPDATE career_profiles SET day = COALESCE(v_event.day, day + 1), updated_at = now() WHERE id = p_career_id;
     RETURN json_build_object('skipped', TRUE, 'event_type', 'training', 'message', 'Training session complete.');
   END IF;
 
@@ -250,11 +250,11 @@ BEGIN
 
   -- Advance career (update REP, form, week/day)
   IF v_career.tier = 1 THEN
-    -- Tier 1: day-based
+    -- Tier 1: day-based — advance to event's day
     UPDATE career_profiles SET
       rep = rep + v_rep_earned,
       form = GREATEST(-0.05, LEAST(0.05, form + v_form_delta)),
-      day = day + 1,
+      day = COALESCE(v_event.day, day + 1),
       updated_at = now()
     WHERE id = p_career_id;
   ELSE
@@ -270,10 +270,10 @@ BEGIN
 
   -- Update league standings if league match
   IF v_event.event_type = 'league' AND v_career.tier >= 2 THEN
-    -- Ensure player row exists
+    -- Ensure player row exists (unique partial index: one player per career/season/tier)
     INSERT INTO career_league_standings (career_id, season, tier, is_player, played, won, lost, legs_for, legs_against, points, average)
     VALUES (p_career_id, v_career.season, v_career.tier, TRUE, 0, 0, 0, 0, 0, 0, 0)
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (career_id, season, tier) WHERE is_player = TRUE DO NOTHING;
 
     -- Update player standing
     UPDATE career_league_standings SET
@@ -305,14 +305,14 @@ BEGIN
 
   -- Check for milestone achievements
   IF p_player_180s > 0 THEN
-    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week)
-    SELECT p_career_id, 'first_180', 'First Maximum!', 'Hit your first 180 in career mode.', v_career.tier, v_career.season, v_career.week
+    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+    SELECT p_career_id, 'first_180', 'First Maximum!', 'Hit your first 180 in career mode.', v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day)
     WHERE NOT EXISTS (SELECT 1 FROM career_milestones WHERE career_id = p_career_id AND milestone_type = 'first_180');
   END IF;
 
   IF p_player_highest_checkout IS NOT NULL AND p_player_highest_checkout >= 100 THEN
-    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week)
-    SELECT p_career_id, 'first_ton_checkout', 'Ton-Plus Checkout!', 'Hit a 100+ checkout in career mode.', v_career.tier, v_career.season, v_career.week
+    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+    SELECT p_career_id, 'first_ton_checkout', 'Ton-Plus Checkout!', 'Hit a 100+ checkout in career mode.', v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day)
     WHERE NOT EXISTS (SELECT 1 FROM career_milestones WHERE career_id = p_career_id AND milestone_type = 'first_ton_checkout');
   END IF;
 

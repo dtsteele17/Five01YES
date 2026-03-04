@@ -415,6 +415,8 @@ export default function CareerPage() {
                   <span className="text-slate-400 text-xs">
                     {career.tier === 1 ? `Day ${career.day}` : `S${career.season} W${career.week}`}
                   </span>
+                  <span className="text-slate-600 text-xs">•</span>
+                  <span className="text-slate-500 text-xs">Day {career.day}</span>
                 </div>
               </div>
             </div>
@@ -470,6 +472,11 @@ export default function CareerPage() {
                         <Badge className="bg-white/10 backdrop-blur-sm text-white/80 text-[11px] font-medium capitalize border border-white/5 px-2.5 py-0.5">
                           {next_event.event_type.replace('_', ' ')}
                         </Badge>
+                        {next_event.day && (
+                          <Badge className="bg-slate-700/50 backdrop-blur-sm text-slate-300 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
+                            Day {next_event.day}
+                          </Badge>
+                        )}
                       </div>
                       <Button
                         className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black py-3 text-base shadow-lg shadow-amber-500/20 transition-all hover:shadow-amber-500/30 hover:scale-[1.01] active:scale-[0.99]"
@@ -554,8 +561,11 @@ export default function CareerPage() {
                           <div className="mt-1 shrink-0">
                             <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
                           </div>
-                          <div>
-                            <span className="text-white text-sm font-semibold">{ms.title}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-white text-sm font-semibold">{ms.title}</span>
+                              {ms.day && <span className="text-slate-600 text-[10px] font-medium">Day {ms.day}</span>}
+                            </div>
                             {ms.description && <p className="text-slate-500 text-xs mt-0.5">{ms.description}</p>}
                           </div>
                         </div>
