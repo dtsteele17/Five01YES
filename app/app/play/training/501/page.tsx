@@ -1025,27 +1025,38 @@ export default function DartbotMatchPage() {
         
         // Report career match result if this is a career match
         if (config?.career) {
-          try {
-            const careerResult = await supabase.rpc('rpc_career_complete_match', {
-              p_career_id: config.career.careerId,
-              p_match_id: config.career.matchId,
-              p_won: currentMatchWinner === 'player1',
-              p_player_legs: p1Legs as any,
-              p_opponent_legs: p2Legs as any,
-              p_player_average: userStats.threeDartAverage,
-              p_opponent_average: opponentStats.threeDartAverage,
-              p_player_checkout_pct: userStats.checkoutPercent,
-              p_player_180s: userStats.oneEighties as any,
-              p_player_highest_checkout: userStats.highestCheckout as any,
-            });
-            if (careerResult.data?.success) {
-              console.log('🏆 Career match reported:', careerResult.data);
-              toast.success(`+${careerResult.data.rep_earned} REP`);
-            } else {
-              console.error('Career match report failed:', careerResult);
+          const isBracketMatch = config.career.matchId.startsWith('bracket-');
+          if (isBracketMatch) {
+            // Store result for bracket page to pick up on return
+            sessionStorage.setItem('career_bracket_result', JSON.stringify({
+              won: currentMatchWinner === 'player1',
+              playerLegs: p1Legs,
+              opponentLegs: p2Legs,
+            }));
+          } else {
+            // League/single match — report directly
+            try {
+              const careerResult = await supabase.rpc('rpc_career_complete_match', {
+                p_career_id: config.career.careerId,
+                p_match_id: config.career.matchId,
+                p_won: currentMatchWinner === 'player1',
+                p_player_legs: p1Legs as any,
+                p_opponent_legs: p2Legs as any,
+                p_player_average: userStats.threeDartAverage,
+                p_opponent_average: opponentStats.threeDartAverage,
+                p_player_checkout_pct: userStats.checkoutPercent,
+                p_player_180s: userStats.oneEighties as any,
+                p_player_highest_checkout: userStats.highestCheckout as any,
+              });
+              if (careerResult.data?.success) {
+                console.log('🏆 Career match reported:', careerResult.data);
+                toast.success(`+${careerResult.data.rep_earned} REP`);
+              } else {
+                console.error('Career match report failed:', careerResult);
+              }
+            } catch (err) {
+              console.error('Failed to report career match:', err);
             }
-          } catch (err) {
-            console.error('Failed to report career match:', err);
           }
         }
 
@@ -1583,7 +1594,12 @@ export default function DartbotMatchPage() {
 
   const handleReturnToPlay = () => {
     if (config?.career) {
-      router.push(`/app/career?id=${config.career.careerId}`);
+      const isBracketMatch = config.career.matchId.startsWith('bracket-');
+      if (isBracketMatch) {
+        router.push(`/app/career/bracket?careerId=${config.career.careerId}&eventId=${config.career.eventId}`);
+      } else {
+        router.push(`/app/career?id=${config.career.careerId}`);
+      }
     } else {
       router.push('/app/play/training');
     }

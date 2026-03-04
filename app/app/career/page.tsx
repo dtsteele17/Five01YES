@@ -282,9 +282,17 @@ export default function CareerPage() {
                 className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3 text-base"
                 disabled={playingEvent}
                 onClick={async () => {
-                  if (!careerId || playingEvent) return;
+                  if (!careerId || !next_event || playingEvent) return;
                   setPlayingEvent(true);
                   try {
+                    // Bracket events go to bracket page
+                    const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals'];
+                    if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
+                      router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
+                      return;
+                    }
+
+                    // League/promotion matches go directly to dartbot
                     const supabase = createClient();
                     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event', {
                       p_career_id: careerId,
@@ -299,13 +307,11 @@ export default function CareerPage() {
                       return;
                     }
 
-                    // Map bot average to difficulty key
                     const avg = matchData.bot_average || 50;
                     const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
                       : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
                       : avg <= 90 ? 'pro' : 'worldClass';
 
-                    // Map best_of number to bestOf string
                     const bestOfMap: Record<number, any> = {
                       1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5',
                       7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11',
