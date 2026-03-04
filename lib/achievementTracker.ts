@@ -288,7 +288,7 @@ export async function trackScoreAchievement(score: number, userId: string, conte
   checkoutValue?: number;
   isBull?: boolean;
   dartsAtDouble?: number;
-  matchType?: 'ranked' | 'tournament' | 'league' | 'practice' | 'atc' | 'private';
+  matchType?: 'ranked' | 'tournament' | 'league' | 'practice' | 'atc' | 'private' | 'online' | 'quick-match';
 }) {
   if (!userId) return;
   
@@ -344,7 +344,7 @@ export async function trackScoreAchievement(score: number, userId: string, conte
  */
 export async function trackMatchEnd(userId: string, matchData: {
   won: boolean;
-  matchType: 'ranked' | 'tournament' | 'league' | 'practice' | 'atc' | 'private';
+  matchType: 'ranked' | 'tournament' | 'league' | 'practice' | 'atc' | 'private' | 'online' | 'quick-match';
   legsWon: number;
   legsLost: number;
   average: number;
