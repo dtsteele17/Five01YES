@@ -203,7 +203,7 @@ export default function CareerBracketPage() {
       mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
       bestOf: bestOfMap[formatLegs] || 'best-of-3', atcOpponent: 'bot',
       career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
-        opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound },
+        opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds },
     });
     router.push('/app/play/training/501');
   }
@@ -283,15 +283,27 @@ export default function CareerBracketPage() {
         {/* ═══ HORIZONTAL BRACKET ═══ */}
         <Card className="p-5 bg-slate-800/60 border border-white/10 overflow-x-auto">
           <div className="flex gap-0 min-w-max">
-            {rounds.map((round, ri) => (
-              <div key={round.round} className="flex flex-col">
+            {rounds.map((round, ri) => {
+              const isFinalRound = round.round === bracket.totalRounds;
+              return (
+              <div key={round.round} className={`flex flex-col ${isFinalRound ? 'relative' : ''}`}>
                 {/* Round header */}
                 <div className="text-center mb-4 px-3">
+                  {isFinalRound ? (
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs font-black uppercase tracking-widest text-amber-400">
+                        {round.name}
+                      </span>
+                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    </div>
+                  ) : (
                   <span className={`text-xs font-bold uppercase tracking-wider ${
                     round.round === bracket.currentRound && !bracket.completed ? 'text-amber-400' : 'text-slate-500'
                   }`}>
                     {round.name}
                   </span>
+                  )}
                 </div>
 
                 {/* Matches in this round */}
@@ -302,7 +314,13 @@ export default function CareerBracketPage() {
                       <div key={`${round.round}-${mi}`} className="flex items-center">
                         {/* Match card */}
                         <div className={`w-56 rounded-lg border text-xs ${
-                          match.isPlayerMatch && isActive
+                          isFinalRound
+                            ? match.isPlayerMatch && isActive
+                              ? 'border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/5 shadow-lg shadow-amber-500/10'
+                              : match.winnerId
+                                ? 'border-amber-500/30 bg-amber-500/5'
+                                : 'border-amber-500/20 bg-slate-900/50'
+                          : match.isPlayerMatch && isActive
                             ? 'border-amber-500/30 bg-amber-500/5'
                             : match.winnerId
                               ? 'border-white/10 bg-slate-800/50'
@@ -336,7 +354,8 @@ export default function CareerBracketPage() {
                   })}
                 </div>
               </div>
-            ))}
+            );
+            })}
 
             {/* Winner column */}
             {bracket.completed && bracket.winnerId && (

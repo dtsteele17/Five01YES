@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
+import { getRoundName } from '@/lib/career/bracketEngine';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -1840,8 +1841,8 @@ export default function DartbotMatchPage() {
           <div className="text-center">
             <h2 className="text-sm font-bold text-white leading-tight">{config.career.eventName || 'Career Match'}</h2>
             <p className="text-[10px] text-slate-400">
-              {config.career.bracketRound
-                ? `${config.career.bracketRound === 1 ? 'Final' : config.career.bracketRound === 2 ? 'Semi-Final' : config.career.bracketRound === 3 ? 'Quarter-Final' : `Round ${config.career.bracketRound}`} • `
+              {config.career.bracketRound && config.career.totalRounds
+                ? `${getRoundName(config.career.bracketRound, config.career.totalRounds)} • `
                 : ''}
               Leg {currentLeg.legNumber} of {legsToWin * 2 - 1}
             </p>
@@ -2163,11 +2164,8 @@ export default function DartbotMatchPage() {
             playerWon: matchWinner === 'player1',
             eventName: config.career.eventName || 'Career Match',
             eventType: config.career.matchId?.startsWith('bracket-') ? 'tournament' : 'league',
-            bracketRound: config.career.bracketRound
-              ? config.career.bracketRound === 1 ? 'Final'
-              : config.career.bracketRound === 2 ? 'Semi-Final'
-              : config.career.bracketRound === 3 ? 'Quarter-Final'
-              : `Round ${config.career.bracketRound}`
+            bracketRound: config.career.bracketRound && config.career.totalRounds
+              ? getRoundName(config.career.bracketRound, config.career.totalRounds)
               : undefined,
           } : undefined}
         />

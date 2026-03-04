@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getRoundName } from '@/lib/career/bracketEngine';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -682,9 +683,7 @@ export default function CareerPage() {
                             <div className="flex items-stretch gap-3 min-w-fit justify-center">
                               {Array.from({ length: bracketRounds }).map((_, roundIdx) => {
                                 const matchesInRound = bracketSize / Math.pow(2, roundIdx + 1);
-                                const roundLabel = bracketRounds <= 3
-                                  ? (roundIdx === bracketRounds - 1 ? 'Final' : roundIdx === bracketRounds - 2 ? 'Semi-Finals' : 'Quarter-Finals')
-                                  : `Round ${roundIdx + 1}`;
+                                const roundLabel = getRoundName(roundIdx + 1, bracketRounds);
                                 return (
                                   <div key={roundIdx} className="flex flex-col items-center gap-1 min-w-[100px]">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{roundLabel}</span>

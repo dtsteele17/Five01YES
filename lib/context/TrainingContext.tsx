@@ -26,6 +26,7 @@ export interface TrainingConfig {
     opponentId: string;
     opponentName: string;
     bracketRound?: number;
+    totalRounds?: number;
     bracketPosition?: number;
   };
 }
