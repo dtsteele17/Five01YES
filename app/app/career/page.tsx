@@ -83,6 +83,8 @@ export default function CareerPage() {
   const [showTournamentChoice, setShowTournamentChoice] = useState(false);
   const [chosenTournament, setChosenTournament] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showKnockoutPopup, setShowKnockoutPopup] = useState(false);
+  const [knockoutMessage, setKnockoutMessage] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => { loadCareer(); }, [careerId]);

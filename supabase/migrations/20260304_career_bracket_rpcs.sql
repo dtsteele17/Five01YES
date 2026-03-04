@@ -135,7 +135,7 @@ BEGIN
 
   -- Create bracket record (bracket_data will be generated client-side on first load and saved back)
   INSERT INTO career_brackets (event_id, career_id, bracket_size, rounds_total, current_round, bracket_data, status)
-  VALUES (p_event_id, p_career_id, v_bracket_size, (log(2, v_bracket_size))::SMALLINT, 1, NULL, 'active')
+  VALUES (p_event_id, p_career_id, v_bracket_size, (log(2, v_bracket_size))::SMALLINT, 1, '{}'::JSONB, 'active')
   RETURNING id INTO v_bracket_id;
 
   RETURN json_build_object(
