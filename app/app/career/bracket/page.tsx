@@ -155,23 +155,27 @@ export default function CareerBracketPage() {
           </div>
         </div>
 
-        {/* Your Match Card */}
+        {/* Your Match Fixture Bar */}
         {!bracket.completed && !bracket.playerEliminated && playerOpponent && (
-          <Card className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/20">
+          <Card className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 border border-amber-500/20">
             <div className="flex items-center justify-between">
+              <div className="w-20" />
               <div className="flex items-center gap-4">
                 <div className="text-center">
                   <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
                     <Star className="w-5 h-5 text-amber-400" />
                   </div>
-                  <span className="text-white font-bold text-xs mt-1 block">You</span>
+                  <span className="text-amber-400 font-bold text-xs mt-1 block">You</span>
                 </div>
-                <span className="text-slate-500 text-xs font-bold">VS</span>
+                <div className="text-center">
+                  <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block">{roundName}</span>
+                  <span className="text-white text-lg font-black">VS</span>
+                </div>
                 <div className="text-center">
                   <div className="w-10 h-10 rounded-full bg-slate-700 border border-white/10 flex items-center justify-center">
                     <Shield className="w-5 h-5 text-slate-400" />
                   </div>
-                  <span className="text-white font-bold text-xs mt-1 block truncate max-w-[120px]">{playerOpponent.name}</span>
+                  <span className="text-white font-bold text-xs mt-1 block">{playerOpponent.name}</span>
                 </div>
               </div>
               <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold px-6"
@@ -183,13 +187,13 @@ export default function CareerBracketPage() {
         )}
 
         {/* ═══ HORIZONTAL BRACKET ═══ */}
-        <Card className="p-4 bg-slate-800/60 border border-white/10 overflow-x-auto">
+        <Card className="p-5 bg-slate-800/60 border border-white/10 overflow-x-auto">
           <div className="flex gap-0 min-w-max">
             {rounds.map((round, ri) => (
               <div key={round.round} className="flex flex-col">
                 {/* Round header */}
-                <div className="text-center mb-3 px-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                <div className="text-center mb-4 px-3">
+                  <span className={`text-xs font-bold uppercase tracking-wider ${
                     round.round === bracket.currentRound && !bracket.completed ? 'text-amber-400' : 'text-slate-500'
                   }`}>
                     {round.name}
@@ -197,13 +201,13 @@ export default function CareerBracketPage() {
                 </div>
 
                 {/* Matches in this round */}
-                <div className="flex flex-col justify-around flex-1" style={{ gap: `${Math.pow(2, ri) * 8}px` }}>
+                <div className="flex flex-col justify-around flex-1" style={{ gap: `${Math.pow(2, ri) * 12}px` }}>
                   {round.matches.map((match, mi) => {
                     const isActive = round.round === bracket.currentRound && !bracket.completed;
                     return (
                       <div key={`${round.round}-${mi}`} className="flex items-center">
                         {/* Match card */}
-                        <div className={`w-40 rounded border text-[11px] ${
+                        <div className={`w-56 rounded-lg border text-xs ${
                           match.isPlayerMatch && isActive
                             ? 'border-amber-500/30 bg-amber-500/5'
                             : match.winnerId
@@ -229,7 +233,7 @@ export default function CareerBracketPage() {
 
                         {/* Connector lines */}
                         {ri < rounds.length - 1 && (
-                          <div className="w-6 flex items-center justify-center">
+                          <div className="w-8 flex items-center justify-center">
                             <div className="w-full h-px bg-white/10" />
                           </div>
                         )}
@@ -308,11 +312,11 @@ function MatchSlot({ name, isPlayer, isWinner, score, decided }: {
 }) {
   const isTBD = name === 'TBD';
   return (
-    <div className={`flex items-center justify-between px-2 py-1.5 ${decided && isWinner ? 'bg-white/5' : ''}`}>
-      <span className={`truncate flex-1 ${
+    <div className={`flex items-center justify-between px-3 py-2 ${decided && isWinner ? 'bg-white/5' : ''}`}>
+      <span className={`flex-1 ${
         isTBD ? 'text-slate-600 italic'
-        : isPlayer ? 'text-amber-400 font-medium'
-        : decided && isWinner ? 'text-white font-medium'
+        : isPlayer ? 'text-amber-400 font-semibold'
+        : decided && isWinner ? 'text-white font-semibold'
         : decided ? 'text-slate-500'
         : 'text-slate-300'
       }`}>
