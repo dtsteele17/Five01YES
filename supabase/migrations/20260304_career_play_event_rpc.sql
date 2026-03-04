@@ -144,6 +144,7 @@ DECLARE
   v_rep_earned BIGINT := 0;
   v_base_rep BIGINT;
   v_difficulty_bonus REAL;
+  v_tier_mult REAL;
   v_milestone_bonus BIGINT := 0;
   v_form_delta REAL;
   v_rep_breakdown JSONB;
@@ -201,19 +202,29 @@ BEGIN
     ELSE 1.0
   END;
 
-  -- Milestone bonuses
+  -- Tier multiplier: Tier 1 is almost nothing, scales up
+  v_tier_mult := CASE v_career.tier
+    WHEN 1 THEN 0.10
+    WHEN 2 THEN 0.25
+    WHEN 3 THEN 0.50
+    WHEN 4 THEN 0.80
+    WHEN 5 THEN 1.00
+    ELSE 0.10
+  END;
+
+  -- Milestone bonuses (also scaled by tier)
   IF p_player_180s > 0 THEN
-    v_milestone_bonus := v_milestone_bonus + (p_player_180s * 50);
+    v_milestone_bonus := v_milestone_bonus + ROUND(p_player_180s * 50 * v_tier_mult);
   END IF;
   IF p_player_highest_checkout IS NOT NULL AND p_player_highest_checkout >= 100 THEN
-    v_milestone_bonus := v_milestone_bonus + 75;
+    v_milestone_bonus := v_milestone_bonus + ROUND(75 * v_tier_mult);
   END IF;
   IF p_player_average IS NOT NULL AND p_player_average >= 80 THEN
-    v_milestone_bonus := v_milestone_bonus + 100;
+    v_milestone_bonus := v_milestone_bonus + ROUND(100 * v_tier_mult);
   END IF;
 
-  -- Total REP
-  v_rep_earned := ROUND(v_base_rep * v_difficulty_bonus) + v_milestone_bonus;
+  -- Total REP (tier_mult already applied to milestone_bonus above)
+  v_rep_earned := ROUND(v_base_rep * v_difficulty_bonus * v_tier_mult) + v_milestone_bonus;
 
   -- Apply form modifier (tiny)
   v_rep_earned := ROUND(v_rep_earned * (1.0 + v_career.form));

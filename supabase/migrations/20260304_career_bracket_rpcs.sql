@@ -222,6 +222,7 @@ DECLARE
   v_base_rep BIGINT;
   v_placement TEXT;
   v_difficulty_bonus REAL;
+  v_tier_mult REAL;
   v_rounds_from_end INT;
   v_form_delta REAL;
 BEGIN
@@ -292,7 +293,16 @@ BEGIN
     ELSE 1.0
   END;
 
-  v_rep_earned := ROUND(v_base_rep * v_difficulty_bonus * (1.0 + v_career.form));
+  -- Tier multiplier: Tier 1 is almost nothing, scales up
+  v_tier_mult := CASE v_career.tier
+    WHEN 1 THEN 0.10
+    WHEN 2 THEN 0.25
+    WHEN 3 THEN 0.50
+    WHEN 4 THEN 0.80
+    WHEN 5 THEN 1.00
+    ELSE 0.10
+  END;
+  v_rep_earned := ROUND(v_base_rep * v_difficulty_bonus * v_tier_mult * (1.0 + v_career.form));
 
   -- Form update based on tournament performance
   v_form_delta := CASE

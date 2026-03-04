@@ -125,22 +125,26 @@ export default function CareerPage() {
 
       // Check milestones for context
       const hasPromotion = milestones.some((m: any) => m.milestone_type === 'promotion');
-      const hasTournamentWin = milestones.some((m: any) => m.milestone_type === 'tournament_win');
-      const hasTournamentLoss = milestones.some((m: any) => m.milestone_type === 'tournament_loss' || m.title?.includes('Eliminated'));
+      const tournamentWin = milestones.find((m: any) => m.milestone_type === 'tournament_win');
+      const tournamentLoss = milestones.find((m: any) => m.milestone_type === 'tournament_loss' || m.title?.includes('Eliminated'));
+      // Extract tournament name from milestone description (e.g. "Won your first tournament: The Brass Anchor Open")
+      const winTournamentName = tournamentWin?.description?.split(': ').slice(1).join(': ') || tournamentWin?.title || 'the tournament';
 
+      if (tournamentWin) {
+        careerEmails.push({ subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That\'s a statement performance — keep this form up and bigger stages await.`, type: 'win' });
+      }
       if (hasPromotion) {
-        careerEmails.push({ subject: 'Welcome to the Pub Leagues!', body: 'You\'ve earned your spot. Time to prove yourself against tougher opponents in weekly league matches.', type: 'promotion' });
+        const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Pro Tour', 5: 'Premier League' };
+        const tierName = tierNames[tier] || `Tier ${tier}`;
+        careerEmails.push({ subject: `Welcome to the ${tierName}!`, body: `You\'ve earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
       }
-      if (hasTournamentWin) {
-        careerEmails.push({ subject: 'Tournament Champion!', body: 'Incredible performance! You dominated that tournament. Keep this form up and bigger things await.', type: 'win' });
-      }
-      if (hasTournamentLoss && tier === 1 && day > 1 && day < 5) {
+      if (tournamentLoss && tier === 1 && day > 1 && day < 5) {
         careerEmails.push({ subject: 'Another Chance', body: 'We\'ve entered you into another tournament. Get to the semi-final and I think we have a shot at the pub leagues!', type: 'knockout' });
       }
       if (tier === 1 && day === 1) {
         careerEmails.push({ subject: 'Welcome, Rookie!', body: 'Good luck in your first tournament! Show them what you\'ve got. Win this and the pub leagues are calling.', type: 'welcome' });
       }
-      if (tier >= 2 && !hasPromotion) {
+      if (tier >= 2 && !hasPromotion && !tournamentWin) {
         careerEmails.push({ subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
       if (careerEmails.length === 0) {
@@ -521,19 +525,12 @@ export default function CareerPage() {
                     </div>
                   )}
 
-                  {/* REP progress */}
-                  <div className="mt-4 pt-4 border-t border-white/5">
-                    <div className="flex justify-between text-xs mb-2">
-                      <span className="text-slate-400 font-medium">REP Progress</span>
-                      <span className="text-amber-400 font-bold">{career.rep.toLocaleString()}</span>
-                    </div>
-                    <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(100, (career.rep % 1000) / 10)}%` }}
-                        transition={{ duration: 1, ease: 'easeOut' }}
-                      />
+                  {/* REP total */}
+                  <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                    <span className="text-slate-400 text-xs font-medium">Reputation</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-amber-400 font-black text-lg tabular-nums">{career.rep.toLocaleString()}</span>
+                      <span className="text-amber-400/50 text-[10px] font-semibold uppercase">REP</span>
                     </div>
                   </div>
                 </div>
