@@ -208,11 +208,17 @@ BEGIN
     RETURN json_build_object('error', 'Career not found');
   END IF;
 
-  -- Get next pending event
+  -- Get next event: prioritize active (resume in-progress bracket), then pending
   SELECT * INTO v_next_event FROM career_events
-    WHERE career_id = p_career_id AND status = 'pending'
+    WHERE career_id = p_career_id AND status = 'active'
     ORDER BY sequence_no ASC
     LIMIT 1;
+  IF v_next_event.id IS NULL THEN
+    SELECT * INTO v_next_event FROM career_events
+      WHERE career_id = p_career_id AND status = 'pending'
+      ORDER BY sequence_no ASC
+      LIMIT 1;
+  END IF;
 
   -- Get recent milestones
   SELECT json_agg(row_to_json(m)) INTO v_milestones
