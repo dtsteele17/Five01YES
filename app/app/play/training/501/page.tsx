@@ -270,6 +270,7 @@ function ScoringPanel({
   preferredDouble?: string | null;
 }) {
   const [activeTab, setActiveTab] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
+  const [mobileMode, setMobileMode] = useState<'numpad' | 'dartboard'>('numpad');
 
   const visitTotal = currentDarts.reduce((sum, d) => sum + d.value, 0);
   const previewRemaining = currentRemaining - visitTotal;
@@ -349,46 +350,104 @@ function ScoringPanel({
         </div>
       </div>
 
-      {/* Mobile Numpad */}
+      {/* Mobile Scoring (Numpad or Dartboard) */}
       <div className="sm:hidden mb-3">
-        <div className="bg-slate-800/50 rounded-lg p-2 border border-white/10 mb-2">
-          <span className="text-2xl font-bold text-white text-center block min-h-[36px]">
-            {scoreInput || <span className="text-slate-500">0</span>}
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[1,2,3,4,5,6,7,8,9].map((n) => (
-            <Button
-              key={n}
-              variant="outline"
-              className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
-              onClick={() => onScoreInputChange(scoreInput + n.toString())}
-            >
-              {n}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            className="h-14 text-lg font-bold bg-slate-700 border-white/10 text-red-400 hover:bg-red-500/20 active:bg-red-500/30"
-            onClick={() => onScoreInputChange(scoreInput.slice(0, -1))}
-          >
-            ⌫
-          </Button>
-          <Button
-            variant="outline"
-            className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
-            onClick={() => onScoreInputChange(scoreInput + '0')}
-          >
-            0
-          </Button>
-          <Button
-            className="h-14 text-lg font-bold bg-emerald-500 hover:bg-emerald-600 text-white active:bg-emerald-700"
-            disabled={!scoreInput || submitting}
-            onClick={() => onTypeScoreSubmit()}
-          >
-            {submitting ? '...' : '✓'}
-          </Button>
-        </div>
+        {mobileMode === 'numpad' ? (
+          <>
+            <div className="flex gap-2 mb-2">
+              <div className="flex-1 bg-slate-800/50 rounded-lg p-2 border border-white/10">
+                <span className="text-2xl font-bold text-white text-center block min-h-[36px]">
+                  {scoreInput || <span className="text-slate-500">0</span>}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                className="h-auto px-3 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-[10px]"
+                onClick={() => setMobileMode('dartboard')}
+              >
+                🎯
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[1,2,3,4,5,6,7,8,9].map((n) => (
+                <Button key={n} variant="outline"
+                  className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
+                  onClick={() => onScoreInputChange(scoreInput + n.toString())}>{n}</Button>
+              ))}
+              <Button variant="outline"
+                className="h-14 text-lg font-bold bg-slate-700 border-white/10 text-red-400 hover:bg-red-500/20 active:bg-red-500/30"
+                onClick={() => onScoreInputChange(scoreInput.slice(0, -1))}>⌫</Button>
+              <Button variant="outline"
+                className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
+                onClick={() => onScoreInputChange(scoreInput + '0')}>0</Button>
+              <Button
+                className="h-14 text-lg font-bold bg-emerald-500 hover:bg-emerald-600 text-white active:bg-emerald-700"
+                disabled={!scoreInput || submitting}
+                onClick={() => onTypeScoreSubmit()}>{submitting ? '...' : '✓'}</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex gap-1 mb-2">
+              {(['singles', 'doubles', 'triples', 'bulls'] as const).map((tab) => (
+                <Button key={tab} size="sm" variant={activeTab === tab ? 'default' : 'outline'}
+                  onClick={() => setActiveTab(tab)} className={`flex-1 text-[10px] px-1 h-8 ${
+                    activeTab === tab ? (
+                      tab === 'doubles' ? 'bg-red-500 text-white' :
+                      tab === 'triples' ? 'bg-amber-500 text-white' :
+                      tab === 'bulls' ? 'bg-green-500 text-white' : 'bg-slate-600 text-white'
+                    ) : (
+                      tab === 'doubles' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
+                      tab === 'triples' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
+                      tab === 'bulls' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'border-white/10 text-white'
+                    )
+                  }`}>
+                  {tab === 'singles' ? 'S' : tab === 'doubles' ? 'D' : tab === 'triples' ? 'T' : 'Bull'}
+                </Button>
+              ))}
+              <Button size="sm" variant="outline"
+                className="px-3 h-8 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-[10px]"
+                onClick={() => setMobileMode('numpad')}>
+                #
+              </Button>
+            </div>
+            <div className="grid grid-cols-5 gap-1 mb-2">
+              {activeTab === 'bulls' ? (
+                <>
+                  <Button onClick={() => onDartClick('bull', 25)} disabled={currentDarts.length >= 3}
+                    className="col-span-2 h-12 bg-green-500/20 text-green-400 hover:bg-green-500/30 text-sm font-bold">SB (25)</Button>
+                  <Button onClick={() => onDartClick('bull', 50)} disabled={currentDarts.length >= 3}
+                    className="col-span-2 h-12 bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm font-bold">DB (50)</Button>
+                  <Button onClick={onMiss} disabled={currentDarts.length >= 3}
+                    className="col-span-1 h-12 bg-slate-700 text-slate-300 text-xs">Miss</Button>
+                </>
+              ) : (
+                Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                  <Button key={num}
+                    onClick={() => onDartClick(activeTab === 'singles' ? 'single' : activeTab === 'doubles' ? 'double' : 'triple', num)}
+                    disabled={currentDarts.length >= 3}
+                    className={`h-10 text-xs font-bold ${
+                      activeTab === 'doubles' ? 'bg-red-500/15 text-red-400 hover:bg-red-500/25' :
+                      activeTab === 'triples' ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' :
+                      'bg-slate-700 text-white hover:bg-slate-600'
+                    }`}>
+                    {activeTab === 'doubles' ? 'D' : activeTab === 'triples' ? 'T' : ''}{num}
+                  </Button>
+                ))
+              )}
+            </div>
+            <div className="flex gap-1">
+              <Button variant="outline" onClick={onUndoDart} disabled={currentDarts.length === 0}
+                className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs h-9">Undo</Button>
+              <Button onClick={onMiss} disabled={currentDarts.length >= 3}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-xs h-9">Miss</Button>
+              <Button onClick={onBust} disabled={submitting}
+                className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50 text-xs h-9">Bust</Button>
+              <Button onClick={onSubmitVisit} disabled={currentDarts.length === 0 || submitting}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-xs h-9">{submitting ? '...' : 'Submit'}</Button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="text-center mb-2">
@@ -1808,7 +1867,10 @@ export default function DartbotMatchPage() {
                 <div className="text-lg font-bold text-white">{player1LegsWon}</div>
               </div>
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Avg: {(calculateMatchStats(true) as any)?.threeDartAvg?.toFixed(1) || '0.0'}</div>
+            <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>Avg: {calculateMatchStats(true)?.average?.toFixed(1) || '0.0'}</span>
+              <span>{calculateMatchStats(true)?.dartsThrown || 0} darts</span>
+            </div>
             <div className="text-[10px] text-slate-500">Race to {legsToWin}</div>
           </Card>
           <Card className={`bg-slate-800/50 border p-2 ${currentPlayer === 'player2' ? 'border-purple-500/30' : 'border-white/10'}`}>
@@ -1820,7 +1882,10 @@ export default function DartbotMatchPage() {
                 <div className="text-[9px] uppercase tracking-wide text-slate-500 mt-0.5">Legs</div>
               </div>
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5 text-right">Avg: {(calculateMatchStats(false) as any)?.threeDartAvg?.toFixed(1) || '0.0'}</div>
+            <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+              <span>{calculateMatchStats(false)?.dartsThrown || 0} darts</span>
+              <span>Avg: {calculateMatchStats(false)?.average?.toFixed(1) || '0.0'}</span>
+            </div>
             <div className="text-[10px] text-slate-500 text-right">Race to {legsToWin}</div>
           </Card>
         </div>
