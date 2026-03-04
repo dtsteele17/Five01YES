@@ -77,29 +77,53 @@ DECLARE
   v_first_names TEXT[] := ARRAY[
     'Dave','Mike','Steve','Chris','Andy','Rob','Tom','Phil','Mark','James',
     'Gary','Paul','Kev','Dan','Lee','Terry','Wayne','Craig','Neil','Barry',
-    'Ian','Baz','Josh','Stu','Mick','Nige','Pete','Ade','Carl','Gaz','Jack',
-    'Daz','Trev','Kev','Alex','Bob','Reg','Jim','Ted','Vic','Kyran','Michael',
-    'Gabe','Elliott','Jordan','Anson','Donna','Claire','Lisa','Amy','Zoe','Kim'
+    'Ian','Josh','Stu','Mick','Pete','Carl','Jack','Alex','Bob','Jim',
+    'Ted','Vic','Michael','Jordan','Elliott','Ben','Sam','Luke','Ryan','Adam',
+    'Nathan','Connor','Kyle','Liam','Jake','Owen','Rhys','Calum','Darren','Shaun',
+    'Gavin','Tony','Richie','Frankie','Vinnie','Paddy','Declan','Sean','Niall','Brendan',
+    'Donna','Claire','Lisa','Amy','Zoe','Kim','Sarah','Emma','Laura','Kelly',
+    'Jade','Holly','Becky','Nicola','Gemma','Steph','Rachel','Hannah','Fiona','Tina',
+    'Simon','George','Will','Harry','Freddie','Charlie','Alfie','Oscar','Archie','Leo',
+    'Ricky','Matty','Scotty','Eddie','Johno','Woody','Macca','Jacko','Tommo','Davo',
+    'Patrick','Luca','Marco','Antonio','Pierre','Jean','Klaus','Sven','Erik','Finn',
+    'Ruben','Hugo','Lars','Theo','Max','Felix','Nico','Fabio','Carlos','Miguel'
   ];
   v_last_names TEXT[] := ARRAY[
     'Smith','Jones','Taylor','Brown','Wilson','Evans','Thomas','Roberts','Johnson','Walker',
     'Wright','Thompson','White','Hall','Clarke','Jackson','Green','Harris','Wood','King',
     'Baker','Turner','Hill','Scott','Moore','Cooper','Ward','Wells','Lee','Murphy',
-    'Price','Bennett','Gray','Cox','Mills','Palmer','Mason','Hunt','Holmes','Webb','Steele',
-    'Maier','Noble','Van Ginkel','Wagner','Freidrich','Aarden','Peeters'
+    'Price','Bennett','Gray','Cox','Mills','Palmer','Mason','Hunt','Holmes','Webb',
+    'Steele','Noble','Fletcher','Spencer','Powell','Dixon','Chapman','Ellis','Shaw','Hughes',
+    'Barker','Rhodes','Brooks','Watts','Harvey','Mitchell','Barnes','Sullivan','Griffin','Cole',
+    'Reeves','Marshall','Pearce','Burton','Knight','Bailey','Fox','Russell','Doyle','Lynch',
+    'Gallagher','Quinn','Brennan','Walsh','Byrne','Collins','Maguire','Doherty','Keane','Ryan',
+    'Maier','Wagner','Schmidt','Fischer','Weber','Becker','Richter','Braun','Hofmann','Krause',
+    'Van Dijk','Peeters','De Vries','Jansen','Bakker','Visser','Meijer','De Boer','Mulder','Smit',
+    'Rossi','Russo','Ferrari','Bianchi','Romano','Colombo','Ricci','Marino','Greco','Bruno',
+    'Moreno','Fernandez','Garcia','Martinez','Lopez','Torres','Ruiz','Sanchez','Romero','Diaz'
   ];
   v_nicknames TEXT[] := ARRAY[
     'The Hammer','Bullseye','Treble Top','The Machine','Steady Eddie','The Rocket',
-    'Double Top','The Arrow','Lightning','The Sniper','Dartboard Dave','Old Reliable',
+    'Double Top','The Arrow','Lightning','The Sniper','Old Reliable',
     'The Finisher','Triple Threat','The Assassin','Deadeye','The Silencer','Hot Shot',
-    'The Professor','Iceman','The Natural','The Viking','Powerhouse','The Wizard','The Dream','Skill Magill',
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL  -- 40% chance of no nickname
+    'The Professor','Iceman','The Natural','The Viking','Powerhouse','The Wizard','The Dream',
+    'The Menace','Killer','The Phoenix','Fireball','The Cobra','Dynamite','Nitro',
+    'The Tornado','Rapid','The Chief','Big Dog','The Flash','Laser','Tombstone',
+    'The General','Barney','Jackpot','Wolfie','Chopper','The Dagger','Maverick',
+    'The Thorn','Iron Fist','Showtime','The Ace','Voltage','Sidewinder','Merlin',
+    'Smooth','Pitbull','Sparky','Thunder','Phantom','The Hawk','Crosshair','Apex',
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL  -- ~33% chance of no nickname
   ];
   v_hometowns TEXT[] := ARRAY[
     'Steelford','Oche Vale','Dartington','Bullswick','Tapleys Green',
     'Arrowbridge','Fletcham','Tungsten Hill','Trebleworth','Doublegate',
     'Ironside','Copperwell','Bronzebury','Silverton','Goldhaven',
-    'Pointsford','Scoreton','Finishby','Setupham','Checkoutvale'
+    'Pointsford','Scoreton','Finishby','Setupham','Checkoutvale',
+    'Blackpool','Preston','Stoke','Wolverhampton','Barnsley',
+    'Grimsby','Halifax','Wigan','Doncaster','Rotherham',
+    'Sunderland','Middlesbrough','Hartlepool','Scunthorpe','Wakefield'
   ];
   v_archetypes TEXT[] := ARRAY['scorer','finisher','grinder','streaky','clutch','allrounder'];
   v_skill_base REAL;
@@ -112,6 +136,7 @@ DECLARE
   v_hi INT;
   v_ai INT;
   v_local_seed BIGINT;
+  v_hash BIGINT;
 BEGIN
   -- Skill ranges by tier
   v_skill_base := CASE p_tier
@@ -125,11 +150,17 @@ BEGIN
 
   FOR i IN 1..p_count LOOP
     v_local_seed := p_seed + (p_tier * 1000) + i;
-    v_fi := (v_local_seed % array_length(v_first_names, 1)) + 1;
-    v_li := ((v_local_seed / 7) % array_length(v_last_names, 1)) + 1;
-    v_ni := ((v_local_seed / 13) % array_length(v_nicknames, 1)) + 1;
-    v_hi := ((v_local_seed / 19) % array_length(v_hometowns, 1)) + 1;
-    v_ai := ((v_local_seed / 31) % array_length(v_archetypes, 1)) + 1;
+    -- Better hash distribution: multiply by large primes and XOR
+    v_hash := ((v_local_seed * 2654435761) # (v_local_seed * 40503)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
+    v_fi := (abs(v_hash) % array_length(v_first_names, 1)) + 1;
+    v_hash := ((v_local_seed * 1103515245 + 12345) # (v_local_seed * 16807)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
+    v_li := (abs(v_hash) % array_length(v_last_names, 1)) + 1;
+    v_hash := ((v_local_seed * 6364136223846793005 + 1442695040888963407) # (v_local_seed * 3)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
+    v_ni := (abs(v_hash) % array_length(v_nicknames, 1)) + 1;
+    v_hash := ((v_local_seed * 48271 + 11) # (v_local_seed * 23)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
+    v_hi := (abs(v_hash) % array_length(v_hometowns, 1)) + 1;
+    v_hash := ((v_local_seed * 69069 + 1) # (v_local_seed * 37)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
+    v_ai := (abs(v_hash) % array_length(v_archetypes, 1)) + 1;
 
     -- Skill: base ± 15 range
     v_skill := v_skill_base + ((v_local_seed % 30) - 15)::REAL;
