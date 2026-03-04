@@ -17,6 +17,16 @@ export interface TrainingConfig {
   killerSettings?: {
     rounds: 1 | 3 | 5 | 7;
   };
+  // Career mode context
+  career?: {
+    careerId: string;
+    eventId: string;
+    matchId: string;
+    opponentId: string;
+    opponentName: string;
+    bracketRound?: number;
+    bracketPosition?: number;
+  };
 }
 
 interface TrainingContextType {

@@ -34,6 +34,7 @@ import {
   Activity,
   Cpu,
   Crown,
+  Swords,
   Loader2,
   ArrowUpRight,
   ArrowDownRight,
@@ -561,16 +562,15 @@ export default function PlayPage() {
           {/* Private Match */}
           <PrivateMatchCard />
 
-          {/* Tournament */}
+          {/* Career Mode */}
           <GameModeCard
-            href="#"
-            title="Tournament"
-            subtitle="Competitive"
-            description="Join weekly tournaments and compete for exclusive rewards."
-            icon={<Trophy className="w-7 h-7 text-white" />}
-            badge={{ text: 'Soon', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' }}
-            color="bg-gradient-to-br from-purple-500 to-pink-600"
-            disabled
+            href="/app/career"
+            title="Career Mode"
+            subtitle="Single Player"
+            description="Climb from pub leagues to the world stage. Play offline vs AI opponents."
+            icon={<Swords className="w-7 h-7 text-white" />}
+            badge={{ text: 'New', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }}
+            color="bg-gradient-to-br from-amber-500 to-orange-600"
           />
 
           {/* Local Play */}

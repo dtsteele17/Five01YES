@@ -638,7 +638,7 @@ export default function DartbotMatchPage() {
   } | null>(null);
   const [matchLegStats, setMatchLegStats] = useState<LegStats[]>([]);
 
-  const botName = config?.botAverage ? `DartBot (${config.botAverage})` : 'DartBot';
+  const botName = config?.career?.opponentName || (config?.botAverage ? `DartBot (${config.botAverage})` : 'DartBot');
   const legsToWin = config ? getLegsToWin(config.bestOf) : 1;
   const startingScore = config ? getStartScore(config.mode) : 501;
   
@@ -1023,6 +1023,32 @@ export default function DartbotMatchPage() {
           }).catch(console.error);
         }
         
+        // Report career match result if this is a career match
+        if (config?.career) {
+          try {
+            const careerResult = await supabase.rpc('rpc_career_complete_match', {
+              p_career_id: config.career.careerId,
+              p_match_id: config.career.matchId,
+              p_won: currentMatchWinner === 'player1',
+              p_player_legs: p1Legs as any,
+              p_opponent_legs: p2Legs as any,
+              p_player_average: userStats.threeDartAverage,
+              p_opponent_average: opponentStats.threeDartAverage,
+              p_player_checkout_pct: userStats.checkoutPercent,
+              p_player_180s: userStats.oneEighties as any,
+              p_player_highest_checkout: userStats.highestCheckout as any,
+            });
+            if (careerResult.data?.success) {
+              console.log('🏆 Career match reported:', careerResult.data);
+              toast.success(`+${careerResult.data.rep_earned} REP`);
+            } else {
+              console.error('Career match report failed:', careerResult);
+            }
+          } catch (err) {
+            console.error('Failed to report career match:', err);
+          }
+        }
+
         // Award XP for DartBot match
         const gameMode = normalizedConfig.mode === '301' ? 301 : 501;
         const won = currentMatchWinner === 'player1';
@@ -1555,7 +1581,13 @@ export default function DartbotMatchPage() {
     setBotPerformanceTracker(null);
   };
 
-  const handleReturnToPlay = () => { router.push('/app/play/training'); };
+  const handleReturnToPlay = () => {
+    if (config?.career) {
+      router.push(`/app/career?id=${config.career.careerId}`);
+    } else {
+      router.push('/app/play/training');
+    }
+  };
 
   const handleDartClick = (type: 'single' | 'double' | 'triple' | 'bull', number: number) => {
     if (currentVisit.length >= 3 || currentPlayer !== 'player1') return;

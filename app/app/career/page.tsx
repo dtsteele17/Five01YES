@@ -13,6 +13,7 @@ import {
   ArrowLeft, Loader2, Star, TrendingUp, Calendar, MapPin, Dumbbell,
   Award, Zap, Users, BarChart3, Sparkles, Clock,
 } from 'lucide-react';
+import { useTraining } from '@/lib/context/TrainingContext';
 
 const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; bgClass: string; borderClass: string }> = {
   1: { name: 'Local Circuit Trials', icon: Target, color: 'emerald', bgClass: 'from-emerald-500/20 to-emerald-600/10', borderClass: 'border-emerald-500/30' },
@@ -77,6 +78,8 @@ export default function CareerPage() {
   const [loading, setLoading] = useState(true);
   const [saves, setSaves] = useState<any[]>([]);
   const [showSaveSelect, setShowSaveSelect] = useState(false);
+  const [playingEvent, setPlayingEvent] = useState(false);
+  const { setConfig } = useTraining();
 
   useEffect(() => {
     loadCareer();
@@ -277,13 +280,67 @@ export default function CareerPage() {
 
               <Button
                 className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3 text-base"
-                onClick={() => {
-                  // TODO: Implement rpc_play_next_event and route to match
-                  toast.info('Match engine coming soon!');
+                disabled={playingEvent}
+                onClick={async () => {
+                  if (!careerId || playingEvent) return;
+                  setPlayingEvent(true);
+                  try {
+                    const supabase = createClient();
+                    const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event', {
+                      p_career_id: careerId,
+                    });
+
+                    if (error) throw error;
+                    if (matchData?.error) throw new Error(matchData.error);
+
+                    if (matchData?.skipped) {
+                      toast.info(matchData.message);
+                      loadCareer();
+                      return;
+                    }
+
+                    // Map bot average to difficulty key
+                    const avg = matchData.bot_average || 50;
+                    const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
+                      : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
+                      : avg <= 90 ? 'pro' : 'worldClass';
+
+                    // Map best_of number to bestOf string
+                    const bestOfMap: Record<number, any> = {
+                      1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5',
+                      7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11',
+                    };
+
+                    setConfig({
+                      mode: '501',
+                      botDifficulty: diffKey as any,
+                      botAverage: avg,
+                      doubleOut: true,
+                      bestOf: bestOfMap[matchData.best_of] || 'best-of-3',
+                      atcOpponent: 'bot',
+                      career: {
+                        careerId: careerId,
+                        eventId: matchData.event_id,
+                        matchId: matchData.match_id,
+                        opponentId: matchData.opponent.id,
+                        opponentName: matchData.opponent.name,
+                      },
+                    });
+
+                    router.push('/app/play/training/501');
+                  } catch (err: any) {
+                    console.error('Failed to start career match:', err);
+                    toast.error(err.message || 'Failed to start match');
+                  } finally {
+                    setPlayingEvent(false);
+                  }
                 }}
               >
-                <Play className="w-5 h-5 mr-2" />
-                Play Next Event
+                {playingEvent ? (
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Setting up match...</>
+                ) : (
+                  <><Play className="w-5 h-5 mr-2" />Play Next Event</>
+                )}
               </Button>
             </Card>
           </motion.div>
