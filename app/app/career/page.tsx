@@ -16,7 +16,7 @@ import {
   Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight,
   ArrowLeft, Loader2, Star, TrendingUp, Calendar, Dumbbell,
   Award, Zap, Users, BarChart3, Sparkles, Clock, Settings, Save,
-  Bell, Table2, ChevronDown, X,
+  Bell, Table2, ChevronDown, X, Trash2,
 } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
 
@@ -81,6 +81,8 @@ export default function CareerPage() {
   // Tournament choice (Tier 1 first event)
   const [showTournamentChoice, setShowTournamentChoice] = useState(false);
   const [chosenTournament, setChosenTournament] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
@@ -206,15 +208,44 @@ export default function CareerPage() {
             {saves.map((save: any) => {
               const tierCfg = TIER_CONFIG[save.tier] || TIER_CONFIG[1];
               return (
-                <Card key={save.id} className="p-4 cursor-pointer border border-white/10 bg-slate-800/50 hover:border-amber-500/30 transition-all"
-                  onClick={() => { setShowSaveSelect(false); router.replace(`/app/career?id=${save.id}`); }}>
+                <Card key={save.id} className="p-4 border border-white/10 bg-slate-800/50 hover:border-amber-500/30 transition-all">
                   <div className="flex items-center gap-3">
-                    <tierCfg.icon className="w-5 h-5 text-white/60" />
-                    <div className="flex-1">
-                      <span className="font-bold text-white">{tierCfg.name}</span>
-                      <p className="text-sm text-slate-400">Season {save.season} • Week {save.week} • {save.difficulty}</p>
+                    <div className="flex-1 cursor-pointer" onClick={() => { setShowSaveSelect(false); router.replace(`/app/career?id=${save.id}`); }}>
+                      <div className="flex items-center gap-3">
+                        <tierCfg.icon className="w-5 h-5 text-white/60" />
+                        <div className="flex-1">
+                          <span className="font-bold text-white">{tierCfg.name}</span>
+                          <p className="text-sm text-slate-400">Season {save.season} • Week {save.week} • {save.difficulty}</p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-slate-500" />
+                      </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500" />
+                    {confirmDeleteId === save.id ? (
+                      <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                        <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white text-xs h-7 px-2"
+                          onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs h-7 px-3"
+                          disabled={deletingId === save.id}
+                          onClick={async () => {
+                            setDeletingId(save.id);
+                            const supabase = createClient();
+                            const { data: res } = await supabase.rpc('rpc_abandon_career', { p_career_id: save.id });
+                            if (res?.success) {
+                              setSaves(prev => prev.filter((s: any) => s.id !== save.id));
+                              toast.success('Career deleted');
+                            } else { toast.error('Failed to delete'); }
+                            setDeletingId(null); setConfirmDeleteId(null);
+                          }}>
+                          {deletingId === save.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Delete'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="ghost"
+                        className="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 h-7 px-2"
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(save.id); }}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </Card>
               );
