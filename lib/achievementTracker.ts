@@ -194,12 +194,35 @@ export async function awardAchievement(userId: string, achievementId: string, ti
       return false;
     }
     
-    // Show toast notification
+    // Show achievement toast notification (bottom-right, special styling)
     const displayTitle = title || ACHIEVEMENT_DEFINITIONS[achievementId]?.title || BOOLEAN_ACHIEVEMENTS[achievementId]?.title || achievementId;
-    toast.success(`Achievement Unlocked: ${displayTitle}!`, {
-      icon: '🏆',
-      duration: 4000
+    const description = BOOLEAN_ACHIEVEMENTS[achievementId]?.description || '';
+    toast.success(`🏆 Achievement Unlocked!`, {
+      description: `${displayTitle}${description ? ` — ${description}` : ''}`,
+      duration: 5000,
+      style: {
+        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        border: '1px solid rgba(234, 179, 8, 0.4)',
+        color: '#fbbf24',
+        boxShadow: '0 0 20px rgba(234, 179, 8, 0.15)',
+      },
     });
+    
+    // Also create a notification in the database
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          type: 'achievement',
+          title: 'Achievement Unlocked!',
+          message: `You earned: ${displayTitle}`,
+          data: { achievement_id: achievementId },
+        });
+    } catch (notifError) {
+      // Non-critical — don't fail if notifications table doesn't exist
+      console.log('[AchievementTracker] Could not create notification:', notifError);
+    }
     
     return true;
   } catch (error) {
@@ -235,10 +258,16 @@ export async function updateAchievementProgress(userId: string, achievementId: s
     
     // Show toast if just completed
     if (completed) {
-      const title = ACHIEVEMENT_DEFINITIONS[achievementId]?.title || achievementId;
-      toast.success(`Achievement Unlocked: ${title}!`, {
-        icon: '🏆',
-        duration: 4000
+      const displayTitle = ACHIEVEMENT_DEFINITIONS[achievementId]?.title || achievementId;
+      toast.success(`🏆 Achievement Unlocked!`, {
+        description: displayTitle,
+        duration: 5000,
+        style: {
+          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+          border: '1px solid rgba(234, 179, 8, 0.4)',
+          color: '#fbbf24',
+          boxShadow: '0 0 20px rgba(234, 179, 8, 0.15)',
+        },
       });
     }
     
