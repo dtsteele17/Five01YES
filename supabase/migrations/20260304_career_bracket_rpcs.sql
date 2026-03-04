@@ -41,22 +41,34 @@ BEGIN
   SELECT id INTO v_bracket_id FROM career_brackets
     WHERE event_id = p_event_id AND career_id = p_career_id;
   IF v_bracket_id IS NOT NULL THEN
-    -- Return existing bracket
-    RETURN (
-      SELECT json_build_object(
-        'success', TRUE,
-        'bracket_id', b.id,
-        'bracket_data', b.bracket_data,
-        'bracket_size', b.bracket_size,
-        'rounds_total', b.rounds_total,
-        'current_round', b.current_round,
-        'status', b.status,
-        'event_name', v_event.event_name,
-        'event_type', v_event.event_type,
-        'format_legs', v_event.format_legs
-      )
-      FROM career_brackets b WHERE b.id = v_bracket_id
-    );
+    -- Check if bracket has real data (matches populated by client)
+    DECLARE
+      v_bd JSONB;
+    BEGIN
+      SELECT bracket_data INTO v_bd FROM career_brackets WHERE id = v_bracket_id;
+      IF v_bd IS NOT NULL AND v_bd != '{}'::JSONB AND v_bd != '[]'::JSONB AND jsonb_typeof(v_bd) = 'object' AND v_bd ? 'matches' THEN
+        -- Bracket has real data — return it
+        RETURN (
+          SELECT json_build_object(
+            'success', TRUE,
+            'bracket_id', b.id,
+            'bracket_data', b.bracket_data,
+            'bracket_size', b.bracket_size,
+            'rounds_total', b.rounds_total,
+            'current_round', b.current_round,
+            'status', b.status,
+            'event_name', v_event.event_name,
+            'event_type', v_event.event_type,
+            'format_legs', v_event.format_legs
+          )
+          FROM career_brackets b WHERE b.id = v_bracket_id
+        );
+      ELSE
+        -- Bracket exists but has no real data — delete it so we recreate below
+        DELETE FROM career_brackets WHERE id = v_bracket_id;
+        v_bracket_id := NULL;
+      END IF;
+    END;
   END IF;
 
   v_bracket_size := COALESCE(v_event.bracket_size, 8);
@@ -130,8 +142,8 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- Mark event as active
-  UPDATE career_events SET status = 'active' WHERE id = p_event_id;
+  -- Mark event as active (only if still pending)
+  UPDATE career_events SET status = 'active' WHERE id = p_event_id AND status = 'pending';
 
   -- Create bracket record (bracket_data will be generated client-side on first load and saved back)
   INSERT INTO career_brackets (event_id, career_id, bracket_size, rounds_total, current_round, bracket_data, status)

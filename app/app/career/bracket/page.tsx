@@ -65,17 +65,19 @@ export default function CareerBracketPage() {
     setEventType(data.event_type || '');
     setFormatLegs(data.format_legs || 3);
 
-    if (data.bracket_data && data.bracket_data.matches && data.bracket_data.matches.length > 0) {
+    if (data.bracket_data?.matches?.length > 0) {
       // Existing bracket with saved state — load it directly
       setBracket(data.bracket_data);
-    } else if (data.participants) {
-      // First visit — generate bracket from participants and save immediately
+    } else if (data.participants?.length > 0) {
+      // First visit or empty bracket — generate and save BEFORE showing UI
       const newBracket = generateBracket(data.participants, data.bracket_size, data.format_legs || 3);
+      const { error: saveErr } = await supabase.rpc('rpc_career_save_bracket', {
+        p_bracket_id: data.bracket_id, p_bracket_data: newBracket as any, p_current_round: 1 as any,
+      });
+      if (saveErr) { toast.error('Failed to save bracket'); router.push(`/app/career?id=${careerId}`); return; }
       setBracket(newBracket);
-      await supabase.rpc('rpc_career_save_bracket', { p_bracket_id: data.bracket_id, p_bracket_data: newBracket as any, p_current_round: 1 as any });
     } else {
-      // Bracket exists but data is empty/corrupted — regenerate from RPC participants
-      toast.error('Failed to load bracket');
+      toast.error('Failed to load bracket data');
       router.push(`/app/career?id=${careerId}`);
       return;
     }
