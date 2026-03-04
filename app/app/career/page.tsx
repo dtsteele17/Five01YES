@@ -139,23 +139,54 @@ export default function CareerPage() {
   }
 
   async function loadWorldRankings() {
-    // Generate simulated world rankings (top 40 AI players)
-    const supabase = createClient();
-    if (!careerId) return;
-    const { data: opponents } = await supabase
-      .from('career_opponents')
-      .select('first_name, last_name, nickname, skill_rating, archetype')
-      .eq('career_id', careerId)
-      .order('skill_rating', { ascending: false })
-      .limit(40);
+    if (!careerId || !data) return;
+    const tier = data.career.tier;
 
-    if (opponents) {
-      setWorldRankings(opponents.map((o: any, i: number) => ({
-        rank: i + 1,
-        name: `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`,
-        rating: Math.round(o.skill_rating * 10),
-        archetype: o.archetype,
-      })));
+    if (tier >= 5) {
+      // Tier 5+: show actual Tier 5 opponents as world rankings
+      const supabase = createClient();
+      const { data: opponents } = await supabase
+        .from('career_opponents')
+        .select('first_name, last_name, nickname, skill_rating, archetype')
+        .eq('career_id', careerId)
+        .eq('tier', 5)
+        .order('skill_rating', { ascending: false })
+        .limit(21);
+
+      if (opponents) {
+        setWorldRankings(opponents.map((o: any, i: number) => ({
+          rank: i + 1,
+          name: `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`,
+          rating: Math.round(o.skill_rating * 10),
+          archetype: o.archetype,
+        })));
+      }
+    } else {
+      // Tiers 1-4: generate fictional world-class players (separate from local opponents)
+      const worldStars = [
+        { name: "Michael 'The Power' Van Dijk", rating: 980, archetype: 'scorer' },
+        { name: "Phil 'The Wizard' Taylor-Smith", rating: 960, archetype: 'finisher' },
+        { name: "Gary 'The Machine' Anderson", rating: 940, archetype: 'scorer' },
+        { name: "Adrian 'Jackpot' Lewis-Brown", rating: 920, archetype: 'clutch' },
+        { name: "Peter 'Snakebite' Wright-Clarke", rating: 910, archetype: 'streaky' },
+        { name: "Raymond 'Barney' Van Bergen", rating: 900, archetype: 'grinder' },
+        { name: "James 'The Machine' Wade-King", rating: 890, archetype: 'finisher' },
+        { name: "Dave 'Chizzy' Chisnall-Wells", rating: 880, archetype: 'scorer' },
+        { name: "Nathan 'The Asp' Aspinall-Moore", rating: 870, archetype: 'clutch' },
+        { name: "Jonny 'The Ferret' Clayton-Price", rating: 860, archetype: 'grinder' },
+        { name: "Gerwyn 'The Iceman' Price-Evans", rating: 850, archetype: 'scorer' },
+        { name: "Rob 'Voltage' Cross-Bennett", rating: 840, archetype: 'finisher' },
+        { name: "Dimitri 'The Dream' Van Den Berg", rating: 830, archetype: 'streaky' },
+        { name: "Danny 'Noppert' Noppert-Fischer", rating: 820, archetype: 'allrounder' },
+        { name: "Josh 'The Rockstar' Rock-Palmer", rating: 810, archetype: 'clutch' },
+        { name: "Luke 'The Nuke' Littler-Shaw", rating: 800, archetype: 'scorer' },
+        { name: "Stephen 'The Bullet' Bunting-Hall", rating: 790, archetype: 'grinder' },
+        { name: "Callan 'The Riot' Rydz-Cooper", rating: 780, archetype: 'streaky' },
+        { name: "Chris 'Hollywood' Dobey-Grant", rating: 770, archetype: 'finisher' },
+        { name: "Damon 'The Heat' Heta-Rossi", rating: 760, archetype: 'allrounder' },
+        { name: "Mike 'The Bully' De Decker-Braun", rating: 750, archetype: 'grinder' },
+      ];
+      setWorldRankings(worldStars.map((s, i) => ({ rank: i + 1, ...s })));
     }
     setShowRankings(true);
   }
