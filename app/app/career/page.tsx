@@ -196,31 +196,56 @@ export default function CareerPage() {
     } else {
       // Tiers 1-4: generate fictional world-class players using seeded shuffle
       const fns = ['Marcus','Liam','Theo','Callum','Declan','Sven','Nico','Ruben','Finn','Oscar',
-        'Erik','Hugo','Felix','Matty','Connor','Archie','Owen','Jake','Rhys','Kyle','Paddy'];
+        'Erik','Hugo','Felix','Matty','Connor','Archie','Owen','Jake','Rhys','Kyle','Paddy',
+        'Zach','Leo','Brendan','Noel','Aidan','Stefan','Kai','Roman','Joel','Toby',
+        'Nathan','Kian','Ethan','Ronan','Cillian','Micah','Ellis','Jasper','Tyler','Harley'];
       const lns = ['Steele','Reeves','Fox','Knight','Griffin','Cole','Spencer','Rhodes','Pearce',
         'Burton','Walsh','Brennan','Gallagher','Keane','Sullivan','Richter','Bakker','Visser',
         'Moreno','Romano','Torres','Webb','Palmer','Mason','Hunt','Holmes','Noble','Fletcher',
         'Powell','Dixon','Chapman','Ellis','Shaw','Hughes','Barker','Brooks','Watts','Harvey',
         'Mitchell','Barnes','Doyle','Lynch','Quinn','Byrne','Collins','Maguire','Russell',
-        'Bailey','Fox','Marshall','Cooper','Ward','Wells','Murphy','Price','Bennett','Gray'];
-      const nns = ['The Hammer','Lightning','The Sniper','Deadeye','The Professor','Iceman',
+        'Bailey','Marshall','Cooper','Ward','Wells','Murphy','Price','Bennett','Gray',
+        'Kearney','Vaughan','Holt','Jarvis','Whitworth','Donnelly','Finch','Blackwood',
+        'Langley','Thorne','Hartley','Beckett','Crosby','Nolan','Yates','Ashworth',
+        'Whitaker','Fielding','Faulkner','Kirby','Ramsey','Dalton','Conway','Frost',
+        'Oakley','Mercer','Lawson','Calder','Drake','Phelan'];
+      const nns: (string|null)[] = ['The Hammer','Lightning','The Sniper','Deadeye','The Professor','Iceman',
         'Powerhouse','The Cobra','Dynamite','Maverick','The Phantom','Crosshair','Apex','Nitro',
         'Wolfie','The General','Showtime','The Dagger','Fireball','Merlin','Thunder',
         'The Beast','Precision','Hard Man','The Bosh','Razor','The Rocket','Tombstone',
         'The Flash','Killer','Pitbull','Sidewinder','The Ace','Voltage','Sparky',
-        'The Chief','Big Dog','Smooth','The Hawk','Iron Fist','The Thorn','Chopper'];
+        'The Chief','Big Dog','Smooth','The Hawk','Iron Fist','The Thorn','Chopper',
+        'Snakebite','The Magician','Demolition','The Viking','Stealth','Cyclone','The Machine',
+        'Rapid','The Gladiator','Venomous','Bulletproof','The Tornado',
+        null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
       const arcs: string[] = ['scorer','finisher','grinder','streaky','clutch','allrounder'];
-      // Seeded pseudo-random using career ID characters
+      // Seeded pseudo-random using career ID characters — Fisher-Yates shuffle
       const cid = data.career.id || '';
       const hash = (n: number) => {
         let h = 0; for (let c = 0; c < cid.length; c++) h = ((h << 5) - h + cid.charCodeAt(c) + n * 997) | 0;
         return Math.abs(h);
       };
-      const worldStars = fns.map((fn, i) => ({
-        name: `${fn} '${nns[hash(i * 131 + 17) % nns.length]}' ${lns[hash(i * 73 + 41) % lns.length]}`,
-        rating: 980 - i * 12,
-        archetype: arcs[hash(i * 53 + 97) % arcs.length],
-      }));
+      // Build 21 unique combos using seeded shuffle of indices
+      const fnIdx = Array.from({length: fns.length}, (_, i) => i);
+      const lnIdx = Array.from({length: lns.length}, (_, i) => i);
+      const nnIdx = Array.from({length: nns.length}, (_, i) => i);
+      // Seeded Fisher-Yates
+      const shuffle = (arr: number[], seed: number) => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) { const j = hash(seed + i * 31) % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+        return a;
+      };
+      const sfn = shuffle(fnIdx, 1);
+      const sln = shuffle(lnIdx, 2);
+      const snn = shuffle(nnIdx, 3);
+      const worldStars = Array.from({length: 21}, (_, i) => {
+        const nn = nns[snn[i % snn.length]];
+        return {
+          name: `${fns[sfn[i % sfn.length]]}${nn ? ` '${nn}'` : ''} ${lns[sln[i % sln.length]]}`,
+          rating: 980 - i * 12,
+          archetype: arcs[hash(i * 53 + 97) % arcs.length],
+        };
+      });
       setWorldRankings(worldStars.map((s, i) => ({ rank: i + 1, ...s })));
     }
     setShowRankings(true);
