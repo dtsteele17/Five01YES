@@ -58,18 +58,10 @@ export default function CareerBracketPage() {
     setLoading(true);
     const supabase = createClient();
 
-    // Step 1: Check if bracket already exists in DB (avoid calling init RPC repeatedly)
-    const { data: existingBracket } = await supabase
-      .from('career_brackets')
-      .select('id, bracket_data, bracket_size, rounds_total, current_round, status')
-      .eq('event_id', eventId)
-      .eq('career_id', careerId)
-      .single();
-
-    // Also get event info
+    // Get event info
     const { data: eventInfo } = await supabase
       .from('career_events')
-      .select('event_name, event_type, format_legs')
+      .select('event_name, event_type, format_legs, bracket_size, status')
       .eq('id', eventId)
       .single();
 
@@ -79,15 +71,42 @@ export default function CareerBracketPage() {
       setFormatLegs(eventInfo.format_legs || 3);
     }
 
+    // Step 1: Check if bracket already exists in DB with real data
+    const { data: existingBracket } = await supabase
+      .from('career_brackets')
+      .select('id, bracket_data, bracket_size, rounds_total, current_round, status')
+      .eq('event_id', eventId)
+      .eq('career_id', careerId)
+      .single();
+
     if (existingBracket?.bracket_data?.matches?.length > 0) {
-      // Bracket exists with real data — just load it, no RPC needed
-      setBracketId(existingBracket!.id);
-      setBracket(existingBracket!.bracket_data);
+      // ✅ Bracket has real data — load it directly, no RPC call
+      setBracketId(existingBracket.id);
+      setBracket(existingBracket.bracket_data);
       setLoading(false);
       return;
     }
 
-    // Step 2: No valid bracket — call init RPC to create one (only happens ONCE per event)
+    if (existingBracket?.id && (!existingBracket.bracket_data?.matches || existingBracket.bracket_data.matches.length === 0)) {
+      // Bracket row exists but data is empty — generate from opponents directly (NO RPC call)
+      const bSize = existingBracket.bracket_size || eventInfo?.bracket_size || 8;
+      const fLegs = eventInfo?.format_legs || 3;
+      const participants = await buildParticipantsFromDB(supabase, careerId!, bSize, eventId!);
+      if (participants.length >= bSize) {
+        const newBracket = generateBracket(participants, bSize, fLegs);
+        await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', existingBracket.id);
+        // Also mark event active if still pending
+        if (eventInfo?.status === 'pending') {
+          await supabase.from('career_events').update({ status: 'active' }).eq('id', eventId);
+        }
+        setBracketId(existingBracket.id);
+        setBracket(newBracket);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Step 2: No bracket at all — call init RPC ONCE to create the bracket row + generate opponents
     const { data, error } = await supabase.rpc('rpc_career_init_bracket_event', { p_career_id: careerId, p_event_id: eventId });
     if (error || data?.error) { toast.error(data?.error || 'Failed to init bracket'); router.push(`/app/career?id=${careerId}`); return; }
 
@@ -97,20 +116,55 @@ export default function CareerBracketPage() {
 
     if (data.bracket_data?.matches?.length > 0) {
       setBracket(data.bracket_data);
-    } else if (data.participants?.length > 0) {
-      // Generate bracket and save BEFORE showing UI
-      const newBracket = generateBracket(data.participants, data.bracket_size, data.format_legs || 3);
-      const { error: saveErr } = await supabase.rpc('rpc_career_save_bracket', {
-        p_bracket_id: data.bracket_id, p_bracket_data: newBracket as any, p_current_round: 1 as any,
-      });
-      if (saveErr) { toast.error('Failed to save bracket'); router.push(`/app/career?id=${careerId}`); return; }
-      setBracket(newBracket);
     } else {
-      toast.error('Failed to load bracket data');
-      router.push(`/app/career?id=${careerId}`);
-      return;
+      // Generate from participants returned by RPC
+      const participants = data.participants?.length > 0 ? data.participants
+        : await buildParticipantsFromDB(supabase, careerId!, data.bracket_size || 8, eventId!);
+      const newBracket = generateBracket(participants, data.bracket_size || 8, data.format_legs || 3);
+      // Save using direct update (more reliable than RPC)
+      await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', data.bracket_id);
+      setBracket(newBracket);
     }
     setLoading(false);
+  }
+
+  // Build participants from career_opponents table (deterministic, no RPC needed)
+  async function buildParticipantsFromDB(supabase: any, carId: string, bracketSize: number, evtId: string) {
+    const { data: career } = await supabase.from('career_profiles').select('tier, career_seed, difficulty').eq('id', carId).single();
+    const { data: evt } = await supabase.from('career_events').select('sequence_no').eq('id', evtId).single();
+    if (!career) return [];
+    const { data: opponents } = await supabase
+      .from('career_opponents')
+      .select('id, first_name, last_name, nickname, skill_rating, archetype')
+      .eq('career_id', carId)
+      .eq('tier', career.tier)
+      .order('id') // deterministic order
+      .limit(50);
+    if (!opponents) return [];
+    // Deterministic shuffle using career_seed + event sequence
+    const seed = (career.career_seed || 0) + (evt?.sequence_no || 0) * 100;
+    const shuffled = [...opponents].sort((a: any, b: any) => {
+      const ha = Math.abs(((a.id.charCodeAt(0) + seed) * 2654435761) | 0);
+      const hb = Math.abs(((b.id.charCodeAt(0) + seed) * 2654435761) | 0);
+      return ha - hb;
+    });
+    const diffMult: Record<string, number> = { rookie: 0.7, amateur: 0.85, 'semi-pro': 1.0, pro: 1.15, 'world-class': 1.3, nightmare: 1.5 };
+    const mult = diffMult[career.difficulty] || 1.0;
+    const participants: BracketParticipant[] = [
+      { id: 'player', name: 'You', skill: 50, archetype: 'allrounder', isPlayer: true, seed: 1 },
+    ];
+    for (let i = 0; i < bracketSize - 1 && i < shuffled.length; i++) {
+      const o = shuffled[i];
+      participants.push({
+        id: o.id,
+        name: `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`,
+        skill: Math.round(o.skill_rating * mult),
+        archetype: o.archetype,
+        isPlayer: false,
+        seed: i + 2,
+      });
+    }
+    return participants;
   }
 
   async function handleMatchResult(won: boolean, playerLegs: number, opponentLegs: number) {
@@ -118,10 +172,12 @@ export default function CareerBracketPage() {
     const updated = processRoundAfterPlayerMatch(bracket, won, playerLegs, opponentLegs, formatLegs);
     setBracket(updated);
     const supabase = createClient();
-    await supabase.rpc('rpc_career_save_bracket', {
-      p_bracket_id: bracketId, p_bracket_data: updated as any, p_current_round: updated.currentRound as any,
-      p_winner_id: updated.winnerId, p_player_eliminated_round: updated.playerEliminatedRound as any, p_completed: updated.completed,
-    });
+    // Save bracket state directly to table (more reliable than RPC)
+    await supabase.from('career_brackets').update({
+      bracket_data: updated as any,
+      current_round: updated.currentRound,
+      status: updated.completed ? 'completed' : 'active',
+    }).eq('id', bracketId);
     if (updated.completed) {
       const playerWon = updated.winnerId === 'player';
       const { data: completeData } = await supabase.rpc('rpc_career_complete_bracket_event', {
