@@ -82,13 +82,13 @@ DECLARE
     'Dave','Mike','Steve','Chris','Andy','Rob','Tom','Phil','Mark','James',
     'Gary','Paul','Kev','Dan','Lee','Terry','Wayne','Craig','Neil','Barry',
     'Ian','Josh','Stu','Mick','Pete','Carl','Jack','Alex','Bob','Jim',
-    'Ted','Vic','Michael','Jordan','Elliott','Ben','Sam','Luke','Ryan','Adam',
+    'Ted','Gabe','Michael','Jordan','Elliott','Ben','Sam','Luke','Ryan','Adam',
     'Nathan','Connor','Kyle','Liam','Jake','Owen','Rhys','Calum','Darren','Shaun',
-    'Gavin','Tony','Richie','Frankie','Vinnie','Paddy','Declan','Sean','Niall','Brendan',
-    'Donna','Claire','Lisa','Amy','Zoe','Kim','Sarah','Emma','Laura','Kelly',
-    'Jade','Holly','Becky','Nicola','Gemma','Steph','Rachel','Hannah','Fiona','Tina',
+    'Gavin','Tony','Richie','Frankie','Jordan','Paddy','Declan','Sean','Niall','Brendan',
+    'Kyran','Claire','Lisa','Amy','Zoe','Phil','Sarah','Emma','Laura','Ellis',
+    'Anson','Holly','Becky','Nicola','Gemma','Hans','Rachel','Harry','Kai','Tina',
     'Simon','George','Will','Harry','Freddie','Charlie','Alfie','Oscar','Archie','Leo',
-    'Ricky','Matty','Scotty','Eddie','Johno','Woody','Macca','Jacko','Tommo','Davo',
+    'Ricky','Matty','Scotty','Eddie','John','Woody','Macca','Jacko','Matt','Alex',
     'Patrick','Luca','Marco','Antonio','Pierre','Jean','Klaus','Sven','Erik','Finn',
     'Ruben','Hugo','Lars','Theo','Max','Felix','Nico','Fabio','Carlos','Miguel'
   ];
@@ -100,11 +100,11 @@ DECLARE
     'Steele','Noble','Fletcher','Spencer','Powell','Dixon','Chapman','Ellis','Shaw','Hughes',
     'Barker','Rhodes','Brooks','Watts','Harvey','Mitchell','Barnes','Sullivan','Griffin','Cole',
     'Reeves','Marshall','Pearce','Burton','Knight','Bailey','Fox','Russell','Doyle','Lynch',
-    'Gallagher','Quinn','Brennan','Walsh','Byrne','Collins','Maguire','Doherty','Keane','Ryan',
+    'Gallagher','Fischer','Brennan','Walsh','Davies','Collins','Maguire','Doherty','Keane','Ryan',
     'Maier','Wagner','Schmidt','Fischer','Weber','Becker','Richter','Braun','Hofmann','Krause',
-    'Van Dijk','Peeters','De Vries','Jansen','Bakker','Visser','Meijer','De Boer','Mulder','Smit',
-    'Rossi','Russo','Ferrari','Bianchi','Romano','Colombo','Ricci','Marino','Greco','Bruno',
-    'Moreno','Fernandez','Garcia','Martinez','Lopez','Torres','Ruiz','Sanchez','Romero','Diaz'
+    'Van Ginkel','Peeters','De Vries','Jansen','Bakker','Visser','Watson','De Boer','Mulder','Doyle',
+    'Rossi','Russo','Merz','Bianchi','Romano','Colombo','Ricci','Marino','Lat','Bruno',
+    'Von Hoofin','Fernandez','Garcia','Martinez','Lopez','Van Den Berg','Ruiz','Sanchez','Romero','Diaz'
   ];
   v_nicknames TEXT[] := ARRAY[
     'The Hammer','Bullseye','Treble Top','The Machine','Steady Eddie','The Rocket',
@@ -113,12 +113,12 @@ DECLARE
     'The Professor','Iceman','The Natural','The Viking','Powerhouse','The Wizard','The Dream',
     'The Menace','Killer','The Phoenix','Fireball','The Cobra','Dynamite','Nitro',
     'The Tornado','Rapid','The Chief','Big Dog','The Flash','Laser','Tombstone',
-    'The General','Barney','Jackpot','Wolfie','Chopper','The Dagger','Maverick',
+    'The General','Skill Magill','Jackpot','Wolfie','Chopper','The Dagger','Maverick','Nino',
     'The Thorn','Iron Fist','Showtime','The Ace','Voltage','Sidewinder','Merlin',
     'Smooth','Pitbull','Sparky','Thunder','Phantom','The Hawk','Crosshair','Apex',
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL  -- ~33% chance of no nickname
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,  -- ~33% chance of no nickname
   ];
   v_hometowns TEXT[] := ARRAY[
     'Steelford','Oche Vale','Dartington','Bullswick','Tapleys Green',
