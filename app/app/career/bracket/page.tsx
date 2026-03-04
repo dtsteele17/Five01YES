@@ -57,19 +57,48 @@ export default function CareerBracketPage() {
   async function initBracket() {
     setLoading(true);
     const supabase = createClient();
+
+    // Step 1: Check if bracket already exists in DB (avoid calling init RPC repeatedly)
+    const { data: existingBracket } = await supabase
+      .from('career_brackets')
+      .select('id, bracket_data, bracket_size, rounds_total, current_round, status')
+      .eq('event_id', eventId)
+      .eq('career_id', careerId)
+      .single();
+
+    // Also get event info
+    const { data: eventInfo } = await supabase
+      .from('career_events')
+      .select('event_name, event_type, format_legs')
+      .eq('id', eventId)
+      .single();
+
+    if (eventInfo) {
+      setEventName(eventInfo.event_name || '');
+      setEventType(eventInfo.event_type || '');
+      setFormatLegs(eventInfo.format_legs || 3);
+    }
+
+    if (existingBracket?.bracket_data?.matches?.length > 0) {
+      // Bracket exists with real data — just load it, no RPC needed
+      setBracketId(existingBracket.id);
+      setBracket(existingBracket.bracket_data);
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: No valid bracket — call init RPC to create one (only happens ONCE per event)
     const { data, error } = await supabase.rpc('rpc_career_init_bracket_event', { p_career_id: careerId, p_event_id: eventId });
     if (error || data?.error) { toast.error(data?.error || 'Failed to init bracket'); router.push(`/app/career?id=${careerId}`); return; }
 
     setBracketId(data.bracket_id);
-    setEventName(data.event_name || '');
-    setEventType(data.event_type || '');
-    setFormatLegs(data.format_legs || 3);
+    if (data.event_name) setEventName(data.event_name);
+    if (data.format_legs) setFormatLegs(data.format_legs);
 
     if (data.bracket_data?.matches?.length > 0) {
-      // Existing bracket with saved state — load it directly
       setBracket(data.bracket_data);
     } else if (data.participants?.length > 0) {
-      // First visit or empty bracket — generate and save BEFORE showing UI
+      // Generate bracket and save BEFORE showing UI
       const newBracket = generateBracket(data.participants, data.bracket_size, data.format_legs || 3);
       const { error: saveErr } = await supabase.rpc('rpc_career_save_bracket', {
         p_bracket_id: data.bracket_id, p_bracket_data: newBracket as any, p_current_round: 1 as any,
