@@ -16,7 +16,7 @@ import {
   Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight,
   ArrowLeft, Loader2, Star, TrendingUp, Calendar, Dumbbell,
   Award, Zap, Users, BarChart3, Sparkles, Clock, Settings, Save,
-  Bell, Table2, ChevronDown, X, Trash2,
+  Bell, Table2, ChevronDown, X, Trash2, Mail,
 } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
 
@@ -86,6 +86,7 @@ export default function CareerPage() {
   const [showKnockoutPopup, setShowKnockoutPopup] = useState(false);
   const [knockoutMessage, setKnockoutMessage] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [emails, setEmails] = useState<{ subject: string; body: string; type: string }[]>([]);
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
@@ -114,6 +115,37 @@ export default function CareerPage() {
           setActiveBracket(bracketData.bracket_data);
         }
       }
+
+      // Generate contextual emails based on career state and milestones
+      const careerEmails: { subject: string; body: string; type: string }[] = [];
+      const milestones = homeData.recent_milestones || [];
+      const tier = homeData.career.tier;
+      const day = homeData.career.day;
+
+      // Check milestones for context
+      const hasPromotion = milestones.some((m: any) => m.milestone_type === 'promotion');
+      const hasTournamentWin = milestones.some((m: any) => m.milestone_type === 'tournament_win');
+      const hasTournamentLoss = milestones.some((m: any) => m.milestone_type === 'tournament_loss' || m.title?.includes('Eliminated'));
+
+      if (hasPromotion) {
+        careerEmails.push({ subject: 'Welcome to the Pub Leagues!', body: 'You\'ve earned your spot. Time to prove yourself against tougher opponents in weekly league matches.', type: 'promotion' });
+      }
+      if (hasTournamentWin) {
+        careerEmails.push({ subject: 'Tournament Champion!', body: 'Incredible performance! You dominated that tournament. Keep this form up and bigger things await.', type: 'win' });
+      }
+      if (hasTournamentLoss && tier === 1 && day > 1 && day < 5) {
+        careerEmails.push({ subject: 'Another Chance', body: 'We\'ve entered you into another tournament. Get to the semi-final and I think we have a shot at the pub leagues!', type: 'knockout' });
+      }
+      if (tier === 1 && day === 1) {
+        careerEmails.push({ subject: 'Welcome, Rookie!', body: 'Good luck in your first tournament! Show them what you\'ve got. Win this and the pub leagues are calling.', type: 'welcome' });
+      }
+      if (tier >= 2 && !hasPromotion) {
+        careerEmails.push({ subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
+      }
+      if (careerEmails.length === 0) {
+        careerEmails.push({ subject: 'Keep Going!', body: 'Your journey continues. Every match is a chance to prove yourself.', type: 'default' });
+      }
+      setEmails(careerEmails);
 
       // Show tournament choice if Tier 1, Day 1, first event is a trial
       if (homeData.career.tier === 1 && homeData.career.day === 1 && homeData.next_event?.event_type === 'trial_tournament') {
@@ -521,17 +553,43 @@ export default function CareerPage() {
                         <Table2 className="w-3.5 h-3.5 text-teal-400" />
                       </div>
                       <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">
-                        {next_event?.bracket_size ? 'Tournament Draw' : 'Current Event'}
+                        {standings && standings.length > 0 ? 'League Table' : next_event?.bracket_size ? 'Tournament Draw' : 'Current Event'}
                       </span>
                     </div>
-                    {next_event?.bracket_size && (
+                    {next_event?.bracket_size && !standings?.length && (
                       <Badge className="bg-teal-500/10 text-teal-400 text-[10px] border border-teal-500/20">
                         {next_event.bracket_size} Players
                       </Badge>
                     )}
                   </div>
 
-                  {next_event ? (
+                  {/* League Table (Tier 2+) */}
+                  {standings && standings.length > 0 ? (
+                    <div className="space-y-0">
+                      <div className="flex items-center text-[10px] text-slate-500 font-bold px-2 pb-2 border-b border-white/5">
+                        <span className="w-5">#</span>
+                        <span className="flex-1">Name</span>
+                        <span className="w-8 text-center">P</span>
+                        <span className="w-8 text-center">W</span>
+                        <span className="w-8 text-center">L</span>
+                        <span className="w-10 text-center">Pts</span>
+                      </div>
+                      {standings.slice(0, 12).map((row: any, i: number) => (
+                        <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
+                          <span className={`w-5 font-bold ${i < 2 ? 'text-emerald-400' : i >= standings.length - 2 ? 'text-red-400' : 'text-slate-500'}`}>{i + 1}</span>
+                          <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
+                          <span className="w-8 text-center text-slate-500">{row.played}</span>
+                          <span className="w-8 text-center text-slate-500">{row.won || 0}</span>
+                          <span className="w-8 text-center text-slate-500">{row.lost || 0}</span>
+                          <span className={`w-10 text-center font-bold ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.points}</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Promotion</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Relegation</span>
+                      </div>
+                    </div>
+                  ) : next_event ? (
                     <div>
                       <h3 className="text-lg font-black text-white mb-1">{displayEventName}</h3>
                       <p className="text-slate-400 text-sm mb-4 capitalize">{next_event.event_type.replace('_', ' ')}</p>
@@ -637,6 +695,34 @@ export default function CareerPage() {
               </Card>
             </motion.div>
 
+            {/* Emails Tile */}
+            {emails.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+                <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-6 h-6 rounded-md bg-cyan-500/15 flex items-center justify-center">
+                        <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                      </div>
+                      <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Emails</span>
+                      <Badge className="bg-cyan-500/10 text-cyan-400 text-[10px] border border-cyan-500/20 ml-auto">{emails.length}</Badge>
+                    </div>
+                    <div className="space-y-3">
+                      {emails.slice(0, 3).map((email, i) => (
+                        <div key={i} className="p-3 rounded-xl bg-gradient-to-r from-cyan-500/5 to-transparent border border-cyan-500/10">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                            <span className="text-white text-sm font-semibold">{email.subject}</span>
+                          </div>
+                          <p className="text-slate-400 text-xs pl-3.5">{email.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+
             {/* Career Timeline */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
@@ -677,7 +763,7 @@ export default function CareerPage() {
             </motion.div>
           </div>
 
-          {/* ─── RIGHT COLUMN: Rankings / League ─── */}
+          {/* ─── RIGHT COLUMN: World Rankings (always) ─── */}
           <div className="lg:col-span-3 space-y-4">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
@@ -687,43 +773,22 @@ export default function CareerPage() {
                       <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
                         <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                       </div>
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">
-                        {career.tier >= 5 ? 'Rankings' : standings && standings.length > 0 ? 'League' : 'Rankings'}
-                      </span>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Rankings</span>
                     </div>
                     <Button variant="ghost" size="sm" className="text-slate-500 hover:text-white text-[10px] px-2 h-6" onClick={loadWorldRankings}>
                       View All
                     </Button>
                   </div>
 
-                  {standings && standings.length > 0 ? (
-                    <div className="space-y-0">
-                      <div className="flex items-center text-[10px] text-slate-500 font-bold px-2 pb-2 border-b border-white/5">
-                        <span className="w-5">#</span>
-                        <span className="flex-1">Name</span>
-                        <span className="w-8 text-center">P</span>
-                        <span className="w-8 text-center">Pts</span>
-                      </div>
-                      {standings.slice(0, 10).map((row: any, i: number) => (
-                        <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
-                          <span className={`w-5 font-bold ${i < 3 ? 'text-amber-400' : 'text-slate-500'}`}>{i + 1}</span>
-                          <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
-                          <span className="w-8 text-center text-slate-500">{row.played}</span>
-                          <span className={`w-8 text-center font-bold ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.points}</span>
-                        </div>
-                      ))}
+                  <div className="text-center py-6">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto mb-2">
+                      <Trophy className="w-5 h-5 text-blue-400/50" />
                     </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto mb-2">
-                        <Trophy className="w-5 h-5 text-blue-400/50" />
-                      </div>
-                      <p className="text-slate-400 text-xs font-medium">Rankings from Tier 2</p>
-                      <Button variant="ghost" size="sm" className="text-blue-400 text-xs mt-2 hover:text-blue-300" onClick={loadWorldRankings}>
-                        Preview World Rankings
-                      </Button>
-                    </div>
-                  )}
+                    <p className="text-slate-400 text-xs font-medium">Top 21 World Players</p>
+                    <Button variant="ghost" size="sm" className="text-blue-400 text-xs mt-2 hover:text-blue-300" onClick={loadWorldRankings}>
+                      Preview World Rankings
+                    </Button>
+                  </div>
                 </div>
               </Card>
             </motion.div>
