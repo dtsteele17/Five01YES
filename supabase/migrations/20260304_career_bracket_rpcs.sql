@@ -102,7 +102,7 @@ BEGIN
   -- If not enough opponents, generate more
   IF v_count < (v_bracket_size - 1) THEN
     PERFORM rpc_generate_career_opponents(
-      p_career_id, v_career.tier,
+      p_career_id, v_career.tier::SMALLINT,
       (v_bracket_size - 1 - v_count),
       v_career.career_seed + v_career.season * 1000 + v_career.week * 10
     );

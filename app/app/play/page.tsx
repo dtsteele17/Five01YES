@@ -563,15 +563,37 @@ export default function PlayPage() {
           <PrivateMatchCard />
 
           {/* Career Mode */}
-          <GameModeCard
-            href="/app/career"
-            title="Career Mode"
-            subtitle="Single Player"
-            description="Climb from pub leagues to the world stage. Play offline vs AI opponents."
-            icon={<Swords className="w-7 h-7 text-white" />}
-            badge={{ text: 'New', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }}
-            color="bg-gradient-to-br from-amber-500 to-orange-600"
-          />
+          <motion.div variants={itemVariants} className="h-full">
+            <Card className="relative overflow-hidden group h-full bg-gradient-to-br from-slate-800/70 to-slate-900/60 border-slate-700/60 shadow-[0_0_0_1px_rgba(100,116,139,0.12),0_10px_30px_rgba(2,6,23,0.42)] p-4 sm:p-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 opacity-5" />
+              <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 opacity-20 blur-2xl" />
+              <div className="relative z-10 h-full flex flex-col">
+                <div className="flex items-start justify-between mb-3 sm:mb-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                    <Swords className="w-7 h-7 text-white" />
+                  </div>
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">New</Badge>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Single Player</p>
+                  <h3 className="text-base sm:text-xl font-bold text-white mt-1">Career Mode</h3>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-2 mb-3 sm:mb-4 line-clamp-2">Climb from pub leagues to the world stage. Play offline vs AI opponents.</p>
+                </div>
+                <div className="flex gap-2 pt-3 sm:pt-4 border-t border-slate-700/30">
+                  <Link href="/app/career/start" className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-xs sm:text-sm">
+                      New Career
+                    </Button>
+                  </Link>
+                  <Link href="/app/career" className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full border-slate-600 text-slate-300 hover:bg-slate-700/50 text-xs sm:text-sm">
+                      Load Career
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
 
           {/* Local Play */}
           <GameModeCard

@@ -66,7 +66,7 @@ BEGIN
 
   IF v_opponent.id IS NULL THEN
     -- Generate more opponents if needed
-    PERFORM rpc_generate_career_opponents(p_career_id, v_career.tier, 10, v_career.career_seed + v_career.season * 100 + v_career.week);
+    PERFORM rpc_generate_career_opponents(p_career_id, v_career.tier::SMALLINT, 10, v_career.career_seed + v_career.season * 100 + v_career.week);
     SELECT * INTO v_opponent FROM career_opponents
       WHERE career_id = p_career_id AND tier = v_career.tier
       ORDER BY random()

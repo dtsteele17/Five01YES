@@ -45,7 +45,7 @@ BEGIN
 
   -- Generate Tier 1 opponents (24 total: 3 tournaments × 8 players, but 7 opponents each + player)
   -- We'll generate 21 unique opponents for Tier 1
-  PERFORM rpc_generate_career_opponents(v_career_id, 1, 21, v_seed);
+  PERFORM rpc_generate_career_opponents(v_career_id, 1::SMALLINT, 21, v_seed);
 
   -- Create milestone: career started
   INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week)
