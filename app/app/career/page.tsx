@@ -162,30 +162,26 @@ export default function CareerPage() {
         })));
       }
     } else {
-      // Tiers 1-4: generate fictional world-class players (separate from local opponents)
-      const worldStars = [
-        { name: "Michael 'The Power' Van Dijk", rating: 980, archetype: 'scorer' },
-        { name: "Phil 'The Wizard' Taylor-Smith", rating: 960, archetype: 'finisher' },
-        { name: "Gary 'The Machine' Anderson", rating: 940, archetype: 'scorer' },
-        { name: "Adrian 'Jackpot' Lewis-Brown", rating: 920, archetype: 'clutch' },
-        { name: "Peter 'Snakebite' Wright-Clarke", rating: 910, archetype: 'streaky' },
-        { name: "Raymond 'Barney' Van Bergen", rating: 900, archetype: 'grinder' },
-        { name: "James 'The Machine' Wade-King", rating: 890, archetype: 'finisher' },
-        { name: "Dave 'Chizzy' Chisnall-Wells", rating: 880, archetype: 'scorer' },
-        { name: "Nathan 'The Asp' Aspinall-Moore", rating: 870, archetype: 'clutch' },
-        { name: "Jonny 'The Ferret' Clayton-Price", rating: 860, archetype: 'grinder' },
-        { name: "Gerwyn 'The Iceman' Price-Evans", rating: 850, archetype: 'scorer' },
-        { name: "Rob 'Voltage' Cross-Bennett", rating: 840, archetype: 'finisher' },
-        { name: "Dimitri 'The Dream' Van Den Berg", rating: 830, archetype: 'streaky' },
-        { name: "Danny 'Noppert' Noppert-Fischer", rating: 820, archetype: 'allrounder' },
-        { name: "Josh 'The Rockstar' Rock-Palmer", rating: 810, archetype: 'clutch' },
-        { name: "Luke 'The Nuke' Littler-Shaw", rating: 800, archetype: 'scorer' },
-        { name: "Stephen 'The Bullet' Bunting-Hall", rating: 790, archetype: 'grinder' },
-        { name: "Callan 'The Riot' Rydz-Cooper", rating: 780, archetype: 'streaky' },
-        { name: "Chris 'Hollywood' Dobey-Grant", rating: 770, archetype: 'finisher' },
-        { name: "Damon 'The Heat' Heta-Rossi", rating: 760, archetype: 'allrounder' },
-        { name: "Mike 'The Bully' De Decker-Braun", rating: 750, archetype: 'grinder' },
-      ];
+      // Tiers 1-4: generate fictional world-class players using seeded randomness
+      const firstNames = ['Marcus','Liam','Theo','Callum','Declan','Sven','Nico','Ruben','Finn','Oscar',
+        'Erik','Hugo','Felix','Matty','Connor','Archie','Owen','Jake','Rhys','Kyle','Paddy'];
+      const lastNames = ['Steele','Reeves','Fox','Knight','Griffin','Cole','Spencer','Rhodes','Pearce',
+        'Burton','Walsh','Brennan','Gallagher','Keane','Sullivan','Richter','Bakker','Visser','Moreno','Romano','Torres'];
+      const nicknames = ['The Hammer','Lightning','The Sniper','Deadeye','The Professor','Iceman',
+        'Powerhouse','The Cobra','Dynamite','Maverick','The Phantom','Crosshair','Apex','Nitro',
+        'Wolfie','The General','Showtime','The Dagger','Fireball','Merlin','Thunder'];
+      const archetypes: string[] = ['scorer','finisher','grinder','streaky','clutch','allrounder'];
+      const seed = data.career.id?.charCodeAt(0) || 42;
+      const worldStars = firstNames.map((fn, i) => {
+        const li = (i * 7 + seed) % lastNames.length;
+        const ni = (i * 11 + seed) % nicknames.length;
+        const ai = (i * 3 + seed) % archetypes.length;
+        return {
+          name: `${fn} '${nicknames[ni]}' ${lastNames[li]}`,
+          rating: 980 - i * 12,
+          archetype: archetypes[ai],
+        };
+      });
       setWorldRankings(worldStars.map((s, i) => ({ rank: i + 1, ...s })));
     }
     setShowRankings(true);
