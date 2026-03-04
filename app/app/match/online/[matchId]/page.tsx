@@ -405,6 +405,8 @@ export default function OnlineMatchPage() {
             matchType: 'online',
             legsWon: myLegsNow,
             legsLost: oppLegsNow,
+            average: 0,
+            durationMinutes: 15,
           });
         }
         setShowMatchComplete(true);

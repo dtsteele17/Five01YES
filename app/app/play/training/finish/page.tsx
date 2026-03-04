@@ -545,6 +545,7 @@ function FinishTrainingContent() {
       triggerLevelUp(result.levelUp.oldLevel, result.levelUp.newLevel);
     }
 
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await trackStat(user.id, 'training_matches', 1);
   };

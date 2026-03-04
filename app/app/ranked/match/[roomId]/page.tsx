@@ -456,6 +456,8 @@ export default function RankedMatchPage() {
           matchType: 'ranked',
           legsWon: myData.legs_won,
           legsLost: oppData.legs_won,
+          average: 0,
+          durationMinutes: 15,
         });
       }
     } catch (err) {

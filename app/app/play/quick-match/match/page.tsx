@@ -1160,6 +1160,7 @@ export default function QuickMatchRoomPage() {
           legsWon: matchHistory.legs_won,
           legsLost: matchHistory.legs_lost,
           average: matchHistory.three_dart_avg,
+          durationMinutes: 15,
           opponentAverage: matchHistory.opponent_three_dart_avg,
           opponentId: room.player1_id === currentUserId ? room.player2_id : room.player1_id,
         });
