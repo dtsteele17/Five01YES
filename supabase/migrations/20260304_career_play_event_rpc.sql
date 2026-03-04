@@ -43,6 +43,13 @@ BEGIN
     RETURN json_build_object('skipped', TRUE, 'event_type', 'rest', 'message', 'Rest week — advancing to next week.');
   END IF;
 
+  -- Training events — mark complete and advance, client handles routing
+  IF v_event.event_type = 'training' THEN
+    UPDATE career_events SET status = 'completed', completed_at = now() WHERE id = v_event.id;
+    UPDATE career_profiles SET day = day + 1, updated_at = now() WHERE id = p_career_id;
+    RETURN json_build_object('skipped', TRUE, 'event_type', 'training', 'message', 'Training session complete.');
+  END IF;
+
   -- Difficulty multiplier for bot average
   v_difficulty_mult := CASE v_career.difficulty
     WHEN 'rookie' THEN 0.7

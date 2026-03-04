@@ -861,6 +861,16 @@ export default function TrainingHubPage() {
 
   console.log('[Training Hub] Render - stats:', { xp: stats.xp, level: stats.level, loading: statsLoading });
 
+  // Career mode training return — redirect back to career home
+  useEffect(() => {
+    const careerReturn = sessionStorage.getItem('career_training_return');
+    if (careerReturn) {
+      sessionStorage.removeItem('career_training_return');
+      router.push(`/app/career?id=${careerReturn}`);
+      return;
+    }
+  }, [router]);
+
   // Single refresh on mount
   useEffect(() => {
     console.log('[Training Hub] Mount - initial refresh');

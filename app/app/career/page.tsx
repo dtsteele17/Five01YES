@@ -161,6 +161,19 @@ export default function CareerPage() {
         return;
       }
 
+      // Training event → pick a random training mode and route there
+      if (next_event.event_type === 'training') {
+        const trainingModes = ['121', 'atc', 'bobs27', 'finish', 'jdc', 'killer', 'pdc'];
+        const randomMode = trainingModes[Math.floor(Math.random() * trainingModes.length)];
+        // Mark training event as completed
+        const supabase = createClient();
+        await supabase.rpc('rpc_career_play_next_event', { p_career_id: careerId });
+        // Store career context so training end screen shows "Return to Career"
+        sessionStorage.setItem('career_training_return', careerId);
+        router.push(`/app/play/training/${randomMode}`);
+        return;
+      }
+
       const supabase = createClient();
       const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event', { p_career_id: careerId });
       if (error) throw error;
