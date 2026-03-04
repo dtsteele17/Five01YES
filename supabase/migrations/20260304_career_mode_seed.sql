@@ -4,9 +4,9 @@
 
 -- ===================== TIER 1: Local Circuit Trials (day-based) =====================
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, day_based, metadata) VALUES
-(1, 1, 'trial_tournament', 'Choose Your Local Tournament', 'trial_choice', 3, 8, TRUE, '{"day": 1, "description": "Pick one of three local 8-player tournaments to prove yourself."}'),
-(1, 2, 'trial_tournament', 'Retry Tournament', 'trial_retry', 3, 8, TRUE, '{"day": 4, "description": "Another shot at a local tournament.", "is_retry": true}'),
-(1, 3, 'training', 'Forced Training', 'trial_training', 3, NULL, TRUE, '{"day": 5, "description": "Time to hit the practice board.", "forced": true}');
+(1, 1, 'trial_tournament', 'The Brass Anchor Open', 'trial_choice', 3, 8, TRUE, '{"day": 1, "description": "Pick one of three local 8-player tournaments to prove yourself."}'),
+(1, 2, 'trial_tournament', 'Local Circuit Cup', 'trial_retry', 3, 8, TRUE, '{"day": 4, "description": "Another shot at a local tournament.", "is_retry": true}'),
+(1, 3, 'trial_tournament', 'Neighbourhood Classic', 'trial_final', 3, 8, TRUE, '{"day": 5, "description": "Your last chance to prove yourself on the local circuit."}');
 
 -- ===================== TIER 2: Pub Leagues (8 weeks) =====================
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES
