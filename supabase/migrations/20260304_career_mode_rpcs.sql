@@ -116,7 +116,8 @@ DECLARE
     'The General','Skill Magill','Jackpot','Wolfie','Chopper','The Dagger','Maverick','Nino',
     'The Thorn','Iron Fist','Showtime','The Ace','Voltage','Sidewinder','Merlin',
     'Smooth','Pitbull','Sparky','Thunder','Phantom','The Hawk','Crosshair','Apex',
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    'The Beast','Precision','Hard Man','The Bosh','Razor','The Rocket',
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,  -- ~33% chance of no nickname
   ];

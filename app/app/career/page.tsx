@@ -205,7 +205,10 @@ export default function CareerPage() {
         'Bailey','Fox','Marshall','Cooper','Ward','Wells','Murphy','Price','Bennett','Gray'];
       const nns = ['The Hammer','Lightning','The Sniper','Deadeye','The Professor','Iceman',
         'Powerhouse','The Cobra','Dynamite','Maverick','The Phantom','Crosshair','Apex','Nitro',
-        'Wolfie','The General','Showtime','The Dagger','Fireball','Merlin','Thunder'];
+        'Wolfie','The General','Showtime','The Dagger','Fireball','Merlin','Thunder',
+        'The Beast','Precision','Hard Man','The Bosh','Razor','The Rocket','Tombstone',
+        'The Flash','Killer','Pitbull','Sidewinder','The Ace','Voltage','Sparky',
+        'The Chief','Big Dog','Smooth','The Hawk','Iron Fist','The Thorn','Chopper'];
       const arcs: string[] = ['scorer','finisher','grinder','streaky','clutch','allrounder'];
       // Seeded pseudo-random using career ID characters
       const cid = data.career.id || '';
@@ -214,9 +217,9 @@ export default function CareerPage() {
         return Math.abs(h);
       };
       const worldStars = fns.map((fn, i) => ({
-        name: `${fn} '${nns[hash(i * 3 + 1) % nns.length]}' ${lns[hash(i * 7 + 2) % lns.length]}`,
+        name: `${fn} '${nns[hash(i * 131 + 17) % nns.length]}' ${lns[hash(i * 73 + 41) % lns.length]}`,
         rating: 980 - i * 12,
-        archetype: arcs[hash(i * 5 + 3) % arcs.length],
+        archetype: arcs[hash(i * 53 + 97) % arcs.length],
       }));
       setWorldRankings(worldStars.map((s, i) => ({ rank: i + 1, ...s })));
     }
@@ -511,32 +514,43 @@ export default function CareerPage() {
               </Card>
             </motion.div>
 
-            {/* Settings + Save */}
+            {/* Timeline (moved from center) */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-              <div className="grid grid-cols-2 gap-3">
-                <Card
-                  className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] cursor-pointer hover:ring-white/15 transition-all group shadow-lg p-4 text-center"
-                  onClick={() => setShowSettings(true)}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center mx-auto mb-2 transition-colors">
-                    <Settings className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    </div>
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Timeline</span>
                   </div>
-                  <span className="text-slate-400 group-hover:text-white text-xs font-semibold transition-colors">Settings</span>
-                </Card>
-                <Card
-                  className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] cursor-pointer hover:ring-emerald-500/30 transition-all group shadow-lg p-4 text-center"
-                  onClick={handleSaveGame}
-                >
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 group-hover:bg-emerald-500/20 flex items-center justify-center mx-auto mb-2 transition-colors">
-                    {saving ? (
-                      <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-                    ) : (
-                      <Save className="w-5 h-5 text-emerald-400" />
-                    )}
-                  </div>
-                  <span className="text-emerald-400 text-xs font-semibold">Save</span>
-                </Card>
-              </div>
+                  {recent_milestones && recent_milestones.length > 0 ? (
+                    <div className="space-y-3">
+                      {recent_milestones.map((ms: any, i: number) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className="mt-1 shrink-0">
+                            <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
+                          </div>
+                          <div>
+                            <span className="text-white text-sm font-semibold">{ms.title}</span>
+                            {ms.description && <p className="text-slate-500 text-xs mt-0.5">{ms.description}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 shrink-0">
+                        <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
+                      </div>
+                      <div>
+                        <span className="text-white text-sm font-semibold">The Journey Begins</span>
+                        <p className="text-slate-500 text-xs mt-0.5">Started a new career on {diffInfo.label.toLowerCase()} difficulty.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
             </motion.div>
           </div>
 
@@ -723,44 +737,6 @@ export default function CareerPage() {
               </motion.div>
             )}
 
-            {/* Career Timeline */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    </div>
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Timeline</span>
-                  </div>
-                  {recent_milestones && recent_milestones.length > 0 ? (
-                    <div className="space-y-3">
-                      {recent_milestones.map((ms: any, i: number) => (
-                        <div key={i} className="flex items-start gap-3">
-                          <div className="mt-1 shrink-0">
-                            <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
-                          </div>
-                          <div>
-                            <span className="text-white text-sm font-semibold">{ms.title}</span>
-                            {ms.description && <p className="text-slate-500 text-xs mt-0.5">{ms.description}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1 shrink-0">
-                        <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
-                      </div>
-                      <div>
-                        <span className="text-white text-sm font-semibold">The Journey Begins</span>
-                        <p className="text-slate-500 text-xs mt-0.5">Started a new career on {diffInfo.label.toLowerCase()} difficulty.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </motion.div>
           </div>
 
           {/* ─── RIGHT COLUMN: World Rankings (always) ─── */}
@@ -791,6 +767,34 @@ export default function CareerPage() {
                   </div>
                 </div>
               </Card>
+            </motion.div>
+
+            {/* Settings + Save */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <div className="grid grid-cols-2 gap-3">
+                <Card
+                  className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] cursor-pointer hover:ring-white/15 transition-all group shadow-lg p-4 text-center"
+                  onClick={() => setShowSettings(true)}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center mx-auto mb-2 transition-colors">
+                    <Settings className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                  </div>
+                  <span className="text-slate-400 group-hover:text-white text-xs font-semibold transition-colors">Settings</span>
+                </Card>
+                <Card
+                  className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] cursor-pointer hover:ring-emerald-500/30 transition-all group shadow-lg p-4 text-center"
+                  onClick={handleSaveGame}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 group-hover:bg-emerald-500/20 flex items-center justify-center mx-auto mb-2 transition-colors">
+                    {saving ? (
+                      <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                    ) : (
+                      <Save className="w-5 h-5 text-emerald-400" />
+                    )}
+                  </div>
+                  <span className="text-emerald-400 text-xs font-semibold">Save</span>
+                </Card>
+              </div>
             </motion.div>
           </div>
         </div>
