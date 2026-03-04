@@ -50,7 +50,10 @@ BEGIN
         'bracket_size', b.bracket_size,
         'rounds_total', b.rounds_total,
         'current_round', b.current_round,
-        'status', b.status
+        'status', b.status,
+        'event_name', v_event.event_name,
+        'event_type', v_event.event_type,
+        'format_legs', v_event.format_legs
       )
       FROM career_brackets b WHERE b.id = v_bracket_id
     );

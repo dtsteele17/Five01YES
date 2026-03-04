@@ -272,7 +272,7 @@ export function DartbotWinnerPopup({
                 ) : (
                   <>
                     <Undo2 className="w-4 h-4 mr-2" />
-                    Back to Career
+                    {career.bracketRound ? 'View Results' : 'Back to Career'}
                   </>
                 )}
               </Button>
@@ -281,6 +281,8 @@ export function DartbotWinnerPopup({
                   ? 'Advance to the next round of the tournament'
                   : career.playerWon
                   ? 'Return to your career dashboard'
+                  : career.bracketRound
+                  ? 'See the full tournament results'
                   : 'Better luck next time'}
               </div>
             </div>

@@ -65,7 +65,7 @@ export default function CareerBracketPage() {
     setEventType(data.event_type || '');
     setFormatLegs(data.format_legs || 3);
 
-    if (data.bracket_data && data.bracket_data.length > 0) {
+    if (data.bracket_data && data.bracket_data.matches) {
       setBracket(data.bracket_data);
     } else if (data.participants) {
       const newBracket = generateBracket(data.participants, data.bracket_size, data.format_legs);

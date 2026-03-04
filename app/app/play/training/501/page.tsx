@@ -1597,12 +1597,11 @@ export default function DartbotMatchPage() {
   const handleReturnToPlay = () => {
     if (config?.career) {
       const isBracketMatch = config.career.matchId.startsWith('bracket-');
-      const playerWon = matchWinner === 'player1';
-      if (isBracketMatch && playerWon) {
-        // Won bracket match → go back to bracket page to advance to next round
+      if (isBracketMatch) {
+        // Bracket match (win or loss) → go to bracket page to process result and show updated draw
         router.push(`/app/career/bracket?careerId=${config.career.careerId}&eventId=${config.career.eventId}`);
       } else {
-        // Lost (any match) or won league match → back to career home
+        // League match → back to career home
         router.push(`/app/career?id=${config.career.careerId}`);
       }
     } else {
@@ -1778,7 +1777,19 @@ export default function DartbotMatchPage() {
             {config.bestOf.replace('best-of-', 'Best of ')}
           </Badge>
         </div>
-        <h2 className="text-lg font-bold text-white">Leg {currentLeg.legNumber} of {legsToWin * 2 - 1}</h2>
+        {config?.career ? (
+          <div className="text-center">
+            <h2 className="text-sm font-bold text-white leading-tight">{config.career.eventName || 'Career Match'}</h2>
+            <p className="text-[10px] text-slate-400">
+              {config.career.bracketRound
+                ? `${config.career.bracketRound === 1 ? 'Final' : config.career.bracketRound === 2 ? 'Semi-Final' : config.career.bracketRound === 3 ? 'Quarter-Final' : `Round ${config.career.bracketRound}`} • `
+                : ''}
+              Leg {currentLeg.legNumber} of {legsToWin * 2 - 1}
+            </p>
+          </div>
+        ) : (
+          <h2 className="text-lg font-bold text-white">Leg {currentLeg.legNumber} of {legsToWin * 2 - 1}</h2>
+        )}
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="border-purple-500/30 text-purple-400"><Bot className="w-3 h-3 mr-1" />{botName}</Badge>
         </div>
