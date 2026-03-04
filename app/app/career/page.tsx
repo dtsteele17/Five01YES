@@ -233,9 +233,13 @@ export default function CareerPage() {
   const chosenName = chosenTournament ? TRIAL_TOURNAMENTS.find(t => t.id === chosenTournament)?.name : null;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName : next_event?.event_name;
 
+  // Generate bracket preview slots for visualization
+  const bracketSize = next_event?.bracket_size || 0;
+  const bracketRounds = bracketSize > 0 ? Math.log2(bracketSize) : 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-5">
-      <div className="max-w-5xl mx-auto space-y-3">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-4 lg:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
 
         {/* ═══ TOP BAR: Name + Tier + REP ═══ */}
         <div className="flex items-center justify-between">
@@ -243,239 +247,353 @@ export default function CareerPage() {
             <Button variant="ghost" size="sm" onClick={() => router.push('/app/play')} className="text-slate-400 hover:text-white px-2">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div className="flex items-center gap-2">
-              <tierCfg.icon className="w-5 h-5 text-white/70" />
-              <span className="font-bold text-white text-lg">{tierCfg.name}</span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/30 flex items-center justify-center">
+                <tierCfg.icon className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <h1 className="font-black text-white text-lg leading-tight">{tierCfg.name}</h1>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-semibold ${diffInfo.color}`}>{diffInfo.label}</span>
+                  <span className="text-slate-600 text-xs">•</span>
+                  <span className="text-slate-400 text-xs">
+                    {career.tier === 1 ? `Day ${career.day}` : `S${career.season} W${career.week}`}
+                  </span>
+                </div>
+              </div>
             </div>
-            <Badge className={`${diffInfo.color} bg-white/5 text-xs`}>{diffInfo.label}</Badge>
           </div>
-          <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 text-amber-400" />
-            <span className="text-amber-400 font-bold">{career.rep.toLocaleString()}</span>
-            <span className="text-slate-500 text-xs">REP</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1.5">
+              <Star className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
+              <span className="text-amber-400/60 text-[10px] font-medium">REP</span>
+            </div>
+            {career.form !== 0 && (
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${career.form > 0 ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
+                <TrendingUp className="w-3 h-3" />
+                {career.form > 0 ? '+' : ''}{(career.form * 100).toFixed(0)}%
+              </div>
+            )}
           </div>
         </div>
 
         {/* ═══ MAIN GRID: FIFA-style dashboard ═══ */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* ─── LEFT COLUMN: Continue + Notifications ─── */}
-          <div className="md:col-span-5 space-y-3">
+          <div className="lg:col-span-4 space-y-4">
 
             {/* CONTINUE / NEXT EVENT — highlighted card */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="p-4 bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/30 relative overflow-hidden">
-                <div className="absolute -top-8 -right-8 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl" />
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                      {career.tier === 1 ? `Day ${career.day}` : `Season ${career.season} — Week ${career.week}`}
-                    </span>
-                    {career.form !== 0 && (
-                      <span className={`text-xs ${career.form > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        Form {career.form > 0 ? '+' : ''}{(career.form * 100).toFixed(0)}%
-                      </span>
-                    )}
+              <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500/15 via-orange-600/10 to-slate-900/80 ring-1 ring-amber-500/30 shadow-lg shadow-amber-500/5">
+                {/* Decorative glow */}
+                <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl" />
+                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-orange-600/8 rounded-full blur-3xl" />
+
+                <div className="relative z-10 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest">Next Match</span>
+                    </div>
                   </div>
 
                   {next_event ? (
                     <>
-                      <h2 className="text-lg font-black text-white mb-1">{displayEventName}</h2>
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        <Badge className="bg-white/10 text-white/70 text-[10px]">Best of {next_event.format_legs}</Badge>
+                      <h2 className="text-xl font-black text-white mb-2 leading-tight">{displayEventName}</h2>
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        <Badge className="bg-white/10 backdrop-blur-sm text-white/80 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
+                          Best of {next_event.format_legs}
+                        </Badge>
                         {next_event.bracket_size && (
-                          <Badge className="bg-white/10 text-white/70 text-[10px]">
-                            <Users className="w-3 h-3 mr-0.5" />{next_event.bracket_size}
+                          <Badge className="bg-white/10 backdrop-blur-sm text-white/80 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
+                            <Users className="w-3 h-3 mr-1" />{next_event.bracket_size}
                           </Badge>
                         )}
-                        <Badge className="bg-white/10 text-white/70 text-[10px] capitalize">{next_event.event_type.replace('_', ' ')}</Badge>
+                        <Badge className="bg-white/10 backdrop-blur-sm text-white/80 text-[11px] font-medium capitalize border border-white/5 px-2.5 py-0.5">
+                          {next_event.event_type.replace('_', ' ')}
+                        </Badge>
                       </div>
                       <Button
-                        className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2.5"
+                        className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black py-3 text-base shadow-lg shadow-amber-500/20 transition-all hover:shadow-amber-500/30 hover:scale-[1.01] active:scale-[0.99]"
                         disabled={playingEvent}
                         onClick={handlePlayEvent}
                       >
-                        {playingEvent ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                        {playingEvent ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2 fill-current" />}
                         Continue
                       </Button>
                     </>
                   ) : (
-                    <div className="text-center py-4">
-                      <Trophy className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                      <p className="text-white font-bold">Season Complete!</p>
+                    <div className="text-center py-6">
+                      <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-3" />
+                      <p className="text-white font-black text-lg">Season Complete!</p>
                     </div>
                   )}
                 </div>
               </Card>
             </motion.div>
 
-            {/* NOTIFICATIONS — Sponsors + REP */}
+            {/* SPONSORS + REP */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card className="p-4 bg-slate-800/60 border border-white/10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Bell className="w-4 h-4 text-rose-400" />
-                  <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Notifications</span>
-                </div>
-
-                {sponsors && sponsors.length > 0 ? (
-                  <div className="space-y-2">
-                    {sponsors.map((sp: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
-                        <div>
-                          <span className="text-white font-medium text-sm">{sp.name}</span>
-                          <p className="text-slate-400 text-xs">+{(sp.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
-                        </div>
-                        <Award className="w-4 h-4 text-purple-400" />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-3">
-                    <Award className="w-6 h-6 text-slate-600 mx-auto mb-1" />
-                    <p className="text-slate-500 text-xs">No sponsor offers yet</p>
-                    <p className="text-slate-600 text-[10px]">Win matches to attract sponsors</p>
-                  </div>
-                )}
-
-                {/* REP progress */}
-                <div className="mt-3 pt-3 border-t border-white/5">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-400">REP Progress</span>
-                    <span className="text-amber-400 font-bold">{career.rep.toLocaleString()}</span>
-                  </div>
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full" style={{ width: `${Math.min(100, (career.rep % 1000) / 10)}%` }} />
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* ─── CENTER COLUMN: Standings ─── */}
-          <div className="md:col-span-4 space-y-3">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-              <Card className="p-4 bg-slate-800/60 border border-white/10">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-blue-400" />
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-                      {career.tier >= 5 ? 'World Rankings' : standings && standings.length > 0 ? 'League Table' : 'World Rankings'}
-                    </span>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs px-2 h-6" onClick={loadWorldRankings}>
-                    View All
-                  </Button>
-                </div>
-
-                {standings && standings.length > 0 ? (
-                  <div className="space-y-0">
-                    <div className="flex items-center text-[10px] text-slate-500 font-medium px-2 pb-1 border-b border-white/5">
-                      <span className="w-5">#</span>
-                      <span className="flex-1">Name</span>
-                      <span className="w-8 text-center">P</span>
-                      <span className="w-8 text-center">Pts</span>
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-md bg-rose-500/15 flex items-center justify-center">
+                      <Bell className="w-3.5 h-3.5 text-rose-400" />
                     </div>
-                    {standings.slice(0, 8).map((row: any, i: number) => (
-                      <div key={i} className={`flex items-center text-xs px-2 py-1.5 ${row.is_player ? 'bg-amber-500/10 rounded' : ''} ${i < standings.length - 1 ? 'border-b border-white/5' : ''}`}>
-                        <span className="w-5 text-slate-500">{i + 1}</span>
-                        <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
-                        <span className="w-8 text-center text-slate-400">{row.played}</span>
-                        <span className="w-8 text-center font-bold text-white">{row.points}</span>
-                      </div>
-                    ))}
+                    <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">Notifications</span>
                   </div>
-                ) : (
-                  /* Show top 8 "world" AI players as placeholder */
-                  <div className="text-center py-4">
-                    <Trophy className="w-6 h-6 text-slate-600 mx-auto mb-1" />
-                    <p className="text-slate-500 text-xs">Rankings available from Tier 2</p>
-                    <Button variant="ghost" size="sm" className="text-blue-400 text-xs mt-2" onClick={loadWorldRankings}>
-                      Preview World Rankings
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            </motion.div>
 
-            {/* Career Timeline */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-              <Card className="p-4 bg-slate-800/60 border border-white/10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Timeline</span>
-                </div>
-                {recent_milestones && recent_milestones.length > 0 ? (
-                  <div className="space-y-2">
-                    {recent_milestones.map((ms: any, i: number) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                        <div>
-                          <span className="text-white text-xs font-medium">{ms.title}</span>
-                          {ms.description && <p className="text-slate-500 text-[10px]">{ms.description}</p>}
+                  {sponsors && sponsors.length > 0 ? (
+                    <div className="space-y-2">
+                      {sponsors.map((sp: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/10">
+                          <div>
+                            <span className="text-white font-semibold text-sm">{sp.name}</span>
+                            <p className="text-purple-300/60 text-xs">+{(sp.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+                          </div>
+                          <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                            <Award className="w-4 h-4 text-purple-400" />
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-5">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center mx-auto mb-2">
+                        <Award className="w-5 h-5 text-slate-600" />
                       </div>
-                    ))}
+                      <p className="text-slate-500 text-xs font-medium">No sponsor offers yet</p>
+                      <p className="text-slate-600 text-[10px] mt-0.5">Win matches to attract sponsors</p>
+                    </div>
+                  )}
+
+                  {/* REP progress */}
+                  <div className="mt-4 pt-4 border-t border-white/5">
+                    <div className="flex justify-between text-xs mb-2">
+                      <span className="text-slate-400 font-medium">REP Progress</span>
+                      <span className="text-amber-400 font-bold">{career.rep.toLocaleString()}</span>
+                    </div>
+                    <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, (career.rep % 1000) / 10)}%` }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-slate-500 text-xs text-center py-2">Your story begins...</p>
-                )}
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* ─── RIGHT COLUMN: Current bracket/table + Settings ─── */}
-          <div className="md:col-span-3 space-y-3">
-
-            {/* Current event / bracket preview */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <Card className="p-4 bg-slate-800/60 border border-white/10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Table2 className="w-4 h-4 text-teal-400" />
-                  <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">
-                    {next_event?.bracket_size ? 'Tournament Draw' : 'Schedule'}
-                  </span>
                 </div>
-
-                {next_event ? (
-                  <div>
-                    <p className="text-white text-sm font-medium mb-1">{displayEventName}</p>
-                    <p className="text-slate-400 text-xs mb-2 capitalize">{next_event.event_type.replace('_', ' ')}</p>
-                    {next_event.bracket_size && (
-                      <div className="bg-white/5 rounded-lg p-2 text-center">
-                        <Swords className="w-5 h-5 text-slate-400 mx-auto mb-1" />
-                        <p className="text-slate-400 text-[10px]">{next_event.bracket_size}-player bracket</p>
-                        <p className="text-slate-500 text-[10px]">Draw revealed on entry</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-slate-500 text-xs text-center py-2">Season complete</p>
-                )}
               </Card>
             </motion.div>
 
             {/* Settings + Save */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <div className="grid grid-cols-2 gap-2">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+              <div className="grid grid-cols-2 gap-3">
                 <Card
-                  className="p-3 bg-slate-800/60 border border-white/10 cursor-pointer hover:border-white/20 transition-all text-center"
+                  className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] cursor-pointer hover:ring-white/15 transition-all group shadow-lg p-4 text-center"
                   onClick={() => setShowSettings(true)}
                 >
-                  <Settings className="w-5 h-5 text-slate-400 mx-auto mb-1" />
-                  <span className="text-slate-400 text-[10px] font-medium">Settings</span>
+                  <div className="w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 flex items-center justify-center mx-auto mb-2 transition-colors">
+                    <Settings className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                  </div>
+                  <span className="text-slate-400 group-hover:text-white text-xs font-semibold transition-colors">Settings</span>
                 </Card>
                 <Card
-                  className="p-3 bg-slate-800/60 border border-white/10 cursor-pointer hover:border-emerald-500/30 transition-all text-center"
+                  className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] cursor-pointer hover:ring-emerald-500/30 transition-all group shadow-lg p-4 text-center"
                   onClick={handleSaveGame}
                 >
-                  {saving ? (
-                    <Loader2 className="w-5 h-5 text-emerald-400 mx-auto mb-1 animate-spin" />
-                  ) : (
-                    <Save className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
-                  )}
-                  <span className="text-emerald-400 text-[10px] font-medium">Save</span>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 group-hover:bg-emerald-500/20 flex items-center justify-center mx-auto mb-2 transition-colors">
+                    {saving ? (
+                      <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                    ) : (
+                      <Save className="w-5 h-5 text-emerald-400" />
+                    )}
+                  </div>
+                  <span className="text-emerald-400 text-xs font-semibold">Save</span>
                 </Card>
               </div>
+            </motion.div>
+          </div>
+
+          {/* ─── CENTER COLUMN: Tournament Draw (BIGGER) ─── */}
+          <div className="lg:col-span-5 space-y-4">
+
+            {/* Tournament Draw / Bracket Preview — LARGE */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-teal-500/15 flex items-center justify-center">
+                        <Table2 className="w-3.5 h-3.5 text-teal-400" />
+                      </div>
+                      <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">
+                        {next_event?.bracket_size ? 'Tournament Draw' : 'Current Event'}
+                      </span>
+                    </div>
+                    {next_event?.bracket_size && (
+                      <Badge className="bg-teal-500/10 text-teal-400 text-[10px] border border-teal-500/20">
+                        {next_event.bracket_size} Players
+                      </Badge>
+                    )}
+                  </div>
+
+                  {next_event ? (
+                    <div>
+                      <h3 className="text-lg font-black text-white mb-1">{displayEventName}</h3>
+                      <p className="text-slate-400 text-sm mb-4 capitalize">{next_event.event_type.replace('_', ' ')}</p>
+
+                      {next_event.bracket_size ? (
+                        /* Visual bracket preview */
+                        <div className="bg-slate-900/60 rounded-xl border border-white/5 p-4 overflow-x-auto">
+                          <div className="flex items-stretch gap-3 min-w-fit justify-center">
+                            {Array.from({ length: bracketRounds }).map((_, roundIdx) => {
+                              const matchesInRound = bracketSize / Math.pow(2, roundIdx + 1);
+                              const roundNames = ['Quarter-Finals', 'Semi-Finals', 'Final'];
+                              const roundLabel = bracketRounds <= 3
+                                ? (roundIdx === bracketRounds - 1 ? 'Final' : roundIdx === bracketRounds - 2 ? 'Semi-Finals' : 'Quarter-Finals')
+                                : `Round ${roundIdx + 1}`;
+                              return (
+                                <div key={roundIdx} className="flex flex-col items-center gap-1 min-w-[100px]">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{roundLabel}</span>
+                                  <div className="flex flex-col gap-2 justify-center flex-1">
+                                    {Array.from({ length: matchesInRound }).map((_, matchIdx) => (
+                                      <div key={matchIdx} className="border border-white/[0.08] rounded-lg overflow-hidden bg-slate-800/50">
+                                        <div className="px-2.5 py-1.5 border-b border-white/[0.04] flex items-center gap-1.5">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                                          <span className="text-[10px] text-slate-500 font-medium truncate">TBD</span>
+                                        </div>
+                                        <div className="px-2.5 py-1.5 flex items-center gap-1.5">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                                          <span className="text-[10px] text-slate-500 font-medium truncate">TBD</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {/* Trophy at end */}
+                            <div className="flex flex-col items-center justify-center min-w-[50px]">
+                              <span className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider mb-2">Winner</span>
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/20 flex items-center justify-center">
+                                <Trophy className="w-6 h-6 text-amber-400" />
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-center text-slate-500 text-[10px] mt-3 font-medium">Draw revealed when you enter the tournament</p>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-900/60 rounded-xl border border-white/5 p-6 text-center">
+                          <div className="w-12 h-12 rounded-xl bg-teal-500/10 flex items-center justify-center mx-auto mb-3">
+                            <Swords className="w-6 h-6 text-teal-400" />
+                          </div>
+                          <p className="text-white font-semibold text-sm">League Match</p>
+                          <p className="text-slate-500 text-xs mt-1">Best of {next_event.format_legs} legs</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Trophy className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm font-medium">Season complete</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Career Timeline */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    </div>
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Timeline</span>
+                  </div>
+                  {recent_milestones && recent_milestones.length > 0 ? (
+                    <div className="space-y-3">
+                      {recent_milestones.map((ms: any, i: number) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className="mt-1 shrink-0">
+                            <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
+                          </div>
+                          <div>
+                            <span className="text-white text-sm font-semibold">{ms.title}</span>
+                            {ms.description && <p className="text-slate-500 text-xs mt-0.5">{ms.description}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 shrink-0">
+                        <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
+                      </div>
+                      <div>
+                        <span className="text-white text-sm font-semibold">The Journey Begins</span>
+                        <p className="text-slate-500 text-xs mt-0.5">Started a new career on {diffInfo.label.toLowerCase()} difficulty.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* ─── RIGHT COLUMN: Rankings / League ─── */}
+          <div className="lg:col-span-3 space-y-4">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
+                        <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">
+                        {career.tier >= 5 ? 'Rankings' : standings && standings.length > 0 ? 'League' : 'Rankings'}
+                      </span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-slate-500 hover:text-white text-[10px] px-2 h-6" onClick={loadWorldRankings}>
+                      View All
+                    </Button>
+                  </div>
+
+                  {standings && standings.length > 0 ? (
+                    <div className="space-y-0">
+                      <div className="flex items-center text-[10px] text-slate-500 font-bold px-2 pb-2 border-b border-white/5">
+                        <span className="w-5">#</span>
+                        <span className="flex-1">Name</span>
+                        <span className="w-8 text-center">P</span>
+                        <span className="w-8 text-center">Pts</span>
+                      </div>
+                      {standings.slice(0, 10).map((row: any, i: number) => (
+                        <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
+                          <span className={`w-5 font-bold ${i < 3 ? 'text-amber-400' : 'text-slate-500'}`}>{i + 1}</span>
+                          <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
+                          <span className="w-8 text-center text-slate-500">{row.played}</span>
+                          <span className={`w-8 text-center font-bold ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.points}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto mb-2">
+                        <Trophy className="w-5 h-5 text-blue-400/50" />
+                      </div>
+                      <p className="text-slate-400 text-xs font-medium">Rankings from Tier 2</p>
+                      <Button variant="ghost" size="sm" className="text-blue-400 text-xs mt-2 hover:text-blue-300" onClick={loadWorldRankings}>
+                        Preview World Rankings
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
             </motion.div>
           </div>
         </div>
