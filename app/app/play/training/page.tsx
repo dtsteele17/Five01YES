@@ -855,6 +855,7 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
 
 // Main Training Hub Page
 export default function TrainingHubPage() {
+  const router = useRouter();
   const { stats, loading: statsLoading, refresh } = useTrainingStats();
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [showATCModal, setShowATCModal] = useState(false);
