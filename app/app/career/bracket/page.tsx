@@ -81,8 +81,8 @@ export default function CareerBracketPage() {
 
     if (existingBracket?.bracket_data?.matches?.length > 0) {
       // ✅ Bracket has real data — load it directly, no RPC call
-      setBracketId(existingBracket.id);
-      setBracket(existingBracket.bracket_data);
+      setBracketId(existingBracket!.id);
+      setBracket(existingBracket!.bracket_data);
       setLoading(false);
       return;
     }
