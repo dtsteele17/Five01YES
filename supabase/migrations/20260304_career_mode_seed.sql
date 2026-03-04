@@ -3,6 +3,7 @@
 -- ============================================================
 
 -- Clear existing seed data before re-inserting
+UPDATE career_events SET template_id = NULL WHERE template_id IS NOT NULL;
 DELETE FROM career_schedule_templates;
 DELETE FROM career_sponsor_catalog;
 
