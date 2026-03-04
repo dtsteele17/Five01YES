@@ -140,7 +140,6 @@ DECLARE
   v_hi INT;
   v_ai INT;
   v_local_seed BIGINT;
-  v_hash BIGINT;
 BEGIN
   -- Skill ranges by tier
   v_skill_base := CASE p_tier
@@ -154,17 +153,12 @@ BEGIN
 
   FOR i IN 1..p_count LOOP
     v_local_seed := p_seed + (p_tier * 1000) + i;
-    -- Better hash distribution: multiply by large primes and XOR
-    v_hash := ((v_local_seed * 2654435761) # (v_local_seed * 40503)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
-    v_fi := (abs(v_hash) % array_length(v_first_names, 1)) + 1;
-    v_hash := ((v_local_seed * 1103515245 + 12345) # (v_local_seed * 16807)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
-    v_li := (abs(v_hash) % array_length(v_last_names, 1)) + 1;
-    v_hash := ((v_local_seed * 6364136223846793005 + 1442695040888963407) # (v_local_seed * 3)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
-    v_ni := (abs(v_hash) % array_length(v_nicknames, 1)) + 1;
-    v_hash := ((v_local_seed * 48271 + 11) # (v_local_seed * 23)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
-    v_hi := (abs(v_hash) % array_length(v_hometowns, 1)) + 1;
-    v_hash := ((v_local_seed * 69069 + 1) # (v_local_seed * 37)) & x'7FFFFFFFFFFFFFFF'::BIGINT;
-    v_ai := (abs(v_hash) % array_length(v_archetypes, 1)) + 1;
+    -- Use modular arithmetic to avoid bigint overflow; different offsets per field
+    v_fi := (abs((v_local_seed * 31 + 7) % 99991) % array_length(v_first_names, 1)) + 1;
+    v_li := (abs((v_local_seed * 97 + 13) % 99989) % array_length(v_last_names, 1)) + 1;
+    v_ni := (abs((v_local_seed * 53 + 29) % 99971) % array_length(v_nicknames, 1)) + 1;
+    v_hi := (abs((v_local_seed * 71 + 43) % 99961) % array_length(v_hometowns, 1)) + 1;
+    v_ai := (abs((v_local_seed * 41 + 59) % 99949) % array_length(v_archetypes, 1)) + 1;
 
     -- Skill: base ± 15 range
     v_skill := v_skill_base + ((v_local_seed % 30) - 15)::REAL;
