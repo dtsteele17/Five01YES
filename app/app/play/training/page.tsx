@@ -12,26 +12,7 @@ import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import {
-  Target,
-  Flame,
-  Crown,
-  TrendingUp,
-  Dices,
-  Clock,
-  BarChart3,
-  Zap,
-  ChevronRight,
-  Star,
-  ArrowLeft,
-  Activity,
-  Trophy,
-  Cpu,
-  Play,
-  Minus,
-  Plus,
-  X,
-} from 'lucide-react';
+import { Target, Flame, Crown, TrendingUp, Dices, Clock, ChartBar as BarChart3, Zap, ChevronRight, Star, ArrowLeft, Activity, Trophy, Cpu, Play, Minus, Plus, X } from 'lucide-react';
 
 // Animation variants
 const containerVariants: Variants = {
@@ -855,6 +836,7 @@ function TrainingProgressBar({ stats, loading }: { stats: TrainingStats; loading
 
 // Main Training Hub Page
 export default function TrainingHubPage() {
+  const router = useRouter();
   const router = useRouter();
   const { stats, loading: statsLoading, refresh } = useTrainingStats();
   const [showFinishModal, setShowFinishModal] = useState(false);
