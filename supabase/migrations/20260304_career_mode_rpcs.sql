@@ -77,22 +77,23 @@ DECLARE
   v_first_names TEXT[] := ARRAY[
     'Dave','Mike','Steve','Chris','Andy','Rob','Tom','Phil','Mark','James',
     'Gary','Paul','Kev','Dan','Lee','Terry','Wayne','Craig','Neil','Barry',
-    'Ian','Baz','Col','Stu','Mick','Nige','Pete','Ade','Carl','Gaz',
-    'Daz','Trev','Kev','Wal','Bob','Reg','Jim','Ted','Vic','Ken',
-    'Emma','Sarah','Lisa','Helen','Donna','Claire','Jess','Amy','Zoe','Kim'
+    'Ian','Baz','Josh','Stu','Mick','Nige','Pete','Ade','Carl','Gaz','Jack',
+    'Daz','Trev','Kev','Alex','Bob','Reg','Jim','Ted','Vic','Kyran','Michael',
+    'Gabe','Elliott','Jordan','Anson','Donna','Claire','Lisa','Amy','Zoe','Kim'
   ];
   v_last_names TEXT[] := ARRAY[
     'Smith','Jones','Taylor','Brown','Wilson','Evans','Thomas','Roberts','Johnson','Walker',
     'Wright','Thompson','White','Hall','Clarke','Jackson','Green','Harris','Wood','King',
-    'Baker','Turner','Hill','Scott','Moore','Cooper','Ward','Morris','Lee','Murphy',
-    'Price','Bennett','Gray','Cox','Mills','Palmer','Mason','Hunt','Holmes','Webb'
+    'Baker','Turner','Hill','Scott','Moore','Cooper','Ward','Wells','Lee','Murphy',
+    'Price','Bennett','Gray','Cox','Mills','Palmer','Mason','Hunt','Holmes','Webb','Steele',
+    'Maier','Noble','Van Ginkel','Wagner','Freidrich','Aarden','Peeters'
   ];
   v_nicknames TEXT[] := ARRAY[
     'The Hammer','Bullseye','Treble Top','The Machine','Steady Eddie','The Rocket',
     'Double Top','The Arrow','Lightning','The Sniper','Dartboard Dave','Old Reliable',
     'The Finisher','Triple Threat','The Assassin','Deadeye','The Silencer','Hot Shot',
-    'The Professor','Iceman','The Natural','The Viking','Powerhouse','The Wizard',
-    NULL, NULL, NULL, NULL, NULL, NULL  -- 40% chance of no nickname
+    'The Professor','Iceman','The Natural','The Viking','Powerhouse','The Wizard','The Dream','Skill Magill',
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL  -- 40% chance of no nickname
   ];
   v_hometowns TEXT[] := ARRAY[
     'Steelford','Oche Vale','Dartington','Bullswick','Tapleys Green',
