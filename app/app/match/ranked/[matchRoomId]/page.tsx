@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Target, Trophy, TrendingUp, Zap, RotateCcw, Home, Shield, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Target, Trophy, TrendingUp, Zap, RotateCcw, Chrome as Home, Shield, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { getCheckoutOptions } from '@/lib/match-logic';
 import { toast } from 'sonner';
 import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';

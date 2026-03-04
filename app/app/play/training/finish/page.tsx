@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp, Zap, Crosshair, CheckCircle2, Clock, Star } from 'lucide-react';
+import { Target, ArrowLeft, RefreshCw, Trophy, X, TrendingUp, Zap, Crosshair, CircleCheck as CheckCircle2, Clock, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { calculateCheckoutXP, CHECKOUT_XP_TIERS } from '@/lib/training/xpSystem';

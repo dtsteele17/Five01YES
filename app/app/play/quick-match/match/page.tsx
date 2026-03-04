@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Trophy, Home, LogOut, Wifi, WifiOff, UserPlus, Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
+import { Trophy, Chrome as Home, LogOut, Wifi, WifiOff, UserPlus, CreditCard as Edit2, Trash2, RotateCcw, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { mapRoomToMatchState, type MappedMatchState } from '@/lib/match/mapRoomToMatchState';

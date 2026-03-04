@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Trophy, LogOut } from 'lucide-react';
+import { Loader as Loader2, Trophy, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearStaleMatchState } from '@/lib/utils/stale-state-cleanup';
 import { clearMatchState } from '@/lib/utils/match-resume';
