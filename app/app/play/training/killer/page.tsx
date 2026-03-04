@@ -353,7 +353,6 @@ export default function KillerTrainingPage() {
         triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
       if (user) await trackStat(user.id, 'training_matches', 1);
     } catch (error) {
       console.error('Error saving training stats:', error);

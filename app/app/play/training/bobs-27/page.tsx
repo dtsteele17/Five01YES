@@ -142,7 +142,6 @@ export default function Bobs27Page() {
       }
 
       // Track training matches achievement
-      const { data: { user } } = await supabase.auth.getUser();
       if (user) await trackStat(user.id, 'training_matches', 1);
     } catch (error) {
       console.error('Failed to save game:', error);
