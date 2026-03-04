@@ -21,12 +21,16 @@ BEGIN
     RETURN json_build_object('error', 'Not authenticated');
   END IF;
 
-  -- Check for existing save in this slot
+  -- Check for existing active save in this slot
   SELECT id INTO v_existing FROM career_profiles
     WHERE user_id = v_user_id AND save_slot = p_save_slot AND status = 'active';
   IF v_existing IS NOT NULL THEN
     RETURN json_build_object('error', 'Save slot already in use. Abandon the existing career first.');
   END IF;
+
+  -- Delete any abandoned/completed careers in this slot to free the unique constraint
+  DELETE FROM career_profiles
+    WHERE user_id = v_user_id AND save_slot = p_save_slot AND status IN ('abandoned', 'completed');
 
   -- Generate deterministic seed
   v_seed := floor(random() * 9999999999)::BIGINT;
