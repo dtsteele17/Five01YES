@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
   Trophy, Target, Flame, Shield, Crown, Skull,
-  ChevronRight, ArrowLeft, Loader2, Sparkles, Swords,
+  ChevronRight, ArrowLeft, Loader2, Sparkles, Swords, Trash2,
 } from 'lucide-react';
 
 const DIFFICULTIES = [
@@ -98,6 +98,26 @@ export default function CareerStartPage() {
   const [creating, setCreating] = useState(false);
   const [loadingSaves, setLoadingSaves] = useState(true);
   const [step, setStep] = useState<'difficulty' | 'slot'>('difficulty');
+  const [deletingSlot, setDeletingSlot] = useState<string | null>(null); // career id being deleted
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // career id awaiting confirmation
+
+  const handleDeleteSave = async (careerId: string) => {
+    setDeletingSlot(careerId);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('rpc_abandon_career', { p_career_id: careerId });
+      if (error || data?.error) { toast.error('Failed to delete save'); return; }
+      toast.success('Save deleted');
+      setExistingSaves(prev => prev.filter(s => s.id !== careerId));
+      setConfirmDelete(null);
+      // Auto-select newly freed slot
+      const remaining = existingSaves.filter(s => s.id !== careerId);
+      const usedSlots = remaining.map((s: any) => s.save_slot);
+      const firstEmpty = SAVE_SLOTS.find(s => !usedSlots.includes(s));
+      if (firstEmpty) setSelectedSlot(firstEmpty);
+    } catch { toast.error('Failed to delete save'); }
+    finally { setDeletingSlot(null); }
+  };
 
   // Load existing saves on mount
   useState(() => {
@@ -292,7 +312,35 @@ export default function CareerStartPage() {
                         <Sparkles className="w-5 h-5 text-amber-400" />
                       )}
                       {isOccupied && (
-                        <span className="text-xs text-slate-500">Abandon in settings</span>
+                        confirmDelete === existing.id ? (
+                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-slate-400 hover:text-white text-xs h-7 px-2"
+                              onClick={() => setConfirmDelete(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-red-600 hover:bg-red-700 text-white text-xs h-7 px-3"
+                              disabled={deletingSlot === existing.id}
+                              onClick={() => handleDeleteSave(existing.id)}
+                            >
+                              {deletingSlot === existing.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Delete'}
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 h-7 px-2"
+                            onClick={(e) => { e.stopPropagation(); setConfirmDelete(existing.id); }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )
                       )}
                     </div>
                   </Card>
