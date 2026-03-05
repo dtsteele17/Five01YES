@@ -117,12 +117,18 @@ export default function CareerPage() {
     const supabase = createClient();
 
     if (careerId) {
-      const { data: homeData, error } = await supabase.rpc('rpc_get_career_home', { p_career_id: careerId });
+      const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end', { p_career_id: careerId });
       if (error || homeData?.error) {
         toast.error('Failed to load career');
         router.push('/app/career/start');
         return;
       }
+      // Check for season end state first
+      if (homeData.season_end?.active) {
+        router.push(`/app/career/season-end?careerId=${careerId}`);
+        return;
+      }
+      
       setData(homeData);
 
       // Check for sponsor offer (tier 3+)
