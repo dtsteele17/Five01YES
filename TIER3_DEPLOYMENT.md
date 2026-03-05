@@ -17,11 +17,11 @@ cp .env.example .env.local
 Run the migrations in your Supabase dashboard:
 ```sql
 -- Run these in order:
--- 1. Original tier 3 expansion (if not already run)
-\i supabase/migrations/20260305_career_tier3_expansion.sql
+-- 1. Safe tier 3 migration (handles existing data)
+\i supabase/migrations/20260305_career_tier3_safe_migration.sql
 
--- 2. Improved naming system
-\i supabase/migrations/20260305_career_tier3_improved_names.sql
+-- 2. Use existing naming system (recommended)
+\i supabase/migrations/20260305_tier3_use_existing_names.sql
 ```
 
 **OR** use Supabase CLI:
@@ -59,11 +59,12 @@ npm run start
   - New tier 2 season with refreshed opponents
   - Replaces 1st, 2nd, 7th, and 8th place finishers
 
-### **Realistic Opponent Names**
-- **Tier 2 (Pub Level):** Working-class names like "Bazza", "Mickey", "Tel" from areas like "Bethnal Green", "Peckham"
-- **Tier 3 (County Level):** More diverse names like "Adrian", "Malcolm", "Connor" from places like "Canterbury", "Winchester"
-- **Authentic nicknames:** "The Tungsten Terror", "County Champion", "Maximum Mike"
-- **Geographic accuracy:** Real British towns and areas appropriate to each tier
+### **Opponent Name System**
+- **Uses your existing `rpc_generate_career_opponents` function**
+- **Consistent with Tier 1 & 2 naming patterns**
+- **Deterministic seed-based generation** for consistent results
+- **Tier-appropriate skill levels:** Tier 3 = 50-70 average (vs Tier 2 = 40-60)
+- **Same comprehensive name pools:** 100+ first names, last names, nicknames, hometowns
 
 ## 🧪 Testing
 
