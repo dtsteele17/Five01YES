@@ -83,7 +83,7 @@ export default function CareerPage() {
   const [showKnockoutPopup, setShowKnockoutPopup] = useState(false);
   const [knockoutMessage, setKnockoutMessage] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [emails, setEmails] = useState<{ subject: string; body: string; type: string }[]>([]);
+  const [emails, setEmails] = useState<{ id: string; subject: string; body: string; type: string; isNew?: boolean }[]>([]);
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
@@ -114,45 +114,56 @@ export default function CareerPage() {
       }
 
       // Generate contextual emails based on career state and milestones
-      const careerEmails: { subject: string; body: string; type: string }[] = [];
+      const newEmails: { id: string; subject: string; body: string; type: string; isNew?: boolean }[] = [];
       const milestones = homeData.recent_milestones || [];
       const tier = homeData.career.tier;
       const day = homeData.career.day;
 
       // Check milestones for context
-      const hasPromotion = milestones.some((m: any) => m.milestone_type === 'promotion');
-      const tournamentWin = milestones.find((m: any) => m.milestone_type === 'tournament_win');
+      const hasPromotion = milestones.some((m: any) => m.milestone_type === 'promotion' || m.milestone_type === 'promotion_tier2');
+      const tournamentWin = milestones.find((m: any) => m.milestone_type === 'first_tournament_win' || m.milestone_type === 'tournament_win');
       const tournamentLoss = milestones.find((m: any) => m.milestone_type === 'tournament_loss' || m.title?.includes('Eliminated'));
-      // Extract tournament name from milestone description (e.g. "Won your first tournament: The Brass Anchor Open")
       const winTournamentName = tournamentWin?.description?.split(': ').slice(1).join(': ') || tournamentWin?.title || 'the tournament';
 
       if (tournamentWin) {
-        careerEmails.push({ subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That\'s a statement performance — keep this form up and bigger stages await.`, type: 'win' });
+        newEmails.push({ id: `win-${day}`, subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance — keep this form up and bigger stages await.`, type: 'win' });
       }
       if (hasPromotion) {
         const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Pro Tour', 5: 'Premier League' };
         const tierName = tierNames[tier] || `Tier ${tier}`;
-        careerEmails.push({ subject: `Welcome to the ${tierName}!`, body: `You\'ve earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
+        newEmails.push({ id: `promo-${tier}`, subject: `Welcome to the ${tierName}!`, body: `You've earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
       }
       if (tournamentLoss && tier === 1 && !hasPromotion) {
-        // Check what the next event is to tailor the message
         const nextType = homeData.next_event?.event_type;
         if (nextType === 'training') {
-          careerEmails.push({ subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in — we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
+          newEmails.push({ id: `regroup-${day}`, subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in — we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
         } else if (nextType === 'trial_tournament') {
-          careerEmails.push({ subject: 'Here\'s Another Shot! 🎯', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
+          newEmails.push({ id: `retry-${day}`, subject: 'Here\'s Another Shot! 🎯', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
         }
       }
       if (tier === 1 && day <= 1 && !tournamentLoss) {
-        careerEmails.push({ subject: 'Welcome, Rookie!', body: 'Good luck in your first tournament! Show them what you\'ve got. Win this and the pub leagues are calling.', type: 'welcome' });
+        newEmails.push({ id: 'welcome', subject: 'Welcome, Rookie!', body: 'Good luck in your first tournament! Show them what you\'ve got. Win this and the pub leagues are calling.', type: 'welcome' });
       }
       if (tier >= 2 && !hasPromotion && !tournamentWin) {
-        careerEmails.push({ subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
+        newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
-      if (careerEmails.length === 0) {
-        careerEmails.push({ subject: 'Keep Going!', body: 'Your journey continues. Every match is a chance to prove yourself.', type: 'default' });
+      if (newEmails.length === 0) {
+        newEmails.push({ id: `default-${day}`, subject: 'Keep Going!', body: 'Your journey continues. Every match is a chance to prove yourself.', type: 'default' });
       }
-      setEmails(careerEmails);
+
+      // Merge with stored emails from localStorage
+      const storageKey = `career_emails_${homeData.career.id}`;
+      const stored: typeof newEmails = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const deletedKey = `career_emails_deleted_${homeData.career.id}`;
+      const deletedIds: string[] = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+
+      // Add new emails that aren't already stored or deleted
+      const existingIds = new Set(stored.map(e => e.id));
+      const freshEmails = newEmails.filter(e => !existingIds.has(e.id) && !deletedIds.includes(e.id)).map(e => ({ ...e, isNew: true }));
+      // Mark existing stored emails as not new
+      const allEmails = [...freshEmails, ...stored.map(e => ({ ...e, isNew: false }))];
+      localStorage.setItem(storageKey, JSON.stringify(allEmails.map(e => ({ ...e, isNew: false }))));
+      setEmails(allEmails);
 
       // Show tournament choice if Tier 1, Day 1, first event is a trial
       if (homeData.career.tier === 1 && homeData.career.day === 1 && homeData.next_event?.event_type === 'trial_tournament') {
@@ -273,6 +284,29 @@ export default function CareerPage() {
       setWorldRankings(top21.map((s, i) => ({ rank: i + 1, name: s.name, rating: s.rating, archetype: s.archetype })));
     }
     setShowRankings(true);
+  }
+
+  function deleteEmail(emailId: string) {
+    if (!data?.career?.id) return;
+    const storageKey = `career_emails_${data.career.id}`;
+    const deletedKey = `career_emails_deleted_${data.career.id}`;
+    const updated = emails.filter(e => e.id !== emailId);
+    const deletedIds: string[] = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+    deletedIds.push(emailId);
+    localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    localStorage.setItem(storageKey, JSON.stringify(updated.map(e => ({ ...e, isNew: false }))));
+    setEmails(updated);
+  }
+
+  function deleteAllEmails() {
+    if (!data?.career?.id) return;
+    const storageKey = `career_emails_${data.career.id}`;
+    const deletedKey = `career_emails_deleted_${data.career.id}`;
+    const deletedIds: string[] = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+    emails.forEach(e => deletedIds.push(e.id));
+    localStorage.setItem(deletedKey, JSON.stringify(deletedIds));
+    localStorage.setItem(storageKey, '[]');
+    setEmails([]);
   }
 
   function handleChooseTournament(id: string) {
@@ -773,26 +807,43 @@ export default function CareerPage() {
             {/* Emails Tile */}
             {emails.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-                <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <Card className={`border-0 backdrop-blur-sm shadow-lg ${
+                  emails.some(e => e.isNew) 
+                    ? 'bg-cyan-500/10 ring-2 ring-cyan-400/40 shadow-cyan-500/10' 
+                    : 'bg-slate-800/40 ring-1 ring-white/[0.06]'
+                }`}>
                   <div className="p-5">
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-6 h-6 rounded-md bg-cyan-500/15 flex items-center justify-center">
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center ${emails.some(e => e.isNew) ? 'bg-cyan-500/30 animate-pulse' : 'bg-cyan-500/15'}`}>
                         <Mail className="w-3.5 h-3.5 text-cyan-400" />
                       </div>
                       <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Emails</span>
+                      {emails.some(e => e.isNew) && <Badge className="bg-cyan-400 text-slate-900 text-[10px] font-black px-1.5">NEW</Badge>}
                       <Badge className="bg-cyan-500/10 text-cyan-400 text-[10px] border border-cyan-500/20 ml-auto">{emails.length}</Badge>
                     </div>
-                    <div className="space-y-3">
-                      {emails.slice(0, 3).map((email, i) => (
-                        <div key={i} className="p-3 rounded-xl bg-gradient-to-r from-cyan-500/5 to-transparent border border-cyan-500/10">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                            <span className="text-white text-sm font-semibold">{email.subject}</span>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {emails.map((email) => (
+                        <div key={email.id} className={`p-3 rounded-xl border group relative ${
+                          email.isNew 
+                            ? 'bg-gradient-to-r from-cyan-500/15 to-cyan-500/5 border-cyan-400/30' 
+                            : 'bg-gradient-to-r from-cyan-500/5 to-transparent border-cyan-500/10'
+                        }`}>
+                          <div className="flex items-start gap-2 mb-1">
+                            <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${email.isNew ? 'bg-cyan-400 animate-pulse' : 'bg-cyan-400/50'}`} />
+                            <span className={`text-sm font-semibold flex-1 ${email.isNew ? 'text-cyan-50' : 'text-white'}`}>{email.subject}</span>
+                            <button onClick={() => deleteEmail(email.id)} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-opacity shrink-0 p-0.5">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                           <p className="text-slate-400 text-xs pl-3.5">{email.body}</p>
                         </div>
                       ))}
                     </div>
+                    {emails.length > 1 && (
+                      <button onClick={deleteAllEmails} className="mt-3 text-[10px] text-slate-500 hover:text-red-400 transition-colors uppercase tracking-wider font-semibold">
+                        Clear All Emails
+                      </button>
+                    )}
                   </div>
                 </Card>
               </motion.div>
