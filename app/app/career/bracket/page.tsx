@@ -10,6 +10,11 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTraining } from '@/lib/context/TrainingContext';
 import {
+  CAREER_TRAINING_AUTO_PROMOTE_KEY,
+  CAREER_TRAINING_RETURN_KEY,
+  getRandomCareerTrainingRoute,
+} from '@/lib/career/trainingRoutes';
+import {
   Trophy, Swords, ArrowLeft, Loader2, Play, Crown, ChevronRight,
   Shield, Star, Zap, Check, X,
 } from 'lucide-react';
@@ -36,10 +41,12 @@ export default function CareerBracketPage() {
   const [bracketId, setBracketId] = useState<string | null>(null);
   const [eventName, setEventName] = useState('');
   const [eventType, setEventType] = useState('');
+  const [eventSequence, setEventSequence] = useState<number | null>(null);
   const [formatLegs, setFormatLegs] = useState(3);
   const [playingMatch, setPlayingMatch] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [tournamentResult, setTournamentResult] = useState<any>(null);
+  const [routingToTraining, setRoutingToTraining] = useState(false);
 
   useEffect(() => {
     if (careerId && eventId) initBracket();
@@ -61,13 +68,14 @@ export default function CareerBracketPage() {
     // Get event info
     const { data: eventInfo } = await supabase
       .from('career_events')
-      .select('event_name, event_type, format_legs, bracket_size, status')
+      .select('event_name, event_type, format_legs, bracket_size, status, sequence_no')
       .eq('id', eventId)
       .single();
 
     if (eventInfo) {
       setEventName(eventInfo.event_name || '');
       setEventType(eventInfo.event_type || '');
+      setEventSequence(eventInfo.sequence_no ?? null);
       setFormatLegs(eventInfo.format_legs || 3);
     }
 
@@ -190,6 +198,49 @@ export default function CareerBracketPage() {
     }
   }
 
+  const isSecondStarterMissedSemi =
+    bracket?.completed &&
+    eventType === 'trial_tournament' &&
+    eventSequence === 2 &&
+    tournamentResult &&
+    !tournamentResult.playerWon &&
+    tournamentResult.placement !== 'Semi-Finalist' &&
+    tournamentResult.placement !== 'Runner-Up';
+
+  async function routeToFallbackTrainingIfNeeded() {
+    if (!careerId || !isSecondStarterMissedSemi || routingToTraining) {
+      return false;
+    }
+
+    setRoutingToTraining(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('rpc_career_play_next_event', { p_career_id: careerId });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (!(data?.skipped && data?.event_type === 'training')) {
+        throw new Error('No pending training event found.');
+      }
+
+      sessionStorage.setItem(CAREER_TRAINING_RETURN_KEY, careerId);
+      sessionStorage.setItem(CAREER_TRAINING_AUTO_PROMOTE_KEY, '1');
+      router.push(getRandomCareerTrainingRoute());
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start training');
+      return false;
+    } finally {
+      setRoutingToTraining(false);
+    }
+  }
+
+  async function handleBackToCareer() {
+    const startedTraining = await routeToFallbackTrainingIfNeeded();
+    if (!startedTraining) {
+      router.push(`/app/career?id=${careerId}`);
+    }
+  }
+
   function handlePlayMatch() {
     if (!bracket || !careerId || !eventId || !bracketId) return;
     const opponent = getPlayerOpponent(bracket);
@@ -235,7 +286,7 @@ export default function CareerBracketPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/app/career?id=${careerId}`)} className="text-slate-400 hover:text-white px-2">
+            <Button variant="ghost" size="sm" onClick={() => void handleBackToCareer()} className="text-slate-400 hover:text-white px-2" disabled={routingToTraining}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <Trophy className="w-5 h-5 text-purple-400" />
@@ -414,7 +465,8 @@ export default function CareerBracketPage() {
                   </div>
                 )}
                 <Button className="w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold"
-                  onClick={() => router.push(`/app/career?id=${careerId}`)}>
+                  onClick={() => void handleBackToCareer()}
+                  disabled={routingToTraining}>
                   Continue
                 </Button>
               </motion.div>

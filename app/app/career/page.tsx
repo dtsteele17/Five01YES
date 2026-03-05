@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight, ArrowLeft, Loader as Loader2, Star, TrendingUp, Calendar, Dumbbell, Award, Zap, Users, ChartBar as BarChart3, Sparkles, Clock, Settings, Save, Bell, Table2, ChevronDown, X, Trash2, Mail } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
+import { CAREER_TRAINING_RETURN_KEY, getRandomCareerTrainingRoute } from '@/lib/career/trainingRoutes';
 
 const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; accent: string }> = {
   1: { name: 'Local Circuit Trials', icon: Target, color: 'emerald', accent: 'emerald-500' },
@@ -88,6 +89,29 @@ export default function CareerPage() {
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
+  async function checkSponsorOffer() {
+    if (!careerId) return;
+    
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('rpc_career_check_sponsor_offer', {
+        p_career_id: careerId
+      });
+      
+      if (error) throw error;
+      
+      if (data?.sponsor_offer) {
+        // Redirect to sponsor offer page
+        router.push(`/app/career/sponsor-offer?careerId=${careerId}`);
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to check sponsor offer:', err);
+    }
+    
+    return false;
+  }
+
   async function loadCareer() {
     setLoading(true);
     const supabase = createClient();
@@ -100,6 +124,12 @@ export default function CareerPage() {
         return;
       }
       setData(homeData);
+
+      // Check for sponsor offer (tier 3+)
+      if (homeData.career.tier >= 3) {
+        const hasSponsorOffer = await checkSponsorOffer();
+        if (hasSponsorOffer) return; // Redirected to sponsor offer page
+      }
 
       // Load active bracket data if current event is an active tournament
       if (homeData.next_event?.bracket_size) {
@@ -336,6 +366,12 @@ export default function CareerPage() {
     setPlayingEvent(true);
     try {
       const { next_event } = data;
+      // Tournament choice - let user pick between tournaments or decline
+      if (next_event.event_type === 'tournament_choice') {
+        router.push(`/app/career/tournament-choice?careerId=${careerId}&eventId=${next_event.id}`);
+        return;
+      }
+
       const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals'];
       if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
         router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
@@ -344,14 +380,12 @@ export default function CareerPage() {
 
       // Training event → pick a random training mode and route there
       if (next_event.event_type === 'training') {
-        const trainingModes = ['121', 'atc', 'bobs27', 'finish', 'jdc', 'killer', 'pdc'];
-        const randomMode = trainingModes[Math.floor(Math.random() * trainingModes.length)];
         // Mark training event as completed
         const supabase = createClient();
         await supabase.rpc('rpc_career_play_next_event', { p_career_id: careerId });
         // Store career context so training end screen shows "Return to Career"
-        sessionStorage.setItem('career_training_return', careerId);
-        router.push(`/app/play/training/${randomMode}`);
+        sessionStorage.setItem(CAREER_TRAINING_RETURN_KEY, careerId);
+        router.push(getRandomCareerTrainingRoute());
         return;
       }
 

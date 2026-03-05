@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Target, Flame, Crown, TrendingUp, Dices, Clock, ChartBar as BarChart3, Zap, ChevronRight, Star, ArrowLeft, Activity, Trophy, Cpu, Play, Minus, Plus, X } from 'lucide-react';
+import { CAREER_TRAINING_AUTO_PROMOTE_KEY, CAREER_TRAINING_RETURN_KEY } from '@/lib/career/trainingRoutes';
 
 // Animation variants
 const containerVariants: Variants = {
@@ -845,12 +846,38 @@ export default function TrainingHubPage() {
 
   // Career mode training return — redirect back to career home
   useEffect(() => {
-    const careerReturn = sessionStorage.getItem('career_training_return');
-    if (careerReturn) {
-      sessionStorage.removeItem('career_training_return');
-      router.push(`/app/career?id=${careerReturn}`);
-      return;
-    }
+    let isMounted = true;
+
+    const handleCareerTrainingReturn = async () => {
+      const careerReturn = sessionStorage.getItem(CAREER_TRAINING_RETURN_KEY);
+      if (!careerReturn) return;
+
+      sessionStorage.removeItem(CAREER_TRAINING_RETURN_KEY);
+
+      const shouldAutoPromote = sessionStorage.getItem(CAREER_TRAINING_AUTO_PROMOTE_KEY) === '1';
+      if (shouldAutoPromote) {
+        sessionStorage.removeItem(CAREER_TRAINING_AUTO_PROMOTE_KEY);
+        try {
+          const supabase = createClient();
+          const { data, error } = await supabase.rpc('rpc_career_play_next_event', { p_career_id: careerReturn });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+          if (data?.skipped && data?.event_type === 'promotion' && data?.promoted) {
+            toast.success('Welcome to the Pub Leagues!');
+          }
+        } catch (err) {
+          console.error('[Training Hub] Failed to auto-promote career:', err);
+          toast.error('Could not finalize promotion. Open Career and continue manually.');
+        }
+      }
+
+      if (isMounted) {
+        router.push(`/app/career?id=${careerReturn}`);
+      }
+    };
+
+    void handleCareerTrainingReturn();
+    return () => { isMounted = false; };
   }, [router]);
 
   // Single refresh on mount
