@@ -271,12 +271,22 @@ export default function CareerPage() {
       const careerDay = data.career.day || 1;
       const simulated = pool.map(p => {
         // Each player's form fluctuates differently per day — some gain, some drop
-        const dayHash = hash(p.id * 1777 + careerDay * 311);
-        const dayHash2 = hash(p.id * 2341 + (careerDay - 1) * 311); // previous day for continuity
-        // Change points by -30 to +30 based on "recent results", but only some players change each day
-        const changesThisDay = (dayHash % 5) < 2; // ~40% of players shift on any given day
-        const delta = changesThisDay ? ((dayHash % 61) - 30) : ((dayHash2 % 21) - 10); // smaller drift if not active
-        return { ...p, rating: Math.max(700, p.baseRating + delta) };
+        // Accumulate small rating changes over career days for natural drift
+        // Each player gets a small shift per day that accumulates
+        let ratingShift = 0;
+        for (let d = 1; d <= Math.min(careerDay, 50); d++) {
+          const dh = hash(p.id * 1777 + d * 311);
+          const changes = (dh % 7) < 2; // ~30% chance of change per day
+          if (changes) {
+            // Top players (low id) shift less: -2 to +2; lower players: -4 to +4
+            const maxShift = p.id < 10 ? 2 : 4;
+            const shift = (dh % (maxShift * 2 + 1)) - maxShift;
+            ratingShift += shift;
+          }
+        }
+        // Clamp accumulated shift so rankings don't go crazy
+        ratingShift = Math.max(-15, Math.min(15, ratingShift));
+        return { ...p, rating: Math.max(750, p.baseRating + ratingShift) };
       });
       // Sort by current rating, take top 21
       simulated.sort((a, b) => b.rating - a.rating);
@@ -448,7 +458,12 @@ export default function CareerPage() {
   const tierCfg = TIER_CONFIG[career.tier] || TIER_CONFIG[1];
   const diffInfo = DIFFICULTY_LABELS[career.difficulty] || { label: career.difficulty, color: 'text-white' };
   const chosenName = chosenTournament ? TRIAL_TOURNAMENTS.find(t => t.id === chosenTournament)?.name : null;
-  const displayEventName = (career.tier === 1 && chosenName) ? chosenName : next_event?.event_name;
+  // For league events, show correct matchday based on player's games played
+  const playerStanding = standings?.find((s: any) => s.is_player);
+  const leagueMatchday = playerStanding ? (playerStanding.played || 0) + 1 : 1;
+  const displayEventName = (career.tier === 1 && chosenName) ? chosenName
+    : next_event?.event_type === 'league' ? `Weekend League Night — Matchday ${leagueMatchday}`
+    : next_event?.event_name;
   const displayDay = next_event?.day || career.day;
 
   // Generate bracket preview slots for visualization
@@ -681,19 +696,21 @@ export default function CareerPage() {
                       <div className="flex items-center text-[10px] text-slate-500 font-bold px-2 pb-2 border-b border-white/5">
                         <span className="w-5">#</span>
                         <span className="flex-1">Name</span>
-                        <span className="w-8 text-center">P</span>
-                        <span className="w-8 text-center">W</span>
-                        <span className="w-8 text-center">L</span>
-                        <span className="w-10 text-center">Pts</span>
+                        <span className="w-7 text-center">P</span>
+                        <span className="w-7 text-center">W</span>
+                        <span className="w-7 text-center">L</span>
+                        <span className="w-8 text-center">LD</span>
+                        <span className="w-9 text-center">Pts</span>
                       </div>
-                      {standings.slice(0, 12).map((row: any, i: number) => (
+                      {[...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).slice(0, 12).map((row: any, i: number) => (
                         <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
                           <span className={`w-5 font-bold ${i < 2 ? 'text-emerald-400' : i >= standings.length - 2 ? 'text-red-400' : 'text-slate-500'}`}>{i + 1}</span>
                           <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
-                          <span className="w-8 text-center text-slate-500">{row.played}</span>
-                          <span className="w-8 text-center text-slate-500">{row.won || 0}</span>
-                          <span className="w-8 text-center text-slate-500">{row.lost || 0}</span>
-                          <span className={`w-10 text-center font-bold ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.points}</span>
+                          <span className="w-7 text-center text-slate-500">{row.played}</span>
+                          <span className="w-7 text-center text-slate-500">{row.won || 0}</span>
+                          <span className="w-7 text-center text-slate-500">{row.lost || 0}</span>
+                          <span className={`w-8 text-center text-xs ${(row.legs_diff ?? 0) > 0 ? 'text-emerald-400' : (row.legs_diff ?? 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>{(row.legs_diff ?? 0) > 0 ? '+' : ''}{row.legs_diff ?? 0}</span>
+                          <span className={`w-9 text-center font-bold ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.points}</span>
                         </div>
                       ))}
                       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-500">

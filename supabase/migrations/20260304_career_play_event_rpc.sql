@@ -231,17 +231,17 @@ BEGIN
     played_at = now()
   WHERE id = p_match_id;
 
-  -- Calculate REP
-  -- Base REP by event type
+  -- Calculate REP (think of it as "fans" — tiny at pub level, bigger at pro/premier)
+  -- Base REP by event type (raw values, tier multiplier applied later)
   v_base_rep := CASE v_event.event_type
-    WHEN 'league' THEN CASE WHEN p_won THEN 100 ELSE 25 END
-    WHEN 'open' THEN CASE WHEN p_won THEN 150 ELSE 40 END
-    WHEN 'qualifier' THEN CASE WHEN p_won THEN 200 ELSE 50 END
-    WHEN 'trial_tournament' THEN CASE WHEN p_won THEN 80 ELSE 20 END
-    WHEN 'major' THEN CASE WHEN p_won THEN 300 ELSE 75 END
-    WHEN 'season_finals' THEN CASE WHEN p_won THEN 500 ELSE 100 END
-    WHEN 'promotion' THEN CASE WHEN p_won THEN 250 ELSE 50 END
-    ELSE CASE WHEN p_won THEN 100 ELSE 25 END
+    WHEN 'league' THEN CASE WHEN p_won THEN 5 ELSE 1 END
+    WHEN 'open' THEN CASE WHEN p_won THEN 8 ELSE 2 END
+    WHEN 'qualifier' THEN CASE WHEN p_won THEN 10 ELSE 3 END
+    WHEN 'trial_tournament' THEN CASE WHEN p_won THEN 3 ELSE 1 END
+    WHEN 'major' THEN CASE WHEN p_won THEN 15 ELSE 4 END
+    WHEN 'season_finals' THEN CASE WHEN p_won THEN 25 ELSE 5 END
+    WHEN 'promotion' THEN CASE WHEN p_won THEN 10 ELSE 2 END
+    ELSE CASE WHEN p_won THEN 5 ELSE 1 END
   END;
 
   -- Difficulty bonus multiplier
@@ -267,13 +267,13 @@ BEGIN
 
   -- Milestone bonuses (also scaled by tier)
   IF p_player_180s > 0 THEN
-    v_milestone_bonus := v_milestone_bonus + ROUND(p_player_180s * 50 * v_tier_mult);
+    v_milestone_bonus := v_milestone_bonus + ROUND(p_player_180s * 2 * v_tier_mult);
   END IF;
   IF p_player_highest_checkout IS NOT NULL AND p_player_highest_checkout >= 100 THEN
-    v_milestone_bonus := v_milestone_bonus + ROUND(75 * v_tier_mult);
+    v_milestone_bonus := v_milestone_bonus + ROUND(3 * v_tier_mult);
   END IF;
   IF p_player_average IS NOT NULL AND p_player_average >= 80 THEN
-    v_milestone_bonus := v_milestone_bonus + ROUND(100 * v_tier_mult);
+    v_milestone_bonus := v_milestone_bonus + ROUND(5 * v_tier_mult);
   END IF;
 
   -- Total REP (tier_mult already applied to milestone_bonus above)

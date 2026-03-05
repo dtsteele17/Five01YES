@@ -252,34 +252,35 @@ BEGIN
   END IF;
 
   -- Base REP by placement + event type
+  -- REP as "fans" — winning a pub tournament might get you 20-30 new fans
   v_base_rep := CASE
     WHEN p_player_won_tournament THEN
       CASE v_event.event_type
-        WHEN 'trial_tournament' THEN 200
-        WHEN 'open' THEN 400
-        WHEN 'qualifier' THEN 500
-        WHEN 'major' THEN 1000
-        WHEN 'season_finals' THEN 1500
-        ELSE 300
+        WHEN 'trial_tournament' THEN 10
+        WHEN 'open' THEN 25
+        WHEN 'qualifier' THEN 30
+        WHEN 'major' THEN 60
+        WHEN 'season_finals' THEN 100
+        ELSE 20
       END
     WHEN v_placement = 'Runner-Up' THEN
       CASE v_event.event_type
-        WHEN 'trial_tournament' THEN 100
-        WHEN 'open' THEN 200
-        WHEN 'qualifier' THEN 250
-        WHEN 'major' THEN 500
-        WHEN 'season_finals' THEN 750
-        ELSE 150
+        WHEN 'trial_tournament' THEN 5
+        WHEN 'open' THEN 12
+        WHEN 'qualifier' THEN 15
+        WHEN 'major' THEN 30
+        WHEN 'season_finals' THEN 50
+        ELSE 8
       END
     WHEN v_placement = 'Semi-Finalist' THEN
       CASE v_event.event_type
-        WHEN 'trial_tournament' THEN 50
-        WHEN 'open' THEN 100
-        WHEN 'qualifier' THEN 125
-        WHEN 'major' THEN 250
-        ELSE 75
+        WHEN 'trial_tournament' THEN 3
+        WHEN 'open' THEN 6
+        WHEN 'qualifier' THEN 8
+        WHEN 'major' THEN 15
+        ELSE 4
       END
-    ELSE 25
+    ELSE 1
   END;
 
   -- Difficulty bonus
