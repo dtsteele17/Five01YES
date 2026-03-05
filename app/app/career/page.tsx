@@ -13,12 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import {
-  Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight,
-  ArrowLeft, Loader2, Star, TrendingUp, Calendar, Dumbbell,
-  Award, Zap, Users, BarChart3, Sparkles, Clock, Settings, Save,
-  Bell, Table2, ChevronDown, X, Trash2, Mail,
-} from 'lucide-react';
+import { Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight, ArrowLeft, Loader as Loader2, Star, TrendingUp, Calendar, Dumbbell, Award, Zap, Users, ChartBar as BarChart3, Sparkles, Clock, Settings, Save, Bell, Table2, ChevronDown, X, Trash2, Mail } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
 
 const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; accent: string }> = {
