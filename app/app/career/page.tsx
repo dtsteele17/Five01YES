@@ -52,6 +52,7 @@ interface CareerHome {
   standings: any[] | null;
   sponsors: any[] | null;
   recent_milestones: any[] | null;
+  awards?: any[] | null;
 }
 
 export default function CareerPage() {
