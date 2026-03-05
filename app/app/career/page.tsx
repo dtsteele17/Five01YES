@@ -134,10 +134,16 @@ export default function CareerPage() {
         const tierName = tierNames[tier] || `Tier ${tier}`;
         careerEmails.push({ subject: `Welcome to the ${tierName}!`, body: `You\'ve earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
       }
-      if (tournamentLoss && tier === 1 && day > 1 && day < 5) {
-        careerEmails.push({ subject: 'Another Chance', body: 'We\'ve entered you into another tournament. Get to the semi-final and I think we have a shot at the pub leagues!', type: 'knockout' });
+      if (tournamentLoss && tier === 1 && !hasPromotion) {
+        // Check what the next event is to tailor the message
+        const nextType = homeData.next_event?.event_type;
+        if (nextType === 'training') {
+          careerEmails.push({ subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in — we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
+        } else if (nextType === 'trial_tournament') {
+          careerEmails.push({ subject: 'Here\'s Another Shot! 🎯', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
+        }
       }
-      if (tier === 1 && day === 1) {
+      if (tier === 1 && day <= 1 && !tournamentLoss) {
         careerEmails.push({ subject: 'Welcome, Rookie!', body: 'Good luck in your first tournament! Show them what you\'ve got. Win this and the pub leagues are calling.', type: 'welcome' });
       }
       if (tier >= 2 && !hasPromotion && !tournamentWin) {
@@ -303,7 +309,15 @@ export default function CareerPage() {
       const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event', { p_career_id: careerId });
       if (error) throw error;
       if (matchData?.error) throw new Error(matchData.error);
-      if (matchData?.skipped) { toast.info(matchData.message); loadCareer(); return; }
+      if (matchData?.skipped) {
+        if (matchData.promoted) {
+          toast.success(`🎉 ${matchData.message}`, { duration: 5000 });
+        } else {
+          toast.info(matchData.message);
+        }
+        loadCareer();
+        return;
+      }
 
       const avg = matchData.bot_average || 50;
       const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'

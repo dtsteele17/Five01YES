@@ -359,8 +359,18 @@ BEGIN
       v_is_retry BOOLEAN;
       v_should_promote BOOLEAN := FALSE;
       v_promo_message TEXT := '';
+      v_next_seq INT;
     BEGIN
       v_event_seq := v_event.sequence_no;
+      v_next_seq := v_event_seq + 1;
+
+      -- Add loss milestone if didn't win (for email generation)
+      IF NOT p_player_won_tournament AND NOT v_reached_final THEN
+        INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+        VALUES (p_career_id, 'tournament_loss', 'Eliminated: ' || v_event.event_name,
+          'Knocked out in ' || v_placement || ' of ' || v_event.event_name,
+          v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day));
+      END IF;
       v_is_retry := (v_event_seq >= 2);
 
       IF v_event_seq = 1 THEN
@@ -377,16 +387,29 @@ BEGIN
         ELSIF v_reached_semi THEN
           v_should_promote := TRUE;
           v_promo_message := 'Well… got to start somewhere.';
+        ELSE
+          -- Didn't reach semi — insert training event, then promotion event after
+          -- Mark remaining trial tournaments as skipped
+          UPDATE career_events SET status = 'skipped'
+          WHERE career_id = p_career_id AND sequence_no > v_event_seq AND status = 'pending';
+          -- Training event
+          INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, day, status)
+          VALUES (p_career_id, v_career.season, 90, 'training', 'Extra Practice Session', 3,
+            COALESCE(v_event.day, v_career.day) + 2, 'pending');
+          -- Auto-promotion event (will be picked up by rpc_career_play_next_event)
+          INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, day, status)
+          VALUES (p_career_id, v_career.season, 91, 'promotion', 'Time for the Pub Leagues', 3,
+            COALESCE(v_event.day, v_career.day) + 3, 'pending');
         END IF;
-      ELSIF v_event_seq = 3 THEN
-        -- Third and final tournament: promote regardless (last chance)
+      ELSIF v_event_seq = 3 OR v_event.event_type = 'training' THEN
+        -- Third tournament or post-training: promote regardless
         v_should_promote := TRUE;
         IF v_reached_final THEN
           v_promo_message := 'Proved myself. Time for the pub leagues.';
         ELSIF v_reached_semi THEN
           v_promo_message := 'Close enough. Let''s see what the pub leagues are about.';
         ELSE
-          v_promo_message := 'It''s time to move on. The pub leagues await.';
+          v_promo_message := 'You''ve worked hard away from the tournaments. Time for the pub leagues.';
         END IF;
       END IF;
 
@@ -396,22 +419,23 @@ BEGIN
           tier = 2,
           season = 1,
           week = 1,
-          day = 0,
+          day = COALESCE(v_event.day, v_career.day) + 3, -- few days rest before league starts
           updated_at = now()
         WHERE id = p_career_id;
 
-        -- Seed Tier 2 events with day assignments
-        -- Each event gets a day based on sequence. Leagues ~7 days apart, tournaments/opens midweek.
-        INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
-        SELECT p_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
-          -- Realistic spacing: each sequence ~5-7 days, tournaments offset by 3
-          CASE
-            WHEN t.event_type IN ('open','qualifier','major','season_finals') THEN t.sequence_no * 6 - 2
-            ELSE t.sequence_no * 6 + 1
-          END
-        FROM career_schedule_templates t
-        WHERE t.tier = 2
-        ORDER BY t.sequence_no;
+        -- Seed Tier 2 events with day assignments (relative to current career day)
+        DECLARE v_start_day SMALLINT := COALESCE(v_event.day, v_career.day) + 3;
+        BEGIN
+          INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
+          SELECT p_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+            v_start_day + CASE
+              WHEN t.event_type IN ('open','qualifier','major','season_finals') THEN t.sequence_no * 6 - 2
+              ELSE t.sequence_no * 6 + 1
+            END
+          FROM career_schedule_templates t
+          WHERE t.tier = 2
+          ORDER BY t.sequence_no;
+        END;
 
         -- Generate Tier 2 opponents
         PERFORM rpc_generate_career_opponents(p_career_id, 2::SMALLINT, 15, v_career.career_seed + 200);

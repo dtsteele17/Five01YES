@@ -50,6 +50,39 @@ BEGIN
     RETURN json_build_object('skipped', TRUE, 'event_type', 'training', 'message', 'Training session complete.');
   END IF;
 
+  -- Promotion events — auto-promote to next tier
+  IF v_event.event_type = 'promotion' AND v_career.tier = 1 THEN
+    UPDATE career_events SET status = 'completed', completed_at = now() WHERE id = v_event.id;
+    -- Promote to Tier 2
+    DECLARE
+      v_promo_day SMALLINT := COALESCE(v_event.day, v_career.day) + 3;
+    BEGIN
+      UPDATE career_profiles SET tier = 2, season = 1, week = 1, day = v_promo_day, updated_at = now()
+      WHERE id = p_career_id;
+      -- Seed Tier 2 events
+      INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
+      SELECT p_career_id, t.id, 1, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+        v_promo_day + CASE
+          WHEN t.event_type IN ('open','qualifier','major','season_finals') THEN t.sequence_no * 6 - 2
+          ELSE t.sequence_no * 6 + 1
+        END
+      FROM career_schedule_templates t WHERE t.tier = 2 ORDER BY t.sequence_no;
+      -- Generate opponents
+      PERFORM rpc_generate_career_opponents(p_career_id, 2::SMALLINT, 15, v_career.career_seed + 200);
+      -- Seed standings
+      INSERT INTO career_league_standings (career_id, season, tier, is_player) VALUES (p_career_id, 1, 2, TRUE);
+      INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
+      SELECT p_career_id, 1, 2, id, FALSE FROM career_opponents
+      WHERE career_id = p_career_id AND tier = 2 AND is_rival = FALSE ORDER BY random() LIMIT 7;
+      -- Milestone
+      INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+      VALUES (p_career_id, 'promotion_tier2', 'You''ve worked hard away from the tournaments. Time for the pub leagues.',
+        'Promoted to Pub Leagues!', 2, 1, 1, v_promo_day);
+    END;
+    RETURN json_build_object('skipped', TRUE, 'event_type', 'promotion', 'promoted', TRUE, 'new_tier', 2,
+      'message', 'You''ve been promoted to the Pub Leagues!');
+  END IF;
+
   -- Difficulty multiplier for bot average
   v_difficulty_mult := CASE v_career.difficulty
     WHEN 'rookie' THEN 0.7
