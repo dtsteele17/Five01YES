@@ -449,6 +449,7 @@ export default function CareerPage() {
   const diffInfo = DIFFICULTY_LABELS[career.difficulty] || { label: career.difficulty, color: 'text-white' };
   const chosenName = chosenTournament ? TRIAL_TOURNAMENTS.find(t => t.id === chosenTournament)?.name : null;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName : next_event?.event_name;
+  const displayDay = next_event?.day || career.day;
 
   // Generate bracket preview slots for visualization
   const bracketSize = next_event?.bracket_size || 0;
@@ -474,10 +475,10 @@ export default function CareerPage() {
                   <span className={`text-xs font-semibold ${diffInfo.color}`}>{diffInfo.label}</span>
                   <span className="text-slate-600 text-xs">•</span>
                   <span className="text-slate-400 text-xs">
-                    {career.tier === 1 ? `Day ${career.day}` : `S${career.season} W${career.week}`}
+                    {career.tier === 1 ? `Day ${displayDay}` : `S${career.season} W${career.week}`}
                   </span>
                   <span className="text-slate-600 text-xs">•</span>
-                  <span className="text-slate-500 text-xs">Day {career.day}</span>
+                  <span className="text-slate-500 text-xs">Day {displayDay}</span>
                 </div>
               </div>
             </div>
