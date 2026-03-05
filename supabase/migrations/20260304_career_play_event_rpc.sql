@@ -397,6 +397,108 @@ BEGIN
         v_idx := v_idx + 2;
       END LOOP;
     END ai_sim;
+
+    -- Check if season is complete (player played all 7 opponents)
+    <<season_check>>
+    DECLARE
+      v_player_played SMALLINT;
+      v_player_rank SMALLINT;
+      v_season_complete BOOLEAN := FALSE;
+      v_promoted BOOLEAN := FALSE;
+      v_total_opponents SMALLINT;
+    BEGIN
+      SELECT played INTO v_player_played FROM career_league_standings
+      WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE;
+
+      SELECT COUNT(*)::SMALLINT INTO v_total_opponents FROM career_league_standings
+      WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = FALSE;
+
+      IF v_player_played >= v_total_opponents THEN
+        v_season_complete := TRUE;
+
+        -- Simulate remaining AI matches so all have equal games played
+        -- (fill up any AI that hasn't played enough)
+        UPDATE career_league_standings SET
+          played = v_total_opponents,
+          won = LEAST(won, v_total_opponents),
+          lost = v_total_opponents - LEAST(won, v_total_opponents)
+        WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier
+          AND is_player = FALSE AND played < v_total_opponents;
+
+        -- Determine player's final rank
+        SELECT COUNT(*)::SMALLINT + 1 INTO v_player_rank FROM career_league_standings
+        WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier
+          AND is_player = FALSE
+          AND (points > (SELECT points FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE)
+            OR (points = (SELECT points FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE)
+              AND (legs_for - legs_against) > (SELECT legs_for - legs_against FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE)));
+
+        IF v_player_rank <= 2 THEN
+          v_promoted := TRUE;
+          -- Season win milestone
+          INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+          VALUES (p_career_id, 'league_win', 'League Champion — Season ' || v_career.season,
+            CASE WHEN v_player_rank = 1 THEN 'Won the league!' ELSE 'Runner-up — promoted!' END,
+            v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day));
+          -- TODO: Promote to next tier (Tier 3+ logic)
+        ELSE
+          -- Season ended, not promoted — start new season with relegation
+          INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+          VALUES (p_career_id, 'season_end', 'Season ' || v_career.season || ' Complete',
+            'Finished ' || v_player_rank || CASE WHEN v_player_rank = 3 THEN 'rd' ELSE 'th' END || ' — new season incoming.',
+            v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day));
+
+          -- Start new season: keep middle players, replace top 2 and bottom 2
+          DECLARE
+            v_new_season SMALLINT := v_career.season + 1;
+            v_ranked_opponents UUID[];
+            v_keep_opponents UUID[];
+            v_new_day SMALLINT := COALESCE(v_event.day, v_career.day) + 5;
+          BEGIN
+            -- Rank opponents by points, leg diff
+            SELECT ARRAY_AGG(opponent_id ORDER BY points DESC, (legs_for - legs_against) DESC) INTO v_ranked_opponents
+            FROM career_league_standings
+            WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = FALSE;
+
+            -- Keep middle opponents (positions 3-6 of 7, i.e. indices 3..5)
+            v_keep_opponents := v_ranked_opponents[3:array_length(v_ranked_opponents, 1) - 2];
+
+            -- Update career for new season
+            UPDATE career_profiles SET season = v_new_season, week = 1, day = v_new_day, updated_at = now()
+            WHERE id = p_career_id;
+
+            -- Create new standings: player + kept opponents + 4 new random opponents
+            INSERT INTO career_league_standings (career_id, season, tier, is_player)
+            VALUES (p_career_id, v_new_season, v_career.tier, TRUE);
+
+            INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
+            SELECT p_career_id, v_new_season, v_career.tier, unnest(v_keep_opponents), FALSE;
+
+            -- Generate new opponents to replace promoted/relegated
+            PERFORM rpc_generate_career_opponents(p_career_id, v_career.tier::SMALLINT, 4, v_career.career_seed + v_new_season * 100);
+
+            -- Add 4 newest opponents to standings (the ones just generated)
+            INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
+            SELECT p_career_id, v_new_season, v_career.tier, id, FALSE
+            FROM career_opponents
+            WHERE career_id = p_career_id AND tier = v_career.tier
+              AND id NOT IN (SELECT unnest(v_keep_opponents))
+              AND id NOT IN (SELECT unnest(v_ranked_opponents))
+            ORDER BY created_at DESC
+            LIMIT 4;
+
+            -- Seed new season events
+            INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
+            SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+              v_new_day + CASE
+                WHEN t.event_type IN ('open','qualifier','major','season_finals') THEN t.sequence_no * 6 - 2
+                ELSE t.sequence_no * 6 + 1
+              END
+            FROM career_schedule_templates t WHERE t.tier = v_career.tier ORDER BY t.sequence_no;
+          END;
+        END IF;
+      END IF;
+    END season_check;
   END IF;
 
   -- Check for milestone achievements
