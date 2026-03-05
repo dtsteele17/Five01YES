@@ -27,36 +27,47 @@ export default function AchievementsPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setUserAchievements(achievements);
+      // Use achievements with all progress reset to 0 for non-authenticated users
+      const resetAchievements = achievements.map(a => ({ ...a, progress: 0, completed: false }));
+      setUserAchievements(resetAchievements);
       setLoading(false);
       return;
     }
 
-    const { data: dbAchievements } = await supabase
-      .from('achievements')
-      .select('*')
-      .order('code');
-
-    const { data: userAchievementsData } = await supabase
-      .from('user_achievements')
-      .select('achievement_id, completed, progress, completed_at')
-      .eq('user_id', user.id);
-
-    if (dbAchievements && dbAchievements.length > 0) {
-      const { mapDbAchievementToFrontend } = await import('@/lib/achievements');
-      const mappedAchievements = dbAchievements.map((a: any) => mapDbAchievementToFrontend(a));
-
-      if (userAchievementsData) {
-        const merged = mergeUserAchievements(mappedAchievements, userAchievementsData);
-        setUserAchievements(merged);
-      } else {
+    try {
+      // Use the new RPC function to get achievements with user progress
+      const { data: achievementsData, error } = await supabase.rpc('rpc_get_user_achievements');
+      
+      if (error) {
+        console.error('Failed to fetch achievements:', error);
+        // Fallback to hardcoded achievements with progress reset
+        const resetAchievements = achievements.map(a => ({ ...a, progress: 0, completed: false }));
+        setUserAchievements(resetAchievements);
+      } else if (achievementsData?.achievements) {
+        // Map the database format to our frontend format
+        const mappedAchievements = achievementsData.achievements.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          description: a.description,
+          category: a.category,
+          icon: a.icon,
+          completed: a.completed,
+          progress: a.progress,
+          goal: a.goal,
+          reward: `${a.xp} XP`,
+          completedDate: a.completed_at ? new Date(a.completed_at).toISOString().split('T')[0] : undefined,
+        }));
         setUserAchievements(mappedAchievements);
+      } else {
+        // No achievements found, use default with progress reset
+        const resetAchievements = achievements.map(a => ({ ...a, progress: 0, completed: false }));
+        setUserAchievements(resetAchievements);
       }
-    } else if (userAchievementsData) {
-      const merged = mergeUserAchievements(achievements, userAchievementsData);
-      setUserAchievements(merged);
-    } else {
-      setUserAchievements(achievements);
+    } catch (err) {
+      console.error('Achievement fetch error:', err);
+      // Fallback to hardcoded achievements with progress reset
+      const resetAchievements = achievements.map(a => ({ ...a, progress: 0, completed: false }));
+      setUserAchievements(resetAchievements);
     }
 
     setLoading(false);
@@ -168,6 +179,7 @@ export default function AchievementsPage() {
               </SelectTrigger>
               <SelectContent className="bg-slate-900 border-white/10">
                 <SelectItem value="all">All Modes</SelectItem>
+                <SelectItem value="career">Career Mode</SelectItem>
                 <SelectItem value="ranked">Ranked</SelectItem>
                 <SelectItem value="league">League</SelectItem>
                 <SelectItem value="tournaments">Tournaments</SelectItem>

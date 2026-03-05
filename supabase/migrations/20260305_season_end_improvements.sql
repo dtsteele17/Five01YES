@@ -442,6 +442,28 @@ BEGIN
     played_at = now()
   WHERE id = p_match_id;
   
+  -- Track achievements for this match (if achievements system exists)
+  BEGIN
+    PERFORM rpc_track_match_achievements(json_build_object(
+      'won', v_result = 'win',
+      'average', COALESCE(p_player_average, 0),
+      'one_eighties', COALESCE(p_player_180s, 0),
+      'hundreds', 0, -- TODO: track hundreds separately
+      'highest_checkout', COALESCE(p_player_highest_checkout, 0),
+      'checkouts', CASE WHEN v_result = 'win' THEN p_player_legs ELSE 0 END,
+      'match_type', CASE 
+        WHEN v_event.event_type = 'league' THEN 'career'
+        WHEN v_event.event_type IN ('open', 'qualifier', 'major') THEN 'tournament'
+        ELSE 'career'
+      END,
+      'legs_won', p_player_legs,
+      'legs_lost', p_opponent_legs
+    ));
+  EXCEPTION WHEN OTHERS THEN
+    -- Ignore achievement tracking errors, don't fail the match
+    NULL;
+  END;
+  
   -- Mark event as completed
   UPDATE career_events SET 
     status = 'completed',
