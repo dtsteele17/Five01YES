@@ -51,7 +51,7 @@ interface CareerHome {
   };
   next_event: {
     id: string; event_type: string; event_name: string;
-    format_legs: number; bracket_size: number | null; sequence_no: number;
+    format_legs: number; bracket_size: number | null; sequence_no: number; day: number;
   } | null;
   standings: any[] | null;
   sponsors: any[] | null;
