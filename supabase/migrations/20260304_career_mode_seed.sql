@@ -16,13 +16,13 @@ INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name
 -- ===================== TIER 2: Pub Leagues (8 weeks) =====================
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES
 (2, 1,  'league',    'Weekend League Night — Matchday 1', 'pub_league', 3, NULL, FALSE, '{}'),
-(2, 2,  'league',    'Weekend League Night — Matchday 2', 'pub_league', 3, NULL, TRUE,  '{}'),
-(2, 3,  'league',    'Weekend League Night — Matchday 3', 'pub_league', 5, NULL, FALSE, '{}'),
-(2, 4,  'open',      'The Pub Open',                      'pub_open',   3, 8,   FALSE, '{"rep_multiplier": 1.5}'),
-(2, 5,  'league',    'Weekend League Night — Matchday 4', 'pub_league', 5, NULL, TRUE,  '{}'),
-(2, 6,  'league',    'Weekend League Night — Matchday 5', 'pub_league', 5, NULL, FALSE, '{}'),
-(2, 7,  'league',    'Weekend League Night — Matchday 6', 'pub_league', 5, NULL, FALSE, '{}'),
-(2, 8,  'promotion', 'Promotion Weekend',                 'pub_promo',  5, NULL, FALSE, '{"min_avg": 35, "min_checkout_pct": 15, "top_finish": 3}');
+(2, 2,  'league',    'Weekend League Night — Matchday 2', 'pub_league', 3, NULL, FALSE, '{}'),
+(2, 3,  'league',    'Weekend League Night — Matchday 3', 'pub_league', 3, NULL, FALSE, '{}'),
+(2, 4,  'league',    'Weekend League Night — Matchday 4', 'pub_league', 3, NULL, FALSE, '{}'),
+(2, 5,  'open',      'The Golden Oche Cup',                'pub_open',   3, 16,  FALSE, '{"rep_multiplier": 1.5}'),
+(2, 6,  'league',    'Weekend League Night — Matchday 5', 'pub_league', 3, NULL, FALSE, '{}'),
+(2, 7,  'league',    'Weekend League Night — Matchday 6', 'pub_league', 3, NULL, FALSE, '{}'),
+(2, 8,  'league',    'Weekend League Night — Matchday 7', 'pub_league', 3, NULL, FALSE, '{}');
 
 -- ===================== TIER 3: County / City Circuit (10 weeks) =====================
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES

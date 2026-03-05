@@ -122,12 +122,17 @@ export default function CareerPage() {
 
       // Check milestones for context
       const hasPromotion = milestones.some((m: any) => m.milestone_type === 'promotion' || m.milestone_type === 'promotion_tier2');
-      const tournamentWin = milestones.find((m: any) => m.milestone_type === 'first_tournament_win' || m.milestone_type === 'tournament_win');
+      // Only use tournament_win (has event name as title), not first_tournament_win
+      const tournamentWin = milestones.find((m: any) => m.milestone_type === 'tournament_win');
+      const leagueWin = milestones.find((m: any) => m.milestone_type === 'league_win');
       const tournamentLoss = milestones.find((m: any) => m.milestone_type === 'tournament_loss' || m.title?.includes('Eliminated'));
-      const winTournamentName = tournamentWin?.description?.split(': ').slice(1).join(': ') || tournamentWin?.title || 'the tournament';
+      const winTournamentName = tournamentWin?.title || tournamentWin?.description?.replace('Won ', '') || 'the tournament';
 
       if (tournamentWin) {
-        newEmails.push({ id: `win-${day}`, subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance — keep this form up and bigger stages await.`, type: 'win' });
+        newEmails.push({ id: `win-${tournamentWin.day || day}`, subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance — keep this form up and bigger stages await.`, type: 'win' });
+      }
+      if (leagueWin) {
+        newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: `🏆 ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
       }
       if (hasPromotion) {
         const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Pro Tour', 5: 'Premier League' };
@@ -461,11 +466,15 @@ export default function CareerPage() {
   const chosenName = chosenTournament ? TRIAL_TOURNAMENTS.find(t => t.id === chosenTournament)?.name : null;
   // For league events, show correct matchday based on player's games played
   const playerStanding = standings?.find((s: any) => s.is_player);
+  const totalLeagueOpponents = standings ? standings.filter((s: any) => !s.is_player).length : 7;
   const leagueMatchday = playerStanding ? (playerStanding.played || 0) + 1 : 1;
+  const seasonComplete = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
+  const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
+  const willPromote = seasonComplete && playerRank <= 2;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName
     : next_event?.event_type === 'league' ? `Weekend League Night — Matchday ${leagueMatchday}`
     : next_event?.event_name;
-  const displayDay = next_event?.day || career.day;
+  const displayDay = Math.max(next_event?.day || 0, career.day || 0) || 1;
 
   // Generate bracket preview slots for visualization
   const bracketSize = next_event?.bracket_size || 0;
@@ -535,7 +544,24 @@ export default function CareerPage() {
                     </div>
                   </div>
 
-                  {next_event ? (
+                  {seasonComplete ? (
+                    <>
+                      <div className="text-center py-2">
+                        <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+                        <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
+                        <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
+                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured!' : 'New season with fresh competition ahead.'}</p>
+                      </div>
+                      <Button
+                        className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
+                        disabled={playingEvent}
+                        onClick={handlePlayEvent}
+                      >
+                        {playingEvent ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
+                        {willPromote ? 'Next Tier' : 'Next Season'}
+                      </Button>
+                    </>
+                  ) : next_event ? (
                     <>
                       <h2 className="text-xl font-black text-white mb-1 leading-tight">{displayEventName}</h2>
                       {next_event.league_opponent_name && (
@@ -911,7 +937,8 @@ export default function CareerPage() {
                     <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Awards</span>
                   </div>
                   {(() => {
-                    const awards = data.awards || [];
+                    // Filter out first_tournament_win (has generic title), keep tournament_win + league_win
+                    const awards = (data.awards || []).filter((a: any) => a.milestone_type !== 'first_tournament_win');
                     if (awards.length === 0) {
                       return (
                         <div className="text-center py-4">
