@@ -223,6 +223,30 @@ BEGIN
       LIMIT 1;
   END IF;
 
+  -- For league events: find next opponent from standings
+  IF v_next_event.id IS NOT NULL AND v_next_event.event_type = 'league' THEN
+    SELECT co.* INTO v_opponent FROM career_league_standings ls
+    JOIN career_opponents co ON co.id = ls.opponent_id
+    WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = v_career.tier
+      AND ls.is_player = FALSE
+      AND ls.opponent_id NOT IN (
+        SELECT cm.opponent_id FROM career_matches cm
+        JOIN career_events ce ON ce.id = cm.event_id
+        WHERE cm.career_id = p_career_id AND ce.event_type = 'league' AND ce.season = v_career.season
+      )
+    ORDER BY random()
+    LIMIT 1;
+    -- Fallback
+    IF v_opponent.id IS NULL THEN
+      SELECT co.* INTO v_opponent FROM career_league_standings ls
+      JOIN career_opponents co ON co.id = ls.opponent_id
+      WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = v_career.tier
+        AND ls.is_player = FALSE
+      ORDER BY random()
+      LIMIT 1;
+    END IF;
+  END IF;
+
   -- Get recent milestones
   SELECT json_agg(row_to_json(m)) INTO v_milestones
   FROM (
@@ -275,7 +299,13 @@ BEGIN
       'format_legs', v_next_event.format_legs,
       'bracket_size', v_next_event.bracket_size,
       'sequence_no', v_next_event.sequence_no,
-      'day', v_next_event.day
+      'day', v_next_event.day,
+      'league_opponent_name', CASE WHEN v_opponent.id IS NOT NULL THEN
+        COALESCE(v_opponent.first_name || ' ', '') ||
+        CASE WHEN v_opponent.nickname IS NOT NULL THEN '''' || v_opponent.nickname || ''' ' ELSE '' END ||
+        COALESCE(v_opponent.last_name, '')
+      ELSE NULL END,
+      'league_opponent_id', v_opponent.id
     ) ELSE NULL END,
     'standings', v_standings,
     'sponsors', v_sponsor,

@@ -62,17 +62,37 @@ BEGIN
   END;
 
   -- Pick an opponent for this event
-  -- For league: pick from rivals + pool in order
-  -- For bracket events: pick a random opponent from the tier
-  SELECT * INTO v_opponent FROM career_opponents
-    WHERE career_id = p_career_id AND tier = v_career.tier
-    ORDER BY
-      CASE WHEN v_event.event_type = 'league' AND is_rival THEN 0 ELSE 1 END,
-      random()
+  IF v_event.event_type = 'league' THEN
+    -- League: pick from league standings opponents not yet played this season
+    SELECT co.* INTO v_opponent FROM career_league_standings ls
+    JOIN career_opponents co ON co.id = ls.opponent_id
+    WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = v_career.tier
+      AND ls.is_player = FALSE
+      AND ls.opponent_id NOT IN (
+        SELECT cm.opponent_id FROM career_matches cm
+        JOIN career_events ce ON ce.id = cm.event_id
+        WHERE cm.career_id = p_career_id AND ce.event_type = 'league' AND ce.season = v_career.season
+      )
+    ORDER BY random()
     LIMIT 1;
+    -- Fallback: any league opponent if all played
+    IF v_opponent.id IS NULL THEN
+      SELECT co.* INTO v_opponent FROM career_league_standings ls
+      JOIN career_opponents co ON co.id = ls.opponent_id
+      WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = v_career.tier
+        AND ls.is_player = FALSE
+      ORDER BY random()
+      LIMIT 1;
+    END IF;
+  ELSE
+    -- Non-league: random opponent from the tier
+    SELECT * INTO v_opponent FROM career_opponents
+      WHERE career_id = p_career_id AND tier = v_career.tier
+      ORDER BY random()
+      LIMIT 1;
+  END IF;
 
   IF v_opponent.id IS NULL THEN
-    -- Generate more opponents if needed
     PERFORM rpc_generate_career_opponents(p_career_id, v_career.tier::SMALLINT, 10, v_career.career_seed + v_career.season * 100 + v_career.week);
     SELECT * INTO v_opponent FROM career_opponents
       WHERE career_id = p_career_id AND tier = v_career.tier
@@ -264,6 +284,7 @@ BEGIN
       rep = rep + v_rep_earned,
       form = GREATEST(-0.05, LEAST(0.05, form + v_form_delta)),
       week = v_new_week,
+      day = COALESCE(v_event.day, day + 1),
       updated_at = now()
     WHERE id = p_career_id;
   END IF;
@@ -288,19 +309,61 @@ BEGIN
         ELSE average END
     WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE;
 
-    -- Simulate opponent league result (random)
-    -- Update a random AI opponent in standings
+    -- Update player's opponent standings (inverse of player result)
     UPDATE career_league_standings SET
       played = played + 1,
-      won = won + CASE WHEN random() > 0.45 THEN 1 ELSE 0 END,
-      lost = lost + CASE WHEN random() > 0.45 THEN 0 ELSE 1 END,
-      legs_for = legs_for + (floor(random() * 3) + 1)::SMALLINT,
-      legs_against = legs_against + (floor(random() * 3))::SMALLINT,
-      points = points + CASE WHEN random() > 0.45 THEN 2 ELSE 0 END
+      won = won + CASE WHEN p_won THEN 0 ELSE 1 END,
+      lost = lost + CASE WHEN p_won THEN 1 ELSE 0 END,
+      legs_for = legs_for + p_opponent_legs,
+      legs_against = legs_against + p_player_legs,
+      points = points + CASE WHEN p_won THEN 0 ELSE 2 END
     WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier
-      AND is_player = FALSE
-      AND opponent_id != v_match.opponent_id
-    ;
+      AND opponent_id = v_match.opponent_id;
+
+    -- Simulate remaining AI vs AI matches (pair up remaining opponents)
+    <<ai_sim>>
+    DECLARE
+      v_ai_ids UUID[];
+      v_ai_count INT;
+      v_idx INT;
+      v_home_id UUID;
+      v_away_id UUID;
+      v_home_won BOOLEAN;
+      v_w_legs SMALLINT;
+      v_l_legs SMALLINT;
+    BEGIN
+      SELECT ARRAY_AGG(opponent_id ORDER BY random()) INTO v_ai_ids
+      FROM career_league_standings
+      WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier
+        AND is_player = FALSE AND opponent_id != v_match.opponent_id;
+
+      v_ai_count := COALESCE(array_length(v_ai_ids, 1), 0);
+      v_idx := 1;
+      WHILE v_idx + 1 <= v_ai_count LOOP
+        v_home_id := v_ai_ids[v_idx];
+        v_away_id := v_ai_ids[v_idx + 1];
+        v_home_won := random() < 0.55;
+        v_w_legs := (floor(random() * 2) + 2)::SMALLINT;
+        v_l_legs := (floor(random() * v_w_legs))::SMALLINT;
+
+        -- Update winner
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1,
+          legs_for = legs_for + v_w_legs, legs_against = legs_against + v_l_legs,
+          points = points + 2
+        WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier
+          AND opponent_id = CASE WHEN v_home_won THEN v_home_id ELSE v_away_id END;
+
+        -- Update loser
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + v_l_legs, legs_against = legs_against + v_w_legs
+        WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier
+          AND opponent_id = CASE WHEN v_home_won THEN v_away_id ELSE v_home_id END;
+
+        v_idx := v_idx + 2;
+      END LOOP;
+    END ai_sim;
   END IF;
 
   -- Check for milestone achievements

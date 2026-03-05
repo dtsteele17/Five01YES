@@ -238,15 +238,32 @@ export default function CareerPage() {
       const sfn = shuffle(fnIdx, 1);
       const sln = shuffle(lnIdx, 2);
       const snn = shuffle(nnIdx, 3);
-      const worldStars = Array.from({length: 21}, (_, i) => {
+      // Generate a pool of ~30 world-class players (more than 21 so some can rotate in/out)
+      const poolSize = 30;
+      const pool = Array.from({length: poolSize}, (_, i) => {
         const nn = nns[snn[i % snn.length]];
         return {
+          id: i,
           name: `${fns[sfn[i % sfn.length]]}${nn ? ` '${nn}'` : ''} ${lns[sln[i % sln.length]]}`,
-          rating: 980 - i * 12,
+          baseRating: 980 - i * 8,
           archetype: arcs[hash(i * 53 + 97) % arcs.length],
         };
       });
-      setWorldRankings(worldStars.map((s, i) => ({ rank: i + 1, ...s })));
+      // Simulate ranking fluctuations based on career day
+      const careerDay = data.career.day || 1;
+      const simulated = pool.map(p => {
+        // Each player's form fluctuates differently per day — some gain, some drop
+        const dayHash = hash(p.id * 1777 + careerDay * 311);
+        const dayHash2 = hash(p.id * 2341 + (careerDay - 1) * 311); // previous day for continuity
+        // Change points by -30 to +30 based on "recent results", but only some players change each day
+        const changesThisDay = (dayHash % 5) < 2; // ~40% of players shift on any given day
+        const delta = changesThisDay ? ((dayHash % 61) - 30) : ((dayHash2 % 21) - 10); // smaller drift if not active
+        return { ...p, rating: Math.max(700, p.baseRating + delta) };
+      });
+      // Sort by current rating, take top 21
+      simulated.sort((a, b) => b.rating - a.rating);
+      const top21 = simulated.slice(0, 21);
+      setWorldRankings(top21.map((s, i) => ({ rank: i + 1, name: s.name, rating: s.rating, archetype: s.archetype })));
     }
     setShowRankings(true);
   }
@@ -454,7 +471,10 @@ export default function CareerPage() {
 
                   {next_event ? (
                     <>
-                      <h2 className="text-xl font-black text-white mb-2 leading-tight">{displayEventName}</h2>
+                      <h2 className="text-xl font-black text-white mb-1 leading-tight">{displayEventName}</h2>
+                      {next_event.league_opponent_name && (
+                        <p className="text-amber-400/80 text-sm font-semibold mb-2">vs {next_event.league_opponent_name}</p>
+                      )}
                       <div className="flex flex-wrap gap-1.5 mb-4">
                         <Badge className="bg-white/10 backdrop-blur-sm text-white/80 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
                           Best of {next_event.format_legs}
