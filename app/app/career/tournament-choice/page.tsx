@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Trophy, Users, ArrowLeft, Loader2, X, CheckCircle } from 'lucide-react';
+import { Trophy, Users, ArrowLeft, Loader as Loader2, X, CircleCheck as CheckCircle } from 'lucide-react';
 
 interface Tournament {
   name: string;
@@ -56,15 +56,20 @@ export default function TournamentChoicePage() {
         `)
         .eq('id', eventId)
         .single();
-        
+
       if (error) throw error;
-      
+
+      // Extract metadata from the array (Supabase returns relations as arrays)
+      const template = Array.isArray(eventData.career_schedule_templates)
+        ? eventData.career_schedule_templates[0]
+        : eventData.career_schedule_templates;
+
       setEvent({
         id: eventData.id,
         event_name: eventData.event_name,
         season: eventData.season,
         sequence_no: eventData.sequence_no,
-        metadata: eventData.career_schedule_templates?.metadata || {}
+        metadata: template?.metadata || {}
       });
     } catch (err: any) {
       toast.error('Failed to load tournament choices');
