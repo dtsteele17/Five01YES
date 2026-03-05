@@ -520,17 +520,58 @@ BEGIN
       p_career_id,
       first_names.name,
       last_names.name,
-      CASE WHEN random() < 0.4 THEN nicknames.name ELSE NULL END,
+      CASE WHEN random() < 0.35 THEN nicknames.name ELSE NULL END,
       towns.name,
       3,  -- tier 3
-      40 + (random() * 25)::int,  -- skill 40-65 for tier 3 (higher than tier 2)
       archetypes.name,
+      40 + (random() * 25)::int,  -- skill 40-65 for tier 3 (higher than tier 2)
       (random() * 1000000)::int
     FROM 
-      (VALUES ('Alex'),('Ryan'),('Jordan'),('Sam'),('Jamie'),('Morgan'),('Casey'),('Taylor'),('Drew'),('Avery')) AS first_names(name),
-      (VALUES ('Harrison'),('Mitchell'),('Campbell'),('Parker'),('Reed'),('Bailey'),('Gray'),('Ward'),('Cox'),('Bell')) AS last_names(name),
-      (VALUES ('The County King'),('Tungsten'),('The Sniper'),('Double Top'),('The Professor'),('Precision'),('The Cannon'),('Clutch')) AS nicknames(name),
-      (VALUES ('County Town'),('Riverside'),('Millfield'),('Oakwood'),('Fairview'),('Hillside'),('Greenway'),('Brookside')) AS towns(name),
+      -- Much more diverse first names
+      (VALUES 
+        ('Aaron'),('Abdul'),('Adrian'),('Alan'),('Albert'),('Alex'),('Andrew'),('Anthony'),('Arthur'),('Barry'),
+        ('Ben'),('Billy'),('Bob'),('Brandon'),('Brian'),('Bruce'),('Carl'),('Charlie'),('Chris'),('Colin'),
+        ('Craig'),('Dale'),('Dan'),('Danny'),('Dave'),('Dean'),('Derek'),('Eddie'),('Frank'),('Gary'),
+        ('George'),('Glen'),('Gordon'),('Grant'),('Greg'),('Harry'),('Ian'),('Jack'),('James'),('Jason'),
+        ('Jeff'),('Jerry'),('Jim'),('Joe'),('John'),('Keith'),('Ken'),('Kevin'),('Lee'),('Luke'),
+        ('Malcolm'),('Mark'),('Martin'),('Matt'),('Michael'),('Mick'),('Nathan'),('Neil'),('Nick'),('Nigel'),
+        ('Paul'),('Pete'),('Phil'),('Ray'),('Richard'),('Rob'),('Roger'),('Ryan'),('Sam'),('Scott'),
+        ('Sean'),('Simon'),('Steve'),('Stuart'),('Terry'),('Tim'),('Tom'),('Tony'),('Wayne'),('Will')
+      ) AS first_names(name),
+      -- Varied British surnames  
+      (VALUES 
+        ('Adams'),('Anderson'),('Bailey'),('Baker'),('Barnes'),('Bell'),('Bennett'),('Brown'),('Butler'),('Campbell'),
+        ('Carter'),('Chapman'),('Clark'),('Clarke'),('Cole'),('Collins'),('Cook'),('Cooper'),('Cox'),('Davies'),
+        ('Davis'),('Edwards'),('Evans'),('Fisher'),('Fletcher'),('Foster'),('Fox'),('Gibson'),('Green'),('Griffiths'),
+        ('Hall'),('Harris'),('Harrison'),('Hill'),('Holmes'),('Hughes'),('Jackson'),('James'),('Johnson'),('Jones'),
+        ('Kelly'),('King'),('Knight'),('Lewis'),('Marshall'),('Martin'),('Mason'),('Miller'),('Mitchell'),('Moore'),
+        ('Morgan'),('Morris'),('Murphy'),('Parker'),('Patel'),('Phillips'),('Powell'),('Price'),('Richards'),('Richardson'),
+        ('Roberts'),('Robinson'),('Rogers'),('Scott'),('Shaw'),('Simpson'),('Smith'),('Stevens'),('Stewart'),('Stone'),
+        ('Taylor'),('Thomas'),('Thompson'),('Turner'),('Walker'),('Ward'),('Watson'),('White'),('Williams'),('Wilson'),
+        ('Wood'),('Wright'),('Young')
+      ) AS last_names(name),
+      -- County-level nicknames (more prestigious than pub level)
+      (VALUES 
+        ('The Hammer'),('Bullseye'),('The Machine'),('Lightning'),('The Rock'),('Precision'),('The Sniper'),('Triple Crown'),
+        ('The County King'),('Tungsten'),('The Professor'),('Double Top'),('The Cannon'),('Clutch'),('The Arrow'),
+        ('Checkout Charlie'),('The Finisher'),('Maximum'),('The Tungsten Terror'),('Steady Eddie'),('The Calculator'),
+        ('Triple Twenty'),('The Dartboard Demon'),('County Champion'),('The Surgeon'),('Boom Boom'),('The Iceman'),
+        ('Fast Eddie'),('The Wizard'),('County Crusher'),('The Ace'),('Darting Dan'),('The Missile'),('Sharp Shooter')
+      ) AS nicknames(name),
+      -- County towns and areas (more prestigious than generic pub towns)
+      (VALUES 
+        ('Ashford'),('Barnsley'),('Basingstoke'),('Bedford'),('Blackpool'),('Bolton'),('Bournemouth'),('Bracknell'),
+        ('Bradford'),('Bridgwater'),('Brighton'),('Bristol'),('Burnley'),('Bury'),('Cambridge'),('Canterbury'),
+        ('Carlisle'),('Chelmsford'),('Chester'),('Chesterfield'),('Colchester'),('Coventry'),('Crewe'),('Derby'),
+        ('Doncaster'),('Dover'),('Dudley'),('Durham'),('Eastbourne'),('Exeter'),('Gloucester'),('Grimsby'),
+        ('Guildford'),('Halifax'),('Harrogate'),('Hastings'),('Hereford'),('Huddersfield'),('Hull'),('Ipswich'),
+        ('Lancaster'),('Leicester'),('Lincoln'),('Luton'),('Maidstone'),('Middlesbrough'),('Milton Keynes'),('Newcastle'),
+        ('Northampton'),('Norwich'),('Nottingham'),('Oldham'),('Oxford'),('Peterborough'),('Plymouth'),('Portsmouth'),
+        ('Preston'),('Reading'),('Rochdale'),('Rotherham'),('Salford'),('Sheffield'),('Shrewsbury'),('Southampton'),
+        ('Southend'),('St Albans'),('Stockport'),('Stoke'),('Sunderland'),('Swansea'),('Swindon'),('Taunton'),
+        ('Telford'),('Wakefield'),('Warrington'),('Watford'),('Wigan'),('Winchester'),('Wolverhampton'),('Worcester'),
+        ('Worthing'),('York')
+      ) AS towns(name),
       (VALUES ('scorer'),('finisher'),('grinder'),('streaky'),('clutch'),('allrounder')) AS archetypes(name)
     ORDER BY random()
     LIMIT 1;
