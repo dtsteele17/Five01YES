@@ -145,13 +145,15 @@ DECLARE
   v_local_seed BIGINT;
 BEGIN
   -- Skill ranges by tier
+  -- Skill = 3-dart average the bot will play at (before difficulty multiplier)
+  -- Tier 1: pub-level (30-50 avg), Tier 5: world-class (70-90 avg)
   v_skill_base := CASE p_tier
-    WHEN 1 THEN 25.0
-    WHEN 2 THEN 35.0
-    WHEN 3 THEN 50.0
-    WHEN 4 THEN 65.0
-    WHEN 5 THEN 80.0
-    ELSE 30.0
+    WHEN 1 THEN 40.0
+    WHEN 2 THEN 50.0
+    WHEN 3 THEN 60.0
+    WHEN 4 THEN 70.0
+    WHEN 5 THEN 82.0
+    ELSE 40.0
   END;
 
   FOR i IN 1..p_count LOOP
@@ -163,9 +165,9 @@ BEGIN
     v_hi := (abs((v_local_seed * 71 + 43) % 99961) % array_length(v_hometowns, 1)) + 1;
     v_ai := (abs((v_local_seed * 41 + 59) % 99949) % array_length(v_archetypes, 1)) + 1;
 
-    -- Skill: base ± 15 range
-    v_skill := v_skill_base + ((v_local_seed % 30) - 15)::REAL;
-    v_skill := GREATEST(10.0, LEAST(95.0, v_skill));
+    -- Skill: base ± 10 range
+    v_skill := v_skill_base + ((v_local_seed % 20) - 10)::REAL;
+    v_skill := GREATEST(25.0, LEAST(95.0, v_skill));
 
     -- First 2 opponents per tier are rivals
     v_is_rival := (i <= 2);
