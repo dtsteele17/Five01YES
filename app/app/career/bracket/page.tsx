@@ -404,7 +404,13 @@ export default function CareerBracketPage() {
                 {tournamentResult.promoted && (
                   <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-3 mb-4">
                     <Zap className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
-                    <span className="text-emerald-400 font-bold text-sm">Promoted to Tier {tournamentResult.new_tier}!</span>
+                    <span className="text-emerald-400 font-bold text-sm">
+                      {tournamentResult.new_tier === 2 ? 'Welcome to the Pub Leagues!' 
+                        : tournamentResult.new_tier === 3 ? 'Moving up to the County Circuit!'
+                        : tournamentResult.new_tier === 4 ? 'You\'ve made the Pro Tour!'
+                        : tournamentResult.new_tier === 5 ? 'Premier League awaits!'
+                        : 'Moving up!'}
+                    </span>
                   </div>
                 )}
                 <Button className="w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold"
