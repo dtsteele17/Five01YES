@@ -881,6 +881,60 @@ export default function CareerPage() {
               </Card>
             </motion.div>
 
+            {/* Awards / Trophy Cabinet */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
+                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    </div>
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Awards</span>
+                  </div>
+                  {(() => {
+                    const awards = data.awards || [];
+                    if (awards.length === 0) {
+                      return (
+                        <div className="text-center py-4">
+                          <Trophy className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                          <p className="text-slate-600 text-xs">No trophies yet</p>
+                          <p className="text-slate-700 text-[10px]">Win a tournament to earn your first!</p>
+                        </div>
+                      );
+                    }
+                    // Group by title (event name) for x2, x3 etc
+                    const grouped = awards.reduce((acc: Record<string, { title: string; days: number[]; count: number }>, a: any) => {
+                      const key = a.title || a.description || 'Unknown';
+                      if (!acc[key]) acc[key] = { title: key, days: [], count: 0 };
+                      acc[key].count++;
+                      if (a.day) acc[key].days.push(a.day);
+                      return acc;
+                    }, {});
+                    return (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {Object.values(grouped).map((award: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2.5 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
+                              <Trophy className="w-4 h-4 text-amber-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-white text-xs font-semibold truncate">{award.title}</span>
+                                {award.count > 1 && <Badge className="bg-amber-500/20 text-amber-400 text-[9px] px-1 py-0 border-0">×{award.count}</Badge>}
+                              </div>
+                              <p className="text-slate-500 text-[10px]">
+                                {award.days.length > 0 ? `Day ${award.days.join(', ')}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </Card>
+            </motion.div>
+
             {/* Settings + Save */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <div className="grid grid-cols-2 gap-3">

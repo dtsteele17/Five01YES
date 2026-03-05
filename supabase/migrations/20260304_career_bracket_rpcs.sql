@@ -344,9 +344,13 @@ BEGIN
 
   -- Milestones
   IF p_player_won_tournament THEN
+    -- First tournament win (one-time)
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
     SELECT p_career_id, 'first_tournament_win', 'Tournament Champion!', 'Won your first tournament: ' || v_event.event_name, v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day)
     WHERE NOT EXISTS (SELECT 1 FROM career_milestones WHERE career_id = p_career_id AND milestone_type = 'first_tournament_win');
+    -- Every tournament win (for awards)
+    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
+    VALUES (p_career_id, 'tournament_win', v_event.event_name, 'Won ' || v_event.event_name, v_career.tier, v_career.season, v_career.week, COALESCE(v_event.day, v_career.day));
   END IF;
 
   -- Tier 1 progression check

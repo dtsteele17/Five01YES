@@ -205,6 +205,7 @@ DECLARE
   v_standings JSON;
   v_sponsor JSON;
   v_milestones JSON;
+  v_awards JSON;
 BEGIN
   -- Load career
   SELECT * INTO v_career FROM career_profiles
@@ -256,6 +257,15 @@ BEGIN
     FROM career_milestones WHERE career_id = p_career_id
     ORDER BY created_at DESC LIMIT 5
   ) m;
+
+  -- Get all tournament/league wins for awards tile
+  SELECT json_agg(row_to_json(a) ORDER BY a.created_at ASC) INTO v_awards
+  FROM (
+    SELECT milestone_type, title, description, day, tier, season, created_at
+    FROM career_milestones
+    WHERE career_id = p_career_id
+      AND milestone_type IN ('first_tournament_win', 'tournament_win', 'league_win', 'season_winner')
+  ) a;
 
   -- Get active sponsor
   SELECT json_agg(row_to_json(sc)) INTO v_sponsor
@@ -311,7 +321,8 @@ BEGIN
     ) ELSE NULL END,
     'standings', v_standings,
     'sponsors', v_sponsor,
-    'recent_milestones', v_milestones
+    'recent_milestones', v_milestones,
+    'awards', v_awards
   );
 END;
 $$;
