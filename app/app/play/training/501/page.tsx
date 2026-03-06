@@ -1661,8 +1661,12 @@ export default function DartbotMatchPage() {
         // Bracket match (win or loss) → go to bracket page to process result and show updated draw
         router.push(`/app/career/bracket?careerId=${config.career.careerId}&eventId=${config.career.eventId}`);
       } else {
-        // League match → back to career home
-        router.push(`/app/career?id=${config.career.careerId}`);
+        // League match → check if should go to results or career home
+        if (config.career.returnToResults) {
+          router.push(`/app/career/results?careerId=${config.career.careerId}`);
+        } else {
+          router.push(`/app/career?id=${config.career.careerId}`);
+        }
       }
     } else {
       router.push('/app/play/training');

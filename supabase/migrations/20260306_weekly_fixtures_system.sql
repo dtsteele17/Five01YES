@@ -136,7 +136,7 @@ BEGIN
     'tier', v_career.tier,
     'season', v_career.season,
     'event_name', v_next_event.event_name,
-    'fixtures', json_build_array(v_fixtures)
+    'fixtures', array_to_json(v_fixtures)
   );
 
   RETURN result;

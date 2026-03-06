@@ -48,8 +48,8 @@ export default function WeekFixtures() {
     try {
       const supabase = createClient();
       
-      // Get current week fixtures and simulate all non-player matches
-      const { data, error } = await supabase.rpc('rpc_get_week_fixtures', { 
+      // Get current week fixtures using proper scheduling
+      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_scheduled', { 
         p_career_id: careerId 
       });
       
@@ -110,7 +110,7 @@ export default function WeekFixtures() {
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
           opponentName: matchData.opponent?.name,
-          returnToFixtures: true // Flag to return here instead of career home
+          returnToResults: true // Flag to go to results page instead of career home
         },
       };
 
@@ -174,8 +174,8 @@ export default function WeekFixtures() {
           <div className="w-24" /> {/* Spacer */}
         </div>
 
-        {/* Player Match */}
-        {playerFixture && (
+        {/* Player Match - Only show if not completed yet */}
+        {playerFixture && playerFixture.status === 'pending' && (
           <div className="mb-8">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-400" />
@@ -184,117 +184,56 @@ export default function WeekFixtures() {
             
             <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
+                <div className="flex-1 flex items-center justify-center gap-8">
+                  <div className="text-center min-w-[120px]">
                     <div className="text-2xl font-bold text-white">You</div>
                     <div className="text-slate-300 text-sm">Home</div>
-                    {playerFixture.status === 'completed' && (
-                      <div className="text-3xl font-black text-amber-400 mt-2">
-                        {playerFixture.home_score}
-                      </div>
-                    )}
                   </div>
                   
-                  <div className="text-4xl font-bold text-slate-600">
-                    {playerFixture.status === 'completed' ? 'vs' : 'vs'}
-                  </div>
+                  <div className="text-4xl font-bold text-slate-600">vs</div>
                   
-                  <div className="text-center">
+                  <div className="text-center min-w-[120px]">
                     <div className="text-2xl font-bold text-white">{playerFixture.away_team}</div>
                     <div className="text-slate-300 text-sm">Away</div>
-                    {playerFixture.status === 'completed' && (
-                      <div className="text-3xl font-black text-slate-300 mt-2">
-                        {playerFixture.away_score}
-                      </div>
-                    )}
                   </div>
                 </div>
                 
-                <div className="text-right">
-                  {playerFixture.status === 'pending' ? (
-                    <Button 
-                      onClick={handlePlayMatch}
-                      disabled={playingMatch}
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-8 py-3 text-lg"
-                    >
-                      <Play className="w-5 h-5 mr-2" />
-                      {playingMatch ? 'Starting...' : 'Play Match'}
-                    </Button>
-                  ) : (
-                    <div className="text-center">
-                      <div className={`text-2xl font-bold ${playerFixture.home_score! > playerFixture.away_score! ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {playerFixture.home_score! > playerFixture.away_score! ? 'WIN' : 'LOSS'}
-                      </div>
-                      <div className="text-slate-400 text-sm">Match Completed</div>
-                    </div>
-                  )}
+                <div className="text-right min-w-[120px]">
+                  <Button 
+                    onClick={handlePlayMatch}
+                    disabled={playingMatch}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-8 py-3 text-lg"
+                  >
+                    <Play className="w-5 h-5 mr-2" />
+                    {playingMatch ? 'Starting...' : 'Play Match'}
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Other Fixtures */}
-        {otherFixtures.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-slate-400" />
-              Other Matches
-            </h2>
-            
-            <div className="grid gap-4">
-              {otherFixtures.map((fixture) => (
-                <div key={fixture.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 flex items-center justify-center gap-8">
-                      <div className="text-center min-w-[120px]">
-                        <div className="text-lg font-semibold text-white">{fixture.home_team}</div>
-                        {fixture.status === 'completed' && (
-                          <div className="text-xl font-bold text-slate-300 mt-1">
-                            {fixture.home_score}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="text-2xl font-bold text-slate-600">vs</div>
-                      
-                      <div className="text-center min-w-[120px]">
-                        <div className="text-lg font-semibold text-white">{fixture.away_team}</div>
-                        {fixture.status === 'completed' && (
-                          <div className="text-xl font-bold text-slate-300 mt-1">
-                            {fixture.away_score}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="text-right min-w-[80px]">
-                      {fixture.status === 'pending' ? (
-                        <div className="flex items-center gap-2 text-amber-400">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-sm">Pending</span>
-                        </div>
-                      ) : (
-                        <div className="text-emerald-400 text-sm font-medium">
-                          Complete
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Message when no pending matches */}
+        {playerFixture && playerFixture.status === 'completed' && (
+          <div className="text-center">
+            <div className="text-slate-400 text-lg mb-4">Match completed! Results will be shown after all matches finish.</div>
+            <Button 
+              onClick={handleBackToCareer}
+              className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white font-bold px-8 py-3"
+            >
+              Back to Career
+            </Button>
           </div>
         )}
 
-        {/* Continue Button */}
-        {allMatchesCompleted && (
+        {!playerFixture && (
           <div className="text-center">
+            <div className="text-slate-400 text-lg mb-4">No matches available for this week.</div>
             <Button 
               onClick={handleBackToCareer}
-              className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-bold px-8 py-3 text-lg"
+              className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white font-bold px-8 py-3"
             >
-              Continue to Next Week
+              Back to Career
             </Button>
           </div>
         )}
