@@ -104,13 +104,13 @@ function HeroStat({ value, label, icon: Icon, color, trend, onClick }: {
 }) {
   const content = (
     <div
-      className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all ${onClick ? 'cursor-pointer' : ''}`}
+      className={`relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-3 sm:p-4 lg:p-6 group hover:border-slate-600/50 transition-all ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
       <div className={`absolute top-0 left-0 w-1 h-full ${color}`} />
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-4xl font-black text-white tracking-tight">{value}</p>
+          <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">{value}</p>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">{label}</p>
           {trend && (
             <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1">
@@ -119,8 +119,8 @@ function HeroStat({ value, label, icon: Icon, color, trend, onClick }: {
             </p>
           )}
         </div>
-        <div className={`w-12 h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
-          <Icon className="w-6 h-6 text-white" />
+        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} bg-opacity-20 flex items-center justify-center`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       </div>
     </div>
@@ -417,7 +417,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 px-2 sm:px-0 overflow-x-hidden">
+    <div className="max-w-7xl mx-auto space-y-3 sm:space-y-6 px-1 sm:px-4 lg:px-6 xl:px-0 overflow-x-hidden">
       {/* Hero Section - Player Card Style */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700/50">
         {/* Background Pattern */}
@@ -480,7 +480,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Hero Stats Grid - 4 columns: Matches, Win Rate, 3-Dart Avg, Win Streak */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mt-6 sm:mt-8">
             <HeroStat 
               value={stats?.totalMatches || 0} 
               label="Matches Played" 
@@ -501,7 +501,7 @@ export default function DashboardPage() {
             />
             
             {/* Trust Rating */}
-            <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 group hover:border-slate-600/50 transition-all">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-3 sm:p-4 lg:p-6 group hover:border-slate-600/50 transition-all">
               <div className={`absolute top-0 left-0 w-1 h-full ${
                 (profile?.trust_rating_count || 0) === 0 ? 'bg-slate-500' :
                 profile?.trust_rating_letter === 'A' ? 'bg-emerald-500' :
@@ -513,7 +513,7 @@ export default function DashboardPage() {
               }`} />
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-4xl font-black text-white tracking-tight">
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
                     {(profile?.trust_rating_count || 0) === 0 ? '-' : profile?.trust_rating_letter}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1 uppercase tracking-wider font-medium">Trust Rating</p>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
                     {(profile?.trust_rating_count || 0) === 0 ? 'No ratings yet' : `${profile?.trust_rating_count} rating${profile?.trust_rating_count !== 1 ? 's' : ''}`}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${
                   (profile?.trust_rating_count || 0) === 0 ? 'bg-slate-500/20' :
                   profile?.trust_rating_letter === 'A' ? 'bg-emerald-500/20' :
                   profile?.trust_rating_letter === 'B' ? 'bg-emerald-400/20' :
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                   profile?.trust_rating_letter === 'E' ? 'bg-red-500/20' :
                   'bg-slate-500/20'
                 }`}>
-                  <Shield className={`w-6 h-6 ${
+                  <Shield className={`w-5 h-5 sm:w-6 sm:h-6 ${
                     (profile?.trust_rating_count || 0) === 0 ? 'text-slate-400' :
                     profile?.trust_rating_letter === 'A' ? 'text-emerald-500' :
                     profile?.trust_rating_letter === 'B' ? 'text-emerald-400' :
@@ -546,10 +546,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Grid Layout - 2 columns */}
-      <div className="grid lg:grid-cols-3 gap-3 sm:gap-6">
+      {/* Main Grid Layout - Single column on mobile, 3 columns on desktop */}
+      <div className="grid xl:grid-cols-3 gap-3 sm:gap-6">
         {/* Left Column - 2/3 width: Ranked Status + Upcoming Games */}
-        <div className="lg:col-span-2 space-y-3 sm:space-y-6">
+        <div className="xl:col-span-2 space-y-3 sm:space-y-6">
           {/* Ranked Status - Premium Design */}
           <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-900/40 via-slate-900/60 to-slate-900/80 shadow-2xl shadow-amber-500/10">
             {/* Background Effects */}
@@ -609,7 +609,7 @@ export default function DashboardPage() {
                 {/* Right - Play Button & Placement */}
                 <div className="flex flex-col items-start xl:items-end gap-4 w-full xl:w-auto">
                   {rankedState?.provisional_games_remaining ? (
-                    <div className="w-full sm:w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
+                    <div className="w-full sm:w-48 lg:w-52 bg-slate-900/50 rounded-xl p-3 border border-amber-500/20">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-amber-400 font-medium">Placement</span>
                         <span className="text-white font-bold">{Math.max(0, 5 - Math.min(5, rankedState.provisional_games_remaining))}/5</span>
@@ -625,8 +625,8 @@ export default function DashboardPage() {
                       Ranked Active
                     </div>
                   )}
-                  <Button disabled className="w-full sm:w-auto bg-slate-700 text-slate-400 font-bold px-4 sm:px-8 py-4 sm:py-6 text-sm sm:text-base cursor-not-allowed opacity-60">
-                    <Lock className="w-5 h-5 mr-2" />
+                  <Button disabled className="w-full sm:w-auto bg-slate-700 text-slate-400 font-bold px-3 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-6 text-xs sm:text-sm lg:text-base cursor-not-allowed opacity-60">
+                    <Lock className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Coming Soon
                   </Button>
                 </div>
@@ -634,7 +634,7 @@ export default function DashboardPage() {
 
               {/* Stats Row */}
               <div className="mt-6 sm:mt-8 pt-6 border-t border-amber-500/20">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
                   <div className="text-center p-3 sm:p-4 rounded-xl bg-slate-900/40 border border-emerald-500/20 backdrop-blur-sm">
                     <p className="text-xl sm:text-2xl font-black text-emerald-400">{rankedState?.wins || 0}</p>
                     <p className="text-slate-400 text-xs uppercase tracking-wider mt-1">Wins</p>
@@ -725,12 +725,12 @@ export default function DashboardPage() {
                   <Calendar className="w-10 h-10 sm:w-16 sm:h-16 text-slate-600 mx-auto mb-3 sm:mb-4" />
                   <h3 className="text-base sm:text-xl font-bold text-white mb-2">No upcoming games</h3>
                   <p className="text-slate-400 text-sm mb-4">Join a tournament or league to see scheduled matches here</p>
-                  <div className="flex justify-center gap-3">
-                    <Button disabled className="bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60">
+                  <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3">
+                    <Button disabled className="bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60 text-xs sm:text-sm">
                       <Lock className="w-4 h-4 mr-2" />
                       Tournaments — Coming Soon
                     </Button>
-                    <Button disabled className="bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60">
+                    <Button disabled className="bg-slate-700/50 text-slate-400 border border-slate-600/30 cursor-not-allowed opacity-60 text-xs sm:text-sm">
                       <Lock className="w-4 h-4 mr-2" />
                       Leagues — Coming Soon
                     </Button>
