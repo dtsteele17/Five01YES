@@ -23,6 +23,20 @@ interface ResultsData {
   season: number;
   event_name: string;
   fixtures: Fixture[];
+  standings?: StandingRow[];
+}
+
+interface StandingRow {
+  is_player: boolean;
+  name: string;
+  played: number;
+  won: number;
+  lost: number;
+  legs_for: number;
+  legs_against: number;
+  legs_diff: number;
+  points: number;
+  average: number;
 }
 
 export default function WeekResults() {
@@ -45,8 +59,8 @@ export default function WeekResults() {
     try {
       const supabase = createClient();
       
-      // Get completed week results
-      const { data, error } = await supabase.rpc('rpc_get_week_results', { 
+      // Get completed week results with updated standings
+      const { data, error } = await supabase.rpc('rpc_get_week_results_with_standings', { 
         p_career_id: careerId 
       });
       
@@ -164,6 +178,38 @@ export default function WeekResults() {
             ))}
           </div>
         </div>
+
+        {/* Updated League Standings */}
+        {resultsData.standings && resultsData.standings.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" />
+              Updated League Table
+            </h2>
+            
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-8 gap-2 p-3 bg-slate-700/30 text-xs font-medium text-slate-300 border-b border-slate-600/50">
+                <div className="text-left">Pos</div>
+                <div className="col-span-3 text-left">Team</div>
+                <div className="text-center">P</div>
+                <div className="text-center">W</div>
+                <div className="text-center">L</div>
+                <div className="text-center">Pts</div>
+              </div>
+              
+              {resultsData.standings.map((team, index) => (
+                <div key={index} className={`grid grid-cols-8 gap-2 p-3 text-sm border-b border-slate-700/30 last:border-0 ${team.is_player ? 'bg-amber-500/10 text-amber-300' : 'text-slate-300'}`}>
+                  <div className="font-bold">{index + 1}</div>
+                  <div className="col-span-3 font-semibold">{team.name}</div>
+                  <div className="text-center">{team.played}</div>
+                  <div className="text-center text-emerald-400">{team.won}</div>
+                  <div className="text-center text-red-400">{team.lost}</div>
+                  <div className="text-center font-bold">{team.points}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Continue Button */}
         <div className="text-center">
