@@ -246,8 +246,8 @@ export default function WeekFixtures() {
               {otherFixtures.map((fixture) => (
                 <div key={fixture.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
+                    <div className="flex-1 flex items-center justify-center gap-8">
+                      <div className="text-center min-w-[120px]">
                         <div className="text-lg font-semibold text-white">{fixture.home_team}</div>
                         {fixture.status === 'completed' && (
                           <div className="text-xl font-bold text-slate-300 mt-1">
@@ -258,7 +258,7 @@ export default function WeekFixtures() {
                       
                       <div className="text-2xl font-bold text-slate-600">vs</div>
                       
-                      <div className="text-center">
+                      <div className="text-center min-w-[120px]">
                         <div className="text-lg font-semibold text-white">{fixture.away_team}</div>
                         {fixture.status === 'completed' && (
                           <div className="text-xl font-bold text-slate-300 mt-1">
@@ -268,7 +268,7 @@ export default function WeekFixtures() {
                       </div>
                     </div>
                     
-                    <div className="text-right">
+                    <div className="text-right min-w-[80px]">
                       {fixture.status === 'pending' ? (
                         <div className="flex items-center gap-2 text-amber-400">
                           <Clock className="w-4 h-4" />
