@@ -384,6 +384,13 @@ export default function CareerPage() {
     setPlayingEvent(true);
     try {
       const { next_event } = data;
+      
+      // For Tier 2+ league matches, go to fixtures page first
+      if (data.career.tier >= 2 && next_event.event_type === 'league') {
+        router.push(`/app/career/fixtures?careerId=${careerId}`);
+        return;
+      }
+
       // Tournament choice - let user pick between tournaments or decline
       if (next_event.event_type === 'tournament_choice') {
         router.push(`/app/career/tournament-choice?careerId=${careerId}&eventId=${next_event.id}`);
