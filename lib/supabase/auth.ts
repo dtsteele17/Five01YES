@@ -36,15 +36,17 @@ export async function requireUser() {
 }
 
 export function useAuthUser() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const supabase = createClient();
   const [user, setUser] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);

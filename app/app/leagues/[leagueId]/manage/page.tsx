@@ -63,7 +63,7 @@ export default function ManageLeaguePage() {
         <Card className="bg-slate-900/80 backdrop-blur-xl border border-red-500/20 p-8 max-w-md text-center">
           <h1 className="text-2xl font-bold text-white mb-2">League Not Found</h1>
           <p className="text-slate-400 mb-6">
-            The league you're looking for doesn't exist.
+            The league you&apos;re looking for doesn&apos;t exist.
           </p>
           <Button
             onClick={() => router.push('/app/leagues')}
@@ -86,7 +86,7 @@ export default function ManageLeaguePage() {
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
           <p className="text-slate-400 mb-6">
-            You don't have permission to manage this league. Only league owners and admins can access this page.
+            You don&apos;t have permission to manage this league. Only league owners and admins can access this page.
           </p>
           <Button
             onClick={() => router.push(`/app/leagues/${leagueId}`)}

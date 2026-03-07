@@ -446,7 +446,7 @@ export default function CareerBracketPage() {
                   {tournamentResult.playerWon ? 'Champion!' : tournamentResult.placement}
                 </h2>
                 {tournamentResult.promo_message && (
-                  <p className="text-amber-400 text-sm italic mb-3">"{tournamentResult.promo_message}"</p>
+                  <p className="text-amber-400 text-sm italic mb-3">&ldquo;{tournamentResult.promo_message}&rdquo;</p>
                 )}
                 <div className="mb-4">
                   <span className="text-2xl font-bold text-amber-400">+{tournamentResult.rep_earned}</span>
