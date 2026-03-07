@@ -609,7 +609,7 @@ export default function CareerPage() {
                         <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
                         <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
                         <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
-                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured!' : 'New season with fresh competition ahead.'}</p>
+                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured! Moving up next season.' : 'New season with fresh competition ahead.'}</p>
                       </div>
                       <Button
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
@@ -617,7 +617,7 @@ export default function CareerPage() {
                         onClick={handlePlayEvent}
                       >
                         {playingEvent ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
-                        {willPromote ? 'Next Tier' : 'Next Season'}
+                        Next Season
                       </Button>
                     </>
                   ) : next_event ? (
