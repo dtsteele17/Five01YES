@@ -29,6 +29,7 @@ export interface TrainingConfig {
     totalRounds?: number;
     bracketPosition?: number;
     returnToResults?: boolean;
+    returnToFixtures?: boolean;
   };
 }
 
