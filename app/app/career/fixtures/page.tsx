@@ -50,14 +50,56 @@ export default function WeekFixtures() {
     try {
       const supabase = createClient();
       
-      // Get current week fixtures with locked opponent consistency
-      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', { 
+      // Initialize FIFA-style league if needed
+      const { data: careerData } = await supabase
+        .from('career_profiles')
+        .select('tier, season')
+        .eq('id', careerId)
+        .single();
+        
+      if (careerData) {
+        // Check if league standings exist, if not initialize them
+        const { data: standings } = await supabase
+          .from('career_league_standings')
+          .select('id')
+          .eq('career_id', careerId)
+          .eq('season', careerData.season)
+          .eq('tier', careerData.tier)
+          .limit(1);
+          
+        if (!standings || standings.length === 0) {
+          // Initialize FIFA-style league
+          if (careerData.tier === 2) {
+            await supabase.rpc('rpc_fifa_initialize_tier2_league', {
+              p_career_id: careerId,
+              p_season: careerData.season
+            });
+          } else if (careerData.tier === 3) {
+            await supabase.rpc('rpc_fifa_initialize_tier3_league', {
+              p_career_id: careerId,
+              p_season: careerData.season
+            });
+          }
+        }
+      }
+      
+      // Get current week fixtures - use FIFA-style fixture generation
+      const { data, error } = await supabase.rpc('rpc_fifa_get_week_fixtures', { 
         p_career_id: careerId 
       });
       
-      if (error) throw error;
+      if (error) {
+        // Fallback to original function if FIFA version doesn't exist yet
+        const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', { 
+          p_career_id: careerId 
+        });
+        
+        if (fallbackError) throw fallbackError;
+        setWeekData(fallbackData);
+      } else {
+        setWeekData(data);
+      }
       
-      setWeekData(data);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load fixtures');
       router.back();
@@ -84,10 +126,42 @@ export default function WeekFixtures() {
         p_career_id: careerId 
       });
       
-      if (error) throw error;
+      if (error) {
+        // Fallback to original function if FIFA version fails
+        const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { 
+          p_career_id: careerId 
+        });
+        
+        if (fallbackError) throw fallbackError;
+        
+        // Use fallback data with original structure
+        const config = {
+          mode: '501',
+          botDifficulty: 'amateur',
+          botAverage: 50,
+          doubleOut: true,
+          bestOf: 'best-of-3',
+          atcOpponent: 'bot',
+          career: {
+            careerId,
+            eventId: fallbackData.event?.id,
+            eventName: fallbackData.event?.name,
+            matchId: fallbackData.match_id,
+            opponentId: fallbackData.opponent?.id,
+            opponentName: fallbackData.opponent?.name,
+            returnToFixtures: true
+          },
+        };
+
+        sessionStorage.setItem('game_config', JSON.stringify(config));
+        toast.success(`Starting match vs ${fallbackData.opponent?.name}`);
+        router.push('/app/play/training/501');
+        return;
+      }
+      
       if (matchData?.error) throw new Error(matchData.error);
 
-      // Store context to return to career home after match
+      // Store FIFA-style return context
       sessionStorage.setItem('career_return_context', JSON.stringify({
         careerId,
         tier: weekData.tier,
@@ -103,12 +177,12 @@ export default function WeekFixtures() {
         botAverage: matchData.bot_config?.average || 50,
         doubleOut: true,
         bestOf: (() => {
-          const legs = matchData.event?.format_legs || 3;
+          const legs = matchData.event?.format_legs || (weekData.tier === 3 ? 5 : 3);
           const bestOfMap: Record<number, string> = { 
             1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 
             7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' 
           };
-          return bestOfMap[legs] || 'best-of-3';
+          return bestOfMap[legs] || (weekData.tier === 3 ? 'best-of-5' : 'best-of-3');
         })(),
         atcOpponent: 'bot',
         career: {
@@ -119,12 +193,13 @@ export default function WeekFixtures() {
           opponentId: matchData.opponent?.id,
           opponentName: matchData.opponent?.name,
           roomId: matchData.room_id,
-          tier: matchData.event?.tier,
-          season: matchData.event?.season,
-          tierName: matchData.career_context?.tier_name,
+          tier: matchData.event?.tier || weekData.tier,
+          season: matchData.event?.season || weekData.season,
+          tierName: matchData.career_context?.tier_name || (weekData.tier === 2 ? 'Pub League' : 'County League'),
           source: 'career',
           matchType: 'career',
-          returnToCareer: true
+          returnToCareer: true,
+          fifaStyle: true // Flag for FIFA-style completion
         },
       };
 
@@ -132,7 +207,11 @@ export default function WeekFixtures() {
       sessionStorage.setItem('game_config', JSON.stringify(config));
       
       // Launch FIFA-style career match
-      toast.success(`Starting ${matchData.career_context?.tier_name || 'League'} match vs ${matchData.opponent?.name}`);
+      const tierName = weekData.tier === 2 ? 'Pub League' : 
+                       weekData.tier === 3 ? 'County League' : 'League';
+      const matchFormat = weekData.tier === 3 ? 'Best of 5' : 'Best of 3';
+      
+      toast.success(`Starting ${tierName} match (${matchFormat}) vs ${matchData.opponent?.name}`);
       router.push('/app/play/training/501');
       
     } catch (err: any) {
@@ -151,7 +230,7 @@ export default function WeekFixtures() {
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <RefreshCw className="w-10 h-10 text-amber-400 animate-spin" />
-          <p className="text-slate-400">Loading fixtures...</p>
+          <p className="text-slate-400">Loading FIFA-style fixtures...</p>
         </div>
       </div>
     );
@@ -174,6 +253,14 @@ export default function WeekFixtures() {
   const playerFixture = weekData.fixtures.find(f => f.is_player_match);
   const otherFixtures = weekData.fixtures.filter(f => !f.is_player_match);
   const allMatchesCompleted = weekData.fixtures.every(f => f.status === 'completed');
+  
+  // FIFA-style tier information
+  const tierInfo = {
+    2: { name: 'Pub League', players: 8, format: 'Best of 3', color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30' },
+    3: { name: 'County League', players: 12, format: 'Best of 5', color: 'from-purple-500/20 to-indigo-500/20 border-purple-500/30' }
+  };
+  
+  const currentTier = tierInfo[weekData.tier as keyof typeof tierInfo] || tierInfo[2];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -190,7 +277,12 @@ export default function WeekFixtures() {
           </Button>
           <div className="text-center">
             <h1 className="text-3xl font-bold text-white">{weekData.event_name}</h1>
-            <p className="text-slate-400">Tier {weekData.tier} • Season {weekData.season} • Week {weekData.week}</p>
+            <p className="text-slate-400">
+              {currentTier.name} • Season {weekData.season} • Week {weekData.week}
+            </p>
+            <p className="text-slate-500 text-sm">
+              {currentTier.players} Players • {currentTier.format} Format • FIFA-Style
+            </p>
           </div>
           <div className="w-24" /> {/* Spacer */}
         </div>
@@ -198,7 +290,7 @@ export default function WeekFixtures() {
         {/* FIFA-style Continue Card - Only show if user has a pending match */}
         {playerFixture && playerFixture.status === 'pending' && (
           <div className="mb-8">
-            <Card className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 p-6">
+            <Card className={`bg-gradient-to-r ${currentTier.color} p-6`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
@@ -218,9 +310,13 @@ export default function WeekFixtures() {
                       <div className="text-slate-300 text-sm">Away</div>
                     </div>
                   </div>
-                  <p className="text-slate-400 text-sm">
-                    Best of {weekData.tier === 3 ? '5' : '3'} • {weekData.tier === 2 ? 'Pub League' : weekData.tier === 3 ? 'County League' : 'League'} Match
-                  </p>
+                  <div className="flex items-center gap-4 text-slate-300 text-sm">
+                    <Badge variant="outline" className="text-amber-400 border-amber-500/30">
+                      {currentTier.format}
+                    </Badge>
+                    <span>{currentTier.name} Match</span>
+                    <span>FIFA-Style Career</span>
+                  </div>
                 </div>
 
                 <Button 
@@ -282,11 +378,11 @@ export default function WeekFixtures() {
           </div>
         )}
 
-        {/* Other Fixtures */}
+        {/* Other Fixtures - FIFA Style */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-400" />
-            Other Matches
+            Other {currentTier.name} Matches
           </h2>
           
           <div className="grid gap-3">
@@ -342,7 +438,7 @@ export default function WeekFixtures() {
           ) : !playerFixture || playerFixture.status === 'completed' ? (
             <div className="text-center">
               <p className="text-slate-400 text-sm mb-4">
-                Waiting for other matches to complete...
+                Other matches will be simulated after you complete yours (FIFA-style)
               </p>
               <Button 
                 variant="outline"
