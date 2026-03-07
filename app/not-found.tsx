@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Target, Home } from 'lucide-react';
+import { Target, Chrome as Home } from 'lucide-react';
 
 export default function NotFound() {
   return (

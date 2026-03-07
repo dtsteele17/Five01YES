@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Trophy, TrendingUp, ArrowRight, Crown, Award, Target, CheckCircle, Mail } from 'lucide-react';
+import { Trophy, TrendingUp, ArrowRight, Crown, Award, Target, CircleCheck as CheckCircle, Mail } from 'lucide-react';
 
 interface FinalTableRow {
   position: number;

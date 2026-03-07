@@ -14,10 +14,7 @@ import {
   CAREER_TRAINING_RETURN_KEY,
   getRandomCareerTrainingRoute,
 } from '@/lib/career/trainingRoutes';
-import {
-  Trophy, Swords, ArrowLeft, Loader2, Play, Crown, ChevronRight,
-  Shield, Star, Zap, Check, X,
-} from 'lucide-react';
+import { Trophy, Swords, ArrowLeft, Loader as Loader2, Play, Crown, ChevronRight, Shield, Star, Zap, Check, X } from 'lucide-react';
 import {
   generateBracket,
   processRoundAfterPlayerMatch,
