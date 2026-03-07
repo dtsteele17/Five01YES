@@ -48,8 +48,8 @@ export default function WeekFixtures() {
     try {
       const supabase = createClient();
       
-      // Get current week fixtures using proper scheduling
-      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_scheduled', { 
+      // Get current week fixtures with locked opponent consistency
+      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', { 
         p_career_id: careerId 
       });
       
@@ -76,7 +76,7 @@ export default function WeekFixtures() {
     setPlayingMatch(true);
     try {
       const supabase = createClient();
-      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event', { 
+      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked', { 
         p_career_id: careerId 
       });
       
