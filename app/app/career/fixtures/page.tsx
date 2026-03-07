@@ -76,7 +76,7 @@ export default function WeekFixtures() {
     setPlayingMatch(true);
     try {
       const supabase = createClient();
-      const { data: matchData, error } = await supabase.rpc('rpc_play_weekend_event', { 
+      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { 
         p_career_id: careerId 
       });
       
