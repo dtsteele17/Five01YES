@@ -340,10 +340,16 @@ BEGIN
   END IF;
 
   -- Get/create player's match for this event
-  SELECT cm.*, co.first_name, co.last_name INTO v_player_match, v_player_opponent.first_name, v_player_opponent.last_name
+  SELECT cm.* INTO v_player_match
   FROM career_matches cm
-  LEFT JOIN career_opponents co ON co.id = cm.opponent_id
   WHERE cm.career_id = p_career_id AND cm.event_id = v_event.id;
+
+  -- Get opponent details if match exists
+  IF v_player_match.id IS NOT NULL THEN
+    SELECT co.* INTO v_player_opponent
+    FROM career_opponents co
+    WHERE co.id = v_player_match.opponent_id;
+  END IF;
 
   IF v_player_match.id IS NULL THEN
     -- Create player match if it doesn't exist (fixture generation)
