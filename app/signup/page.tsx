@@ -562,25 +562,44 @@ export default function SignupPage() {
               )}
             </div>
 
-            {/* Terms Checkbox */}
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={() => setAcceptedTerms(!acceptedTerms)}
-                className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                  acceptedTerms 
-                    ? 'bg-primary border-primary' 
-                    : 'border-border hover:border-primary'
-                }`}
-              >
-                {acceptedTerms && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
-              </button>
-              <p className="text-muted-foreground text-sm">
-                I agree to the{' '}
-                <Link href="/terms" className="text-primary hover:text-primary/80">Terms of Service</Link>
-                {' '}and{' '}
-                <Link href="/privacy" className="text-primary hover:text-primary/80">Privacy Policy</Link>
-              </p>
+            {/* Terms Checkbox - Enhanced Visibility */}
+            <div className="bg-slate-800/30 border-2 border-slate-700 rounded-xl p-4 sm:p-5">
+              <div className="flex items-start gap-4">
+                <button
+                  type="button"
+                  onClick={() => setAcceptedTerms(!acceptedTerms)}
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all duration-200 ${
+                    acceptedTerms 
+                      ? 'bg-primary border-primary shadow-lg shadow-primary/25 scale-105' 
+                      : 'border-slate-500 hover:border-primary hover:bg-slate-700/50'
+                  }`}
+                >
+                  {acceptedTerms && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-white font-bold" />}
+                </button>
+                <div className="flex-1">
+                  <p className="text-foreground text-sm sm:text-base font-medium leading-relaxed">
+                    I agree to the{' '}
+                    <Link 
+                      href="/terms" 
+                      target="_blank"
+                      className="text-primary hover:text-primary/80 underline underline-offset-2 font-semibold"
+                    >
+                      Terms of Service
+                    </Link>
+                    {' '}and{' '}
+                    <Link 
+                      href="/privacy"
+                      target="_blank" 
+                      className="text-primary hover:text-primary/80 underline underline-offset-2 font-semibold"
+                    >
+                      Privacy Policy
+                    </Link>
+                  </p>
+                  <p className="text-muted-foreground text-xs sm:text-sm mt-2 leading-relaxed">
+                    Required to create your account and participate in competitive play
+                  </p>
+                </div>
+              </div>
             </div>
 
             <Button
