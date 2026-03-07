@@ -127,36 +127,9 @@ export default function WeekFixtures() {
       });
       
       if (error) {
-        // Fallback to original function if FIFA version fails
-        const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { 
-          p_career_id: careerId 
-        });
-        
-        if (fallbackError) throw fallbackError;
-        
-        // Use fallback data with original structure
-        const config = {
-          mode: '501',
-          botDifficulty: 'amateur',
-          botAverage: 50,
-          doubleOut: true,
-          bestOf: 'best-of-3',
-          atcOpponent: 'bot',
-          career: {
-            careerId,
-            eventId: fallbackData.event?.id,
-            eventName: fallbackData.event?.name,
-            matchId: fallbackData.match_id,
-            opponentId: fallbackData.opponent?.id,
-            opponentName: fallbackData.opponent?.name,
-            returnToFixtures: true
-          },
-        };
-
-        sessionStorage.setItem('game_config', JSON.stringify(config));
-        toast.success(`Starting match vs ${fallbackData.opponent?.name}`);
-        router.push('/app/play/training/501');
-        return;
+        console.error('FIFA career function failed:', error);
+        toast.error(`FIFA career function failed: ${error.message}`);
+        throw error;
       }
       
       if (matchData?.error) throw new Error(matchData.error);
