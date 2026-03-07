@@ -322,13 +322,13 @@ BEGIN
 
   -- Check if match already has a room ID (idempotency)
   IF v_match.match_room_id IS NOT NULL THEN
-    v_room_id := v_match.match_room_id;
+    v_room_id := v_match.match_room_id::TEXT;
   ELSE
-    -- Create new room ID
-    v_room_id := 'career_fifa_' || p_career_id || '_' || extract(epoch from now())::bigint;
+    -- Create new UUID room ID
+    v_room_id := gen_random_uuid()::TEXT;
     
     -- Update match with room ID
-    UPDATE career_matches SET match_room_id = v_room_id WHERE id = v_match.id;
+    UPDATE career_matches SET match_room_id = v_room_id::UUID WHERE id = v_match.id;
   END IF;
 
   -- Get opponent details
