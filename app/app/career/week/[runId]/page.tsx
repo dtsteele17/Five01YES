@@ -94,14 +94,17 @@ export default function WeekFixtures() {
         return;
       }
 
-      // Set up game config using existing working match data
-      const avg = matchData.bot_average || 50;
+      // Set up dartbot match config exactly like tournament matches
+      const avg = Math.max(20, Math.min(100, Math.round(matchData.bot_average || 50)));
       const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
         : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
         : avg <= 90 ? 'pro' : 'worldClass';
       const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' };
 
-      // Store context to return to fixtures page after game
+      // Get opponent name from fixture (more reliable than function return)
+      const opponentName = playerFixture.away_team;
+      
+      // Store return context for post-match navigation
       sessionStorage.setItem('career_fixtures_return', JSON.stringify({
         careerId,
         week: weekData.week,
@@ -110,29 +113,29 @@ export default function WeekFixtures() {
         route: `/app/career/week/${runId}?careerId=${careerId}`
       }));
 
+      // Create dartbot config using EXACT same pattern as tournament matches
       const config = {
         mode: '501',
         botDifficulty: diffKey as any,
         botAverage: avg,
         doubleOut: true,
-        bestOf: bestOfMap[matchData.best_of] || 'best-of-3',
+        bestOf: bestOfMap[matchData.best_of] || (weekData.tier === 3 ? 'best-of-5' : 'best-of-3'),
         atcOpponent: 'bot',
         career: {
           careerId,
           eventId: matchData.event_id,
-          eventName: matchData.event_name || weekData.event_name,
+          eventName: `${weekData.tier === 2 ? 'Pub League' : 'County League'} Match`,
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
-          opponentName: matchData.opponent?.name,
-          returnToFixtures: true
+          opponentName: opponentName
         },
       };
 
-      // Store config for the game
+      // Store config for dartbot game (same as tournaments)
       sessionStorage.setItem('game_config', JSON.stringify(config));
       
-      // Show confirmation with correct opponent
-      toast.success(`Starting league match vs ${matchData.opponent?.name}`);
+      // Show confirmation and launch dartbot
+      toast.success(`Starting ${weekData.tier === 2 ? 'Pub League' : 'County League'} match vs ${opponentName}`);
       router.push('/app/play/training/501');
     } catch (err: any) {
       toast.error(err.message || 'Failed to start match');
