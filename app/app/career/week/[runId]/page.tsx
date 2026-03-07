@@ -28,6 +28,7 @@ interface WeekData {
   tier: number;
   season: number;
   event_name: string;
+  format_legs?: number;
   fixtures: Fixture[];
 }
 
@@ -46,6 +47,8 @@ export default function WeekFixtures() {
   
   const runId = params.runId as string;
   const careerId = searchParams.get('careerId') || runId;
+  // If showResults param is present, we're viewing results of a just-completed match
+  const showResultsEventId = searchParams.get('showResults');
 
   const [weekData, setWeekData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,44 +58,68 @@ export default function WeekFixtures() {
     if (careerId) {
       loadWeekFixtures();
     }
-  }, [careerId]);
+  }, [careerId, showResultsEventId]);
 
   async function loadWeekFixtures() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
-        p_career_id: careerId
-      });
-      if (error) throw error;
       
-      // Fix simulated scores to respect best-of format
-      if (data?.fixtures) {
-        const bestOf = data.tier === 3 ? 5 : data.tier === 4 ? 7 : data.tier === 5 ? 9 : 3;
-        const legsToWin = Math.ceil(bestOf / 2);
-        
-        data.fixtures = data.fixtures.map((f: Fixture) => {
-          if (!f.is_player_match && f.status === 'completed') {
-            // Generate realistic best-of scores
-            const winnerLegs = legsToWin;
-            const loserLegs = Math.floor(Math.random() * legsToWin);
-            const homeWins = Math.random() < 0.5;
-            return {
-              ...f,
-              home_score: homeWins ? winnerLegs : loserLegs,
-              away_score: homeWins ? loserLegs : winnerLegs,
-            };
-          }
-          return f;
+      if (showResultsEventId) {
+        // Load specific completed event's results
+        const { data, error } = await supabase.rpc('rpc_get_week_fixtures_for_event', {
+          p_career_id: careerId,
+          p_event_id: showResultsEventId,
         });
+        if (error) {
+          // Fallback to default if the function doesn't exist yet
+          const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
+            p_career_id: careerId
+          });
+          if (fallbackError) throw fallbackError;
+          setWeekData(fixScores(fallbackData));
+        } else {
+          setWeekData(fixScores(data));
+        }
+      } else {
+        // Load next pending league event
+        const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
+          p_career_id: careerId
+        });
+        if (error) throw error;
+        setWeekData(fixScores(data));
       }
-      
-      setWeekData(data);
     } catch (err: any) {
       toast.error('Failed to load fixtures');
     } finally {
       setLoading(false);
     }
+  }
+
+  function fixScores(data: any): WeekData | null {
+    if (!data?.fixtures) return data;
+    const bestOf = data.format_legs || (data.tier === 3 ? 5 : data.tier === 4 ? 7 : data.tier === 5 ? 9 : 3);
+    const legsToWin = Math.ceil(bestOf / 2);
+    
+    data.fixtures = data.fixtures.map((f: Fixture) => {
+      if (!f.is_player_match && f.status === 'completed') {
+        // Ensure scores respect best-of format
+        const hs = f.home_score ?? 0;
+        const as = f.away_score ?? 0;
+        if (hs > legsToWin || as > legsToWin || (hs !== legsToWin && as !== legsToWin)) {
+          const homeWins = Math.random() < 0.5;
+          const winnerLegs = legsToWin;
+          const loserLegs = Math.floor(Math.random() * legsToWin);
+          return {
+            ...f,
+            home_score: homeWins ? winnerLegs : loserLegs,
+            away_score: homeWins ? loserLegs : winnerLegs,
+          };
+        }
+      }
+      return f;
+    });
+    return data;
   }
 
   async function handlePlayMatch() {
@@ -115,6 +142,7 @@ export default function WeekFixtures() {
         return;
       }
 
+      const eventId = matchData.event?.id || playerFixture.event_id;
       const avg = Math.max(20, Math.min(100, Math.round(matchData.bot_average || 50)));
       const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
         : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
@@ -123,10 +151,10 @@ export default function WeekFixtures() {
 
       const opponentName = playerFixture.away_team;
       
-      // Store return context so post-match navigates back to week fixtures
+      // Store return context — return to THIS matchday's results after the game
       sessionStorage.setItem('career_fixtures_return', JSON.stringify({
         careerId,
-        route: `/app/career/week/${runId}?careerId=${careerId}`,
+        route: `/app/career/week/${runId}?careerId=${careerId}&showResults=${eventId}`,
       }));
 
       setConfig({
@@ -138,7 +166,7 @@ export default function WeekFixtures() {
         atcOpponent: 'bot',
         career: {
           careerId,
-          eventId: matchData.event?.id,
+          eventId: eventId,
           eventName: matchData.event?.name || `${TIER_NAMES[weekData.tier] || 'League'} Match`,
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
@@ -157,6 +185,8 @@ export default function WeekFixtures() {
   }
 
   function handleBackToCareer() {
+    // Clear the fixtures return context
+    sessionStorage.removeItem('career_fixtures_return');
     router.push(`/app/career?id=${careerId}`);
   }
 
@@ -193,9 +223,9 @@ export default function WeekFixtures() {
   const playerCompleted = playerFixture?.status === 'completed';
   const playerWon = playerCompleted && (playerFixture?.home_score || 0) > (playerFixture?.away_score || 0);
   const tierName = TIER_NAMES[weekData.tier] || `Tier ${weekData.tier}`;
-  const bestOf = weekData.tier === 3 ? 5 : weekData.tier === 4 ? 7 : weekData.tier === 5 ? 9 : 3;
+  const bestOf = weekData.format_legs || (weekData.tier === 3 ? 5 : weekData.tier === 4 ? 7 : weekData.tier === 5 ? 9 : 3);
+  const isResultsView = !!showResultsEventId;
 
-  // Extract matchday number from event name
   const matchdayMatch = weekData.event_name.match(/Matchday\s*(\d+)/i);
   const matchday = matchdayMatch ? matchdayMatch[1] : weekData.week.toString();
 
@@ -222,7 +252,7 @@ export default function WeekFixtures() {
               {tierName} • Season {weekData.season}
             </div>
             <h1 className="text-2xl font-bold text-white">
-              Matchday {matchday}
+              {isResultsView && playerCompleted ? `Matchday ${matchday} — Results` : `Matchday ${matchday}`}
             </h1>
             <p className="text-slate-500 text-sm mt-1">Best of {bestOf}</p>
           </div>
@@ -243,15 +273,12 @@ export default function WeekFixtures() {
                   : 'bg-red-500/5 border-red-500/20'
                 : 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20'
             }`}>
-              {/* Match content */}
               <div className="p-6">
                 <div className="flex items-center justify-center gap-6">
-                  {/* Home (You) */}
                   <div className="flex-1 text-right">
                     <div className="text-lg font-bold text-white">You</div>
                   </div>
                   
-                  {/* Score / VS */}
                   <div className="flex items-center gap-3 min-w-[100px] justify-center">
                     {playerCompleted ? (
                       <>
@@ -268,13 +295,11 @@ export default function WeekFixtures() {
                     )}
                   </div>
                   
-                  {/* Away (Opponent) */}
                   <div className="flex-1 text-left">
                     <div className="text-lg font-bold text-white">{playerFixture.away_team}</div>
                   </div>
                 </div>
 
-                {/* Result badge or Play button */}
                 <div className="flex justify-center mt-4">
                   {playerCompleted ? (
                     <Badge className={`text-xs px-3 py-1 ${
@@ -335,7 +360,6 @@ export default function WeekFixtures() {
                       : 'bg-slate-800/20 border-white/5'
                   }`}>
                     <div className="flex items-center justify-center gap-4">
-                      {/* Home */}
                       <div className="flex-1 text-right">
                         <span className={`text-sm font-medium ${
                           isCompleted && homeWon ? 'text-white' : 'text-slate-400'
@@ -344,7 +368,6 @@ export default function WeekFixtures() {
                         </span>
                       </div>
                       
-                      {/* Score */}
                       <div className="flex items-center gap-2 min-w-[70px] justify-center">
                         {isCompleted ? (
                           <>
@@ -361,7 +384,6 @@ export default function WeekFixtures() {
                         )}
                       </div>
                       
-                      {/* Away */}
                       <div className="flex-1 text-left">
                         <span className={`text-sm font-medium ${
                           isCompleted && !homeWon ? 'text-white' : 'text-slate-400'
@@ -389,7 +411,7 @@ export default function WeekFixtures() {
               onClick={handleBackToCareer}
               className="bg-slate-800 hover:bg-slate-700 text-white font-medium px-8 gap-2 border border-white/10"
             >
-              Continue
+              Back to Career
               <ChevronRight className="w-4 h-4" />
             </Button>
           ) : (
