@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Trophy, TrendingUp, ArrowRight, Crown, Award, Target, CheckCircle, Mail } from 'lucide-react';
+import { Trophy, TrendingUp, ArrowRight, Crown, Award, Target, CircleCheck as CheckCircle, Mail } from 'lucide-react';
 
 interface FinalTableRow {
   position: number;
@@ -167,7 +167,7 @@ export default function SeasonEndPage() {
             >
               <Crown className="w-12 h-12 text-amber-400 mx-auto mb-3" />
               <h2 className="text-2xl font-bold text-green-300 mb-2">🎉 PROMOTED!</h2>
-              <p className="text-green-200">You've earned promotion to the next tier. Well done!</p>
+              <p className="text-green-200">You&apos;ve earned promotion to the next tier. Well done!</p>
             </motion.div>
           )}
         </motion.div>

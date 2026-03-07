@@ -71,7 +71,9 @@ export default function TournamentChoicePage() {
         careerId,
         eventId,
         event: eventData,
-        career: eventData.career_profiles
+        career: Array.isArray(eventData.career_profiles)
+          ? eventData.career_profiles[0]
+          : eventData.career_profiles
       });
       
     } catch (err: any) {

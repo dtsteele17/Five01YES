@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Target, Home } from 'lucide-react';
+import { Target, Chrome as Home } from 'lucide-react';
 
 export default function NotFound() {
   return (
@@ -16,7 +16,7 @@ export default function NotFound() {
         <h1 className="text-6xl font-bold text-white mb-4">404</h1>
         <h2 className="text-2xl font-semibold text-white mb-2">Page Not Found</h2>
         <p className="text-gray-400 mb-8">
-          Sorry, we couldn't find the page you're looking for.
+          Sorry, we couldn&apos;t find the page you&apos;re looking for.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
