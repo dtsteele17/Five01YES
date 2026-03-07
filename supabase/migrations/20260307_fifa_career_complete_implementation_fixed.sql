@@ -52,17 +52,21 @@ CREATE POLICY career_emails_user ON career_emails FOR ALL USING (
   career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid())
 );
 
--- 4. Insert FIFA-style sponsors for Tier 3+
-INSERT INTO career_sponsor_catalog (name, tier_min, tier_max, rep_bonus_pct, flavour_text, rarity) VALUES
-('Ace Arrows', 3, 5, 0.05, 'Premium dart equipment manufacturer looking for rising talent', 'common'),
-('Bulls Eye Brewery', 3, 5, 0.03, 'Local brewery supporting the darts community', 'common'),
-('County Darts Co.', 3, 5, 0.04, 'Established darts retailer with county presence', 'common'),
-('Red Dragon Sports', 3, 5, 0.06, 'Professional darts brand seeking ambassadors', 'uncommon'),
-('Target Champions', 3, 5, 0.04, 'Youth development program sponsor', 'common'),
-('Precision Flights', 3, 5, 0.03, 'Specialized dart flights and accessories', 'common'),
-('Championship Arms', 3, 5, 0.05, 'Traditional pub tournament supporters', 'common'),
-('Victory Tungsten', 3, 5, 0.06, 'High-end dart manufacturer', 'uncommon')
-ON CONFLICT (name) DO NOTHING;
+-- 4. Insert FIFA-style sponsors for Tier 3+ (avoid duplicates with WHERE NOT EXISTS)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM career_sponsor_catalog WHERE name = 'Ace Arrows') THEN
+    INSERT INTO career_sponsor_catalog (name, tier_min, tier_max, rep_bonus_pct, flavour_text, rarity) VALUES
+    ('Ace Arrows', 3, 5, 0.05, 'Premium dart equipment manufacturer looking for rising talent', 'common'),
+    ('Bulls Eye Brewery', 3, 5, 0.03, 'Local brewery supporting the darts community', 'common'),
+    ('County Darts Co.', 3, 5, 0.04, 'Established darts retailer with county presence', 'common'),
+    ('Red Dragon Sports', 3, 5, 0.06, 'Professional darts brand seeking ambassadors', 'uncommon'),
+    ('Target Champions', 3, 5, 0.04, 'Youth development program sponsor', 'common'),
+    ('Precision Flights', 3, 5, 0.03, 'Specialized dart flights and accessories', 'common'),
+    ('Championship Arms', 3, 5, 0.05, 'Traditional pub tournament supporters', 'common'),
+    ('Victory Tungsten', 3, 5, 0.06, 'High-end dart manufacturer', 'uncommon');
+  END IF;
+END $$;
 
 -- 5. FIFA-STYLE RPC: Initialize 8-player Tier 2 league
 CREATE OR REPLACE FUNCTION rpc_fifa_initialize_tier2_league(p_career_id UUID, p_season SMALLINT)
