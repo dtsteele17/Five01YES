@@ -6,114 +6,90 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Trophy, Users, Clock, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, Trophy, Users, Clock, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface TournamentOption {
+  name: string;
+  description: string;
+}
+
 interface TournamentChoice {
-  careerId: string;
-  eventId: string;
-  event: {
-    id: string;
-    event_name: string;
-    metadata: {
-      description: string;
-      tournaments: Array<{
-        name: string;
-        size: number;
-        description?: string;
-      }>;
-      can_decline: boolean;
-    };
-  };
-  career: {
-    tier: number;
-    season: number;
-    week: number;
-  };
+  trigger_tournament: boolean;
+  tournament_options: TournamentOption[];
 }
 
 export default function TournamentChoicePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const careerId = searchParams.get('careerId');
-  const eventId = searchParams.get('eventId');
   
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TournamentChoice | null>(null);
   const [choosing, setChoosing] = useState(false);
 
   useEffect(() => {
-    if (careerId && eventId) {
+    if (careerId) {
       loadTournamentChoice();
     }
-  }, [careerId, eventId]);
+  }, [careerId]);
 
   async function loadTournamentChoice() {
-    if (!careerId || !eventId) return;
+    if (!careerId) return;
 
     try {
       const supabase = createClient();
       
-      // Get tournament choice event details
-      const { data: eventData, error } = await supabase
-        .from('career_events')
-        .select(`
-          id, event_name, metadata,
-          career_profiles!inner(tier, season, week)
-        `)
-        .eq('id', eventId)
-        .eq('career_id', careerId)
-        .single();
+      // Check for tournament trigger
+      const { data: tournamentData, error } = await supabase.rpc('rpc_fifa_check_mid_season_tournament', {
+        p_career_id: careerId
+      });
       
       if (error) throw error;
       
-      setData({
-        careerId,
-        eventId,
-        event: eventData,
-        career: Array.isArray(eventData.career_profiles)
-          ? eventData.career_profiles[0]
-          : eventData.career_profiles
-      });
+      if (!tournamentData?.trigger_tournament) {
+        // No tournament available, redirect back
+        router.push(`/app/career?id=${careerId}`);
+        return;
+      }
       
+      setData(tournamentData);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load tournament choice');
-      router.back();
+      toast.error(err.message || 'Failed to load tournament options');
+      router.push(`/app/career?id=${careerId}`);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleTournamentChoice(choice: number) {
-    if (!careerId || !eventId) return;
+  async function handleTournamentChoice(tournamentIndex: number) {
+    if (!careerId || !data) return;
     
     setChoosing(true);
     try {
       const supabase = createClient();
       
-      // Process tournament choice
-      const { data: result, error } = await supabase.rpc('rpc_career_tournament_choice', {
+      // Record tournament choice and create tournament entry
+      const selectedTournament = data.tournament_options[tournamentIndex];
+      
+      const { data: result, error } = await supabase.rpc('rpc_fifa_enter_mid_season_tournament', {
         p_career_id: careerId,
-        p_event_id: eventId,
-        p_tournament_choice: choice
+        p_tournament_name: selectedTournament.name
       });
       
       if (error) throw error;
-      if (result?.error) throw new Error(result.error);
       
-      if (choice === -1) {
-        // Declined tournaments, continue with league
-        toast.success('Tournament declined - continuing with league');
-        router.push(`/app/career?id=${careerId}`);
+      toast.success(`Entered ${selectedTournament.name}!`);
+      
+      // Route to tournament bracket or back to career
+      if (result?.event_id) {
+        router.push(`/app/career/bracket?careerId=${careerId}&eventId=${result.event_id}`);
       } else {
-        // Entered tournament
-        const tournamentName = data?.event.metadata.tournaments[choice]?.name || 'Tournament';
-        toast.success(`Entered ${tournamentName}!`);
         router.push(`/app/career?id=${careerId}`);
       }
       
     } catch (err: any) {
-      toast.error(err.message || 'Failed to process tournament choice');
+      toast.error(err.message || 'Failed to enter tournament');
     } finally {
       setChoosing(false);
     }
@@ -130,11 +106,11 @@ export default function TournamentChoicePage() {
     );
   }
 
-  if (!data) {
+  if (!data?.trigger_tournament) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Tournament choice not found</h2>
+          <h2 className="text-2xl font-bold text-white mb-4">No tournament available</h2>
           <Button onClick={() => router.push(`/app/career?id=${careerId}`)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Return to Career
@@ -143,17 +119,6 @@ export default function TournamentChoicePage() {
       </div>
     );
   }
-
-  const { event, career } = data;
-  const tournaments = event.metadata?.tournaments || [];
-  const canDecline = event.metadata?.can_decline || false;
-  
-  const tierInfo = {
-    2: { name: 'Pub League', color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30' },
-    3: { name: 'County League', color: 'from-purple-500/20 to-indigo-500/20 border-purple-500/30' }
-  };
-  
-  const currentTier = tierInfo[career.tier as keyof typeof tierInfo] || tierInfo[2];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -169,23 +134,23 @@ export default function TournamentChoicePage() {
             Back to Career
           </Button>
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-white">Tournament Choice</h1>
-            <p className="text-slate-400">
-              {currentTier.name} • Season {career.season} • Week {career.week}
-            </p>
+            <h1 className="text-3xl font-bold text-white">Mid-Season Tournament</h1>
+            <p className="text-slate-400">Pub League • Choose your tournament</p>
           </div>
           <div className="w-24" /> {/* Spacer */}
         </div>
 
         {/* FIFA-style Tournament Choice Header */}
         <div className="mb-8">
-          <Card className={`bg-gradient-to-r ${currentTier.color} p-6`}>
+          <Card className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30 p-6">
             <div className="text-center">
               <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-2">{event.event_name}</h2>
-              <p className="text-slate-300 text-lg mb-4">{event.metadata?.description}</p>
+              <h2 className="text-2xl font-bold text-white mb-2">Mid-Season Tournament Invitation</h2>
+              <p className="text-blue-200 text-lg mb-4">
+                After 4 league matches, you've earned the right to enter a mid-season tournament!
+              </p>
               <Badge variant="outline" className="text-amber-400 border-amber-500/30">
-                FIFA-Style Career Choice
+                FIFA-Style Career Mode
               </Badge>
             </div>
           </Card>
@@ -193,9 +158,9 @@ export default function TournamentChoicePage() {
 
         {/* Tournament Options */}
         <div className="space-y-4 mb-8">
-          <h3 className="text-xl font-bold text-white text-center mb-6">Choose your next step:</h3>
+          <h3 className="text-xl font-bold text-white text-center mb-6">Choose your tournament:</h3>
           
-          {tournaments.map((tournament, index) => (
+          {data.tournament_options.map((tournament, index) => (
             <Card 
               key={index}
               className="bg-slate-800/50 border-white/10 hover:border-amber-500/30 transition-all cursor-pointer group p-6"
@@ -211,18 +176,14 @@ export default function TournamentChoicePage() {
                     <div className="flex items-center gap-3 text-slate-400">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        <span>{tournament.size} Players</span>
+                        <span>16 Players</span>
                       </div>
                       <span>•</span>
                       <span>Single Elimination</span>
                       <span>•</span>
-                      <span>
-                        {career.tier === 3 ? 'Best of 5' : 'Best of 3'}
-                      </span>
+                      <span>Best of 3</span>
                     </div>
-                    {tournament.description && (
-                      <p className="text-slate-500 text-sm mt-2">{tournament.description}</p>
-                    )}
+                    <p className="text-slate-300 text-sm mt-2">{tournament.description}</p>
                   </div>
                 </div>
                 
@@ -240,44 +201,6 @@ export default function TournamentChoicePage() {
               </div>
             </Card>
           ))}
-
-          {/* Decline Option (if allowed) */}
-          {canDecline && (
-            <Card 
-              className="bg-slate-800/30 border-slate-600/30 hover:border-red-500/30 transition-all cursor-pointer group p-6"
-              onClick={() => !choosing && handleTournamentChoice(-1)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-slate-700/50 border border-slate-600/50 flex items-center justify-center group-hover:bg-red-500/20 group-hover:border-red-500/50 transition-all">
-                    <X className="w-6 h-6 text-slate-500 group-hover:text-red-400 transition-colors" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-bold text-white mb-1">Skip Tournaments</h4>
-                    <div className="text-slate-400">
-                      Continue with league matches instead
-                    </div>
-                    <p className="text-slate-500 text-sm mt-2">
-                      You can focus on league position and wait for the next tournament opportunity
-                    </p>
-                  </div>
-                </div>
-                
-                <Button 
-                  variant="outline"
-                  disabled={choosing}
-                  className="border-slate-600 text-slate-400 hover:text-white hover:border-red-500/50 px-6"
-                >
-                  {choosing ? (
-                    <Clock className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 mr-2" />
-                  )}
-                  Continue League
-                </Button>
-              </div>
-            </Card>
-          )}
         </div>
 
         {/* FIFA-style Info Panel */}
@@ -287,7 +210,7 @@ export default function TournamentChoicePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-400">
               <div>
                 <div className="font-semibold text-white mb-1">Tournament Format</div>
-                <div>Single elimination bracket with {career.tier === 3 ? 'best-of-5' : 'best-of-3'} matches</div>
+                <div>16-player single elimination bracket with best-of-3 matches</div>
               </div>
               <div>
                 <div className="font-semibold text-white mb-1">AI Opponents</div>
@@ -295,14 +218,14 @@ export default function TournamentChoicePage() {
               </div>
               <div>
                 <div className="font-semibold text-white mb-1">League Continues</div>
-                <div>After tournament, your league season continues normally</div>
+                <div>After tournament, your Pub League season continues normally</div>
               </div>
             </div>
             
             <div className="mt-4 pt-4 border-t border-white/5">
               <p className="text-xs text-slate-500">
-                Tournament results can trigger sponsor offers in Tier 3+ • 
-                Reaching finals may unlock special promotion opportunities
+                Tournament results don't affect league standings • 
+                League promotion still based on final league position
               </p>
             </div>
           </div>
