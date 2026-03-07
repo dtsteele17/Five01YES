@@ -98,13 +98,21 @@ In **Authentication → Email Templates → Settings**:
 
 ### 🧪 **Testing the System:**
 
+#### **Option 1: Quick API Test**
+```bash
+# Test if Supabase email sending works
+node test_forgot_password.js your@email.com
+```
+This will test the Supabase integration directly and give you troubleshooting tips.
+
+#### **Option 2: Full UI Test**
 1. **Start your development server:**
    ```bash
    npm run dev
    ```
 
-2. **Test the flow:**
-   - Go to `/login`
+2. **Test the complete flow:**
+   - Go to `http://localhost:3000/login`
    - Click "Forgot password?"
    - Enter a valid email address
    - Check your email inbox (and spam folder)
@@ -148,5 +156,27 @@ The email will look professional with:
 3. ✅ Clicks link in email
 4. ✅ Creates new secure password  
 5. ✅ Automatically logged in and redirected
+
+### 🔧 **Troubleshooting:**
+
+#### **"No email received":**
+- Check spam/junk folder
+- Verify Supabase email templates are configured  
+- Confirm SMTP settings in Supabase Dashboard
+- Test with `node test_forgot_password.js your@email.com`
+
+#### **"Invalid or expired link":**
+- Links expire after 1 hour
+- Make sure redirect URL is configured in Supabase
+- Check that URL parameters are preserved in the link
+
+#### **"Page not found" when clicking link:**
+- Verify `/reset-password` page exists and works
+- Check Next.js routing is working properly
+- Ensure redirect URL matches your domain
+
+#### **Rate limiting errors:**
+- Wait 60 seconds between reset attempts
+- This prevents spam/abuse of the system
 
 **Deploy this and your users will have a smooth, secure password reset experience! 🚀**
