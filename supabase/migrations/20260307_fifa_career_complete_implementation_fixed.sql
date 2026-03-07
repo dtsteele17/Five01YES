@@ -74,15 +74,33 @@ DECLARE
   v_career career_profiles;
   v_opponents career_opponents[];
   v_i INTEGER;
-  v_first_names TEXT[] := ARRAY[
-    'Mike', 'Dave', 'Steve', 'John', 'Paul', 'Mark', 'Tony', 'Chris',
-    'Andy', 'Rob', 'Pete', 'Gary', 'Phil', 'Colin', 'Barry', 'Terry',
-    'Ian', 'Lee', 'Simon', 'Kevin', 'Richard', 'James'
+  v_names TEXT[] := ARRAY[
+    'Dave','Mike','Steve','Chris','Andy','Rob','Tom','Phil','Mark','James',
+    'Gary','Paul','Kev','Dan','Lee','Terry','Wayne','Craig','Neil','Barry',
+    'Ian','Josh','Stu','Mick','Pete','Carl','Jack','Alex','Bob','Jim',
+    'Ted','Gabe','Michael','Jordan','Elliott','Ben','Sam','Luke','Ryan','Adam',
+    'Nathan','Connor','Kyle','Liam','Jake','Owen','Rhys','Calum','Darren','Shaun',
+    'Gavin','Tony','Richie','Frankie','Jordan','Paddy','Declan','Sean','Niall','Brendan',
+    'Kyran','Claire','Lisa','Amy','Zoe','Phil','Sarah','Emma','Laura','Ellis',
+    'Anson','Holly','Becky','Nicola','Gemma','Hans','Rachel','Harry','Kai','Tina',
+    'Simon','George','Will','Harry','Freddie','Charlie','Alfie','Oscar','Archie','Leo',
+    'Ricky','Matty','Scotty','Eddie','John','Woody','Macca','Jacko','Matt','Alex',
+    'Patrick','Luca','Marco','Antonio','Pierre','Jean','Klaus','Sven','Erik','Finn',
+    'Ruben','Hugo','Lars','Theo','Max','Felix','Nico','Fabio','Carlos','Miguel' 
   ];
-  v_last_names TEXT[] := ARRAY[
-    'Smith', 'Jones', 'Brown', 'Wilson', 'Taylor', 'Davies', 'Evans', 'Thomas',
-    'Roberts', 'Johnson', 'Lewis', 'Walker', 'Hall', 'Young', 'King', 'Wright',
-    'Green', 'Adams', 'Baker', 'Clark', 'Hill', 'Scott', 'Phillips', 'Turner'
+  v_surnames TEXT[] := ARRAY[
+    'Smith','Jones','Taylor','Brown','Wilson','Evans','Thomas','Roberts','Johnson','Walker',
+    'Wright','Thompson','White','Hall','Clarke','Jackson','Green','Harris','Wood','King',
+    'Baker','Turner','Hill','Scott','Moore','Cooper','Ward','Wells','Lee','Murphy',
+    'Price','Bennett','Gray','Cox','Mills','Palmer','Mason','Hunt','Holmes','Webb',
+    'Steele','Noble','Fletcher','Spencer','Powell','Dixon','Chapman','Ellis','Shaw','Hughes',
+    'Barker','Rhodes','Brooks','Watts','Harvey','Mitchell','Barnes','Sullivan','Griffin','Cole',
+    'Reeves','Marshall','Pearce','Burton','Knight','Bailey','Fox','Russell','Doyle','Lynch',
+    'Gallagher','Fischer','Brennan','Walsh','Davies','Collins','Maguire','Doherty','Keane','Ryan',
+    'Maier','Wagner','Schmidt','Fischer','Weber','Becker','Richter','Braun','Hofmann','Krause',
+    'Van Ginkel','Peeters','De Vries','Jansen','Bakker','Visser','Watson','De Boer','Mulder','Doyle',
+    'Rossi','Russo','Merz','Bianchi','Romano','Colombo','Ricci','Marino','Lat','Bruno',
+    'Von Hoofin','Fernandez','Garcia','Martinez','Lopez','Van Den Berg','Ruiz','Sanchez','Romero','Diaz'
   ];
   v_hometowns TEXT[] := ARRAY[
     'Manchester', 'Liverpool', 'Leeds', 'Sheffield', 'Newcastle', 'Birmingham',
@@ -113,8 +131,8 @@ BEGIN
       skill_rating
     ) VALUES (
       p_career_id, 2,
-      v_first_names[1 + (random() * (array_length(v_first_names, 1) - 1))::integer],
-      v_last_names[1 + (random() * (array_length(v_last_names, 1) - 1))::integer],
+      v_names[1 + (random() * (array_length(v_names, 1) - 1))::integer],
+      v_surnames[1 + (random() * (array_length(v_surnames, 1) - 1))::integer],
       v_hometowns[1 + (random() * (array_length(v_hometowns, 1) - 1))::integer],
       (ARRAY['scorer','finisher','grinder','streaky','clutch','allrounder'])[1 + (random() * 5)::integer],
       40 + (random() * 25)::real  -- Skill rating 40-65 for Tier 2
@@ -151,15 +169,33 @@ DECLARE
   v_career career_profiles;
   v_opponents career_opponents[];
   v_i INTEGER;
-  v_first_names TEXT[] := ARRAY[
-    'Marcus', 'Liam', 'Theo', 'Callum', 'Declan', 'Sven', 'Nico', 'Ruben',
-    'Finn', 'Oscar', 'Erik', 'Hugo', 'Felix', 'Matty', 'Connor', 'Archie',
-    'Owen', 'Jake', 'Rhys', 'Kyle', 'Zach', 'Leo', 'Brendan'
+  v_names TEXT[] := ARRAY[
+    'Dave','Mike','Steve','Chris','Andy','Rob','Tom','Phil','Mark','James',
+    'Gary','Paul','Kev','Dan','Lee','Terry','Wayne','Craig','Neil','Barry',
+    'Ian','Josh','Stu','Mick','Pete','Carl','Jack','Alex','Bob','Jim',
+    'Ted','Gabe','Michael','Jordan','Elliott','Ben','Sam','Luke','Ryan','Adam',
+    'Nathan','Connor','Kyle','Liam','Jake','Owen','Rhys','Calum','Darren','Shaun',
+    'Gavin','Tony','Richie','Frankie','Jordan','Paddy','Declan','Sean','Niall','Brendan',
+    'Kyran','Claire','Lisa','Amy','Zoe','Phil','Sarah','Emma','Laura','Ellis',
+    'Anson','Holly','Becky','Nicola','Gemma','Hans','Rachel','Harry','Kai','Tina',
+    'Simon','George','Will','Harry','Freddie','Charlie','Alfie','Oscar','Archie','Leo',
+    'Ricky','Matty','Scotty','Eddie','John','Woody','Macca','Jacko','Matt','Alex',
+    'Patrick','Luca','Marco','Antonio','Pierre','Jean','Klaus','Sven','Erik','Finn',
+    'Ruben','Hugo','Lars','Theo','Max','Felix','Nico','Fabio','Carlos','Miguel' 
   ];
-  v_last_names TEXT[] := ARRAY[
-    'Steele', 'Reeves', 'Fox', 'Knight', 'Griffin', 'Cole', 'Spencer', 'Rhodes',
-    'Pearce', 'Burton', 'Walsh', 'Brennan', 'Gallagher', 'Keane', 'Sullivan',
-    'Richter', 'Bakker', 'Visser', 'Moreno', 'Romano', 'Torres', 'Webb'
+  v_surnames TEXT[] := ARRAY[
+    'Smith','Jones','Taylor','Brown','Wilson','Evans','Thomas','Roberts','Johnson','Walker',
+    'Wright','Thompson','White','Hall','Clarke','Jackson','Green','Harris','Wood','King',
+    'Baker','Turner','Hill','Scott','Moore','Cooper','Ward','Wells','Lee','Murphy',
+    'Price','Bennett','Gray','Cox','Mills','Palmer','Mason','Hunt','Holmes','Webb',
+    'Steele','Noble','Fletcher','Spencer','Powell','Dixon','Chapman','Ellis','Shaw','Hughes',
+    'Barker','Rhodes','Brooks','Watts','Harvey','Mitchell','Barnes','Sullivan','Griffin','Cole',
+    'Reeves','Marshall','Pearce','Burton','Knight','Bailey','Fox','Russell','Doyle','Lynch',
+    'Gallagher','Fischer','Brennan','Walsh','Davies','Collins','Maguire','Doherty','Keane','Ryan',
+    'Maier','Wagner','Schmidt','Fischer','Weber','Becker','Richter','Braun','Hofmann','Krause',
+    'Van Ginkel','Peeters','De Vries','Jansen','Bakker','Visser','Watson','De Boer','Mulder','Doyle',
+    'Rossi','Russo','Merz','Bianchi','Romano','Colombo','Ricci','Marino','Lat','Bruno',
+    'Von Hoofin','Fernandez','Garcia','Martinez','Lopez','Van Den Berg','Ruiz','Sanchez','Romero','Diaz'
   ];
   v_hometowns TEXT[] := ARRAY[
     'Oxford', 'Cambridge', 'Norwich', 'Canterbury', 'Chester', 'Durham',
@@ -190,8 +226,8 @@ BEGIN
       skill_rating
     ) VALUES (
       p_career_id, 3,
-      v_first_names[1 + (random() * (array_length(v_first_names, 1) - 1))::integer],
-      v_last_names[1 + (random() * (array_length(v_last_names, 1) - 1))::integer],
+      v_names[1 + (random() * (array_length(v_names, 1) - 1))::integer],
+      v_surnames[1 + (random() * (array_length(v_surnames, 1) - 1))::integer],
       v_hometowns[1 + (random() * (array_length(v_hometowns, 1) - 1))::integer],
       (ARRAY['scorer','finisher','grinder','streaky','clutch','allrounder'])[1 + (random() * 5)::integer],
       50 + (random() * 30)::real  -- Skill rating 50-80 for Tier 3
