@@ -7,8 +7,9 @@ import { useTraining } from '@/lib/context/TrainingContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Clock, Trophy, Users, Play, CheckCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Trophy, Users, Play, CheckCircle, RefreshCw, Swords, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 interface Fixture {
   id: string;
@@ -30,6 +31,13 @@ interface WeekData {
   fixtures: Fixture[];
 }
 
+const TIER_NAMES: Record<number, string> = {
+  2: 'Pub Leagues',
+  3: 'County Circuit',
+  4: 'Regional Tour',
+  5: 'World Tour',
+};
+
 export default function WeekFixtures() {
   const router = useRouter();
   const params = useParams();
@@ -37,10 +45,10 @@ export default function WeekFixtures() {
   const { setConfig } = useTraining();
   
   const runId = params.runId as string;
-  const careerId = searchParams.get('careerId') || runId; // Support both patterns
-  
-  const [loading, setLoading] = useState(true);
+  const careerId = searchParams.get('careerId') || runId;
+
   const [weekData, setWeekData] = useState<WeekData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [playingMatch, setPlayingMatch] = useState(false);
 
   useEffect(() => {
@@ -50,60 +58,69 @@ export default function WeekFixtures() {
   }, [careerId]);
 
   async function loadWeekFixtures() {
-    if (!careerId) return;
-
+    setLoading(true);
     try {
       const supabase = createClient();
-      
-      // Use existing working fixtures function
-      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', { 
-        p_career_id: careerId 
+      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
+        p_career_id: careerId
       });
-      
       if (error) throw error;
+      
+      // Fix simulated scores to respect best-of format
+      if (data?.fixtures) {
+        const bestOf = data.tier === 3 ? 5 : data.tier === 4 ? 7 : data.tier === 5 ? 9 : 3;
+        const legsToWin = Math.ceil(bestOf / 2);
+        
+        data.fixtures = data.fixtures.map((f: Fixture) => {
+          if (!f.is_player_match && f.status === 'completed') {
+            // Generate realistic best-of scores
+            const winnerLegs = legsToWin;
+            const loserLegs = Math.floor(Math.random() * legsToWin);
+            const homeWins = Math.random() < 0.5;
+            return {
+              ...f,
+              home_score: homeWins ? winnerLegs : loserLegs,
+              away_score: homeWins ? loserLegs : winnerLegs,
+            };
+          }
+          return f;
+        });
+      }
+      
       setWeekData(data);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load fixtures');
-      router.back();
+      toast.error('Failed to load fixtures');
     } finally {
       setLoading(false);
     }
   }
 
   async function handlePlayMatch() {
-    if (!careerId || !weekData) return;
-    
-    const playerFixture = weekData.fixtures.find(f => f.is_player_match && f.status === 'pending');
-    if (!playerFixture) {
-      toast.error('No pending matches to play');
-      return;
-    }
-
+    if (!careerId || !weekData || playingMatch) return;
     setPlayingMatch(true);
     try {
-      const supabase = createClient();
-      
-      // Use existing working career function for league matches  
-      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { 
-        p_career_id: careerId 
-      });
-      
-      if (error) throw error;
-      if (matchData?.error) throw new Error(matchData.error);
-      if (matchData?.skipped) {
-        toast.info(matchData.message);
-        window.location.reload();
+      const playerFixture = weekData.fixtures.find(f => f.is_player_match);
+      if (!playerFixture || playerFixture.status === 'completed') {
+        toast.error('No match to play');
         return;
       }
 
-      // Set up dartbot match config exactly like tournament matches
+      const supabase = createClient();
+      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', {
+        p_career_id: careerId
+      });
+      if (error) throw error;
+      if (matchData?.error) {
+        toast.error(matchData.error);
+        return;
+      }
+
       const avg = Math.max(20, Math.min(100, Math.round(matchData.bot_average || 50)));
       const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
         : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
         : avg <= 90 ? 'pro' : 'worldClass';
       const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' };
 
-      // Get opponent name from fixture (more reliable than function return)
       const opponentName = playerFixture.away_team;
       
       // Store return context so post-match navigates back to week fixtures
@@ -112,7 +129,6 @@ export default function WeekFixtures() {
         route: `/app/career/week/${runId}?careerId=${careerId}`,
       }));
 
-      // Use setConfig from TrainingContext — EXACT same method as bracket/tournament page
       setConfig({
         mode: '501',
         botDifficulty: diffKey as any,
@@ -123,7 +139,7 @@ export default function WeekFixtures() {
         career: {
           careerId,
           eventId: matchData.event?.id,
-          eventName: matchData.event?.name || `${weekData.tier === 2 ? 'Pub League' : 'County League'} Match`,
+          eventName: matchData.event?.name || `${TIER_NAMES[weekData.tier] || 'League'} Match`,
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
           opponentName: opponentName,
@@ -131,8 +147,7 @@ export default function WeekFixtures() {
         },
       });
       
-      // Show confirmation and launch dartbot
-      toast.success(`Starting ${weekData.tier === 2 ? 'Pub League' : 'County League'} match vs ${opponentName}`);
+      toast.success(`Starting match vs ${opponentName}`);
       router.push('/app/play/training/501');
     } catch (err: any) {
       toast.error(err.message || 'Failed to start match');
@@ -148,10 +163,14 @@ export default function WeekFixtures() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="w-10 h-10 text-amber-400 animate-spin" />
-          <p className="text-slate-400">Loading fixtures...</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
+          <p className="text-slate-400 text-sm">Loading fixtures...</p>
+        </motion.div>
       </div>
     );
   }
@@ -160,10 +179,9 @@ export default function WeekFixtures() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">No fixtures found</h2>
-          <Button onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Back
+          <h2 className="text-xl font-bold text-white mb-4">No fixtures found</h2>
+          <Button variant="ghost" onClick={() => router.back()} className="text-slate-300">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Go Back
           </Button>
         </div>
       </div>
@@ -172,182 +190,217 @@ export default function WeekFixtures() {
 
   const playerFixture = weekData.fixtures.find(f => f.is_player_match);
   const otherFixtures = weekData.fixtures.filter(f => !f.is_player_match);
-  const allMatchesCompleted = weekData.fixtures.every(f => f.status === 'completed');
+  const playerCompleted = playerFixture?.status === 'completed';
+  const playerWon = playerCompleted && (playerFixture?.home_score || 0) > (playerFixture?.away_score || 0);
+  const tierName = TIER_NAMES[weekData.tier] || `Tier ${weekData.tier}`;
+  const bestOf = weekData.tier === 3 ? 5 : weekData.tier === 4 ? 7 : weekData.tier === 5 ? 9 : 3;
+
+  // Extract matchday number from event name
+  const matchdayMatch = weekData.event_name.match(/Matchday\s*(\d+)/i);
+  const matchday = matchdayMatch ? matchdayMatch[1] : weekData.week.toString();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Button 
-            variant="ghost" 
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <button 
             onClick={handleBackToCareer}
-            className="text-slate-300 hover:text-white"
+            className="flex items-center gap-1 text-slate-400 hover:text-white text-sm mb-4 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Career
-          </Button>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white">{weekData.event_name}</h1>
-            <p className="text-slate-400">Tier {weekData.tier} • Season {weekData.season} • Week {weekData.week}</p>
-          </div>
-          <div className="w-24" /> {/* Spacer */}
-        </div>
-
-        {/* Player Match - Only show if not completed yet */}
-        {playerFixture && playerFixture.status === 'pending' && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-400" />
-              Your Match
-            </h2>
-            
-            <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 flex items-center justify-center gap-8">
-                  <div className="text-center min-w-[120px]">
-                    <div className="text-2xl font-bold text-white">You</div>
-                    <div className="text-slate-300 text-sm">Home</div>
-                  </div>
-                  
-                  <div className="text-4xl font-bold text-slate-600">vs</div>
-                  
-                  <div className="text-center min-w-[120px]">
-                    <div className="text-2xl font-bold text-white">{playerFixture.away_team}</div>
-                    <div className="text-slate-300 text-sm">Away</div>
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={handlePlayMatch}
-                  disabled={playingMatch}
-                  className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-3"
-                >
-                  {playingMatch ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Starting...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 mr-2" />
-                      Play Your Match
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Player Match Result - Show if completed */}
-        {playerFixture && playerFixture.status === 'completed' && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              Your Match - Completed
-            </h2>
-            
-            <Card className="bg-slate-800/50 border-white/10 p-6">
-              <div className="flex items-center justify-center gap-8">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">You</div>
-                  <div className="text-3xl font-bold text-green-400 mt-2">{playerFixture.home_score}</div>
-                </div>
-                
-                <div className="text-2xl font-bold text-slate-600">-</div>
-                
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{playerFixture.away_team}</div>
-                  <div className="text-3xl font-bold text-slate-400 mt-2">{playerFixture.away_score}</div>
-                </div>
-              </div>
-              
-              <div className="text-center mt-4">
-                <Badge className={`${
-                  (playerFixture.home_score || 0) > (playerFixture.away_score || 0) 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-red-500 text-white'
-                }`}>
-                  {(playerFixture.home_score || 0) > (playerFixture.away_score || 0) ? 'Victory!' : 'Defeat'}
-                </Badge>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Other Fixtures */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-400" />
-            Other Matches
-          </h2>
+            <ArrowLeft className="w-4 h-4" />
+            Career Home
+          </button>
           
-          <div className="grid gap-3">
-            {otherFixtures.map((fixture, index) => (
-              <Card key={fixture.id} className="bg-slate-800/30 border-white/5 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-6 flex-1">
-                    <div className="text-center min-w-[120px]">
-                      <div className="text-white font-medium">{fixture.home_team}</div>
-                      {fixture.status === 'completed' && (
-                        <div className="text-lg font-bold text-white mt-1">{fixture.home_score}</div>
-                      )}
-                    </div>
-                    
-                    <div className="text-slate-500">vs</div>
-                    
-                    <div className="text-center min-w-[120px]">
-                      <div className="text-white font-medium">{fixture.away_team}</div>
-                      {fixture.status === 'completed' && (
-                        <div className="text-lg font-bold text-white mt-1">{fixture.away_score}</div>
-                      )}
-                    </div>
+          <div className="text-center">
+            <div className="text-xs font-medium text-emerald-400 uppercase tracking-widest mb-1">
+              {tierName} • Season {weekData.season}
+            </div>
+            <h1 className="text-2xl font-bold text-white">
+              Matchday {matchday}
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Best of {bestOf}</p>
+          </div>
+        </motion.div>
+
+        {/* Player Match */}
+        {playerFixture && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <div className={`relative rounded-xl border overflow-hidden ${
+              playerCompleted 
+                ? playerWon 
+                  ? 'bg-emerald-500/5 border-emerald-500/20' 
+                  : 'bg-red-500/5 border-red-500/20'
+                : 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20'
+            }`}>
+              {/* Match content */}
+              <div className="p-6">
+                <div className="flex items-center justify-center gap-6">
+                  {/* Home (You) */}
+                  <div className="flex-1 text-right">
+                    <div className="text-lg font-bold text-white">You</div>
                   </div>
                   
-                  <div className="ml-6">
-                    {fixture.status === 'completed' ? (
-                      <Badge variant="outline" className="border-green-500/30 text-green-400">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Final
-                      </Badge>
+                  {/* Score / VS */}
+                  <div className="flex items-center gap-3 min-w-[100px] justify-center">
+                    {playerCompleted ? (
+                      <>
+                        <span className={`text-3xl font-black ${playerWon ? 'text-emerald-400' : 'text-white'}`}>
+                          {playerFixture.home_score}
+                        </span>
+                        <span className="text-slate-600 text-sm">-</span>
+                        <span className={`text-3xl font-black ${!playerWon ? 'text-red-400' : 'text-white'}`}>
+                          {playerFixture.away_score}
+                        </span>
+                      </>
                     ) : (
-                      <Badge variant="outline" className="border-amber-500/30 text-amber-400">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Pending
-                      </Badge>
+                      <span className="text-slate-600 font-bold text-lg">vs</span>
                     )}
                   </div>
+                  
+                  {/* Away (Opponent) */}
+                  <div className="flex-1 text-left">
+                    <div className="text-lg font-bold text-white">{playerFixture.away_team}</div>
+                  </div>
                 </div>
-              </Card>
-            ))}
-          </div>
-        </div>
 
-        {/* Navigation */}
-        <div className="flex justify-center">
-          {allMatchesCompleted ? (
+                {/* Result badge or Play button */}
+                <div className="flex justify-center mt-4">
+                  {playerCompleted ? (
+                    <Badge className={`text-xs px-3 py-1 ${
+                      playerWon 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {playerWon ? '✓ Victory' : '✗ Defeat'}
+                    </Badge>
+                  ) : (
+                    <Button 
+                      onClick={handlePlayMatch}
+                      disabled={playingMatch}
+                      size="lg"
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-10 gap-2 shadow-lg shadow-amber-500/20"
+                    >
+                      {playingMatch ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                      {playingMatch ? 'Starting...' : 'Play Match'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Other Matches */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Swords className="w-3.5 h-3.5" />
+            Other Matches
+          </h3>
+          
+          <div className="space-y-2">
+            {otherFixtures.map((fixture, index) => {
+              const homeWon = (fixture.home_score || 0) > (fixture.away_score || 0);
+              const isCompleted = fixture.status === 'completed';
+              
+              return (
+                <motion.div
+                  key={fixture.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25 + index * 0.05 }}
+                >
+                  <div className={`rounded-lg border px-4 py-3 ${
+                    isCompleted 
+                      ? 'bg-slate-800/30 border-white/5' 
+                      : 'bg-slate-800/20 border-white/5'
+                  }`}>
+                    <div className="flex items-center justify-center gap-4">
+                      {/* Home */}
+                      <div className="flex-1 text-right">
+                        <span className={`text-sm font-medium ${
+                          isCompleted && homeWon ? 'text-white' : 'text-slate-400'
+                        }`}>
+                          {fixture.home_team}
+                        </span>
+                      </div>
+                      
+                      {/* Score */}
+                      <div className="flex items-center gap-2 min-w-[70px] justify-center">
+                        {isCompleted ? (
+                          <>
+                            <span className={`text-lg font-bold ${homeWon ? 'text-white' : 'text-slate-500'}`}>
+                              {fixture.home_score}
+                            </span>
+                            <span className="text-slate-700 text-xs">-</span>
+                            <span className={`text-lg font-bold ${!homeWon ? 'text-white' : 'text-slate-500'}`}>
+                              {fixture.away_score}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-600 text-xs font-medium">vs</span>
+                        )}
+                      </div>
+                      
+                      {/* Away */}
+                      <div className="flex-1 text-left">
+                        <span className={`text-sm font-medium ${
+                          isCompleted && !homeWon ? 'text-white' : 'text-slate-400'
+                        }`}>
+                          {fixture.away_team}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* Bottom Action */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="flex justify-center"
+        >
+          {playerCompleted ? (
             <Button 
               onClick={handleBackToCareer}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-8 py-3"
+              className="bg-slate-800 hover:bg-slate-700 text-white font-medium px-8 gap-2 border border-white/10"
             >
-              Return to Career Home
+              Continue
+              <ChevronRight className="w-4 h-4" />
             </Button>
           ) : (
-            <div className="text-center">
-              <p className="text-slate-400 text-sm mb-4">
-                Complete your match to see all results
-              </p>
-              <Button 
-                variant="outline"
-                onClick={handleBackToCareer}
-                className="border-white/20 text-slate-400 hover:text-white"
-              >
-                Return to Career Home
-              </Button>
-            </div>
+            <button
+              onClick={handleBackToCareer}
+              className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
+            >
+              Return to Career Home
+            </button>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );
