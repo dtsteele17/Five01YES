@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Clock, Trophy, Users, Play } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Clock, Trophy, Users, Play, CheckCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Fixture {
@@ -29,8 +31,11 @@ interface WeekData {
 
 export default function WeekFixtures() {
   const router = useRouter();
+  const params = useParams();
   const searchParams = useSearchParams();
-  const careerId = searchParams.get('careerId');
+  
+  const runId = params.runId as string;
+  const careerId = searchParams.get('careerId') || runId; // Support both patterns
   
   const [loading, setLoading] = useState(true);
   const [weekData, setWeekData] = useState<WeekData | null>(null);
@@ -93,7 +98,8 @@ export default function WeekFixtures() {
         careerId,
         week: weekData.week,
         tier: weekData.tier,
-        season: weekData.season
+        season: weekData.season,
+        route: `/app/career/week/${runId}?careerId=${careerId}`
       }));
 
       const config = {
@@ -131,7 +137,10 @@ export default function WeekFixtures() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="w-10 h-10 text-amber-400 animate-spin border-4 border-amber-400/30 border-t-amber-400 rounded-full" />
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-10 h-10 text-amber-400 animate-spin" />
+          <p className="text-slate-400">Loading fixtures...</p>
+        </div>
       </div>
     );
   }
@@ -197,46 +206,137 @@ export default function WeekFixtures() {
                     <div className="text-slate-300 text-sm">Away</div>
                   </div>
                 </div>
-                
-                <div className="text-right min-w-[120px]">
-                  <Button 
-                    onClick={handlePlayMatch}
-                    disabled={playingMatch}
-                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-8 py-3 text-lg"
-                  >
-                    <Play className="w-5 h-5 mr-2" />
-                    {playingMatch ? 'Starting...' : 'Play Match'}
-                  </Button>
-                </div>
+
+                <Button 
+                  onClick={handlePlayMatch}
+                  disabled={playingMatch}
+                  className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-3"
+                >
+                  {playingMatch ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Starting...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Play Your Match
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Message when no pending matches */}
+        {/* Player Match Result - Show if completed */}
         {playerFixture && playerFixture.status === 'completed' && (
-          <div className="text-center">
-            <div className="text-slate-400 text-lg mb-4">Match completed! Results will be shown after all matches finish.</div>
-            <Button 
-              onClick={handleBackToCareer}
-              className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white font-bold px-8 py-3"
-            >
-              Back to Career
-            </Button>
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-400" />
+              Your Match - Completed
+            </h2>
+            
+            <Card className="bg-slate-800/50 border-white/10 p-6">
+              <div className="flex items-center justify-center gap-8">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">You</div>
+                  <div className="text-3xl font-bold text-green-400 mt-2">{playerFixture.home_score}</div>
+                </div>
+                
+                <div className="text-2xl font-bold text-slate-600">-</div>
+                
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">{playerFixture.away_team}</div>
+                  <div className="text-3xl font-bold text-slate-400 mt-2">{playerFixture.away_score}</div>
+                </div>
+              </div>
+              
+              <div className="text-center mt-4">
+                <Badge className={`${
+                  (playerFixture.home_score || 0) > (playerFixture.away_score || 0) 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-red-500 text-white'
+                }`}>
+                  {(playerFixture.home_score || 0) > (playerFixture.away_score || 0) ? 'Victory!' : 'Defeat'}
+                </Badge>
+              </div>
+            </Card>
           </div>
         )}
 
-        {!playerFixture && (
-          <div className="text-center">
-            <div className="text-slate-400 text-lg mb-4">No matches available for this week.</div>
+        {/* Other Fixtures */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" />
+            Other Matches
+          </h2>
+          
+          <div className="grid gap-3">
+            {otherFixtures.map((fixture, index) => (
+              <Card key={fixture.id} className="bg-slate-800/30 border-white/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6 flex-1">
+                    <div className="text-center min-w-[120px]">
+                      <div className="text-white font-medium">{fixture.home_team}</div>
+                      {fixture.status === 'completed' && (
+                        <div className="text-lg font-bold text-white mt-1">{fixture.home_score}</div>
+                      )}
+                    </div>
+                    
+                    <div className="text-slate-500">vs</div>
+                    
+                    <div className="text-center min-w-[120px]">
+                      <div className="text-white font-medium">{fixture.away_team}</div>
+                      {fixture.status === 'completed' && (
+                        <div className="text-lg font-bold text-white mt-1">{fixture.away_score}</div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="ml-6">
+                    {fixture.status === 'completed' ? (
+                      <Badge variant="outline" className="border-green-500/30 text-green-400">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Final
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-amber-500/30 text-amber-400">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex justify-center">
+          {allMatchesCompleted ? (
             <Button 
               onClick={handleBackToCareer}
-              className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white font-bold px-8 py-3"
+              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-8 py-3"
             >
-              Back to Career
+              Return to Career Home
             </Button>
-          </div>
-        )}
+          ) : (
+            <div className="text-center">
+              <p className="text-slate-400 text-sm mb-4">
+                Complete your match to see all results
+              </p>
+              <Button 
+                variant="outline"
+                onClick={handleBackToCareer}
+                className="border-white/20 text-slate-400 hover:text-white"
+              >
+                Return to Career Home
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
