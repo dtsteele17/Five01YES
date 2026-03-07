@@ -53,22 +53,13 @@ export default function WeekFixtures() {
     try {
       const supabase = createClient();
       
-      // Try FIFA-style fixtures first
-      const { data, error } = await supabase.rpc('rpc_fifa_get_week_fixtures', { 
+      // Use existing working fixtures function
+      const { data, error } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', { 
         p_career_id: careerId 
       });
       
-      if (error) {
-        console.error('FIFA fixtures failed, using fallback:', error);
-        // Fallback to original fixtures function
-        const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', { 
-          p_career_id: careerId 
-        });
-        if (fallbackError) throw fallbackError;
-        setWeekData(fallbackData);
-      } else {
-        setWeekData(data);
-      }
+      if (error) throw error;
+      setWeekData(data);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load fixtures');
       router.back();
@@ -90,18 +81,24 @@ export default function WeekFixtures() {
     try {
       const supabase = createClient();
       
-      // Use FIFA-style career continue function for league matches
-      const { data: matchData, error } = await supabase.rpc('rpc_career_continue_fifa_style', { 
+      // Use existing working career function for league matches  
+      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { 
         p_career_id: careerId 
       });
       
-      if (error) {
-        console.error('FIFA career function failed:', error);
-        throw error;
-      }
+      if (error) throw error;
       if (matchData?.error) throw new Error(matchData.error);
+      if (matchData?.skipped) {
+        toast.info(matchData.message);
+        window.location.reload();
+        return;
+      }
 
-      // Set up game config using FIFA-style match data
+      // Set up game config using existing working match data
+      const avg = matchData.bot_average || 50;
+      const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
+        : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
+        : avg <= 90 ? 'pro' : 'worldClass';
       const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' };
 
       // Store context to return to fixtures page after game
@@ -115,21 +112,19 @@ export default function WeekFixtures() {
 
       const config = {
         mode: '501',
-        botDifficulty: matchData.bot_config?.difficulty || 'intermediate',
-        botAverage: matchData.bot_config?.average || 50,
+        botDifficulty: diffKey as any,
+        botAverage: avg,
         doubleOut: true,
-        bestOf: bestOfMap[matchData.event?.format_legs] || (weekData.tier === 3 ? 'best-of-5' : 'best-of-3'),
+        bestOf: bestOfMap[matchData.best_of] || 'best-of-3',
         atcOpponent: 'bot',
         career: {
           careerId,
-          eventId: matchData.event?.id,
-          eventName: matchData.event?.name || 'League Match',
+          eventId: matchData.event_id,
+          eventName: matchData.event_name || weekData.event_name,
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
           opponentName: matchData.opponent?.name,
-          roomId: matchData.room_id,
-          returnToFixtures: true,
-          fifaStyle: true
+          returnToFixtures: true
         },
       };
 
@@ -137,7 +132,7 @@ export default function WeekFixtures() {
       sessionStorage.setItem('game_config', JSON.stringify(config));
       
       // Show confirmation with correct opponent
-      toast.success(`Starting ${weekData.tier === 3 ? 'County League' : 'Pub League'} match vs ${matchData.opponent?.name}`);
+      toast.success(`Starting league match vs ${matchData.opponent?.name}`);
       router.push('/app/play/training/501');
     } catch (err: any) {
       toast.error(err.message || 'Failed to start match');
