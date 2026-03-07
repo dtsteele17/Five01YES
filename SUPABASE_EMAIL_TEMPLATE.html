@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your FIVE01 Password</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);">
+        
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center;">
+            <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.1); padding: 12px 20px; border-radius: 8px; margin-bottom: 15px;">
+                <h1 style="color: #ffffff; font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 2px;">FIVE01</h1>
+            </div>
+            <h2 style="color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; opacity: 0.95;">Reset Your Password</h2>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 40px 30px; color: #e2e8f0;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 40px; height: 40px; background-color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        🎯
+                    </div>
+                </div>
+            </div>
+            
+            <h3 style="color: #ffffff; font-size: 20px; font-weight: 600; margin: 0 0 15px 0; text-align: center;">
+                Ready to get back in the game?
+            </h3>
+            
+            <p style="color: #cbd5e1; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0; text-align: center;">
+                We received a request to reset your FIVE01 password. No worries – it happens to the best of us! 
+                Click the button below to create a new password and get back to dominating the dart board.
+            </p>
+            
+            <!-- Reset Button -->
+            <div style="text-align: center; margin: 35px 0;">
+                <a href="{{ .ConfirmationURL }}" 
+                   style="display: inline-block; 
+                          background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                          color: #ffffff; 
+                          text-decoration: none; 
+                          padding: 16px 32px; 
+                          border-radius: 8px; 
+                          font-size: 18px; 
+                          font-weight: 600; 
+                          box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+                          transition: all 0.3s ease;">
+                    🎯 Reset My Password
+                </a>
+            </div>
+            
+            <!-- Security Info Box -->
+            <div style="background-color: #374151; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 30px 0;">
+                <div style="display: flex; align-items: flex-start;">
+                    <div style="margin-right: 15px; font-size: 20px;">🛡️</div>
+                    <div>
+                        <h4 style="color: #fbbf24; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                            Security Notice
+                        </h4>
+                        <p style="color: #d1d5db; font-size: 14px; line-height: 1.5; margin: 0;">
+                            This password reset link will expire in <strong>1 hour</strong> for your security. 
+                            If you didn't request this reset, you can safely ignore this email – your account remains secure.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Backup Link -->
+            <div style="background-color: #2d3748; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="color: #a0aec0; font-size: 14px; line-height: 1.5; margin: 0 0 10px 0; text-align: center;">
+                    <strong>Button not working?</strong> Copy and paste this link into your browser:
+                </p>
+                <div style="background-color: #1a202c; padding: 12px; border-radius: 6px; text-align: center; word-break: break-all;">
+                    <a href="{{ .ConfirmationURL }}" style="color: #10b981; font-size: 13px; text-decoration: none;">
+                        {{ .ConfirmationURL }}
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Game Stats Motivation -->
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="color: #94a3b8; font-size: 14px; margin: 0 0 10px 0;">
+                    🎯 Your next 180 is waiting! Get back to climbing those leaderboards.
+                </p>
+                <p style="color: #64748b; font-size: 13px; margin: 0;">
+                    The darts community misses your precision.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background-color: #0f172a; padding: 25px 30px; text-align: center; border-top: 1px solid #374151;">
+            <div style="margin-bottom: 15px;">
+                <h3 style="color: #10b981; font-size: 18px; font-weight: bold; margin: 0; letter-spacing: 1px;">FIVE01</h3>
+                <p style="color: #64748b; font-size: 13px; margin: 5px 0 0 0; font-style: italic;">
+                    Play. Compete. Climb the ranks.
+                </p>
+            </div>
+            
+            <div style="border-top: 1px solid #374151; padding-top: 15px;">
+                <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.4;">
+                    This email was sent from FIVE01 because you requested a password reset.<br>
+                    If you have any issues, our support team is ready to help.
+                </p>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Mobile Responsive Styles -->
+    <style>
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin: 10px !important; }
+            .content { padding: 20px !important; }
+            .button { padding: 14px 24px !important; font-size: 16px !important; }
+        }
+    </style>
+</body>
+</html>
