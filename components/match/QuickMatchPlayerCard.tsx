@@ -40,18 +40,18 @@ export function QuickMatchPlayerCard({
   return (
     <div className="relative flex items-stretch gap-1 sm:gap-2">
       {position === 'left' && stats && (
-        <div className="hidden md:flex flex-col justify-center space-y-3 min-w-[100px]">
+        <div className="flex flex-col justify-center space-y-2 sm:space-y-3 min-w-[80px] sm:min-w-[100px]">
           <div className="text-right">
-            <p className="text-sm text-gray-400 font-medium">Avg</p>
-            <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
+            <p className="text-xs sm:text-sm text-gray-400 font-medium">Avg</p>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-400 font-medium">Last Visit</p>
-            <p className={`text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
+            <p className="text-xs sm:text-sm text-gray-400 font-medium">Last</p>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-400 font-medium">Darts Thrown</p>
-            <p className={`text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
+            <p className="text-xs sm:text-sm text-gray-400 font-medium">Darts</p>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
           </div>
         </div>
       )}
@@ -103,18 +103,18 @@ export function QuickMatchPlayerCard({
       </Card>
 
       {position === 'right' && stats && (
-        <div className="hidden md:flex flex-col justify-center space-y-3 min-w-[100px]">
+        <div className="flex flex-col justify-center space-y-2 sm:space-y-3 min-w-[80px] sm:min-w-[100px]">
           <div>
-            <p className="text-sm text-gray-400 font-medium">Avg</p>
-            <p className={`text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
+            <p className="text-xs sm:text-sm text-gray-400 font-medium">Avg</p>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${statColor}`}>{stats.average.toFixed(1)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400 font-medium">Last Visit</p>
-            <p className={`text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
+            <p className="text-xs sm:text-sm text-gray-400 font-medium">Last</p>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${statColor}`}>{stats.lastScore}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400 font-medium">Darts Thrown</p>
-            <p className={`text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
+            <p className="text-xs sm:text-sm text-gray-400 font-medium">Darts</p>
+            <p className={`text-xl sm:text-2xl md:text-3xl font-bold ${statColor}`}>{stats.dartsThrown}</p>
           </div>
         </div>
       )}

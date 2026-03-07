@@ -279,7 +279,7 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gradient-to-br from-slate-900 to-slate-950 border-white/10 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-gradient-to-br from-slate-900 to-slate-950 border-white/10 text-white max-w-[95vw] sm:max-w-3xl lg:max-w-4xl max-h-[95vh] overflow-y-auto p-3 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black flex items-center justify-center gap-3">
             <Crown className="w-8 h-8 text-yellow-400" />
@@ -305,11 +305,11 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
             className="space-y-6 mt-4"
           >
             {/* Score Board */}
-            <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-white/10 p-6 backdrop-blur-sm">
-              <div className="flex items-center justify-center gap-8">
+            <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-white/10 p-3 sm:p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-center gap-4 sm:gap-8">
                 {/* User */}
-                <div className={`text-center ${userWon ? 'scale-110' : 'opacity-70'}`}>
-                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black overflow-hidden ${
+                <div className={`text-center ${userWon ? 'scale-110' : 'opacity-70'} transition-all`}>
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-lg sm:text-2xl font-black overflow-hidden ${
                     userWon 
                       ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
                       : 'bg-slate-700 text-slate-400'
@@ -320,28 +320,28 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
                       userName.charAt(0).toUpperCase()
                     )}
                   </div>
-                  <p className="text-sm font-medium text-white mb-1">{userName}</p>
+                  <p className="text-xs sm:text-sm font-medium text-white mb-1 truncate">{userName}</p>
                   <motion.p 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="text-5xl font-black text-white"
+                    className="text-3xl sm:text-5xl font-black text-white"
                   >
                     {userLegsWon}
                   </motion.p>
                   {userWon && (
-                    <Badge className="mt-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0">
-                      <Crown className="w-3 h-3 mr-1" />
+                    <Badge className="mt-1 sm:mt-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0 text-xs">
+                      <Crown className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
                       WINNER
                     </Badge>
                   )}
                 </div>
                 
                 {/* VS */}
-                <div className="text-3xl font-black text-slate-600">VS</div>
+                <div className="text-xl sm:text-3xl font-black text-slate-600">VS</div>
                 
                 {/* Opponent */}
-                <div className={`text-center ${!userWon ? 'scale-110' : 'opacity-70'}`}>
-                  <div className={`w-16 h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-2xl font-black overflow-hidden ${
+                <div className={`text-center ${!userWon ? 'scale-110' : 'opacity-70'} transition-all`}>
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-2 rounded-full flex items-center justify-center text-lg sm:text-2xl font-black overflow-hidden ${
                     !userWon 
                       ? 'bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30' 
                       : 'bg-slate-700 text-slate-400'
@@ -352,17 +352,17 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
                       opponentName.charAt(0).toUpperCase()
                     )}
                   </div>
-                  <p className="text-sm font-medium text-white mb-1">{opponentName}</p>
+                  <p className="text-xs sm:text-sm font-medium text-white mb-1 truncate">{opponentName}</p>
                   <motion.p 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="text-5xl font-black text-white"
+                    className="text-3xl sm:text-5xl font-black text-white"
                   >
                     {opponentLegsWon}
                   </motion.p>
                   {!userWon && (
-                    <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white border-0">
-                      <Crown className="w-3 h-3 mr-1" />
+                    <Badge className="mt-1 sm:mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 text-xs">
+                      <Crown className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
                       WINNER
                     </Badge>
                   )}
@@ -370,9 +370,9 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
               </div>
             </Card>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* User Stats */}
-              <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-emerald-500/30 p-6 backdrop-blur-sm">
+              <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-emerald-500/30 p-3 sm:p-6 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20 overflow-hidden">
                     {userProfile?.avatar_url ? (
@@ -401,16 +401,16 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
                   />
                   <StatRow icon={Award} label="Highest Checkout" value={userStats?.highest_checkout?.toString() || '0'} color={userStats?.highest_checkout ? 'text-emerald-400' : 'text-slate-400'} />
                   <div className="grid grid-cols-3 gap-2 pt-2">
-                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                      <div className="text-lg font-bold text-purple-400">{userStats?.count_180 || 0}</div>
+                    <div className="text-center p-1.5 sm:p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-sm sm:text-lg font-bold text-purple-400">{userStats?.count_180 || 0}</div>
                       <div className="text-xs text-slate-500">180s</div>
                     </div>
-                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                      <div className="text-lg font-bold text-blue-400">{userStats?.count_140_plus || 0}</div>
+                    <div className="text-center p-1.5 sm:p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-sm sm:text-lg font-bold text-blue-400">{userStats?.count_140_plus || 0}</div>
                       <div className="text-xs text-slate-500">140+</div>
                     </div>
-                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                      <div className="text-lg font-bold text-emerald-400">{userStats?.count_100_plus || 0}</div>
+                    <div className="text-center p-1.5 sm:p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-sm sm:text-lg font-bold text-emerald-400">{userStats?.count_100_plus || 0}</div>
                       <div className="text-xs text-slate-500">100+</div>
                     </div>
                   </div>
@@ -418,7 +418,7 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
               </Card>
 
               {/* Opponent Stats */}
-              <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-orange-500/30 p-6 backdrop-blur-sm">
+              <Card className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-orange-500/30 p-3 sm:p-6 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-500/20 overflow-hidden">
                     {opponentProfile?.avatar_url ? (
@@ -447,16 +447,16 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
                   />
                   <StatRow icon={Award} label="Highest Checkout" value={opponentStats?.highest_checkout?.toString() || '0'} color={opponentStats?.highest_checkout ? 'text-emerald-400' : 'text-slate-400'} />
                   <div className="grid grid-cols-3 gap-2 pt-2">
-                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                      <div className="text-lg font-bold text-purple-400">{opponentStats?.count_180 || 0}</div>
+                    <div className="text-center p-1.5 sm:p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-sm sm:text-lg font-bold text-purple-400">{opponentStats?.count_180 || 0}</div>
                       <div className="text-xs text-slate-500">180s</div>
                     </div>
-                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                      <div className="text-lg font-bold text-blue-400">{opponentStats?.count_140_plus || 0}</div>
+                    <div className="text-center p-1.5 sm:p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-sm sm:text-lg font-bold text-blue-400">{opponentStats?.count_140_plus || 0}</div>
                       <div className="text-xs text-slate-500">140+</div>
                     </div>
-                    <div className="text-center p-2 bg-slate-900/50 rounded-lg">
-                      <div className="text-lg font-bold text-emerald-400">{opponentStats?.count_100_plus || 0}</div>
+                    <div className="text-center p-1.5 sm:p-2 bg-slate-900/50 rounded-lg">
+                      <div className="text-sm sm:text-lg font-bold text-emerald-400">{opponentStats?.count_100_plus || 0}</div>
                       <div className="text-xs text-slate-500">100+</div>
                     </div>
                   </div>
@@ -466,26 +466,26 @@ export function MatchStatsModal({ isOpen, onClose, matchId }: MatchStatsModalPro
 
             {/* Summary Stats */}
             {userStats && (
-              <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-white/10 p-6 backdrop-blur-sm">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-yellow-400" />
+              <Card className="bg-gradient-to-r from-slate-800/80 to-slate-900/80 border-white/10 p-3 sm:p-6 backdrop-blur-sm">
+                <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                  <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
                   Your Performance Summary
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 rounded-xl border border-emerald-500/20">
-                    <p className="text-2xl font-black text-emerald-400">{Number(userStats.three_dart_average).toFixed(1)}</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 rounded-xl border border-emerald-500/20">
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400">{Number(userStats.three_dart_average).toFixed(1)}</p>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">3-Dart Avg</p>
                   </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-xl border border-purple-500/20">
-                    <p className="text-2xl font-black text-purple-400">{userStats.count_180}</p>
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-xl border border-purple-500/20">
+                    <p className="text-xl sm:text-2xl font-black text-purple-400">{userStats.count_180}</p>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">180s</p>
                   </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl border border-blue-500/20">
-                    <p className="text-2xl font-black text-blue-400">{userStats.count_140_plus}</p>
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl border border-blue-500/20">
+                    <p className="text-xl sm:text-2xl font-black text-blue-400">{userStats.count_140_plus}</p>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">140+</p>
                   </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/10 rounded-xl border border-orange-500/20">
-                    <p className="text-2xl font-black text-orange-400">{userStats.highest_checkout || 0}</p>
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/10 rounded-xl border border-orange-500/20">
+                    <p className="text-xl sm:text-2xl font-black text-orange-400">{userStats.highest_checkout || 0}</p>
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">High Checkout</p>
                   </div>
                 </div>

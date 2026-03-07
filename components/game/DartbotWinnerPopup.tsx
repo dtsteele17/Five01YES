@@ -84,13 +84,13 @@ export function DartbotWinnerPopup({
   return (
     <Dialog open={true} modal>
       <DialogContent 
-        className="bg-slate-900 border-slate-700 text-white w-full max-w-3xl p-0 overflow-hidden"
-        style={{ maxHeight: '90vh' }}
+        className="bg-slate-900 border-slate-700 text-white w-full max-w-[95vw] sm:max-w-2xl lg:max-w-3xl p-0 overflow-hidden"
+        style={{ maxHeight: '95vh' }}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Winner Header */}
-        <div className={`relative bg-gradient-to-r ${isPlayer1Winner ? 'from-emerald-600/20 via-emerald-500/20 to-emerald-600/20 border-b border-emerald-500/30' : 'from-red-600/20 via-red-500/20 to-red-600/20 border-b border-red-500/30'} p-4`}>
+        <div className={`relative bg-gradient-to-r ${isPlayer1Winner ? 'from-emerald-600/20 via-emerald-500/20 to-emerald-600/20 border-b border-emerald-500/30' : 'from-red-600/20 via-red-500/20 to-red-600/20 border-b border-red-500/30'} p-3 sm:p-4`}>
           {/* Sparkles */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {[...Array(4)].map((_, i) => (
@@ -116,7 +116,7 @@ export function DartbotWinnerPopup({
             </motion.div>
             
             <DialogHeader className="space-y-0">
-              <DialogTitle className={`text-xl font-black ${isPlayer1Winner ? 'text-emerald-400' : 'text-red-400'}`}>
+              <DialogTitle className={`text-lg sm:text-xl font-black ${isPlayer1Winner ? 'text-emerald-400' : 'text-red-400'}`}>
                 {isPlayer1Winner ? '🎉 You Win!' : '😔 Bot Wins!'}
               </DialogTitle>
             </DialogHeader>
@@ -144,24 +144,24 @@ export function DartbotWinnerPopup({
         </div>
 
         {/* Score Display */}
-        <div className="px-4 py-3">
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
-            <div className="flex items-center justify-center gap-12">
+        <div className="px-3 sm:px-4 py-3">
+          <div className="bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-600">
+            <div className="flex items-center justify-center gap-6 sm:gap-12">
               <div className="text-center">
-                <div className={`${p1Color} text-sm font-bold mb-1`}>{player1.name}</div>
-                <div className={`text-5xl font-black ${p1Color}`}>{player1.legs}</div>
+                <div className={`${p1Color} text-xs sm:text-sm font-bold mb-1 truncate`}>{player1.name}</div>
+                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black ${p1Color}`}>{player1.legs}</div>
               </div>
-              <div className="text-2xl font-bold text-slate-500">-</div>
+              <div className="text-lg sm:text-2xl font-bold text-slate-500">-</div>
               <div className="text-center">
-                <div className={`${p2Color} text-sm font-bold mb-1`}>{player2.name}</div>
-                <div className={`text-5xl font-black ${p2Color}`}>{player2.legs}</div>
+                <div className={`${p2Color} text-xs sm:text-sm font-bold mb-1 truncate`}>{player2.name}</div>
+                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black ${p2Color}`}>{player2.legs}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Stats - Side by Side Layout */}
-        <div className="px-4 flex gap-4">
+        {/* Stats - Responsive Layout */}
+        <div className="px-3 sm:px-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
           {/* Player 1 Stats */}
           <div className={`flex-1 bg-gradient-to-b ${p1Bg} ${p1Border} border rounded-xl p-3`}>
             <div className="text-center mb-3">
@@ -252,13 +252,13 @@ export function DartbotWinnerPopup({
         {/* Leg-by-Leg Stats removed — too large for dartbot end screen */}
 
         {/* Action Buttons */}
-        <div className="px-4 pb-4 pt-3">
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-3">
           {career?.isCareer ? (
             /* Career mode: single button based on win/loss */
             <div>
               <Button
                 onClick={onReturn}
-                className={`w-full py-3 h-auto text-sm font-semibold ${
+                className={`w-full py-2 sm:py-3 h-auto text-sm font-semibold ${
                   career.playerWon
                     ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white'
                     : 'bg-slate-700 hover:bg-slate-600 text-white'
@@ -289,10 +289,10 @@ export function DartbotWinnerPopup({
           ) : (
             /* Normal dartbot mode */
             <div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   onClick={onRematch}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 h-auto text-sm font-semibold"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 sm:py-3 h-auto text-sm font-semibold"
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Play Again
@@ -300,7 +300,7 @@ export function DartbotWinnerPopup({
                 <Button
                   onClick={onReturn}
                   variant="outline"
-                  className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-3 h-auto text-sm font-semibold"
+                  className="flex-1 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 py-2 sm:py-3 h-auto text-sm font-semibold"
                 >
                   <Undo2 className="w-4 h-4 mr-2" />
                   Return to Play
