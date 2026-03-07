@@ -119,12 +119,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const handleTryAgain = () => {
-    setSuccess(false);
-    setError(null);
-    setEmail('');
-    setTouched(false);
-  };
+
 
   return (
     <AuthLayout>
@@ -170,16 +165,9 @@ export default function ForgotPasswordPage() {
                   </ul>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    onClick={handleTryAgain}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Send to different email
-                  </Button>
-                  <Link href="/login" className="flex-1">
-                    <Button className="w-full">
+                <div className="flex justify-center">
+                  <Link href="/login">
+                    <Button className="px-8">
                       Back to login
                     </Button>
                   </Link>
