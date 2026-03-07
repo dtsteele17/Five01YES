@@ -106,6 +106,12 @@ export default function WeekFixtures() {
       // Get opponent name from fixture (more reliable than function return)
       const opponentName = playerFixture.away_team;
       
+      // Store return context so post-match navigates back to week fixtures
+      sessionStorage.setItem('career_fixtures_return', JSON.stringify({
+        careerId,
+        route: `/app/career/week/${runId}?careerId=${careerId}`,
+      }));
+
       // Use setConfig from TrainingContext — EXACT same method as bracket/tournament page
       setConfig({
         mode: '501',
@@ -120,7 +126,8 @@ export default function WeekFixtures() {
           eventName: matchData.event?.name || `${weekData.tier === 2 ? 'Pub League' : 'County League'} Match`,
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
-          opponentName: opponentName
+          opponentName: opponentName,
+          returnToFixtures: true,
         },
       });
       
