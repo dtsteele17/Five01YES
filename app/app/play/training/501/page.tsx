@@ -1657,6 +1657,25 @@ export default function DartbotMatchPage() {
   const handleReturnToPlay = () => {
     if (config?.career) {
       const isBracketMatch = config.career.matchId.startsWith('bracket-');
+      
+      // Check for fixtures return context first
+      const fixturesReturn = sessionStorage.getItem('career_fixtures_return');
+      if (fixturesReturn && config.career.returnToFixtures) {
+        try {
+          const context = JSON.parse(fixturesReturn);
+          if (context.route) {
+            // Use specific route if provided
+            router.push(context.route);
+          } else {
+            // Fallback to week route
+            router.push(`/app/career/week/${context.careerId}?careerId=${context.careerId}`);
+          }
+          return;
+        } catch (e) {
+          // Fallback to old behavior if parsing fails
+        }
+      }
+      
       if (isBracketMatch) {
         // Bracket match (win or loss) → go to bracket page to process result and show updated draw
         router.push(`/app/career/bracket?careerId=${config.career.careerId}&eventId=${config.career.eventId}`);

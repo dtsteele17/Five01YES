@@ -385,9 +385,9 @@ export default function CareerPage() {
     try {
       const { next_event } = data;
       
-      // For Tier 2+ league matches, go to fixtures page first
+      // For Tier 2+ league matches, go to weekly fixtures page first
       if (data.career.tier >= 2 && next_event.event_type === 'league') {
-        router.push(`/app/career/fixtures?careerId=${careerId}`);
+        router.push(`/app/career/week/${careerId}?careerId=${careerId}`);
         return;
       }
 
