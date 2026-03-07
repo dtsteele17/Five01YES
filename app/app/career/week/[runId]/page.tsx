@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useTraining } from '@/lib/context/TrainingContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,7 @@ export default function WeekFixtures() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+  const { setConfig } = useTraining();
   
   const runId = params.runId as string;
   const careerId = searchParams.get('careerId') || runId; // Support both patterns
@@ -104,35 +106,23 @@ export default function WeekFixtures() {
       // Get opponent name from fixture (more reliable than function return)
       const opponentName = playerFixture.away_team;
       
-      // Store return context for post-match navigation
-      sessionStorage.setItem('career_fixtures_return', JSON.stringify({
-        careerId,
-        week: weekData.week,
-        tier: weekData.tier,
-        season: weekData.season,
-        route: `/app/career/week/${runId}?careerId=${careerId}`
-      }));
-
-      // Create dartbot config using EXACT same pattern as tournament matches
-      const config = {
+      // Use setConfig from TrainingContext — EXACT same method as bracket/tournament page
+      setConfig({
         mode: '501',
         botDifficulty: diffKey as any,
         botAverage: avg,
         doubleOut: true,
-        bestOf: bestOfMap[matchData.best_of] || (weekData.tier === 3 ? 'best-of-5' : 'best-of-3'),
+        bestOf: bestOfMap[matchData.event?.format_legs] || (weekData.tier === 3 ? 'best-of-5' : 'best-of-3'),
         atcOpponent: 'bot',
         career: {
           careerId,
-          eventId: matchData.event_id,
-          eventName: `${weekData.tier === 2 ? 'Pub League' : 'County League'} Match`,
+          eventId: matchData.event?.id,
+          eventName: matchData.event?.name || `${weekData.tier === 2 ? 'Pub League' : 'County League'} Match`,
           matchId: matchData.match_id,
           opponentId: matchData.opponent?.id,
           opponentName: opponentName
         },
-      };
-
-      // Store config for dartbot game (same as tournaments)
-      sessionStorage.setItem('game_config', JSON.stringify(config));
+      });
       
       // Show confirmation and launch dartbot
       toast.success(`Starting ${weekData.tier === 2 ? 'Pub League' : 'County League'} match vs ${opponentName}`);
