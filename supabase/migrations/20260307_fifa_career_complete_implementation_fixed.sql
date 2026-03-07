@@ -129,7 +129,7 @@ BEGIN
   ) INTO v_opponents;
   
   -- Create missing opponents if needed
-  WHILE array_length(v_opponents, 1) < 7 LOOP
+  WHILE COALESCE(array_length(v_opponents, 1), 0) < 7 LOOP
     INSERT INTO career_opponents (
       career_id, tier, first_name, last_name, hometown, archetype,
       skill_rating
@@ -140,7 +140,15 @@ BEGIN
       v_hometowns[1 + (random() * (array_length(v_hometowns, 1) - 1))::integer],
       (ARRAY['scorer','finisher','grinder','streaky','clutch','allrounder'])[1 + (random() * 5)::integer],
       40 + (random() * 25)::real  -- Skill rating 40-65 for Tier 2
-    ) RETURNING * INTO v_opponents[array_length(v_opponents, 1) + 1];
+    );
+    
+    -- Refresh the opponents array
+    SELECT ARRAY(
+      SELECT co FROM career_opponents co 
+      WHERE co.career_id = p_career_id AND co.tier = 2
+      ORDER BY random()
+      LIMIT 7
+    ) INTO v_opponents;
   END LOOP;
   
   -- Create player standing (position 4 in middle of table)
@@ -224,7 +232,7 @@ BEGIN
   ) INTO v_opponents;
   
   -- Create missing opponents if needed
-  WHILE array_length(v_opponents, 1) < 11 LOOP
+  WHILE COALESCE(array_length(v_opponents, 1), 0) < 11 LOOP
     INSERT INTO career_opponents (
       career_id, tier, first_name, last_name, hometown, archetype,
       skill_rating
@@ -235,7 +243,15 @@ BEGIN
       v_hometowns[1 + (random() * (array_length(v_hometowns, 1) - 1))::integer],
       (ARRAY['scorer','finisher','grinder','streaky','clutch','allrounder'])[1 + (random() * 5)::integer],
       50 + (random() * 30)::real  -- Skill rating 50-80 for Tier 3
-    ) RETURNING * INTO v_opponents[array_length(v_opponents, 1) + 1];
+    );
+    
+    -- Refresh the opponents array
+    SELECT ARRAY(
+      SELECT co FROM career_opponents co 
+      WHERE co.career_id = p_career_id AND co.tier = 3
+      ORDER BY random()
+      LIMIT 11
+    ) INTO v_opponents;
   END LOOP;
   
   -- Create player standing (position 6 in middle of table)
