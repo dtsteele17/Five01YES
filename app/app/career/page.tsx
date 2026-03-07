@@ -117,7 +117,7 @@ export default function CareerPage() {
     const supabase = createClient();
 
     if (careerId) {
-      const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end_locked', { p_career_id: careerId });
+      const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed', { p_career_id: careerId });
       if (error || homeData?.error) {
         toast.error('Failed to load career');
         router.push('/app/career/start');
@@ -407,7 +407,7 @@ export default function CareerPage() {
       if (next_event.event_type === 'training') {
         // Mark training event as completed
         const supabase = createClient();
-        await supabase.rpc('rpc_career_play_next_event_locked', { p_career_id: careerId });
+        await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
         // Store career context so training end screen shows "Return to Career"
         sessionStorage.setItem(CAREER_TRAINING_RETURN_KEY, careerId);
         router.push(getRandomCareerTrainingRoute());
@@ -415,7 +415,7 @@ export default function CareerPage() {
       }
 
       const supabase = createClient();
-      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked', { p_career_id: careerId });
+      const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
       if (error) throw error;
       if (matchData?.error) throw new Error(matchData.error);
       if (matchData?.skipped) {
