@@ -107,6 +107,7 @@ export default function RankedMatchPage() {
   const [dartboardGroup, setDartboardGroup] = useState<'singles' | 'doubles' | 'triples' | 'bulls'>('singles');
   const [scoringMode, setScoringMode] = useState<'quick' | 'input'>('quick');
   const [scoreInput, setScoreInput] = useState('');
+  const [mobileMode, setMobileMode] = useState<'numpad' | 'dartboard'>('numpad');
 
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [rankedResults, setRankedResults] = useState<RankedResult | null>(null);
@@ -534,14 +535,159 @@ export default function RankedMatchPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">Score Entry</h3>
-                <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
-                  <TabsList className="bg-slate-800/50">
-                    <TabsTrigger value="quick">Dartboard</TabsTrigger>
-                    <TabsTrigger value="input">Quick Input</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {/* Desktop Tabs - Hidden on Mobile */}
+                <div className="hidden sm:block">
+                  <Tabs value={scoringMode} onValueChange={(v) => setScoringMode(v as 'quick' | 'input')}>
+                    <TabsList className="bg-slate-800/50">
+                      <TabsTrigger value="quick">Dartboard</TabsTrigger>
+                      <TabsTrigger value="input">Quick Input</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
               </div>
 
+              {/* Mobile Scoring (Numpad or Dartboard) - Only on phone */}
+              <div className="sm:hidden space-y-4">
+                {mobileMode === 'numpad' ? (
+                  <div className="space-y-4">
+                    <div className="flex gap-2 mb-2">
+                      <div className="flex-1 bg-slate-800/50 rounded-lg p-2 border border-white/10">
+                        <span className="text-2xl font-bold text-white text-center block min-h-[36px]">
+                          {scoreInput || <span className="text-slate-500">0</span>}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="h-auto px-3 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-[10px]"
+                        onClick={() => setMobileMode('dartboard')}
+                      >
+                        🎯
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1,2,3,4,5,6,7,8,9].map((n) => (
+                        <Button key={n} variant="outline"
+                          className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
+                          disabled={!isMyTurn}
+                          onClick={() => setScoreInput(scoreInput + n.toString())}>{n}</Button>
+                      ))}
+                      <Button variant="outline"
+                        className="h-14 text-lg font-bold bg-slate-700 border-white/10 text-red-400 hover:bg-red-500/20 active:bg-red-500/30"
+                        onClick={() => setScoreInput(scoreInput.slice(0, -1))}>⌫</Button>
+                      <Button variant="outline"
+                        className="h-14 text-xl font-bold bg-slate-800 border-white/10 text-white hover:bg-slate-700 active:bg-slate-600"
+                        disabled={!isMyTurn}
+                        onClick={() => setScoreInput(scoreInput + '0')}>0</Button>
+                      <Button
+                        className="h-14 text-lg font-bold bg-emerald-500 hover:bg-emerald-600 text-white active:bg-emerald-700"
+                        disabled={!isMyTurn || !scoreInput || submitting}
+                        onClick={handleQuickScoreSubmit}>{submitting ? '...' : '✓'}</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex gap-1 mb-2">
+                      {(['singles', 'doubles', 'triples', 'bulls'] as const).map((tab) => (
+                        <Button key={tab} size="sm" variant={dartboardGroup === tab ? 'default' : 'outline'}
+                          onClick={() => setDartboardGroup(tab)} className={`flex-1 text-[10px] px-1 h-8 ${
+                            dartboardGroup === tab ? (
+                              tab === 'doubles' ? 'bg-red-500 text-white' :
+                              tab === 'triples' ? 'bg-amber-500 text-white' :
+                              tab === 'bulls' ? 'bg-green-500 text-white' : 'bg-slate-600 text-white'
+                            ) : (
+                              tab === 'doubles' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
+                              tab === 'triples' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
+                              tab === 'bulls' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'border-white/10 text-white'
+                            )
+                          }`}>
+                          {tab === 'singles' ? 'S' : tab === 'doubles' ? 'D' : tab === 'triples' ? 'T' : 'Bull'}
+                        </Button>
+                      ))}
+                      <Button size="sm" variant="outline"
+                        className="px-3 h-8 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-[10px]"
+                        onClick={() => setMobileMode('numpad')}>
+                        #
+                      </Button>
+                    </div>
+                    
+                    {dartboardGroup === 'bulls' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          onClick={() => handleDartClick(25, 'bull')}
+                          disabled={!isMyTurn || currentVisit.length >= 3}
+                          className="h-16 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 text-sm font-bold"
+                        >
+                          SB (25)
+                        </Button>
+                        <Button
+                          onClick={() => handleDartClick(50, 'bull')}
+                          disabled={!isMyTurn || currentVisit.length >= 3}
+                          className="h-16 bg-red-600/20 text-red-400 hover:bg-red-600/30 text-sm font-bold"
+                        >
+                          DB (50)
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-5 gap-1 mb-2">
+                        {[20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5].map((num) => (
+                          <Button key={num}
+                            onClick={() => handleDartClick(num, dartboardGroup === 'singles' ? 'single' : dartboardGroup === 'doubles' ? 'double' : 'triple')}
+                            disabled={!isMyTurn || currentVisit.length >= 3}
+                            className={`h-10 text-xs font-bold ${
+                              dartboardGroup === 'doubles' ? 'bg-red-500/15 text-red-400 hover:bg-red-500/25' :
+                              dartboardGroup === 'triples' ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' :
+                              'bg-slate-700 text-white hover:bg-slate-600'
+                            }`}>
+                            {dartboardGroup === 'doubles' ? 'D' : dartboardGroup === 'triples' ? 'T' : ''}{num}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-400 text-sm">Current Visit</span>
+                        <span className="text-xl font-bold text-white">{visitTotal}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {currentVisit.map((dart, idx) => (
+                          <Badge key={idx} className="bg-emerald-500 text-white text-xs">
+                            {dart.type === 'single' && dart.value}
+                            {dart.type === 'double' && `D${dart.number}`}
+                            {dart.type === 'triple' && `T${dart.number}`}
+                            {dart.type === 'bull' && (dart.value === 50 ? 'Bull' : '25')}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-1">
+                      <Button
+                        onClick={handleClearVisit}
+                        disabled={!isMyTurn || currentVisit.length === 0}
+                        variant="outline"
+                        className="flex-1 border-white/10 text-white hover:bg-white/5 text-xs h-9">
+                        Clear
+                      </Button>
+                      <Button
+                        onClick={handleBust}
+                        disabled={!isMyTurn || submitting}
+                        className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50 text-xs h-9">
+                        Bust
+                      </Button>
+                      <Button
+                        onClick={handleSubmitVisit}
+                        disabled={!isMyTurn || currentVisit.length === 0 || submitting}
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-xs h-9">
+                        {submitting ? '...' : 'Submit'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop Scoring Modes - Hidden on Mobile */}
+              <div className="hidden sm:block">
               {scoringMode === 'quick' ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-center space-x-2">
@@ -664,6 +810,7 @@ export default function RankedMatchPage() {
                   </div>
                 </div>
               )}
+              </div>
 
               {checkoutOptions.length > 0 && isMyTurn && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">

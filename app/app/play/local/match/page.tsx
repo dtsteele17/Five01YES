@@ -91,6 +91,7 @@ export default function LocalMatchPage() {
   const [allLegs, setAllLegs] = useState<LegData[]>([]);
   const [scoreInput, setScoreInput] = useState('');
   // scoringMode removed — desktop always shows type input + dartboard tabs together
+  const [mobileMode, setMobileMode] = useState<'numpad' | 'dartboard'>('numpad');
   const [showEndMatchDialog, setShowEndMatchDialog] = useState(false);
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false);
   const [matchWinner, setMatchWinner] = useState<'player1' | 'player2' | null>(null);
