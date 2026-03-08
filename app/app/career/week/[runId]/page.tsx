@@ -231,30 +231,30 @@ export default function WeekFixtures() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         
         {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-4 sm:mb-8"
         >
           <button 
             onClick={handleBackToCareer}
-            className="flex items-center gap-1 text-slate-400 hover:text-white text-sm mb-4 transition-colors"
+            className="flex items-center gap-1 text-slate-400 hover:text-white text-xs sm:text-sm mb-3 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             Career Home
           </button>
           
           <div className="text-center">
-            <div className="text-xs font-medium text-emerald-400 uppercase tracking-widest mb-1">
+            <div className="text-[10px] sm:text-xs font-medium text-emerald-400 uppercase tracking-widest mb-1">
               {tierName} • Season {weekData.season}
             </div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">
               {isResultsView && playerCompleted ? `Matchday ${matchday} — Results` : `Matchday ${matchday}`}
             </h1>
-            <p className="text-slate-500 text-sm mt-1">Best of {bestOf}</p>
+            <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Best of {bestOf}</p>
           </div>
         </motion.div>
 
@@ -264,7 +264,7 @@ export default function WeekFixtures() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mb-6"
+            className="mb-4 sm:mb-6"
           >
             <div className={`relative rounded-xl border overflow-hidden ${
               playerCompleted 
@@ -273,34 +273,34 @@ export default function WeekFixtures() {
                   : 'bg-red-500/5 border-red-500/20'
                 : 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20'
             }`}>
-              <div className="p-6">
-                <div className="flex items-center justify-center gap-6">
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-center gap-3 sm:gap-6">
                   <div className="flex-1 text-right">
-                    <div className="text-lg font-bold text-white">You</div>
+                    <div className="text-base sm:text-lg font-bold text-white">You</div>
                   </div>
                   
-                  <div className="flex items-center gap-3 min-w-[100px] justify-center">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-[80px] sm:min-w-[100px] justify-center">
                     {playerCompleted ? (
                       <>
-                        <span className={`text-3xl font-black ${playerWon ? 'text-emerald-400' : 'text-white'}`}>
+                        <span className={`text-2xl sm:text-3xl font-black ${playerWon ? 'text-emerald-400' : 'text-white'}`}>
                           {playerFixture.home_score}
                         </span>
-                        <span className="text-slate-600 text-sm">-</span>
-                        <span className={`text-3xl font-black ${!playerWon ? 'text-red-400' : 'text-white'}`}>
+                        <span className="text-slate-600 text-xs sm:text-sm">-</span>
+                        <span className={`text-2xl sm:text-3xl font-black ${!playerWon ? 'text-red-400' : 'text-white'}`}>
                           {playerFixture.away_score}
                         </span>
                       </>
                     ) : (
-                      <span className="text-slate-600 font-bold text-lg">vs</span>
+                      <span className="text-slate-600 font-bold text-base sm:text-lg">vs</span>
                     )}
                   </div>
                   
                   <div className="flex-1 text-left">
-                    <div className="text-lg font-bold text-white">{playerFixture.away_team}</div>
+                    <div className="text-base sm:text-lg font-bold text-white">{playerFixture.away_team}</div>
                   </div>
                 </div>
 
-                <div className="flex justify-center mt-4">
+                <div className="flex justify-center mt-3 sm:mt-4">
                   {playerCompleted ? (
                     <Badge className={`text-xs px-3 py-1 ${
                       playerWon 
@@ -335,14 +335,14 @@ export default function WeekFixtures() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <Swords className="w-3.5 h-3.5" />
+          <h3 className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-2">
+            <Swords className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             Other Matches
           </h3>
           
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             {otherFixtures.map((fixture, index) => {
               const homeWon = (fixture.home_score || 0) > (fixture.away_score || 0);
               const isCompleted = fixture.status === 'completed';
@@ -354,28 +354,28 @@ export default function WeekFixtures() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 + index * 0.05 }}
                 >
-                  <div className={`rounded-lg border px-4 py-3 ${
+                  <div className={`rounded-lg border px-3 sm:px-4 py-2 sm:py-3 ${
                     isCompleted 
                       ? 'bg-slate-800/30 border-white/5' 
                       : 'bg-slate-800/20 border-white/5'
                   }`}>
-                    <div className="flex items-center justify-center gap-4">
+                    <div className="flex items-center justify-center gap-2 sm:gap-4">
                       <div className="flex-1 text-right">
-                        <span className={`text-sm font-medium ${
+                        <span className={`text-xs sm:text-sm font-medium ${
                           isCompleted && homeWon ? 'text-white' : 'text-slate-400'
                         }`}>
                           {fixture.home_team}
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-2 min-w-[70px] justify-center">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-[50px] sm:min-w-[70px] justify-center">
                         {isCompleted ? (
                           <>
-                            <span className={`text-lg font-bold ${homeWon ? 'text-white' : 'text-slate-500'}`}>
+                            <span className={`text-base sm:text-lg font-bold ${homeWon ? 'text-white' : 'text-slate-500'}`}>
                               {fixture.home_score}
                             </span>
-                            <span className="text-slate-700 text-xs">-</span>
-                            <span className={`text-lg font-bold ${!homeWon ? 'text-white' : 'text-slate-500'}`}>
+                            <span className="text-slate-700 text-[10px] sm:text-xs">-</span>
+                            <span className={`text-base sm:text-lg font-bold ${!homeWon ? 'text-white' : 'text-slate-500'}`}>
                               {fixture.away_score}
                             </span>
                           </>
@@ -385,7 +385,7 @@ export default function WeekFixtures() {
                       </div>
                       
                       <div className="flex-1 text-left">
-                        <span className={`text-sm font-medium ${
+                        <span className={`text-xs sm:text-sm font-medium ${
                           isCompleted && !homeWon ? 'text-white' : 'text-slate-400'
                         }`}>
                           {fixture.away_team}

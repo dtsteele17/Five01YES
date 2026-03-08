@@ -84,8 +84,8 @@ export function DartbotWinnerPopup({
   return (
     <Dialog open={true} modal>
       <DialogContent 
-        className="bg-slate-900 border-slate-700 text-white w-full max-w-[95vw] sm:max-w-2xl lg:max-w-3xl p-0 overflow-hidden"
-        style={{ maxHeight: '95vh' }}
+        className="bg-slate-900 border-slate-700 text-white w-full max-w-[95vw] sm:max-w-2xl lg:max-w-3xl p-0 overflow-y-auto"
+        style={{ maxHeight: '90vh' }}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
