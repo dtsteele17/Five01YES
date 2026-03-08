@@ -11,6 +11,7 @@ import { NotificationsProvider } from '@/lib/context/NotificationsContext';
 import { ProfileSetupGuard } from '@/components/app/ProfileSetupGuard';
 import TournamentMatchMonitor from '@/components/app/TournamentMatchMonitor';
 import GlobalTournamentMonitor from '@/components/app/GlobalTournamentMonitor';
+import { LeagueMatchPopup } from '@/components/app/LeagueMatchPopup';
 
 export default function AppLayout({
   children,
@@ -62,6 +63,8 @@ export default function AppLayout({
                   <TopBar />
                   {/* Global tournament monitor - shows countdown/ready-up from any page */}
                   <GlobalTournamentMonitor />
+                  {/* League match ready-up popup */}
+                  <LeagueMatchPopup />
 
                   <main className="relative overflow-x-hidden pt-20 pb-12 px-6 lg:px-8">
                     <div className="container mx-auto max-w-7xl overflow-x-hidden">
