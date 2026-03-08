@@ -86,6 +86,9 @@ export default function CareerPage() {
   const [knockoutMessage, setKnockoutMessage] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [emails, setEmails] = useState<{ id: string; subject: string; body: string; type: string; isNew?: boolean }[]>([]);
+  const [showPromotionPopup, setShowPromotionPopup] = useState(false);
+  const [promotionTierName, setPromotionTierName] = useState('');
+  const [advancingSeason, setAdvancingSeason] = useState(false);
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
@@ -630,14 +633,34 @@ export default function CareerPage() {
                         <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
                         <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
                         <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
-                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured! Moving up next season.' : 'New season with fresh competition ahead.'}</p>
+                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured!' : 'New season with fresh competition ahead.'}</p>
                       </div>
                       <Button
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
-                        disabled={playingEvent}
-                        onClick={handlePlayEvent}
+                        disabled={advancingSeason}
+                        onClick={async () => {
+                          setAdvancingSeason(true);
+                          try {
+                            const supabase = createClient();
+                            const { data: result, error } = await supabase.rpc('rpc_career_advance_to_next_season', {
+                              p_career_id: careerId,
+                            });
+                            if (error) throw error;
+                            if (result?.promoted) {
+                              setPromotionTierName(result.tier_name);
+                              setShowPromotionPopup(true);
+                            } else {
+                              toast.success(`Season ${result?.new_season} begins!`);
+                              loadCareer();
+                            }
+                          } catch (err: any) {
+                            toast.error(err.message || 'Failed to advance season');
+                          } finally {
+                            setAdvancingSeason(false);
+                          }
+                        }}
                       >
-                        {playingEvent ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
+                        {advancingSeason ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
                         Next Season
                       </Button>
                     </>
@@ -1221,6 +1244,75 @@ export default function CareerPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Promotion Popup */}
+      {showPromotionPopup && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="relative max-w-md w-full mx-4"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-emerald-500/30 overflow-hidden">
+              {/* Decorative top bar */}
+              <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" />
+              
+              <div className="p-8 text-center">
+                {/* Trophy animation */}
+                <motion.div
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.2, type: 'spring', damping: 10 }}
+                >
+                  <Trophy className="w-16 h-16 text-emerald-400 mx-auto mb-4 drop-shadow-[0_0_20px_rgba(52,211,153,0.5)]" />
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <h2 className="text-3xl font-black text-white mb-2">PROMOTED!</h2>
+                  <div className="inline-block px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 mb-4">
+                    <span className="text-emerald-400 font-bold text-sm">Welcome to the {promotionTierName}</span>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <p className="text-slate-400 text-sm mb-2">
+                    You&apos;ve earned your spot among the best. The {promotionTierName} brings tougher opponents, bigger tournaments, and higher stakes.
+                  </p>
+                  <p className="text-slate-500 text-xs mb-6">
+                    New rivals await. Time to prove you belong.
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                >
+                  <Button
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black py-3 text-base shadow-lg shadow-emerald-500/30"
+                    onClick={() => {
+                      setShowPromotionPopup(false);
+                      loadCareer();
+                    }}
+                  >
+                    Let&apos;s Go! 🎯
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
