@@ -201,6 +201,27 @@ export default function CareerPage() {
       if (tier >= 2 && !hasPromotion && !tournamentWin) {
         newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
+
+      // Check for pending tournament invites
+      try {
+        const { data: inviteEvents } = await supabase
+          .from('career_events')
+          .select('id, event_name')
+          .eq('career_id', careerId)
+          .eq('status', 'pending_invite')
+          .eq('event_type', 'open');
+        if (inviteEvents && inviteEvents.length > 0) {
+          for (const inv of inviteEvents) {
+            newEmails.unshift({
+              id: `tournament-invite-${inv.id}`,
+              subject: `🏆 ${inv.event_name} — You're Invited!`,
+              body: `You've been invited to ${inv.event_name}! A 16-player knockout tournament at the local. Do you want to enter?`,
+              type: 'tournament_invite',
+              isNew: true,
+            });
+          }
+        }
+      } catch (e) { /* ignore */ }
       if (newEmails.length === 0) {
         newEmails.push({ id: `default-${day}`, subject: 'Keep Going!', body: 'Your journey continues. Every match is a chance to prove yourself.', type: 'default' });
       }
@@ -940,6 +961,49 @@ export default function CareerPage() {
                             </button>
                           </div>
                           <p className="text-slate-400 text-xs pl-3.5">{email.body}</p>
+                          {email.type === 'tournament_invite' && (
+                            <div className="flex gap-2 mt-2 pl-3.5">
+                              <Button
+                                size="sm"
+                                className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs px-4 py-1 h-7"
+                                onClick={async () => {
+                                  const eventId = email.id.replace('tournament-invite-', '');
+                                  const supabase = createClient();
+                                  const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
+                                    p_career_id: careerId,
+                                    p_event_id: eventId,
+                                    p_accept: true,
+                                  });
+                                  if (error) { toast.error('Failed to accept'); return; }
+                                  toast.success(res?.message || 'Tournament accepted!');
+                                  deleteEmail(email.id);
+                                  loadCareer(); // Reload to show tournament as next event
+                                }}
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-4 py-1 h-7"
+                                onClick={async () => {
+                                  const eventId = email.id.replace('tournament-invite-', '');
+                                  const supabase = createClient();
+                                  const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
+                                    p_career_id: careerId,
+                                    p_event_id: eventId,
+                                    p_accept: false,
+                                  });
+                                  if (error) { toast.error('Failed to decline'); return; }
+                                  toast.success(res?.message || 'Tournament declined.');
+                                  deleteEmail(email.id);
+                                  loadCareer();
+                                }}
+                              >
+                                Decline
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
