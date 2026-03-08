@@ -220,13 +220,12 @@ export default function LocalPlayPage() {
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">How to Play</h3>
         <ul className="text-sm text-slate-400 space-y-1">
-          <li>ÔÇó Player 1 starts the first leg</li>
-          <li>ÔÇó Players alternate turns after each throw</li>
-          <li>ÔÇó First player to reach exactly 0 wins the leg</li>
-          <li>ÔÇó Pass the device to your opponent after each turn</li>
+          <li>• Player 1 starts the first leg</li>
+          <li>• Players alternate turns after each throw</li>
+          <li>• First player to reach exactly 0 wins the leg</li>
+          <li>• Pass the device to your opponent after each turn</li>
         </ul>
       </motion.div>
     </div>
   );
 }
-https://stackblitz.com/storage/blobs/eyJfcmFpbHMiOnsiZGF0YSI6MTQ0MDkwOTgyLCJwdXIiOiJibG9iX2lkIn19--481829e53465dd6910e064015e3c69c063e8bdbe/page.tsx
