@@ -4,7 +4,25 @@
 -- ============================================================
 
 -- ============================================================
--- STEP 0: Create rpc_create_league (missing from production)
+-- STEP 0: Drop ALL existing rpc_create_league overloads by OID
+-- ============================================================
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid, pg_get_function_identity_arguments(p.oid) AS args
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public' AND p.proname = 'rpc_create_league'
+  LOOP
+    EXECUTE format('DROP FUNCTION public.rpc_create_league(%s) CASCADE', r.args);
+  END LOOP;
+END;
+$$;
+
+-- ============================================================
+-- STEP 0b: Create rpc_create_league
 -- ============================================================
 CREATE OR REPLACE FUNCTION rpc_create_league(
   p_name text,
@@ -130,11 +148,18 @@ CREATE TABLE IF NOT EXISTS league_warnings (
 );
 
 -- ============================================================
--- STEP 6: RLS policies
+-- STEP 6: RLS policies (drop if exist, then recreate)
 -- ============================================================
 ALTER TABLE league_fixtures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE league_standings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE league_warnings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "league_fixtures_select" ON league_fixtures;
+DROP POLICY IF EXISTS "league_fixtures_all" ON league_fixtures;
+DROP POLICY IF EXISTS "league_standings_select" ON league_standings;
+DROP POLICY IF EXISTS "league_standings_all" ON league_standings;
+DROP POLICY IF EXISTS "league_warnings_select" ON league_warnings;
+DROP POLICY IF EXISTS "league_warnings_all" ON league_warnings;
 
 CREATE POLICY "league_fixtures_select" ON league_fixtures FOR SELECT
   USING (EXISTS (SELECT 1 FROM league_members WHERE league_id = league_fixtures.league_id AND user_id = auth.uid() AND status = 'active'));
