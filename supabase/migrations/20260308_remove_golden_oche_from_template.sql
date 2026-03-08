@@ -14,8 +14,7 @@ DELETE FROM career_schedule_templates
 WHERE tier = 2 AND event_name = 'The Golden Oche Cup';
 
 -- Renumber remaining Tier 2 template sequences so there's no gap
--- Original: 1-4 (league), 5 (golden oche - deleted), 6-8 (league)
--- New: 1-4 (league), 5-7 (league matchdays 5-7)
-UPDATE career_schedule_templates 
-SET sequence_no = sequence_no - 1
-WHERE tier = 2 AND sequence_no > 5;
+-- Must update one at a time to avoid unique constraint conflicts
+UPDATE career_schedule_templates SET sequence_no = 5 WHERE tier = 2 AND sequence_no = 6;
+UPDATE career_schedule_templates SET sequence_no = 6 WHERE tier = 2 AND sequence_no = 7;
+UPDATE career_schedule_templates SET sequence_no = 7 WHERE tier = 2 AND sequence_no = 8;
