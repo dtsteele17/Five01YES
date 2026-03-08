@@ -223,6 +223,40 @@ export default function SignupPage() {
 
       console.log('[Signup] Starting signup process for:', formData.email);
 
+      // Check if username is already taken BEFORE creating auth user
+      const { data: existingUser, error: usernameCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', formData.username.toLowerCase())
+        .maybeSingle();
+
+      if (existingUser) {
+        setApiError({
+          title: 'Username already taken',
+          message: `The username "${formData.username}" is already in use. Please choose a different one.`
+        });
+        toast.error('Username already taken');
+        setLoading(false);
+        return;
+      }
+
+      // Also check case-insensitive match
+      const { data: existingUserCI } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', formData.username)
+        .maybeSingle();
+
+      if (existingUserCI) {
+        setApiError({
+          title: 'Username already taken',
+          message: `The username "${formData.username}" is already in use (case-insensitive). Please choose a different one.`
+        });
+        toast.error('Username already taken');
+        setLoading(false);
+        return;
+      }
+
       // Sign up the user with username in metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
@@ -305,11 +339,12 @@ export default function SignupPage() {
 
       if (!profile) {
         console.error('[Signup] Profile not found after creation');
+        // This usually means the DB trigger failed — likely a username conflict
         setApiError({
-          title: 'Setup incomplete',
-          message: 'Profile was not created. Please contact support.'
+          title: 'Username may already be taken',
+          message: 'Your account was created but your profile could not be set up — this usually means the username is already in use. Try signing up again with a different username, or contact support if the issue persists.'
         });
-        toast.error('Profile was not created. Please contact support.');
+        toast.error('Profile setup failed — try a different username');
         return;
       }
 
