@@ -52,7 +52,19 @@ BEGIN
       WHERE cp.id = NEW.career_id AND cp.tier >= 2
     )
   THEN
-    NEW.status := 'pending_invite';
+    -- If there's already a pending_invite tournament for this career/season, skip this one
+    IF EXISTS (
+      SELECT 1 FROM career_events 
+      WHERE career_id = NEW.career_id 
+        AND season = NEW.season 
+        AND event_type = 'open' 
+        AND status = 'pending_invite'
+        AND bracket_size = 16
+    ) THEN
+      NEW.status := 'skipped';
+    ELSE
+      NEW.status := 'pending_invite';
+    END IF;
   END IF;
   RETURN NEW;
 END;
