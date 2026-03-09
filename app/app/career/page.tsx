@@ -92,6 +92,7 @@ export default function CareerPage() {
   const [showInvitePopup, setShowInvitePopup] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{ event_id: string; event_name: string; bracket_size: number } | null>(null);
   const [showTournamentChoicePopup, setShowTournamentChoicePopup] = useState(false);
+  const [sponsorOffer, setSponsorOffer] = useState<any>(null);
   const [tournamentChoiceEvent, setTournamentChoiceEvent] = useState<{ id: string; name: string } | null>(null);
   const [tournamentOptions, setTournamentOptions] = useState<{ option1: any; option2: any } | null>(null);
   const [choosingTournament, setChoosingTournament] = useState(false);
@@ -154,6 +155,35 @@ export default function CareerPage() {
         setShowTournamentChoicePopup(false);
       }
 
+      // Check for pending sponsor offers
+      try {
+        const { data: offerData } = await supabase
+          .from('career_sponsor_contracts')
+          .select('id, sponsor_id, status')
+          .eq('career_id', careerId)
+          .eq('status', 'offered')
+          .limit(1)
+          .single();
+        if (offerData) {
+          const { data: sponsorData } = await supabase
+            .from('career_sponsor_catalog')
+            .select('name, rep_bonus_pct, flavour_text, rep_objectives')
+            .eq('id', offerData.sponsor_id)
+            .single();
+          if (sponsorData) {
+            setSponsorOffer({
+              contract_id: offerData.id,
+              sponsor_name: sponsorData.name,
+              rep_bonus_pct: sponsorData.rep_bonus_pct,
+              flavour_text: sponsorData.flavour_text,
+              objectives: sponsorData.rep_objectives,
+            });
+          }
+        } else {
+          setSponsorOffer(null);
+        }
+      } catch (e) { /* no pending offer */ setSponsorOffer(null); }
+
       // Track pending tournament invite
       if (homeData.pending_invite) {
         setPendingInvite(homeData.pending_invite);
@@ -202,6 +232,17 @@ export default function CareerPage() {
       if (leagueWin) {
         newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: `🏆 ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
       }
+      // Sponsor offer email
+      const sponsorOfferMilestone = milestones.find((m: any) => m.milestone_type === 'sponsor_offer');
+      if (sponsorOfferMilestone) {
+        newEmails.push({ 
+          id: `sponsor-offer-${sponsorOfferMilestone.day || day}`, 
+          subject: `💼 ${sponsorOfferMilestone.title}`, 
+          body: `${sponsorOfferMilestone.description} Check your notifications — looks like you have a sponsorship offer!`, 
+          type: 'sponsor_offer' 
+        });
+      }
+
       if (hasPromotion) {
         const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Pro Tour', 5: 'Premier League' };
         const tierName = tierNames[tier] || `Tier ${tier}`;
@@ -758,7 +799,61 @@ export default function CareerPage() {
                     <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">Notifications</span>
                   </div>
 
-                  {sponsors && sponsors.length > 0 ? (
+                  {/* Pending sponsor offer */}
+                  {sponsorOffer ? (
+                    <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                          <Award className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-amber-400 font-bold text-sm">{sponsorOffer.sponsor_name}</span>
+                          <p className="text-slate-400 text-[10px]">+{(sponsorOffer.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+                        </div>
+                      </div>
+                      <p className="text-slate-400 text-xs mb-3">{sponsorOffer.flavour_text}</p>
+                      {sponsorOffer.objectives && sponsorOffer.objectives.length > 0 && (
+                        <p className="text-amber-400/70 text-[10px] mb-3">🎯 Goal: {sponsorOffer.objectives[0]?.description}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-7"
+                          onClick={async () => {
+                            const supabase = createClient();
+                            const { data: res, error } = await supabase.rpc('rpc_career_respond_sponsor', {
+                              p_career_id: careerId,
+                              p_contract_id: sponsorOffer.contract_id,
+                              p_accept: true,
+                            });
+                            if (error || res?.error) { toast.error(res?.error || 'Failed'); return; }
+                            toast.success(res?.message || 'Sponsor accepted!');
+                            loadCareer();
+                          }}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs h-7"
+                          onClick={async () => {
+                            const supabase = createClient();
+                            const { data: res, error } = await supabase.rpc('rpc_career_respond_sponsor', {
+                              p_career_id: careerId,
+                              p_contract_id: sponsorOffer.contract_id,
+                              p_accept: false,
+                            });
+                            if (error || res?.error) { toast.error(res?.error || 'Failed'); return; }
+                            toast.success('Offer declined.');
+                            setSponsorOffer(null);
+                          }}
+                        >
+                          Decline
+                        </Button>
+                      </div>
+                    </div>
+                  ) : sponsors && sponsors.length > 0 ? (
                     <div className="space-y-2">
                       {sponsors.map((sp: any, i: number) => (
                         <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/10">
