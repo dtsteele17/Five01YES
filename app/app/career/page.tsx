@@ -1664,105 +1664,127 @@ export default function CareerPage() {
 
       {/* Tournament Choice Popup (Tier 3+) */}
       {showTournamentChoicePopup && tournamentOptions && tournamentChoiceEvent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="relative max-w-lg w-full mx-4"
-          >
-            <Card className="border-0 bg-gradient-to-b from-slate-800 to-slate-900 ring-1 ring-amber-500/30 shadow-2xl overflow-hidden">
-              <div className="p-6 text-center">
-                <div className="text-4xl mb-3">🏆</div>
-                <h2 className="text-xl font-bold text-white mb-1">Tournament Invitation</h2>
-                <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league.</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                  {/* Option 1 */}
-                  <Button
-                    disabled={choosingTournament}
-                    className="p-4 h-auto rounded-xl bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 ring-1 ring-emerald-500/20 hover:ring-emerald-500/40 hover:bg-emerald-500/15 transition-all text-left flex flex-col items-start"
-                    variant="ghost"
-                    onClick={async () => {
-                      setChoosingTournament(true);
-                      const supabase = createClient();
-                      const { data: res, error } = await supabase.rpc('rpc_career_tournament_choice', {
-                        p_career_id: careerId,
-                        p_event_id: tournamentChoiceEvent.id,
-                        p_tournament_choice: 1 as any,
-                      });
-                      if (error) { toast.error(error.message || 'Failed'); setChoosingTournament(false); return; }
-                      if (res?.error) { toast.error(res.error); setChoosingTournament(false); return; }
-                      toast.success(res?.message || 'Tournament entered!');
-                      setShowTournamentChoicePopup(false);
-                      setChoosingTournament(false);
-                      loadCareer();
-                    }}
-                  >
-                    <div className="text-amber-400 text-lg font-bold mb-1">{tournamentOptions.option1.name}</div>
-                    <div className="flex items-center gap-2 text-slate-400 text-xs">
-                      <span>👥 {tournamentOptions.option1.bracket_size} players</span>
-                      <span>•</span>
-                      <span>{tournamentOptions.option1.format}</span>
-                    </div>
-                  </Button>
-
-                  {/* Option 2 */}
-                  <Button
-                    disabled={choosingTournament}
-                    className="p-4 h-auto rounded-xl bg-gradient-to-b from-blue-500/10 to-blue-500/5 ring-1 ring-blue-500/20 hover:ring-blue-500/40 hover:bg-blue-500/15 transition-all text-left flex flex-col items-start"
-                    variant="ghost"
-                    onClick={async () => {
-                      setChoosingTournament(true);
-                      const supabase = createClient();
-                      const { data: res, error } = await supabase.rpc('rpc_career_tournament_choice', {
-                        p_career_id: careerId,
-                        p_event_id: tournamentChoiceEvent.id,
-                        p_tournament_choice: 2 as any,
-                      });
-                      if (error) { toast.error(error.message || 'Failed'); setChoosingTournament(false); return; }
-                      if (res?.error) { toast.error(res.error); setChoosingTournament(false); return; }
-                      toast.success(res?.message || 'Tournament entered!');
-                      setShowTournamentChoicePopup(false);
-                      setChoosingTournament(false);
-                      loadCareer();
-                    }}
-                  >
-                    <div className="text-blue-400 text-lg font-bold mb-1">{tournamentOptions.option2.name}</div>
-                    <div className="flex items-center gap-2 text-slate-400 text-xs">
-                      <span>👥 {tournamentOptions.option2.bracket_size} players</span>
-                      <span>•</span>
-                      <span>{tournamentOptions.option2.format}</span>
-                    </div>
-                  </Button>
-                </div>
-
-                {/* Decline both */}
-                <Button
-                  variant="ghost"
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
+          <div className="relative max-w-lg w-full mx-4 bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl ring-1 ring-amber-500/30 shadow-2xl overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-3">🏆</div>
+              <h2 className="text-xl font-bold text-white mb-1">Tournament Invitation</h2>
+              <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {/* Option 1 */}
+                <button
+                  type="button"
                   disabled={choosingTournament}
-                  className="w-full text-slate-500 hover:text-slate-300 text-sm"
-                  onClick={async () => {
+                  className="p-4 rounded-xl bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 ring-1 ring-emerald-500/20 hover:ring-emerald-500/50 hover:bg-emerald-500/20 active:scale-95 transition-all text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[TOURNAMENT CHOICE] Selecting option 1');
                     setChoosingTournament(true);
+                    try {
+                      const supabase = createClient();
+                      const { data: res, error } = await supabase.rpc('rpc_career_tournament_choice', {
+                        p_career_id: careerId,
+                        p_event_id: tournamentChoiceEvent.id,
+                        p_tournament_choice: 1,
+                      });
+                      console.log('[TOURNAMENT CHOICE] Result:', { res, error });
+                      if (error) { toast.error(error.message || 'Failed'); return; }
+                      if (res?.error) { toast.error(res.error); return; }
+                      toast.success(res?.message || 'Tournament entered!');
+                      setShowTournamentChoicePopup(false);
+                      loadCareer();
+                    } catch (err: any) {
+                      console.error('[TOURNAMENT CHOICE] Error:', err);
+                      toast.error(err?.message || 'Something went wrong');
+                    } finally {
+                      setChoosingTournament(false);
+                    }
+                  }}
+                >
+                  <div className="text-amber-400 text-lg font-bold mb-1">{tournamentOptions.option1.name}</div>
+                  <div className="flex items-center gap-2 text-slate-400 text-xs">
+                    <span>👥 {tournamentOptions.option1.bracket_size} players</span>
+                    <span>•</span>
+                    <span>{tournamentOptions.option1.format}</span>
+                  </div>
+                </button>
+
+                {/* Option 2 */}
+                <button
+                  type="button"
+                  disabled={choosingTournament}
+                  className="p-4 rounded-xl bg-gradient-to-b from-blue-500/10 to-blue-500/5 ring-1 ring-blue-500/20 hover:ring-blue-500/50 hover:bg-blue-500/20 active:scale-95 transition-all text-left cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[TOURNAMENT CHOICE] Selecting option 2');
+                    setChoosingTournament(true);
+                    try {
+                      const supabase = createClient();
+                      const { data: res, error } = await supabase.rpc('rpc_career_tournament_choice', {
+                        p_career_id: careerId,
+                        p_event_id: tournamentChoiceEvent.id,
+                        p_tournament_choice: 2,
+                      });
+                      console.log('[TOURNAMENT CHOICE] Result:', { res, error });
+                      if (error) { toast.error(error.message || 'Failed'); return; }
+                      if (res?.error) { toast.error(res.error); return; }
+                      toast.success(res?.message || 'Tournament entered!');
+                      setShowTournamentChoicePopup(false);
+                      loadCareer();
+                    } catch (err: any) {
+                      console.error('[TOURNAMENT CHOICE] Error:', err);
+                      toast.error(err?.message || 'Something went wrong');
+                    } finally {
+                      setChoosingTournament(false);
+                    }
+                  }}
+                >
+                  <div className="text-blue-400 text-lg font-bold mb-1">{tournamentOptions.option2.name}</div>
+                  <div className="flex items-center gap-2 text-slate-400 text-xs">
+                    <span>👥 {tournamentOptions.option2.bracket_size} players</span>
+                    <span>•</span>
+                    <span>{tournamentOptions.option2.format}</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Decline both */}
+              <button
+                type="button"
+                disabled={choosingTournament}
+                className="text-slate-500 hover:text-slate-300 text-sm transition-colors cursor-pointer disabled:opacity-50"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('[TOURNAMENT CHOICE] Declining both');
+                  setChoosingTournament(true);
+                  try {
                     const supabase = createClient();
                     const { data: res, error } = await supabase.rpc('rpc_career_tournament_choice', {
                       p_career_id: careerId,
                       p_event_id: tournamentChoiceEvent.id,
-                      p_tournament_choice: 0 as any,
+                      p_tournament_choice: 0,
                     });
-                    if (error) { toast.error(error.message || 'Failed'); setChoosingTournament(false); return; }
-                    if (res?.error) { toast.error(res.error); setChoosingTournament(false); return; }
+                    console.log('[TOURNAMENT CHOICE] Decline result:', { res, error });
+                    if (error) { toast.error(error.message || 'Failed'); return; }
+                    if (res?.error) { toast.error(res.error); return; }
                     toast.success('Carrying on with the league.');
                     setShowTournamentChoicePopup(false);
-                    setChoosingTournament(false);
                     loadCareer();
-                  }}
-                >
-                  Decline both — continue with league →
-                </Button>
-              </div>
-            </Card>
-          </motion.div>
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Something went wrong');
+                  } finally {
+                    setChoosingTournament(false);
+                  }
+                }}
+              >
+                Decline both — continue with league →
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
