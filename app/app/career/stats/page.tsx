@@ -124,15 +124,32 @@ export default function CareerStatsPage() {
       };
     }
 
-    // Add tournament/trial matches from career_matches (covers Tier 1 + all tournaments)
+    // Add ALL matches from career_matches
     for (const m of (allMatches || [])) {
       const evt = eventMap[m.event_id];
-      if (!evt) continue;
-      const season = evt.season || 1;
-      const isLeague = evt.event_type === 'league';
+      const season = evt?.season || 1;
+      const isLeague = evt?.event_type === 'league';
       
-      // Skip league matches — already counted in standings
+      // Skip league matches if we already have standings for this season
       if (isLeague && seasonMap[season]) continue;
+      
+      // If no event found, still count the match (might be from Tier 1 or orphaned)
+      if (!evt) {
+        if (!seasonMap[1]) {
+          seasonMap[1] = {
+            season: 1, tier: 1, played: 0, won: 0, lost: 0,
+            legs_for: 0, legs_against: 0, points: 0, average: 0,
+            tournament_wins: 0, tournament_played: 0,
+          };
+        }
+        seasonMap[1].played++;
+        seasonMap[1].tournament_played++;
+        if (m.result === 'win') seasonMap[1].won++;
+        if (m.result === 'loss') seasonMap[1].lost++;
+        seasonMap[1].legs_for += m.player_legs_won || 0;
+        seasonMap[1].legs_against += m.opponent_legs_won || 0;
+        continue;
+      }
 
       if (!seasonMap[season]) {
         seasonMap[season] = {
@@ -142,7 +159,7 @@ export default function CareerStatsPage() {
         };
       }
 
-      // Only count non-league matches here (tournaments)
+      // Count non-league matches (tournaments, trials) — add to season totals
       if (!isLeague) {
         seasonMap[season].played++;
         seasonMap[season].tournament_played++;

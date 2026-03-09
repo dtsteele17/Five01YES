@@ -1171,7 +1171,7 @@ export default function CareerPage() {
                       <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
                         <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                       </div>
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Season Stats</span>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">League Stats</span>
                     </div>
                   </div>
                   {(() => {
