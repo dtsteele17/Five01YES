@@ -108,6 +108,7 @@ END;
 $$;
 
 -- Update respond RPC to auto-decline the other end-of-season invite when accepting
+DROP FUNCTION IF EXISTS rpc_career_respond_tournament_invite(UUID, UUID, BOOLEAN);
 CREATE OR REPLACE FUNCTION rpc_career_respond_tournament_invite(
   p_career_id UUID,
   p_event_id UUID,
