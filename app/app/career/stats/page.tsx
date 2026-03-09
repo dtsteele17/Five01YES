@@ -11,15 +11,14 @@ import { motion } from 'framer-motion';
 interface SeasonStats {
   season: number;
   tier: number;
+  tierName: string;
   played: number;
   won: number;
   lost: number;
   legs_for: number;
   legs_against: number;
-  points: number;
   average: number;
   tournament_wins: number;
-  tournament_played: number;
 }
 
 interface AllTimeStats {
@@ -29,10 +28,8 @@ interface AllTimeStats {
   total_legs_for: number;
   total_legs_against: number;
   win_rate: number;
-  best_average: number;
   overall_average: number;
   tournament_wins: number;
-  seasons_played: number;
   highest_tier: number;
   seasons: SeasonStats[];
 }
@@ -70,114 +67,80 @@ export default function CareerStatsPage() {
 
     if (!career) { setLoading(false); return; }
 
-    // Get league standings per season (Tier 2+)
-    const { data: standings } = await supabase
-      .from('career_league_standings')
-      .select('season, tier, played, won, lost, legs_for, legs_against, points, average')
-      .eq('career_id', careerId)
-      .eq('is_player', true)
-      .order('season', { ascending: true });
-
-    // Get ALL career matches (includes Tier 1 tournaments + league matches)
-    const { data: allMatches } = await supabase
+    // Get ALL career matches with their events — single source of truth
+    const { data: matches } = await supabase
       .from('career_matches')
       .select('id, event_id, result, player_legs_won, opponent_legs_won, player_average')
       .eq('career_id', careerId)
       .in('result', ['win', 'loss']);
 
-    // Get all career events to map matches to seasons/types
-    const { data: allEvents } = await supabase
+    // Get all career events
+    const { data: events } = await supabase
       .from('career_events')
-      .select('id, season, tier, event_type, event_name, status')
+      .select('id, season, tier, event_type, event_name')
       .eq('career_id', careerId);
 
-    // Get tournament wins from milestones (only tournament_win, not first_tournament_win to avoid double-counting)
+    // Get tournament wins from milestones
     const { data: tWins } = await supabase
       .from('career_milestones')
-      .select('season, title')
+      .select('season')
       .eq('career_id', careerId)
       .eq('milestone_type', 'tournament_win');
 
     // Build event lookup
     const eventMap: Record<string, any> = {};
-    for (const e of (allEvents || [])) {
+    for (const e of (events || [])) {
       eventMap[e.id] = e;
     }
 
-    // Build per-season stats
-    const seasonMap: Record<number, SeasonStats> = {};
-
-    // Start with league standings for Tier 2+
-    for (const s of (standings || [])) {
-      seasonMap[s.season] = {
-        season: s.season,
-        tier: s.tier,
-        played: s.played || 0,
-        won: s.won || 0,
-        lost: s.lost || 0,
-        legs_for: s.legs_for || 0,
-        legs_against: s.legs_against || 0,
-        points: s.points || 0,
-        average: s.average || 0,
-        tournament_wins: 0,
-        tournament_played: 0,
-      };
+    // Also check career_events for seasons that exist (to get tier info even if no matches yet)
+    const seasonTiers: Record<number, number> = {};
+    for (const e of (events || [])) {
+      if (!seasonTiers[e.season] || e.tier > seasonTiers[e.season]) {
+        seasonTiers[e.season] = e.tier;
+      }
     }
 
-    // Add ALL matches from career_matches
-    for (const m of (allMatches || [])) {
+    // Build per-season stats directly from career_matches
+    const seasonMap: Record<number, SeasonStats> = {};
+
+    for (const m of (matches || [])) {
       const evt = eventMap[m.event_id];
       const season = evt?.season || 1;
-      const isLeague = evt?.event_type === 'league';
-      
-      // Skip league matches if we already have standings for this season
-      if (isLeague && seasonMap[season]) continue;
-      
-      // If no event found, still count the match (might be from Tier 1 or orphaned)
-      if (!evt) {
-        if (!seasonMap[1]) {
-          seasonMap[1] = {
-            season: 1, tier: 1, played: 0, won: 0, lost: 0,
-            legs_for: 0, legs_against: 0, points: 0, average: 0,
-            tournament_wins: 0, tournament_played: 0,
-          };
-        }
-        seasonMap[1].played++;
-        seasonMap[1].tournament_played++;
-        if (m.result === 'win') seasonMap[1].won++;
-        if (m.result === 'loss') seasonMap[1].lost++;
-        seasonMap[1].legs_for += m.player_legs_won || 0;
-        seasonMap[1].legs_against += m.opponent_legs_won || 0;
-        continue;
-      }
+      const tier = evt?.tier || seasonTiers[season] || 1;
 
       if (!seasonMap[season]) {
         seasonMap[season] = {
-          season, tier: evt.tier || 1, played: 0, won: 0, lost: 0,
-          legs_for: 0, legs_against: 0, points: 0, average: 0,
-          tournament_wins: 0, tournament_played: 0,
+          season,
+          tier,
+          tierName: TIER_NAMES[tier] || `Tier ${tier}`,
+          played: 0,
+          won: 0,
+          lost: 0,
+          legs_for: 0,
+          legs_against: 0,
+          average: 0,
+          tournament_wins: 0,
         };
       }
 
-      // Count non-league matches (tournaments, trials) — add to season totals
-      if (!isLeague) {
-        seasonMap[season].played++;
-        seasonMap[season].tournament_played++;
-        if (m.result === 'win') seasonMap[season].won++;
-        if (m.result === 'loss') seasonMap[season].lost++;
-        seasonMap[season].legs_for += m.player_legs_won || 0;
-        seasonMap[season].legs_against += m.opponent_legs_won || 0;
-        if (m.player_average && m.player_average > 0) {
-          // Running average approximation
-          const prevCount = seasonMap[season].played - 1;
-          seasonMap[season].average = prevCount > 0
-            ? ((seasonMap[season].average * prevCount) + m.player_average) / seasonMap[season].played
-            : m.player_average;
-        }
+      const s = seasonMap[season];
+      s.played++;
+      if (m.result === 'win') s.won++;
+      if (m.result === 'loss') s.lost++;
+      s.legs_for += m.player_legs_won || 0;
+      s.legs_against += m.opponent_legs_won || 0;
+
+      // Running average
+      if (m.player_average && m.player_average > 0) {
+        const prevCount = s.played - 1;
+        s.average = prevCount > 0
+          ? ((s.average * prevCount) + m.player_average) / s.played
+          : m.player_average;
       }
     }
 
-    // Count tournament wins
+    // Count tournament wins per season
     for (const tw of (tWins || [])) {
       const s = tw.season || 1;
       if (seasonMap[s]) seasonMap[s].tournament_wins++;
@@ -185,15 +148,18 @@ export default function CareerStatsPage() {
 
     const seasons = Object.values(seasonMap).sort((a, b) => a.season - b.season);
 
-    // Compute all-time totals
+    // All-time totals
     const totalPlayed = seasons.reduce((sum, s) => sum + s.played, 0);
     const totalWon = seasons.reduce((sum, s) => sum + s.won, 0);
     const totalLost = seasons.reduce((sum, s) => sum + s.lost, 0);
     const totalLegsFor = seasons.reduce((sum, s) => sum + s.legs_for, 0);
     const totalLegsAgainst = seasons.reduce((sum, s) => sum + s.legs_against, 0);
     const tournamentWins = seasons.reduce((sum, s) => sum + s.tournament_wins, 0);
-    const bestAvg = seasons.length > 0 ? Math.max(...seasons.map(s => s.average)) : 0;
-    const overallAvg = seasons.length > 0 ? seasons.reduce((sum, s) => sum + s.average, 0) / seasons.length : 0;
+
+    // Weighted average across all matches
+    const totalAvgSum = (matches || []).reduce((sum, m) => sum + (m.player_average || 0), 0);
+    const matchesWithAvg = (matches || []).filter(m => m.player_average && m.player_average > 0).length;
+    const overallAvg = matchesWithAvg > 0 ? totalAvgSum / matchesWithAvg : 0;
 
     setStats({
       total_played: totalPlayed,
@@ -202,10 +168,8 @@ export default function CareerStatsPage() {
       total_legs_for: totalLegsFor,
       total_legs_against: totalLegsAgainst,
       win_rate: totalPlayed > 0 ? (totalWon / totalPlayed) * 100 : 0,
-      best_average: bestAvg,
       overall_average: overallAvg,
       tournament_wins: tournamentWins,
-      seasons_played: seasons.length,
       highest_tier: career.tier,
       seasons,
     });
@@ -308,7 +272,7 @@ export default function CareerStatsPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <span className="text-white text-sm font-bold">Season {season.season}</span>
-                        <span className="text-slate-500 text-xs ml-2">{TIER_NAMES[season.tier] || `Tier ${season.tier}`}</span>
+                        <span className="text-slate-500 text-xs ml-2">{season.tierName}</span>
                       </div>
                       {season.tournament_wins > 0 && (
                         <div className="flex items-center gap-1 text-amber-400">
