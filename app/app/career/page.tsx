@@ -895,14 +895,25 @@ export default function CareerPage() {
                   ) : sponsors && sponsors.length > 0 ? (
                     <div className="space-y-2">
                       {sponsors.map((sp: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/10">
-                          <div>
-                            <span className="text-white font-semibold text-sm">{sp.name}</span>
-                            <p className="text-purple-300/60 text-xs">+{(sp.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+                        <div key={i} className="p-3 rounded-xl bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/10">
+                          <div className="flex items-center justify-between mb-1">
+                            <div>
+                              <span className="text-white font-semibold text-sm">{sp.name}</span>
+                              <p className="text-purple-300/60 text-xs">+{Math.min(sp.rep_bonus_pct * 100, sp.first_sponsor ? 5 : sp.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+                            </div>
+                            <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
+                              <Award className="w-4 h-4 text-purple-400" />
+                            </div>
                           </div>
-                          <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
-                            <Award className="w-4 h-4 text-purple-400" />
-                          </div>
+                          {sp.rep_objectives && sp.rep_objectives.length > 0 && (
+                            <div className={`text-[10px] mt-2 px-2 py-1.5 rounded-lg ${sp.objectives_progress?.completed ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/5'}`}>
+                              {sp.objectives_progress?.completed ? (
+                                <span className="text-emerald-400 font-bold">✅ Goal Reached! +10 REP</span>
+                              ) : (
+                                <span className="text-amber-400/70">🎯 Goal: {sp.rep_objectives[0]?.description}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
