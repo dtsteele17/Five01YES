@@ -1,15 +1,13 @@
 -- ============================================================
 -- Fix tournament invite flow:
--- 1. Tournament created after 4th match should use 'pending_invite' status
--- 2. Next event query must exclude 'pending_invite' events
--- 3. Fix any existing tournaments that are 'pending' but should be 'pending_invite'
+-- 1. Fix existing tournaments that should be pending_invite
+-- 2. Add trigger to auto-set pending_invite on new tournaments
+-- 3. RESTORE the career home RPC from 20260308 (the working version)
+--    with ONE fix: it already correctly excludes pending_invite from next_event
 -- ============================================================
 
--- Fix: Override rpc_career_complete_match to create tournaments with 'pending_invite'
--- We need to update the function that creates the pub tournament after the 4th match
-
--- First, fix any existing open tournaments that were created with 'pending' status
--- when they should be 'pending_invite' (tournaments with no matches played yet)
+-- Fix any existing open tournaments that were created with 'pending' status
+-- when they should be 'pending_invite'
 UPDATE career_events ce
 SET status = 'pending_invite'
 WHERE ce.event_type = 'open'
@@ -21,34 +19,65 @@ WHERE ce.event_type = 'open'
     WHERE cm.event_id = ce.id 
     AND cm.result != 'pending'
   )
-  -- Only fix tournaments where the career has a pending invite milestone
   AND EXISTS (
     SELECT 1 FROM career_milestones cm2
     WHERE cm2.career_id = ce.career_id
     AND cm2.milestone_type = 'tournament_invite'
-    AND cm2.title LIKE '%' || ce.event_name || '%'
   );
 
--- Now recreate the career home RPC with fixed next_event logic
-CREATE OR REPLACE FUNCTION rpc_get_career_home_with_season_end_locked_fixed_v3(p_career_id UUID)
+-- Trigger: any new open tournament for Tier 2+ auto-gets pending_invite
+CREATE OR REPLACE FUNCTION fix_new_tournament_status()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.event_type = 'open' 
+    AND NEW.bracket_size = 16 
+    AND NEW.status = 'pending'
+    AND EXISTS (
+      SELECT 1 FROM career_profiles cp 
+      WHERE cp.id = NEW.career_id AND cp.tier >= 2
+    )
+  THEN
+    NEW.status := 'pending_invite';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_fix_tournament_invite_status ON career_events;
+CREATE TRIGGER trg_fix_tournament_invite_status
+  BEFORE INSERT ON career_events
+  FOR EACH ROW
+  EXECUTE FUNCTION fix_new_tournament_status();
+
+-- RESTORE the working career home RPC from 20260308_fix_tournament_flow.sql
+-- This version already correctly only shows 'active'/'pending' as next_event
+-- (pending_invite events are excluded). No changes needed to the query logic.
+CREATE OR REPLACE FUNCTION rpc_get_career_home_with_season_end_locked_fixed_v3(
+  p_career_id UUID
+)
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+  v_user_id UUID := auth.uid();
   v_career career_profiles;
   v_next_event career_events;
   v_next_match career_matches;
   v_opponent career_opponents;
   v_standings JSON;
-  v_sponsors JSON;
-  v_recent_milestones JSON;
+  v_sponsor JSON;
+  v_milestones JSON;
+  v_awards JSON;
   v_season_complete BOOLEAN := FALSE;
   v_player_position INT;
+  v_opponent_name TEXT;
   v_pending_invite JSON := NULL;
-  v_league_opponent_name TEXT;
 BEGIN
-  SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id;
+  SELECT * INTO v_career FROM career_profiles
+    WHERE id = p_career_id AND user_id = v_user_id AND status = 'active';
   IF v_career.id IS NULL THEN
     RETURN json_build_object('error', 'Career not found');
   END IF;
@@ -108,8 +137,8 @@ BEGIN
     );
   END IF;
 
-  -- Get next event — ONLY 'active' or 'pending' status (NOT 'pending_invite')
-  -- Prioritize active events, then tournaments over league
+  -- Get next event — prioritize tournament/open over league
+  -- NOTE: Only 'active' and 'pending' — NOT 'pending_invite'
   SELECT ce.* INTO v_next_event 
   FROM career_events ce
   WHERE ce.career_id = p_career_id 
@@ -131,48 +160,63 @@ BEGIN
     IF v_next_match.id IS NOT NULL THEN
       SELECT co.* INTO v_opponent
       FROM career_opponents co WHERE co.id = v_next_match.opponent_id;
-    END IF;
-
-    -- Get league opponent name for display
-    IF v_next_event.event_type = 'league' AND v_next_match.id IS NOT NULL THEN
-      SELECT co.name INTO v_league_opponent_name
-      FROM career_opponents co WHERE co.id = v_next_match.opponent_id;
+      
+      IF v_opponent.id IS NOT NULL THEN
+        v_opponent_name := TRIM(
+          COALESCE(v_opponent.first_name, '') || 
+          CASE WHEN v_opponent.nickname IS NOT NULL THEN ' ''' || v_opponent.nickname || ''' ' ELSE ' ' END ||
+          COALESCE(v_opponent.last_name, '')
+        );
+      END IF;
     END IF;
   END IF;
 
   -- Standings
-  SELECT json_agg(row_to_json(s) ORDER BY s.points DESC, s.leg_diff DESC)
-  INTO v_standings
-  FROM (
-    SELECT cls.*, (cls.legs_for - cls.legs_against) AS leg_diff,
-      CASE WHEN cls.is_player THEN 'You' ELSE co.name END AS name
-    FROM career_league_standings cls
-    LEFT JOIN career_opponents co ON co.id = cls.opponent_id
-    WHERE cls.career_id = p_career_id 
-      AND cls.season = v_career.season 
-      AND cls.tier = v_career.tier
-  ) s;
+  IF v_career.tier >= 2 THEN
+    SELECT json_agg(row_to_json(st) ORDER BY st.points DESC, st.legs_diff DESC) INTO v_standings
+    FROM (
+      SELECT
+        ls.is_player,
+        CASE WHEN ls.is_player THEN 'You' ELSE (SELECT o.first_name || ' ' || o.last_name FROM career_opponents o WHERE o.id = ls.opponent_id) END AS name,
+        ls.played, ls.won, ls.lost, ls.legs_for, ls.legs_against,
+        (ls.legs_for - ls.legs_against) AS legs_diff,
+        ls.points, ls.average
+      FROM career_league_standings ls
+      WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = v_career.tier
+    ) st;
+  END IF;
 
-  -- Sponsors
-  SELECT json_agg(row_to_json(sp))
-  INTO v_sponsors
+  -- Milestones
+  SELECT json_agg(row_to_json(m)) INTO v_milestones
   FROM (
-    SELECT cs.* FROM career_sponsors cs
-    WHERE cs.career_id = p_career_id AND cs.active = TRUE
-    ORDER BY cs.tier DESC
-  ) sp;
-
-  -- Recent milestones
-  SELECT json_agg(row_to_json(m))
-  INTO v_recent_milestones
-  FROM (
-    SELECT * FROM career_milestones
+    SELECT milestone_type, title, description, day, created_at
+    FROM career_milestones 
     WHERE career_id = p_career_id
-    ORDER BY created_at DESC
-    LIMIT 20
+      AND NOT (title ILIKE '%Local Circuit Cup%' AND v_career.tier >= 2)
+    ORDER BY created_at DESC LIMIT 5
   ) m;
 
+  SELECT json_agg(row_to_json(a) ORDER BY a.created_at ASC) INTO v_awards
+  FROM (
+    SELECT milestone_type, title, description, day, tier, season, created_at
+    FROM career_milestones
+    WHERE career_id = p_career_id
+      AND milestone_type IN ('first_tournament_win', 'tournament_win', 'league_win', 'season_winner')
+      AND NOT (title ILIKE '%Local Circuit Cup%' AND v_career.tier >= 2)
+  ) a;
+
+  -- Sponsors
+  SELECT json_agg(row_to_json(sc)) INTO v_sponsor
+  FROM (
+    SELECT c.slot, s.name, s.rep_bonus_pct, s.rep_objectives, c.objectives_progress, c.status
+    FROM career_sponsor_contracts c
+    JOIN career_sponsor_catalog s ON s.id = c.sponsor_id
+    WHERE c.career_id = p_career_id AND c.status = 'active'
+    ORDER BY c.slot
+  ) sc;
+
   RETURN json_build_object(
+    'season_complete', false,
     'career', json_build_object(
       'id', v_career.id, 'tier', v_career.tier, 'season', v_career.season,
       'week', v_career.week, 'day', v_career.day, 'rep', v_career.rep,
@@ -187,18 +231,21 @@ BEGIN
       'bracket_size', v_next_event.bracket_size,
       'sequence_no', v_next_event.sequence_no,
       'day', v_next_event.day,
-      'league_opponent_name', v_league_opponent_name
+      'tier', v_career.tier,
+      'match_id', v_next_match.id,
+      'league_opponent_name', v_opponent_name,
+      'league_opponent_id', v_opponent.id
     ) ELSE NULL END,
     'standings', v_standings,
-    'sponsors', v_sponsors,
-    'recent_milestones', v_recent_milestones,
-    'pending_invite', v_pending_invite,
-    'season_complete', false
+    'sponsors', v_sponsor,
+    'recent_milestones', v_milestones,
+    'awards', v_awards,
+    'pending_invite', v_pending_invite
   );
 END;
 $$;
 
--- Also fix the respond invite RPC to properly transition status
+-- Respond to tournament invite
 CREATE OR REPLACE FUNCTION rpc_career_respond_tournament_invite(
   p_career_id UUID,
   p_event_id UUID,
@@ -223,10 +270,9 @@ BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id;
 
   IF p_accept THEN
-    -- Accept: change to pending so it shows as next event
     UPDATE career_events SET status = 'pending' WHERE id = p_event_id;
 
-    -- Set tournament sequence before the next league match
+    -- Set sequence before the next league match
     UPDATE career_events 
     SET sequence_no = (
       SELECT MIN(ce2.sequence_no) - 1
@@ -240,44 +286,11 @@ BEGIN
 
     RETURN json_build_object('success', true, 'message', 'Tournament accepted! Good luck!');
   ELSE
-    -- Decline: skip the tournament
     UPDATE career_events SET status = 'skipped' WHERE id = p_event_id;
     RETURN json_build_object('success', true, 'message', 'Tournament declined. Focus on the league.');
   END IF;
 END;
 $$;
-
--- Fix the tournament creation inside rpc_career_complete_match
--- Replace the INSERT that creates tournament with 'pending' to use 'pending_invite'
--- We do this by creating a wrapper trigger approach — but simpler: just re-fix any
--- newly created tournaments to 'pending_invite' status via a trigger
-
-CREATE OR REPLACE FUNCTION fix_new_tournament_status()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  -- If a new open tournament is created in Tier 2+ with bracket_size 16,
-  -- it should start as pending_invite (user must accept via email)
-  IF NEW.event_type = 'open' 
-    AND NEW.bracket_size = 16 
-    AND NEW.status = 'pending'
-    AND EXISTS (
-      SELECT 1 FROM career_profiles cp 
-      WHERE cp.id = NEW.career_id AND cp.tier >= 2
-    )
-  THEN
-    NEW.status := 'pending_invite';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_fix_tournament_invite_status ON career_events;
-CREATE TRIGGER trg_fix_tournament_invite_status
-  BEFORE INSERT ON career_events
-  FOR EACH ROW
-  EXECUTE FUNCTION fix_new_tournament_status();
 
 GRANT EXECUTE ON FUNCTION rpc_get_career_home_with_season_end_locked_fixed_v3(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION rpc_career_respond_tournament_invite(UUID, UUID, BOOLEAN) TO authenticated;
