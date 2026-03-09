@@ -91,6 +91,7 @@ export default function CareerPage() {
   const [advancingSeason, setAdvancingSeason] = useState(false);
   const [showInvitePopup, setShowInvitePopup] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<{ event_id: string; event_name: string; bracket_size: number } | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<{ event_id: string; event_name: string; bracket_size: number }[]>([]);
   const [showTournamentChoicePopup, setShowTournamentChoicePopup] = useState(false);
   const [sponsorOffer, setSponsorOffer] = useState<any>(null);
   const [tournamentChoiceEvent, setTournamentChoiceEvent] = useState<{ id: string; name: string } | null>(null);
@@ -266,24 +267,39 @@ export default function CareerPage() {
         newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
 
-      // Check for pending tournament invites (only show 1 invite max)
+      // Check for pending tournament invites (show all)
       try {
         const { data: inviteEvents } = await supabase
           .from('career_events')
-          .select('id, event_name')
+          .select('id, event_name, bracket_size')
           .eq('career_id', careerId)
           .eq('status', 'pending_invite')
           .eq('event_type', 'open')
-          .limit(1);
+          .order('sequence_no', { ascending: true });
         if (inviteEvents && inviteEvents.length > 0) {
-          const inv = inviteEvents[0];
-          newEmails.unshift({
-            id: `tournament-invite-${inv.id}`,
-            subject: `🏆 ${inv.event_name} — You're Invited!`,
-            body: `You've been invited to ${inv.event_name}! A 16-player knockout tournament at the local. Do you want to enter?`,
-            type: 'tournament_invite',
-            isNew: true,
+          // Track all pending invites for dual popup
+          setPendingInvites(inviteEvents.map(inv => ({
+            event_id: inv.id,
+            event_name: inv.event_name,
+            bracket_size: inv.bracket_size || 16,
+          })));
+          // Also set single pendingInvite for backward compat
+          setPendingInvite({
+            event_id: inviteEvents[0].id,
+            event_name: inviteEvents[0].event_name,
+            bracket_size: inviteEvents[0].bracket_size || 16,
           });
+          for (const inv of inviteEvents) {
+            newEmails.unshift({
+              id: `tournament-invite-${inv.id}`,
+              subject: `🏆 ${inv.event_name} — You're Invited!`,
+              body: `You've been invited to the ${inv.event_name}! A ${inv.bracket_size || 16}-player end-of-season knockout tournament at the local. Do you want to enter?`,
+              type: 'tournament_invite',
+              isNew: true,
+            });
+          }
+        } else {
+          setPendingInvites([]);
         }
       } catch (e) { /* ignore */ }
       if (newEmails.length === 0) {
@@ -745,6 +761,11 @@ export default function CareerPage() {
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
+                          // Check for pending tournament invites first
+                          if (pendingInvites.length > 0) {
+                            setShowInvitePopup(true);
+                            return;
+                          }
                           // Check for sponsor renewal before advancing
                           const supabase = createClient();
                           const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
@@ -1144,16 +1165,7 @@ export default function CareerPage() {
                                 className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs px-4 py-1 h-7"
                                 onClick={async () => {
                                   const supabase = createClient();
-                                  // Always fetch the CURRENT pending_invite event (email ID may be stale)
-                                  const { data: currentInvite } = await supabase
-                                    .from('career_events')
-                                    .select('id')
-                                    .eq('career_id', careerId)
-                                    .eq('status', 'pending_invite')
-                                    .eq('event_type', 'open')
-                                    .limit(1)
-                                    .single();
-                                  const eventId = currentInvite?.id || email.id.replace('tournament-invite-', '');
+                                  const eventId = email.id.replace('tournament-invite-', '');
                                   console.log('[TOURNAMENT INVITE] Accepting:', { careerId, eventId });
                                   const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
                                     p_career_id: careerId,
@@ -1164,10 +1176,13 @@ export default function CareerPage() {
                                   if (error) { toast.error(`Failed to accept: ${error.message}`); return; }
                                   if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament accepted!');
-                                  // Change email to show accepted status (remove buttons)
-                                  setEmails(prev => prev.map(e => 
-                                    e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('🏆 ', '').replace(' — You\'re Invited!', '')}. Good luck! 🎯` } : e
-                                  ));
+                                  // Update this email to accepted, remove all other tournament invites (auto-declined on backend)
+                                  setEmails(prev => prev
+                                    .filter(e => e.type !== 'tournament_invite' || e.id === email.id)
+                                    .map(e => e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('🏆 ', '').replace(' — You\'re Invited!', '')}. Good luck! 🎯` } : e)
+                                  );
+                                  setPendingInvites([]);
+                                  setPendingInvite(null);
                                   loadCareer();
                                 }}
                               >
@@ -1179,15 +1194,7 @@ export default function CareerPage() {
                                 className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-4 py-1 h-7"
                                 onClick={async () => {
                                   const supabase = createClient();
-                                  const { data: currentInvite } = await supabase
-                                    .from('career_events')
-                                    .select('id')
-                                    .eq('career_id', careerId)
-                                    .eq('status', 'pending_invite')
-                                    .eq('event_type', 'open')
-                                    .limit(1)
-                                    .single();
-                                  const eventId = currentInvite?.id || email.id.replace('tournament-invite-', '');
+                                  const eventId = email.id.replace('tournament-invite-', '');
                                   console.log('[TOURNAMENT INVITE] Declining:', { careerId, eventId });
                                   const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
                                     p_career_id: careerId,
@@ -1198,10 +1205,12 @@ export default function CareerPage() {
                                   if (error) { toast.error(`Failed to decline: ${error.message}`); return; }
                                   if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament declined.');
-                                  // Change email to show declined status (remove buttons)
+                                  // Change email to show declined status
                                   setEmails(prev => prev.map(e => 
                                     e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! 💪` } : e
                                   ));
+                                  // Update pending invites list
+                                  setPendingInvites(prev => prev.filter(inv => inv.event_id !== eventId));
                                   loadCareer();
                                 }}
                               >
@@ -1478,71 +1487,79 @@ export default function CareerPage() {
         </Dialog>
       </div>
 
-      {/* Tournament Invite Popup — forced decision */}
-      {showInvitePopup && pendingInvite && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      {/* Tournament Invite Popup — forced decision (supports 1 or 2 invites side by side) */}
+      {showInvitePopup && pendingInvites.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative max-w-sm w-full mx-4"
+            className={`relative w-full mx-4 flex gap-4 justify-center ${pendingInvites.length > 1 ? 'max-w-2xl' : 'max-w-sm'}`}
           >
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-amber-500/30 overflow-hidden">
-              <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
-              <div className="p-6 text-center">
-                <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-                <h2 className="text-xl font-black text-white mb-2">{pendingInvite.event_name}</h2>
-                <p className="text-slate-400 text-sm mb-1">
-                  You&apos;ve been invited to a {pendingInvite.bracket_size}-player knockout tournament!
-                </p>
-                <p className="text-slate-500 text-xs mb-6">
-                  You must accept or decline before continuing the league.
-                </p>
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold"
-                    onClick={async () => {
-                      const supabase = createClient();
-                      const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
-                        p_career_id: careerId,
-                        p_event_id: pendingInvite.event_id,
-                        p_accept: true,
-                      });
-                      if (!error) {
-                        toast.success(res?.message || 'Tournament accepted!');
-                        setPendingInvite(null);
-                        setShowInvitePopup(false);
-                        // Remove the email
-                        deleteEmail(`tournament-invite-${pendingInvite.event_id}`);
-                        loadCareer();
-                      }
-                    }}
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold"
-                    onClick={async () => {
-                      const supabase = createClient();
-                      const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
-                        p_career_id: careerId,
-                        p_event_id: pendingInvite.event_id,
-                        p_accept: false,
-                      });
-                      if (!error) {
-                        toast.success(res?.message || 'Tournament declined.');
-                        setPendingInvite(null);
-                        setShowInvitePopup(false);
-                        deleteEmail(`tournament-invite-${pendingInvite.event_id}`);
-                        loadCareer();
-                      }
-                    }}
-                  >
-                    Decline
-                  </Button>
+            {pendingInvites.map((invite) => (
+              <div key={invite.event_id} className="flex-1 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-amber-500/30 overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
+                <div className="p-5 text-center">
+                  <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+                  <h2 className="text-lg font-black text-white mb-1">{invite.event_name}</h2>
+                  <p className="text-slate-400 text-sm mb-1">
+                    {invite.bracket_size}-player knockout
+                  </p>
+                  <p className="text-slate-500 text-xs mb-5">
+                    Accept or decline before continuing.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm"
+                      onClick={async () => {
+                        const supabase = createClient();
+                        const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
+                          p_career_id: careerId,
+                          p_event_id: invite.event_id,
+                          p_accept: true,
+                        });
+                        if (!error) {
+                          toast.success(res?.message || 'Tournament accepted!');
+                          // Clear all invites (accept auto-declines the other on backend)
+                          pendingInvites.forEach(inv => deleteEmail(`tournament-invite-${inv.event_id}`));
+                          setPendingInvites([]);
+                          setPendingInvite(null);
+                          setShowInvitePopup(false);
+                          loadCareer();
+                        }
+                      }}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold text-sm"
+                      onClick={async () => {
+                        const supabase = createClient();
+                        const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
+                          p_career_id: careerId,
+                          p_event_id: invite.event_id,
+                          p_accept: false,
+                        });
+                        if (!error) {
+                          toast.success(res?.message || 'Tournament declined.');
+                          deleteEmail(`tournament-invite-${invite.event_id}`);
+                          // Remove this invite from the list
+                          const remaining = pendingInvites.filter(inv => inv.event_id !== invite.event_id);
+                          setPendingInvites(remaining);
+                          if (remaining.length === 0) {
+                            setPendingInvite(null);
+                            setShowInvitePopup(false);
+                            loadCareer();
+                          }
+                        }
+                      }}
+                    >
+                      Decline
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </motion.div>
         </div>
       )}
