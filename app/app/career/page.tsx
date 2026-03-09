@@ -1679,9 +1679,10 @@ export default function CareerPage() {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   {/* Option 1 */}
-                  <button
+                  <Button
                     disabled={choosingTournament}
-                    className="p-4 rounded-xl bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 ring-1 ring-emerald-500/20 hover:ring-emerald-500/40 transition-all text-left group disabled:opacity-50"
+                    className="p-4 h-auto rounded-xl bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 ring-1 ring-emerald-500/20 hover:ring-emerald-500/40 hover:bg-emerald-500/15 transition-all text-left flex flex-col items-start"
+                    variant="ghost"
                     onClick={async () => {
                       setChoosingTournament(true);
                       const supabase = createClient();
@@ -1690,7 +1691,8 @@ export default function CareerPage() {
                         p_event_id: tournamentChoiceEvent.id,
                         p_tournament_choice: 1 as any,
                       });
-                      if (error || res?.error) { toast.error(res?.error || 'Failed'); setChoosingTournament(false); return; }
+                      if (error) { toast.error(error.message || 'Failed'); setChoosingTournament(false); return; }
+                      if (res?.error) { toast.error(res.error); setChoosingTournament(false); return; }
                       toast.success(res?.message || 'Tournament entered!');
                       setShowTournamentChoicePopup(false);
                       setChoosingTournament(false);
@@ -1703,12 +1705,13 @@ export default function CareerPage() {
                       <span>•</span>
                       <span>{tournamentOptions.option1.format}</span>
                     </div>
-                  </button>
+                  </Button>
 
                   {/* Option 2 */}
-                  <button
+                  <Button
                     disabled={choosingTournament}
-                    className="p-4 rounded-xl bg-gradient-to-b from-blue-500/10 to-blue-500/5 ring-1 ring-blue-500/20 hover:ring-blue-500/40 transition-all text-left group disabled:opacity-50"
+                    className="p-4 h-auto rounded-xl bg-gradient-to-b from-blue-500/10 to-blue-500/5 ring-1 ring-blue-500/20 hover:ring-blue-500/40 hover:bg-blue-500/15 transition-all text-left flex flex-col items-start"
+                    variant="ghost"
                     onClick={async () => {
                       setChoosingTournament(true);
                       const supabase = createClient();
@@ -1717,7 +1720,8 @@ export default function CareerPage() {
                         p_event_id: tournamentChoiceEvent.id,
                         p_tournament_choice: 2 as any,
                       });
-                      if (error || res?.error) { toast.error(res?.error || 'Failed'); setChoosingTournament(false); return; }
+                      if (error) { toast.error(error.message || 'Failed'); setChoosingTournament(false); return; }
+                      if (res?.error) { toast.error(res.error); setChoosingTournament(false); return; }
                       toast.success(res?.message || 'Tournament entered!');
                       setShowTournamentChoicePopup(false);
                       setChoosingTournament(false);
@@ -1730,13 +1734,14 @@ export default function CareerPage() {
                       <span>•</span>
                       <span>{tournamentOptions.option2.format}</span>
                     </div>
-                  </button>
+                  </Button>
                 </div>
 
-                {/* Skip option */}
-                <button
+                {/* Decline both */}
+                <Button
+                  variant="ghost"
                   disabled={choosingTournament}
-                  className="text-slate-500 hover:text-slate-300 text-sm transition-colors disabled:opacity-50"
+                  className="w-full text-slate-500 hover:text-slate-300 text-sm"
                   onClick={async () => {
                     setChoosingTournament(true);
                     const supabase = createClient();
@@ -1745,15 +1750,16 @@ export default function CareerPage() {
                       p_event_id: tournamentChoiceEvent.id,
                       p_tournament_choice: 0 as any,
                     });
-                    if (error || res?.error) { toast.error(res?.error || 'Failed'); setChoosingTournament(false); return; }
+                    if (error) { toast.error(error.message || 'Failed'); setChoosingTournament(false); return; }
+                    if (res?.error) { toast.error(res.error); setChoosingTournament(false); return; }
                     toast.success('Carrying on with the league.');
                     setShowTournamentChoicePopup(false);
                     setChoosingTournament(false);
                     loadCareer();
                   }}
                 >
-                  Skip tournament — continue with league →
-                </button>
+                  Decline both — continue with league →
+                </Button>
               </div>
             </Card>
           </motion.div>

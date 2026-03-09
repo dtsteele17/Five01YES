@@ -44,7 +44,7 @@ BEGIN
   END IF;
 
   -- Generate random tournament based on choice seed
-  v_bracket_size := CASE WHEN (p_tournament_choice + floor(random() * 10)::int) % 2 = 0 THEN 8 ELSE 16 END;
+  v_bracket_size := CASE WHEN (p_tournament_choice + floor(random() * 10)::int) % 2 = 0 THEN 16 ELSE 32 END;
   v_tournament_name := v_names[1 + ((hashtext(v_event.id::text || p_tournament_choice::text) % array_length(v_names, 1)) + array_length(v_names, 1)) % array_length(v_names, 1)];
 
   -- Convert the choice event into a real tournament
@@ -100,9 +100,9 @@ BEGIN
     v_name2 := v_names[1 + ((v_hash2 + 1) % array_length(v_names, 1))];
   END IF;
   
-  -- Random sizes (8 or 16)
-  v_size1 := CASE WHEN v_hash1 % 2 = 0 THEN 8 ELSE 16 END;
-  v_size2 := CASE WHEN v_hash2 % 2 = 0 THEN 16 ELSE 8 END;
+  -- Random sizes (16 or 32 for County Circuit+)
+  v_size1 := CASE WHEN v_hash1 % 2 = 0 THEN 16 ELSE 32 END;
+  v_size2 := CASE WHEN v_hash2 % 2 = 0 THEN 32 ELSE 16 END;
   
   RETURN json_build_object(
     'option1', json_build_object('name', v_name1, 'bracket_size', v_size1, 'format', 'Best of 3'),
