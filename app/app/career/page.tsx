@@ -214,24 +214,24 @@ export default function CareerPage() {
         newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
 
-      // Check for pending tournament invites
+      // Check for pending tournament invites (only show 1 invite max)
       try {
         const { data: inviteEvents } = await supabase
           .from('career_events')
           .select('id, event_name')
           .eq('career_id', careerId)
           .eq('status', 'pending_invite')
-          .eq('event_type', 'open');
+          .eq('event_type', 'open')
+          .limit(1);
         if (inviteEvents && inviteEvents.length > 0) {
-          for (const inv of inviteEvents) {
-            newEmails.unshift({
-              id: `tournament-invite-${inv.id}`,
-              subject: `🏆 ${inv.event_name} — You're Invited!`,
-              body: `You've been invited to ${inv.event_name}! A 16-player knockout tournament at the local. Do you want to enter?`,
-              type: 'tournament_invite',
-              isNew: true,
-            });
-          }
+          const inv = inviteEvents[0];
+          newEmails.unshift({
+            id: `tournament-invite-${inv.id}`,
+            subject: `🏆 ${inv.event_name} — You're Invited!`,
+            body: `You've been invited to ${inv.event_name}! A 16-player knockout tournament at the local. Do you want to enter?`,
+            type: 'tournament_invite',
+            isNew: true,
+          });
         }
       } catch (e) { /* ignore */ }
       if (newEmails.length === 0) {
@@ -1136,6 +1136,57 @@ export default function CareerPage() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Season Stats */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}>
+              <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
+                        <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Season Stats</span>
+                    </div>
+                  </div>
+                  {(() => {
+                    const p = playerStanding;
+                    const played = p?.played || 0;
+                    const won = p?.won || 0;
+                    const lost = p?.lost || 0;
+                    const avg = p?.average || career.form || 0;
+                    return (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-4 gap-2">
+                          <div className="text-center p-2 rounded-lg bg-white/[0.03]">
+                            <p className="text-white text-sm font-bold">{played}</p>
+                            <p className="text-slate-500 text-[10px]">P</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-emerald-500/[0.06]">
+                            <p className="text-emerald-400 text-sm font-bold">{won}</p>
+                            <p className="text-slate-500 text-[10px]">W</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-red-500/[0.06]">
+                            <p className="text-red-400 text-sm font-bold">{lost}</p>
+                            <p className="text-slate-500 text-[10px]">L</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-amber-500/[0.06]">
+                            <p className="text-amber-400 text-sm font-bold">{typeof avg === 'number' ? avg.toFixed(1) : avg}</p>
+                            <p className="text-slate-500 text-[10px]">Avg</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => router.push(`/app/career/stats?id=${careerId}`)}
+                          className="w-full text-center text-blue-400 hover:text-blue-300 text-[11px] font-medium mt-1 transition-colors"
+                        >
+                          View All Time Stats →
+                        </button>
                       </div>
                     );
                   })()}

@@ -25,6 +25,19 @@ WHERE ce.event_type = 'open'
     AND cm2.milestone_type = 'tournament_invite'
   );
 
+-- Also skip any duplicate tournament invites per career/season (keep only the latest)
+UPDATE career_events ce
+SET status = 'skipped'
+WHERE ce.event_type = 'open'
+  AND ce.status = 'pending_invite'
+  AND ce.bracket_size = 16
+  AND ce.id NOT IN (
+    SELECT DISTINCT ON (career_id, season) id
+    FROM career_events
+    WHERE event_type = 'open' AND status = 'pending_invite' AND bracket_size = 16
+    ORDER BY career_id, season, created_at DESC
+  );
+
 -- Trigger: any new open tournament for Tier 2+ auto-gets pending_invite
 CREATE OR REPLACE FUNCTION fix_new_tournament_status()
 RETURNS TRIGGER
