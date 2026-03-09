@@ -70,7 +70,7 @@ export default function CareerStatsPage() {
 
     if (!career) { setLoading(false); return; }
 
-    // Get league standings per season
+    // Get league standings per season (Tier 2+)
     const { data: standings } = await supabase
       .from('career_league_standings')
       .select('season, tier, played, won, lost, legs_for, legs_against, points, average')
@@ -78,24 +78,36 @@ export default function CareerStatsPage() {
       .eq('is_player', true)
       .order('season', { ascending: true });
 
-    // Get tournament results
-    const { data: tournamentEvents } = await supabase
-      .from('career_events')
-      .select('season, event_type, status, event_name')
+    // Get ALL career matches (includes Tier 1 tournaments + league matches)
+    const { data: allMatches } = await supabase
+      .from('career_matches')
+      .select('id, event_id, result, player_legs, opponent_legs')
       .eq('career_id', careerId)
-      .in('event_type', ['open', 'qualifier', 'major', 'season_finals', 'trial_tournament'])
-      .in('status', ['completed', 'won']);
+      .in('result', ['win', 'loss']);
 
-    // Get tournament wins from milestones
+    // Get all career events to map matches to seasons/types
+    const { data: allEvents } = await supabase
+      .from('career_events')
+      .select('id, season, tier, event_type, event_name, status')
+      .eq('career_id', careerId);
+
+    // Get tournament wins from milestones (only tournament_win, not first_tournament_win to avoid double-counting)
     const { data: tWins } = await supabase
       .from('career_milestones')
       .select('season, title')
       .eq('career_id', careerId)
-      .in('milestone_type', ['tournament_win', 'first_tournament_win']);
+      .eq('milestone_type', 'tournament_win');
+
+    // Build event lookup
+    const eventMap: Record<string, any> = {};
+    for (const e of (allEvents || [])) {
+      eventMap[e.id] = e;
+    }
 
     // Build per-season stats
     const seasonMap: Record<number, SeasonStats> = {};
-    
+
+    // Start with league standings for Tier 2+
     for (const s of (standings || [])) {
       seasonMap[s.season] = {
         season: s.season,
@@ -112,19 +124,36 @@ export default function CareerStatsPage() {
       };
     }
 
-    // Count tournament games per season
-    for (const te of (tournamentEvents || [])) {
-      if (!seasonMap[te.season]) {
-        seasonMap[te.season] = {
-          season: te.season, tier: 1, played: 0, won: 0, lost: 0,
+    // Add tournament/trial matches from career_matches (covers Tier 1 + all tournaments)
+    for (const m of (allMatches || [])) {
+      const evt = eventMap[m.event_id];
+      if (!evt) continue;
+      const season = evt.season || 1;
+      const isLeague = evt.event_type === 'league';
+      
+      // Skip league matches — already counted in standings
+      if (isLeague && seasonMap[season]) continue;
+
+      if (!seasonMap[season]) {
+        seasonMap[season] = {
+          season, tier: evt.tier || 1, played: 0, won: 0, lost: 0,
           legs_for: 0, legs_against: 0, points: 0, average: 0,
-          tournament_wins: 0, tournament_played: 1,
+          tournament_wins: 0, tournament_played: 0,
         };
-      } else {
-        seasonMap[te.season].tournament_played++;
+      }
+
+      // Only count non-league matches here (tournaments)
+      if (!isLeague) {
+        seasonMap[season].played++;
+        seasonMap[season].tournament_played++;
+        if (m.result === 'win') seasonMap[season].won++;
+        if (m.result === 'loss') seasonMap[season].lost++;
+        seasonMap[season].legs_for += m.player_legs || 0;
+        seasonMap[season].legs_against += m.opponent_legs || 0;
       }
     }
 
+    // Count tournament wins
     for (const tw of (tWins || [])) {
       const s = tw.season || 1;
       if (seasonMap[s]) seasonMap[s].tournament_wins++;

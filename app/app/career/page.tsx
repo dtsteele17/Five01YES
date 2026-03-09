@@ -149,17 +149,7 @@ export default function CareerPage() {
         if (hasSponsorOffer) return; // Redirected to sponsor offer page
       }
 
-      // Generate match result emails for recent matches
-      try {
-        const { data: emailData } = await supabase.rpc('rpc_generate_career_emails', {
-          p_career_id: careerId
-        });
-        if (emailData?.emails?.length > 0) {
-          setEmails(prevEmails => [...emailData.emails, ...prevEmails]);
-        }
-      } catch (err) {
-        console.log('Email generation failed:', err);
-      }
+      // Email generation is handled client-side below (no server RPC needed)
 
       // Load active bracket data if current event is an active tournament
       if (homeData.next_event?.bracket_size) {
