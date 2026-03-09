@@ -27,7 +27,6 @@ BEGIN
     WHERE cm.career_id = p_career_id 
       AND cm.result IN ('win', 'loss')
       AND ce.season = p_career.season
-      AND ce.tier = p_career.tier
     ORDER BY cm.created_at DESC
     LIMIT 3
   ) cm;
@@ -139,7 +138,7 @@ AND career_id IN (
       JOIN career_events ce ON ce.id = cm.event_id
       WHERE cm.career_id = cp.id 
         AND cm.result IN ('win','loss')
-        AND ce.season = cp.season AND ce.tier = cp.tier
+        AND ce.season = cp.season
       ORDER BY cm.created_at DESC LIMIT 3
     ) r
     HAVING COUNT(*) = 3 AND COUNT(*) FILTER (WHERE result = 'win') = 3
