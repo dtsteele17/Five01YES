@@ -22,23 +22,20 @@ END;
 $$;
 
 -- ============================================================
--- STEP 0b: Create rpc_create_league
+-- STEP 0b: Create rpc_create_league (matches actual leagues table schema)
 -- ============================================================
 CREATE OR REPLACE FUNCTION rpc_create_league(
   p_name text,
-  p_description text,
-  p_game_mode text,
-  p_match_format text,
-  p_access text,
-  p_start_date date,
-  p_match_days text[],
-  p_match_time time,
-  p_games_per_day int,
-  p_legs_per_game int,
-  p_camera_required text,
-  p_playoffs text,
-  p_double_out boolean,
-  p_straight_in boolean
+  p_description text DEFAULT '',
+  p_max_participants int DEFAULT 16,
+  p_access_type text DEFAULT 'open',
+  p_start_date date DEFAULT CURRENT_DATE,
+  p_match_days text[] DEFAULT ARRAY['Thu'],
+  p_match_time time DEFAULT '19:00',
+  p_games_per_day int DEFAULT 3,
+  p_legs_per_game int DEFAULT 5,
+  p_camera_required boolean DEFAULT false,
+  p_playoff_type text DEFAULT 'top2'
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -55,14 +52,14 @@ BEGIN
   END IF;
 
   INSERT INTO leagues (
-    name, description, owner_id, game_mode, match_format, access,
+    name, description, owner_id, max_participants, access_type,
     start_date, match_days, match_time, games_per_day, legs_per_game,
-    camera_required, playoffs, double_out, straight_in
+    camera_required, playoff_type, status
   )
   VALUES (
-    p_name, p_description, v_user_id, p_game_mode, p_match_format, p_access,
+    p_name, p_description, v_user_id, p_max_participants, p_access_type,
     p_start_date, p_match_days, p_match_time, p_games_per_day, p_legs_per_game,
-    p_camera_required, p_playoffs, p_double_out, p_straight_in
+    p_camera_required, p_playoff_type, 'open'
   )
   RETURNING id INTO v_league_id;
 
@@ -186,10 +183,10 @@ BEGIN
     SELECT json_agg(row_to_json(l))
     FROM (
       SELECT 
-        lg.id, lg.name, lg.description, lg.access, lg.status,
+        lg.id, lg.name, lg.description, lg.access_type, lg.status,
         lg.start_date, lg.close_date, lg.max_participants,
         lg.legs_per_game, lg.match_days, lg.match_time, lg.games_per_day,
-        lg.playoffs, lg.game_mode, lg.match_format,
+        lg.playoff_type,
         (SELECT username FROM profiles WHERE id = lg.owner_id) AS owner_name,
         (SELECT COUNT(*) FROM league_members WHERE league_id = lg.id AND status = 'active') AS member_count,
         EXISTS(SELECT 1 FROM league_members WHERE league_id = lg.id AND user_id = v_user_id AND status = 'active') AS is_member
@@ -212,7 +209,7 @@ BEGIN
   SELECT * INTO v_league FROM leagues WHERE id = p_league_id;
   IF v_league.id IS NULL THEN RETURN json_build_object('error', 'League not found'); END IF;
   IF v_league.status != 'open' THEN RETURN json_build_object('error', 'League registration is closed'); END IF;
-  IF v_league.access = 'invite' THEN RETURN json_build_object('error', 'This league is invite-only'); END IF;
+  IF v_league.access_type = 'invite' THEN RETURN json_build_object('error', 'This league is invite-only'); END IF;
   IF EXISTS(SELECT 1 FROM league_members WHERE league_id = p_league_id AND user_id = v_user_id AND status = 'active') THEN
     RETURN json_build_object('error', 'Already a member');
   END IF;
@@ -248,13 +245,12 @@ DECLARE
 BEGIN
   SELECT json_build_object(
     'id', lg.id, 'name', lg.name, 'description', lg.description,
-    'status', lg.status, 'access', lg.access, 'owner_id', lg.owner_id,
+    'status', lg.status, 'access_type', lg.access_type, 'owner_id', lg.owner_id,
     'start_date', lg.start_date, 'close_date', lg.close_date,
     'max_participants', lg.max_participants, 'legs_per_game', lg.legs_per_game,
     'match_days', lg.match_days, 'match_time', lg.match_time,
-    'games_per_day', lg.games_per_day, 'playoffs', lg.playoffs,
-    'game_mode', lg.game_mode, 'match_format', lg.match_format,
-    'camera_required', lg.camera_required, 'double_out', lg.double_out,
+    'games_per_day', lg.games_per_day, 'playoff_type', lg.playoff_type,
+    'camera_required', lg.camera_required,
     'owner_name', (SELECT username FROM profiles WHERE id = lg.owner_id)
   ) INTO v_league FROM leagues lg WHERE lg.id = p_league_id;
   IF v_league IS NULL THEN RETURN json_build_object('error', 'League not found'); END IF;

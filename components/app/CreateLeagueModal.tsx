@@ -165,18 +165,15 @@ export function CreateLeagueModal({ isOpen, onClose, onLeagueCreated }: CreateLe
       const { data: result, error } = await supabase.rpc('rpc_create_league', {
         p_name: formData.name,
         p_description: '',
-        p_game_mode: '501',
-        p_match_format: 'round_robin',
-        p_access: formData.access,
+        p_max_participants: formData.maxParticipants || 16,
+        p_access_type: formData.access,
         p_start_date: formData.startDate,
         p_match_days: formData.matchDays,
         p_match_time: formData.matchTime,
         p_games_per_day: formData.gamesPerDay,
         p_legs_per_game: formData.legsPerGame,
-        p_camera_required: formData.cameraRequired ? 'required' : 'optional',
-        p_playoffs: formData.playoffs,
-        p_double_out: true,
-        p_straight_in: true,
+        p_camera_required: formData.cameraRequired ?? true,
+        p_playoff_type: formData.playoffs,
       });
       const leagueId = result?.league_id;
 
