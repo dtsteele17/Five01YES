@@ -219,7 +219,7 @@ DECLARE
   v_career career_profiles;
 BEGIN
   IF NEW.result IN ('win', 'loss') AND OLD.result = 'pending' THEN
-    SELECT * INTO v_career FROM career_profiles WHERE id = NEW.career_id AND tier >= 2;
+    SELECT * INTO v_career FROM career_profiles WHERE id = NEW.career_id AND tier >= 3;
     IF v_career.id IS NOT NULL THEN
       PERFORM _check_win_streak_sponsor(NEW.career_id, v_career);
     END IF;
