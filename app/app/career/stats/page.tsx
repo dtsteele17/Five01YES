@@ -81,7 +81,7 @@ export default function CareerStatsPage() {
     // Get ALL career matches (includes Tier 1 tournaments + league matches)
     const { data: allMatches } = await supabase
       .from('career_matches')
-      .select('id, event_id, result, player_legs, opponent_legs')
+      .select('id, event_id, result, player_legs_won, opponent_legs_won, player_average')
       .eq('career_id', careerId)
       .in('result', ['win', 'loss']);
 
@@ -148,8 +148,15 @@ export default function CareerStatsPage() {
         seasonMap[season].tournament_played++;
         if (m.result === 'win') seasonMap[season].won++;
         if (m.result === 'loss') seasonMap[season].lost++;
-        seasonMap[season].legs_for += m.player_legs || 0;
-        seasonMap[season].legs_against += m.opponent_legs || 0;
+        seasonMap[season].legs_for += m.player_legs_won || 0;
+        seasonMap[season].legs_against += m.opponent_legs_won || 0;
+        if (m.player_average && m.player_average > 0) {
+          // Running average approximation
+          const prevCount = seasonMap[season].played - 1;
+          seasonMap[season].average = prevCount > 0
+            ? ((seasonMap[season].average * prevCount) + m.player_average) / seasonMap[season].played
+            : m.player_average;
+        }
       }
     }
 

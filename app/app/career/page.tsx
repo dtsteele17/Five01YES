@@ -997,13 +997,16 @@ export default function CareerPage() {
                                 className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs px-4 py-1 h-7"
                                 onClick={async () => {
                                   const eventId = email.id.replace('tournament-invite-', '');
+                                  console.log('[TOURNAMENT INVITE] Accepting:', { careerId, eventId });
                                   const supabase = createClient();
                                   const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
                                     p_career_id: careerId,
                                     p_event_id: eventId,
                                     p_accept: true,
                                   });
-                                  if (error) { toast.error('Failed to accept'); return; }
+                                  console.log('[TOURNAMENT INVITE] Accept result:', { res, error });
+                                  if (error) { toast.error(`Failed to accept: ${error.message}`); return; }
+                                  if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament accepted!');
                                   deleteEmail(email.id);
                                   loadCareer(); // Reload to show tournament as next event
@@ -1017,13 +1020,16 @@ export default function CareerPage() {
                                 className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-4 py-1 h-7"
                                 onClick={async () => {
                                   const eventId = email.id.replace('tournament-invite-', '');
+                                  console.log('[TOURNAMENT INVITE] Declining:', { careerId, eventId });
                                   const supabase = createClient();
                                   const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
                                     p_career_id: careerId,
                                     p_event_id: eventId,
                                     p_accept: false,
                                   });
-                                  if (error) { toast.error('Failed to decline'); return; }
+                                  console.log('[TOURNAMENT INVITE] Decline result:', { res, error });
+                                  if (error) { toast.error(`Failed to decline: ${error.message}`); return; }
+                                  if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament declined.');
                                   deleteEmail(email.id);
                                   loadCareer();
