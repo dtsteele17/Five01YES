@@ -103,28 +103,6 @@ export default function CareerPage() {
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
-  async function checkSponsorOffer() {
-    if (!careerId) return;
-    
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc('rpc_career_check_sponsor_offer', {
-        p_career_id: careerId
-      });
-      
-      if (error) throw error;
-      
-      if (data?.sponsor_offer) {
-        // Redirect to sponsor offer page
-        router.push(`/app/career/sponsor-offer?careerId=${careerId}`);
-        return true;
-      }
-    } catch (err) {
-      console.error('Failed to check sponsor offer:', err);
-    }
-    
-    return false;
-  }
 
   async function loadCareer() {
     setLoading(true);
@@ -195,11 +173,7 @@ export default function CareerPage() {
         setPendingInvite(null);
       }
 
-      // Check for sponsor offer (tier 3+)
-      if (homeData.career.tier >= 3) {
-        const hasSponsorOffer = await checkSponsorOffer();
-        if (hasSponsorOffer) return; // Redirected to sponsor offer page
-      }
+      // Sponsor offers handled in notification tile (career_sponsor_contracts status='offered')
 
       // Email generation is handled client-side below (no server RPC needed)
 
