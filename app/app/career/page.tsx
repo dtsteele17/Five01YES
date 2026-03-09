@@ -96,6 +96,9 @@ export default function CareerPage() {
   const [tournamentChoiceEvent, setTournamentChoiceEvent] = useState<{ id: string; name: string } | null>(null);
   const [tournamentOptions, setTournamentOptions] = useState<{ option1: any; option2: any } | null>(null);
   const [choosingTournament, setChoosingTournament] = useState(false);
+  const [showSponsorRenewal, setShowSponsorRenewal] = useState(false);
+  const [sponsorRenewalData, setSponsorRenewalData] = useState<any>(null);
+  const [processingRenewal, setProcessingRenewal] = useState(false);
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
@@ -461,6 +464,28 @@ export default function CareerPage() {
     setShowTournamentChoice(false);
   }
 
+  async function advanceToNextSeason() {
+    setAdvancingSeason(true);
+    try {
+      const supabase = createClient();
+      const { data: result, error } = await supabase.rpc('rpc_career_advance_to_next_season', {
+        p_career_id: careerId,
+      });
+      if (error) throw error;
+      if (result?.promoted) {
+        setPromotionTierName(result.tier_name);
+        setShowPromotionPopup(true);
+      } else {
+        toast.success(`Season ${result?.new_season} begins!`);
+        loadCareer();
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to advance season');
+    } finally {
+      setAdvancingSeason(false);
+    }
+  }
+
   async function handlePlayEvent() {
     if (!careerId || !data?.next_event || playingEvent) return;
 
@@ -720,25 +745,18 @@ export default function CareerPage() {
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
-                          setAdvancingSeason(true);
-                          try {
-                            const supabase = createClient();
-                            const { data: result, error } = await supabase.rpc('rpc_career_advance_to_next_season', {
-                              p_career_id: careerId,
-                            });
-                            if (error) throw error;
-                            if (result?.promoted) {
-                              setPromotionTierName(result.tier_name);
-                              setShowPromotionPopup(true);
-                            } else {
-                              toast.success(`Season ${result?.new_season} begins!`);
-                              loadCareer();
-                            }
-                          } catch (err: any) {
-                            toast.error(err.message || 'Failed to advance season');
-                          } finally {
-                            setAdvancingSeason(false);
+                          // Check for sponsor renewal before advancing
+                          const supabase = createClient();
+                          const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
+                            p_career_id: careerId,
+                          });
+                          if (sponsorOptions?.has_sponsor) {
+                            setSponsorRenewalData(sponsorOptions);
+                            setShowSponsorRenewal(true);
+                            return;
                           }
+                          // No sponsor — advance directly
+                          await advanceToNextSeason();
                         }}
                       >
                         {advancingSeason ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
@@ -1525,6 +1543,93 @@ export default function CareerPage() {
                 </div>
               </div>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Sponsor Renewal Popup */}
+      {showSponsorRenewal && sponsorRenewalData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="relative max-w-lg w-full mx-4"
+          >
+            <Card className="border-0 bg-gradient-to-b from-slate-800 to-slate-900 ring-1 ring-purple-500/30 shadow-2xl overflow-hidden">
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-3">💼</div>
+                <h2 className="text-xl font-bold text-white mb-1">Season End — Sponsor Decision</h2>
+                <p className="text-slate-400 text-sm mb-5">Your sponsorship deal is up for review.</p>
+
+                {/* Current sponsor - Renew option */}
+                {sponsorRenewalData.current_sponsor && (
+                  <button
+                    disabled={processingRenewal}
+                    className="w-full p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-transparent ring-1 ring-purple-500/20 hover:ring-purple-500/40 transition-all text-left mb-3 disabled:opacity-50"
+                    onClick={async () => {
+                      setProcessingRenewal(true);
+                      const supabase = createClient();
+                      await supabase.rpc('rpc_career_end_season_sponsor', { p_career_id: careerId, p_action: 'renew' });
+                      toast.success('Sponsor renewed!');
+                      setShowSponsorRenewal(false);
+                      setProcessingRenewal(false);
+                      await advanceToNextSeason();
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-purple-400 font-bold uppercase">🔄 Renew</span>
+                    </div>
+                    <div className="text-white font-bold">{sponsorRenewalData.current_sponsor.name}</div>
+                    <p className="text-purple-300/60 text-xs">+{(sponsorRenewalData.current_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+                  </button>
+                )}
+
+                {/* Alternative sponsor - Switch option */}
+                {sponsorRenewalData.alternative_sponsor && (
+                  <button
+                    disabled={processingRenewal}
+                    className="w-full p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-transparent ring-1 ring-blue-500/20 hover:ring-blue-500/40 transition-all text-left mb-3 disabled:opacity-50"
+                    onClick={async () => {
+                      setProcessingRenewal(true);
+                      const supabase = createClient();
+                      await supabase.rpc('rpc_career_end_season_sponsor', {
+                        p_career_id: careerId,
+                        p_action: 'switch',
+                        p_new_sponsor_id: sponsorRenewalData.alternative_sponsor.sponsor_id,
+                      });
+                      toast.success('Switched to ' + sponsorRenewalData.alternative_sponsor.name + '!');
+                      setShowSponsorRenewal(false);
+                      setProcessingRenewal(false);
+                      await advanceToNextSeason();
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-blue-400 font-bold uppercase">🔀 Switch to</span>
+                    </div>
+                    <div className="text-white font-bold">{sponsorRenewalData.alternative_sponsor.name}</div>
+                    <p className="text-blue-300/60 text-xs">+{(sponsorRenewalData.alternative_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+                  </button>
+                )}
+
+                {/* Drop sponsor */}
+                <button
+                  disabled={processingRenewal}
+                  className="text-slate-500 hover:text-slate-300 text-sm transition-colors disabled:opacity-50 mt-1"
+                  onClick={async () => {
+                    setProcessingRenewal(true);
+                    const supabase = createClient();
+                    await supabase.rpc('rpc_career_end_season_sponsor', { p_career_id: careerId, p_action: 'drop' });
+                    toast.success('Going sponsorless next season.');
+                    setShowSponsorRenewal(false);
+                    setProcessingRenewal(false);
+                    await advanceToNextSeason();
+                  }}
+                >
+                  Drop sponsor — go independent →
+                </button>
+              </div>
+            </Card>
           </motion.div>
         </div>
       )}
