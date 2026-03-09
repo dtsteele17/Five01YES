@@ -44,12 +44,25 @@ AS $$
 DECLARE
   v_user_id uuid;
   v_league_id uuid;
+  v_match_day_nums smallint[];
 BEGIN
   v_user_id := auth.uid();
 
   IF v_user_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
+
+  -- Convert text day names to smallint day-of-week (1=Mon, 7=Sun)
+  SELECT ARRAY_AGG(
+    CASE d
+      WHEN 'Mon' THEN 1 WHEN 'Tue' THEN 2 WHEN 'Wed' THEN 3
+      WHEN 'Thu' THEN 4 WHEN 'Fri' THEN 5 WHEN 'Sat' THEN 6 WHEN 'Sun' THEN 7
+      WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+      WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7
+      ELSE 4
+    END::smallint
+  ) INTO v_match_day_nums
+  FROM unnest(p_match_days) AS d;
 
   INSERT INTO leagues (
     name, description, owner_id, max_participants, access_type,
@@ -58,7 +71,7 @@ BEGIN
   )
   VALUES (
     p_name, p_description, v_user_id, p_max_participants, p_access_type,
-    p_start_date, p_match_days, p_match_time, p_games_per_day, p_legs_per_game,
+    p_start_date, v_match_day_nums, p_match_time, p_games_per_day, p_legs_per_game,
     p_camera_required, p_playoff_type, 'open'
   )
   RETURNING id INTO v_league_id;
@@ -325,14 +338,8 @@ BEGIN
   INSERT INTO league_standings (league_id, user_id)
   SELECT p_league_id, unnest(v_members) ON CONFLICT (league_id, user_id) DO NOTHING;
 
-  SELECT ARRAY_AGG(
-    CASE d
-      WHEN 'Mon' THEN 1 WHEN 'Tue' THEN 2 WHEN 'Wed' THEN 3
-      WHEN 'Thu' THEN 4 WHEN 'Fri' THEN 5 WHEN 'Sat' THEN 6 WHEN 'Sun' THEN 7
-      WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
-      WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7
-    END
-  ) INTO v_match_days FROM unnest(v_league.match_days) AS d;
+  -- match_days is already smallint[] in the DB (1=Mon..7=Sun)
+  SELECT ARRAY_AGG(d::int) INTO v_match_days FROM unnest(v_league.match_days) AS d;
 
   IF v_match_days IS NULL OR array_length(v_match_days, 1) = 0 THEN
     v_match_days := ARRAY[3];
