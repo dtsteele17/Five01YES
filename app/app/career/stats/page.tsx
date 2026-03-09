@@ -77,15 +77,29 @@ export default function CareerStatsPage() {
     // Get all career events
     const { data: events } = await supabase
       .from('career_events')
-      .select('id, season, tier, event_type, event_name')
+      .select('id, season, event_type, event_name')
       .eq('career_id', careerId);
+
+    // Get tier per season from career_league_standings (most reliable source)
+    const { data: standingsTiers } = await supabase
+      .from('career_league_standings')
+      .select('season, tier')
+      .eq('career_id', careerId)
+      .eq('is_player', true);
+    
+    const seasonTierFromStandings: Record<number, number> = {};
+    for (const st of (standingsTiers || [])) {
+      seasonTierFromStandings[st.season] = st.tier;
+    }
+    // Season 1 is always Tier 1 (Local Circuit Trials)
+    if (!seasonTierFromStandings[1]) seasonTierFromStandings[1] = 1;
 
     // Get tournament wins from milestones
     const { data: tWins } = await supabase
       .from('career_milestones')
       .select('season')
       .eq('career_id', careerId)
-      .eq('milestone_type', 'tournament_win');
+      .in('milestone_type', ['tournament_win', 'league_champion']);
 
     // Build event lookup
     const eventMap: Record<string, any> = {};
@@ -93,13 +107,8 @@ export default function CareerStatsPage() {
       eventMap[e.id] = e;
     }
 
-    // Also check career_events for seasons that exist (to get tier info even if no matches yet)
-    const seasonTiers: Record<number, number> = {};
-    for (const e of (events || [])) {
-      if (!seasonTiers[e.season] || e.tier > seasonTiers[e.season]) {
-        seasonTiers[e.season] = e.tier;
-      }
-    }
+    // Use standings-based tier lookup
+    const seasonTiers = seasonTierFromStandings;
 
     // Build per-season stats directly from career_matches
     const seasonMap: Record<number, SeasonStats> = {};
