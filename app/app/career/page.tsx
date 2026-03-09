@@ -647,7 +647,11 @@ export default function CareerPage() {
   const playerStanding = standings?.find((s: any) => s.is_player);
   const totalLeagueOpponents = standings ? standings.filter((s: any) => !s.is_player).length : 7;
   const leagueMatchday = playerStanding ? (playerStanding.played || 0) + 1 : 1;
-  const seasonComplete = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
+  // Season is only complete when all league matches done AND no pending/active tournaments remain
+  const leagueMatchesDone = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
+  const hasPendingTournament = next_event && ['open', 'tournament_choice'].includes(next_event.event_type);
+  const hasPendingInvites = pendingInvites.length > 0;
+  const seasonComplete = leagueMatchesDone && !hasPendingTournament && !hasPendingInvites;
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName
@@ -756,6 +760,27 @@ export default function CareerPage() {
                       >
                         {advancingSeason ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
                         Next Season
+                      </Button>
+                    </>
+                  ) : next_event && (next_event.status === 'pending_invite' || next_event.event_type === 'tournament_choice') ? (
+                    <>
+                      <div className="text-center py-2">
+                        <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+                        <h2 className="text-xl font-black text-white mb-1">End of Season Tournament</h2>
+                        <p className="text-sm text-slate-400 mb-4">Choose a tournament to play before next season.</p>
+                      </div>
+                      <Button
+                        className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black py-3 text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                        onClick={() => {
+                          if (next_event.status === 'pending_invite' || pendingInvites.length > 0) {
+                            setShowInvitePopup(true);
+                          } else {
+                            handlePlayEvent();
+                          }
+                        }}
+                      >
+                        <Trophy className="w-5 h-5 mr-2" />
+                        Choose Tournament
                       </Button>
                     </>
                   ) : next_event ? (
