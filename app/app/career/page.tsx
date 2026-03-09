@@ -996,9 +996,18 @@ export default function CareerPage() {
                                 size="sm"
                                 className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs px-4 py-1 h-7"
                                 onClick={async () => {
-                                  const eventId = email.id.replace('tournament-invite-', '');
-                                  console.log('[TOURNAMENT INVITE] Accepting:', { careerId, eventId });
                                   const supabase = createClient();
+                                  // Always fetch the CURRENT pending_invite event (email ID may be stale)
+                                  const { data: currentInvite } = await supabase
+                                    .from('career_events')
+                                    .select('id')
+                                    .eq('career_id', careerId)
+                                    .eq('status', 'pending_invite')
+                                    .eq('event_type', 'open')
+                                    .limit(1)
+                                    .single();
+                                  const eventId = currentInvite?.id || email.id.replace('tournament-invite-', '');
+                                  console.log('[TOURNAMENT INVITE] Accepting:', { careerId, eventId });
                                   const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
                                     p_career_id: careerId,
                                     p_event_id: eventId,
@@ -1008,8 +1017,9 @@ export default function CareerPage() {
                                   if (error) { toast.error(`Failed to accept: ${error.message}`); return; }
                                   if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament accepted!');
-                                  deleteEmail(email.id);
-                                  loadCareer(); // Reload to show tournament as next event
+                                  // Remove all tournament invite emails
+                                  setEmails(prev => prev.filter(e => e.type !== 'tournament_invite'));
+                                  loadCareer();
                                 }}
                               >
                                 Accept
@@ -1019,9 +1029,17 @@ export default function CareerPage() {
                                 variant="outline"
                                 className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-4 py-1 h-7"
                                 onClick={async () => {
-                                  const eventId = email.id.replace('tournament-invite-', '');
-                                  console.log('[TOURNAMENT INVITE] Declining:', { careerId, eventId });
                                   const supabase = createClient();
+                                  const { data: currentInvite } = await supabase
+                                    .from('career_events')
+                                    .select('id')
+                                    .eq('career_id', careerId)
+                                    .eq('status', 'pending_invite')
+                                    .eq('event_type', 'open')
+                                    .limit(1)
+                                    .single();
+                                  const eventId = currentInvite?.id || email.id.replace('tournament-invite-', '');
+                                  console.log('[TOURNAMENT INVITE] Declining:', { careerId, eventId });
                                   const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
                                     p_career_id: careerId,
                                     p_event_id: eventId,
