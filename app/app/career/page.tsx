@@ -1017,8 +1017,10 @@ export default function CareerPage() {
                                   if (error) { toast.error(`Failed to accept: ${error.message}`); return; }
                                   if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament accepted!');
-                                  // Remove all tournament invite emails
-                                  setEmails(prev => prev.filter(e => e.type !== 'tournament_invite'));
+                                  // Change email to show accepted status (remove buttons)
+                                  setEmails(prev => prev.map(e => 
+                                    e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('🏆 ', '').replace(' — You\'re Invited!', '')}. Good luck! 🎯` } : e
+                                  ));
                                   loadCareer();
                                 }}
                               >
@@ -1049,7 +1051,10 @@ export default function CareerPage() {
                                   if (error) { toast.error(`Failed to decline: ${error.message}`); return; }
                                   if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament declined.');
-                                  deleteEmail(email.id);
+                                  // Change email to show declined status (remove buttons)
+                                  setEmails(prev => prev.map(e => 
+                                    e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! 💪` } : e
+                                  ));
                                   loadCareer();
                                 }}
                               >
