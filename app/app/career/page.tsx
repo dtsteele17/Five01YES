@@ -103,6 +103,8 @@ export default function CareerPage() {
   const [showSponsorRenewal, setShowSponsorRenewal] = useState(false);
   const [sponsorRenewalData, setSponsorRenewalData] = useState<any>(null);
   const [processingRenewal, setProcessingRenewal] = useState(false);
+  const [showQSchoolIntro, setShowQSchoolIntro] = useState(false);
+  const [qSchoolData, setQSchoolData] = useState<{ player_rank: number; semi_opponent: string; semi_opponent_rank: number } | null>(null);
   const [showChampionshipIntro, setShowChampionshipIntro] = useState(false);
   const [showGroupResults, setShowGroupResults] = useState(false);
   const [groupStandings, setGroupStandings] = useState<any[]>([]);
@@ -587,7 +589,45 @@ export default function CareerPage() {
         return;
       }
 
-      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout'];
+      // Regional Tour T3 Qualification — auto-check rank and create qual match if needed
+      if (next_event.event_type === 'regional_t3_qualification') {
+        const supabase = createClient();
+        const { data: qualResult } = await supabase.rpc('rpc_regional_tour_t3_qualification', { p_career_id: careerId });
+        if (qualResult?.error) { toast.error(qualResult.error); setPlayingEvent(false); return; }
+        if (qualResult?.auto_qualified) {
+          toast.success(qualResult.message, { duration: 5000 });
+        } else {
+          toast.info(qualResult.message, { duration: 5000 });
+        }
+        await new Promise(r => setTimeout(r, 1500));
+        loadCareer();
+        setPlayingEvent(false);
+        return;
+      }
+
+      // Q School semi/final and Regional qual match — dartbot match BO9/BO7
+      if (['q_school_semi', 'q_school_final', 'regional_qual_match'].includes(next_event.event_type)) {
+        const supabase = createClient();
+        const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
+        if (error) throw error;
+        if (matchData?.error) throw new Error(matchData.error);
+
+        const avg = matchData.bot_average || 60;
+        const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
+          : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
+          : avg <= 90 ? 'pro' : 'worldClass';
+        const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' };
+
+        setConfig({
+          mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
+          bestOf: bestOfMap[matchData.best_of] || 'best-of-9', atcOpponent: 'bot',
+          career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
+        });
+        router.push('/app/play/training/501');
+        return;
+      }
+
+      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament'];
       if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
         router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
         return;
@@ -851,8 +891,38 @@ export default function CareerPage() {
                               }
                             }
                           }
+                          // Regional Tour (Tier 4): Q School for 3rd-6th
+                          else if (career.tier === 4 && !showInvitePopup) {
+                            const supabase2 = createClient();
+                            // Check if Q School already exists
+                            const { data: qEvents } = await supabase2
+                              .from('career_events')
+                              .select('id')
+                              .eq('career_id', careerId)
+                              .in('event_type', ['q_school_semi', 'q_school_final'])
+                              .limit(1);
+
+                            if (!qEvents || qEvents.length === 0) {
+                              // Check if player is 3rd-6th (Q School eligible)
+                              if (playerRank >= 3 && playerRank <= 6) {
+                                const { data: qResult } = await supabase2.rpc('rpc_regional_tour_q_school', {
+                                  p_career_id: careerId,
+                                });
+                                if (qResult?.success) {
+                                  setQSchoolData({
+                                    player_rank: qResult.player_rank,
+                                    semi_opponent: qResult.semi_opponent,
+                                    semi_opponent_rank: qResult.semi_opponent_rank,
+                                  });
+                                  setShowQSchoolIntro(true);
+                                  return;
+                                }
+                              }
+                            }
+                            // Top 2 or 7th+: go straight to advance
+                          }
                           // Other tiers: Offer end-of-season tournaments (Tier 2+, only if not already offered)
-                          else if (career.tier >= 2 && career.tier !== 3 && !showInvitePopup) {
+                          else if (career.tier >= 2 && career.tier !== 3 && career.tier !== 4 && !showInvitePopup) {
                             const supabase2 = createClient();
                             
                             // Check if tournaments were already offered/played this season
@@ -2061,6 +2131,54 @@ export default function CareerPage() {
                     }}
                   >
                     Time to Rebuild 💪
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Q School Intro Popup */}
+      {showQSchoolIntro && qSchoolData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="relative max-w-md w-full mx-4"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-amber-500/10 to-orange-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-orange-500/30 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500" />
+              <div className="p-8 text-center">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', damping: 10 }}>
+                  <div className="text-6xl mb-4">🎓</div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                  <h2 className="text-2xl font-black text-white mb-2">Q School</h2>
+                  <div className="inline-block px-4 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30 mb-4">
+                    <span className="text-orange-400 font-bold text-sm">Your Last Shot at Promotion</span>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+                  <div className="text-left bg-slate-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+                    <p className="text-slate-400 text-xs">You finished <span className="text-white font-bold">{qSchoolData.player_rank}{qSchoolData.player_rank === 3 ? 'rd' : 'th'}</span> in the league — top 2 auto-promoted, but you can still earn it.</p>
+                    <p className="text-white font-semibold mt-3">⚔️ Semi-Final (BO9)</p>
+                    <p className="text-slate-400 text-xs">You vs <span className="text-orange-400 font-semibold">{qSchoolData.semi_opponent}</span> ({qSchoolData.player_rank}th vs {qSchoolData.semi_opponent_rank}th)</p>
+                    <p className="text-white font-semibold mt-3">🏆 Final (BO9)</p>
+                    <p className="text-slate-400 text-xs">Win the final → promoted to World Tour</p>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
+                  <Button
+                    className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white font-black py-3 text-base shadow-lg shadow-orange-500/30"
+                    onClick={() => {
+                      setShowQSchoolIntro(false);
+                      loadCareer();
+                    }}
+                  >
+                    Enter Q School 🎓
                   </Button>
                 </motion.div>
               </div>

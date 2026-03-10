@@ -134,13 +134,69 @@ IMPORTANT: Bottom 2 in league = NOT invited to end-of-season tournament at all
 
 ---
 
-## REGIONAL TOUR (Tier 4) — TBD
+## REGIONAL TOUR (Tier 4)
 
-- **12 players**, **11 league matches**, **Best of 7/9 legs**
-- Tournament invites every 3 matches
-- Top 2 → promoted to World Tour
-- Bottom 2 → relegated to County League
-- (Full spec pending from Dan)
+- **15 players**, **14 league matches**, **Best of 7**
+- 2 points per win, no draws
+- Sponsors available
+- 3 tournaments integrated into the season (results add league points)
+- Bottom 2 → relegated to County Circuit
+
+```
+ENTER REGIONAL TOUR
+      ↓
+PLAY 5 LEAGUE MATCHES (Matchdays 1-5)
+      ↓
+TOURNAMENT 1 (32 players, BO7)
+  All 15 Regional Tour players auto-enter
+  Remaining spots = random outside players
+  Points: L32=0, L16=1, QF=2, SF=3, RU=4, W=5
+  (Only Regional Tour players earn league points)
+      ↓
+PLAY 5 LEAGUE MATCHES (Matchdays 6-10)
+      ↓
+TOURNAMENT 2 (32 players, BO7)
+  Same format and points as Tournament 1
+      ↓
+PLAY 4 LEAGUE MATCHES (Matchdays 11-14)
+      ↓
+TOURNAMENT 3 QUALIFICATION
+  Top 8 in table → auto-qualify
+  Ranks 9-15 → play qualification matches
+      ↓
+TOURNAMENT 3 — TOUR CHAMPIONSHIP (64 players, BO7)
+  Major event with higher points:
+  L64=0, L32=2, L16=3, QF=4, SF=5, RU=6, W=7
+      ↓
+FINAL LEAGUE TABLE (league wins + all tournament points combined)
+```
+
+### Promotion
+```
+1st + 2nd → 🎉 AUTO-PROMOTED to World Tour
+```
+
+### Q School (3rd–6th)
+```
+3rd–6th → ENTER Q SCHOOL (4-player knockout, BO9)
+
+SEMI-FINALS:
+  3rd vs 6th (BO9)
+  4th vs 5th (BO9)
+
+FINAL:
+  Winners play each other (BO9)
+
+Q SCHOOL WINNER → 🎉 PROMOTED to World Tour
+
+Total promotions per season = 3 (top 2 + Q School winner)
+```
+
+### Relegation
+```
+BOTTOM 2 → 😞 Relegated to County Circuit
+  Lose REP + sponsors
+```
 
 ---
 
