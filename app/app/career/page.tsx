@@ -187,6 +187,36 @@ export default function CareerPage() {
         const noPlayableEvents = !homeData.next_event || homeData.next_event.event_type === 'season_end';
         const nextIsLeague = homeData.next_event?.event_type === 'league';
 
+        // Auto-skip stale tournament invites if player has moved past the trigger point
+        let skippedStale = false;
+        if (leagueGamesPlayed > 3 && leagueGamesPlayed !== 6) {
+          const { data: stale50 } = await supabase
+            .from('career_events').select('id')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('status', 'pending_invite').eq('event_type', 'open')
+            .gte('sequence_no', 50).lt('sequence_no', 60);
+          if (stale50 && stale50.length > 0) {
+            for (const e of stale50) await supabase.from('career_events').update({ status: 'skipped' }).eq('id', e.id);
+            skippedStale = true;
+          }
+        }
+        if (leagueGamesPlayed > 6) {
+          const { data: stale100 } = await supabase
+            .from('career_events').select('id')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('status', 'pending_invite').eq('event_type', 'open')
+            .gte('sequence_no', 100).lt('sequence_no', 110);
+          if (stale100 && stale100.length > 0) {
+            for (const e of stale100) await supabase.from('career_events').update({ status: 'skipped' }).eq('id', e.id);
+            skippedStale = true;
+          }
+        }
+        if (skippedStale) {
+          // Reload to clear stale pending invite from home RPC
+          const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+          if (refreshed && !refreshed.error) { setData(refreshed); setPendingInvite(null); setPendingInvites([]); setLoading(false); return; }
+        }
+
         // After match 3 or 6: check if tournament choices should be offered
         if ((leagueGamesPlayed === 3 || leagueGamesPlayed === 6) && nextIsLeague) {
           const seqBase = leagueGamesPlayed === 3 ? 50 : 100;
