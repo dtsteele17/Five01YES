@@ -178,6 +178,71 @@ export default function CareerPage() {
         }
       }
 
+      // Tier 3 County Circuit: tournament choices after match 3 and 6, mandatory tournament after match 9
+      if (homeData.career.tier === 3 && homeData.standings) {
+        const playerSt = homeData.standings.find((s: any) => s.is_player);
+        const totalOpponents = homeData.standings.filter((s: any) => !s.is_player).length;
+        const leagueGamesPlayed = playerSt?.played || 0;
+        const leagueDone = leagueGamesPlayed >= totalOpponents;
+        const noPlayableEvents = !homeData.next_event || homeData.next_event.event_type === 'season_end';
+        const nextIsLeague = homeData.next_event?.event_type === 'league';
+
+        // After match 3 or 6: check if tournament choices should be offered
+        if ((leagueGamesPlayed === 3 || leagueGamesPlayed === 6) && nextIsLeague) {
+          const seqBase = leagueGamesPlayed === 3 ? 50 : 100;
+          const { data: existingChoices } = await supabase
+            .from('career_events').select('id, status, event_name, bracket_size')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('event_type', 'open').gte('sequence_no', seqBase).lt('sequence_no', seqBase + 10);
+          
+          const hasPending = existingChoices?.some((e: any) => e.status === 'pending_invite');
+          
+          if (!existingChoices || existingChoices.length === 0) {
+            // Create tournament choices
+            try { await supabase.rpc('rpc_create_tier3_tournament_choice', { p_career_id: careerId }); } catch {}
+            const { data: newChoices } = await supabase
+              .from('career_events').select('id, event_name, bracket_size')
+              .eq('career_id', careerId).eq('status', 'pending_invite').eq('event_type', 'open')
+              .gte('sequence_no', seqBase).lt('sequence_no', seqBase + 10)
+              .order('sequence_no', { ascending: true });
+            if (newChoices && newChoices.length > 0) {
+              setPendingInvites(newChoices.map(inv => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
+              setShowInvitePopup(true);
+              setLoading(false);
+              return;
+            }
+          } else if (hasPending) {
+            const invites = existingChoices.filter((e: any) => e.status === 'pending_invite');
+            setPendingInvites(invites.map((inv: any) => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
+            setShowInvitePopup(true);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // After all 9 league matches: mandatory 32-player tournament (unless bottom 2)
+        if (leagueDone && noPlayableEvents) {
+          const { data: endSeasonEvents } = await supabase
+            .from('career_events').select('id, status')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('event_type', 'open').gte('sequence_no', 200);
+          
+          const allDone = endSeasonEvents && endSeasonEvents.length > 0 && endSeasonEvents.every((e: any) => e.status === 'completed' || e.status === 'skipped');
+          
+          if (!endSeasonEvents || endSeasonEvents.length === 0) {
+            try {
+              const { data: result } = await supabase.rpc('rpc_create_tier3_end_season_tournament', { p_career_id: careerId });
+              if (result?.excluded) {
+                // Bottom 2 - no tournament, go straight to season complete
+              } else {
+                const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+                if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+              }
+            } catch {}
+          }
+        }
+      }
+
       // Check if next event is a tournament choice — show popup
       if (homeData.next_event?.event_type === 'tournament_choice') {
         const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', { 
@@ -918,17 +983,9 @@ export default function CareerPage() {
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
-                          // County Circuit (Tier 3): structured championship
-                          if (career.tier === 3 && !showInvitePopup) {
-                            const supabase2 = createClient();
-                            const { data: champEvents } = await supabase2
-                              .from('career_events').select('id, status').eq('career_id', careerId)
-                              .in('event_type', ['county_championship_group', 'county_championship_knockout'])
-                              .gte('sequence_no', 300).limit(1);
-                            if (!champEvents || champEvents.length === 0) {
-                              const { data: champResult } = await supabase2.rpc('rpc_create_county_championship', { p_career_id: careerId });
-                              if (champResult?.success) { setShowChampionshipIntro(true); return; }
-                            }
+                          // Tier 3: tournament is mandatory and handled in loadCareer, so just advance
+                          if (career.tier === 3) {
+                            // Fall through to advanceToNextSeason below
                           }
                           // Regional Tour (Tier 4): Q School for 3rd-6th
                           else if (career.tier === 4 && !showInvitePopup) {
@@ -1728,14 +1785,14 @@ export default function CareerPage() {
                       className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm"
                       onClick={async () => {
                         const supabase = createClient();
-                        const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
+                        const rpcName = career.tier === 3 ? 'rpc_tier3_tournament_respond' : 'rpc_career_respond_tournament_invite';
+                        const { data: res, error } = await supabase.rpc(rpcName, {
                           p_career_id: careerId,
                           p_event_id: invite.event_id,
                           p_accept: true,
                         });
                         if (!error) {
                           toast.success(res?.message || 'Tournament accepted!');
-                          // Clear all invites (accept auto-declines the other on backend)
                           pendingInvites.forEach(inv => deleteEmail(`tournament-invite-${inv.event_id}`));
                           setPendingInvites([]);
                           setPendingInvite(null);
@@ -1751,7 +1808,8 @@ export default function CareerPage() {
                       className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold text-sm"
                       onClick={async () => {
                         const supabase = createClient();
-                        const { data: res, error } = await supabase.rpc('rpc_career_respond_tournament_invite', {
+                        const rpcName = career.tier === 3 ? 'rpc_tier3_tournament_respond' : 'rpc_career_respond_tournament_invite';
+                        const { data: res, error } = await supabase.rpc(rpcName, {
                           p_career_id: careerId,
                           p_event_id: invite.event_id,
                           p_accept: false,
@@ -1759,7 +1817,6 @@ export default function CareerPage() {
                         if (!error) {
                           toast.success(res?.message || 'Tournament declined.');
                           deleteEmail(`tournament-invite-${invite.event_id}`);
-                          // Remove this invite from the list
                           const remaining = pendingInvites.filter(inv => inv.event_id !== invite.event_id);
                           setPendingInvites(remaining);
                           if (remaining.length === 0) {

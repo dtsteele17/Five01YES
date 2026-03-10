@@ -68,9 +68,11 @@ BEGIN
 
   IF v_career.tier = 3 AND v_player_rank > 2 THEN
     IF EXISTS (
-      SELECT 1 FROM career_milestones
-      WHERE career_id = p_career_id AND season = v_career.season
-        AND milestone_type = 'tournament_win' AND title LIKE '%Championship%'
+      SELECT 1 FROM career_events ce
+      JOIN career_brackets cb ON cb.event_id = ce.id AND cb.career_id = ce.career_id
+      WHERE ce.career_id = p_career_id AND ce.season = v_career.season
+        AND ce.sequence_no >= 200 AND ce.event_type = 'open' AND ce.status = 'completed'
+        AND cb.status = 'completed' AND (cb.bracket_data->>'winnerId') = 'player'
     ) THEN
       v_is_tournament_promotion := TRUE;
     END IF;
