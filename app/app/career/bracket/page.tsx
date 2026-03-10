@@ -90,6 +90,16 @@ export default function CareerBracketPage() {
       setBracketId(existingBracket!.id);
       setBracket(existingBracket!.bracket_data);
       setLoading(false);
+      // Check for pending match result from sessionStorage
+      setTimeout(() => {
+        const resultStr = sessionStorage.getItem('career_bracket_result');
+        if (resultStr) {
+          sessionStorage.removeItem('career_bracket_result');
+          const result = JSON.parse(resultStr);
+          console.log('[BRACKET] Processing stored result (existing bracket):', result);
+          setPendingResult(result);
+        }
+      }, 100);
       return;
     }
 
