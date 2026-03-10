@@ -243,6 +243,71 @@ export default function CareerPage() {
         }
       }
 
+      // Tier 4 Regional Tour: mandatory tournaments after match 5, 10, and 14 (with T3 qualification)
+      if (homeData.career.tier === 4 && homeData.standings) {
+        const playerSt = homeData.standings.find((s: any) => s.is_player);
+        const totalOpponents = homeData.standings.filter((s: any) => !s.is_player).length;
+        const leagueGamesPlayed = playerSt?.played || 0;
+        const leagueDone = leagueGamesPlayed >= totalOpponents;
+        const noPlayableEvents = !homeData.next_event || homeData.next_event.event_type === 'season_end';
+        const nextIsLeague = homeData.next_event?.event_type === 'league';
+
+        // After match 5: Tournament 1 (32-player, mandatory)
+        if (leagueGamesPlayed === 5 && (nextIsLeague || noPlayableEvents)) {
+          const { data: t1 } = await supabase.from('career_events').select('id')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('event_type', 'open').gte('sequence_no', 50).lt('sequence_no', 60).limit(1);
+          if (!t1 || t1.length === 0) {
+            try { await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 1 }); } catch {}
+            const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+            if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+          }
+        }
+
+        // After match 10: Tournament 2 (32-player, mandatory)
+        if (leagueGamesPlayed === 10 && (nextIsLeague || noPlayableEvents)) {
+          const { data: t2 } = await supabase.from('career_events').select('id')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
+          if (!t2 || t2.length === 0) {
+            try { await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 2 }); } catch {}
+            const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+            if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+          }
+        }
+
+        // After match 14: Tournament 3 (64-player major, with qualification check)
+        if (leagueDone && noPlayableEvents) {
+          const { data: t3 } = await supabase.from('career_events').select('id, status')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .eq('event_type', 'open').gte('sequence_no', 200).limit(1);
+          const { data: qSchool } = await supabase.from('career_events').select('id, status')
+            .eq('career_id', careerId).eq('season', homeData.career.season)
+            .in('event_type', ['q_school_semi', 'q_school_final']);
+          
+          const t3Done = t3 && t3.length > 0 && t3.every((e: any) => e.status === 'completed' || e.status === 'skipped');
+          const qDone = qSchool && qSchool.length > 0 && qSchool.every((e: any) => e.status === 'completed' || e.status === 'skipped');
+          
+          if (!t3 || t3.length === 0) {
+            // Check qualification for Tournament 3
+            try {
+              const { data: qualResult } = await supabase.rpc('rpc_tier4_check_t3_qualification', { p_career_id: careerId });
+              if (qualResult?.auto_qualify || qualResult?.needs_qualifier) {
+                await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 3 });
+                const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+                if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+              }
+            } catch {}
+          } else if (!t3Done) {
+            // Tournament 3 in progress - will show as next event
+          } else if (t3Done && !qSchool?.length) {
+            // T3 done, check if Q School needed (3rd-6th)
+            // This is handled by Next Season button
+          }
+          // If everything done, fall through to Season Complete
+        }
+      }
+
       // Check if next event is a tournament choice — show popup
       if (homeData.next_event?.event_type === 'tournament_choice') {
         const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', { 
@@ -988,21 +1053,28 @@ export default function CareerPage() {
                             // Fall through to advanceToNextSeason below
                           }
                           // Regional Tour (Tier 4): Q School for 3rd-6th
-                          else if (career.tier === 4 && !showInvitePopup) {
+                          else if (career.tier === 4) {
                             const supabase2 = createClient();
                             const { data: qEvents } = await supabase2
-                              .from('career_events').select('id').eq('career_id', careerId)
-                              .in('event_type', ['q_school_semi', 'q_school_final']).limit(1);
+                              .from('career_events').select('id, status').eq('career_id', careerId)
+                              .eq('season', career.season)
+                              .in('event_type', ['q_school_semi', 'q_school_final']);
+                            const qAllDone = qEvents && qEvents.length > 0 && qEvents.every((e: any) => e.status === 'completed' || e.status === 'skipped');
                             if (!qEvents || qEvents.length === 0) {
                               if (playerRank >= 3 && playerRank <= 6) {
-                                const { data: qResult } = await supabase2.rpc('rpc_regional_tour_q_school', { p_career_id: careerId });
+                                const { data: qResult } = await supabase2.rpc('rpc_tier4_q_school', { p_career_id: careerId });
                                 if (qResult?.success) {
                                   setQSchoolData({ player_rank: qResult.player_rank, semi_opponent: qResult.semi_opponent, semi_opponent_rank: qResult.semi_opponent_rank });
                                   setShowQSchoolIntro(true);
                                   return;
                                 }
                               }
+                            } else if (!qAllDone) {
+                              // Q School in progress, reload to show next match
+                              loadCareer();
+                              return;
                             }
+                            // Q School done or not needed, fall through to advance
                           }
                           // Tier 2: tournament is mandatory and handled in loadCareer, so just advance
                           else if (career.tier === 2) {

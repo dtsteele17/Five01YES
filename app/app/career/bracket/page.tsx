@@ -221,7 +221,14 @@ export default function CareerBracketPage() {
         p_player_won_tournament: playerWon, p_player_eliminated_round: updated.playerEliminatedRound as any,
         p_total_rounds: updated.totalRounds as any,
       });
-      setTournamentResult({ ...completeData, placement: getPlacement(updated.playerEliminatedRound, updated.totalRounds, playerWon), playerWon });
+      const placement = getPlacement(updated.playerEliminatedRound, updated.totalRounds, playerWon);
+      setTournamentResult({ ...completeData, placement, playerWon });
+      // Award tournament league points for Tier 4 Regional Tour
+      try {
+        await supabase.rpc('rpc_tier4_award_tournament_points', {
+          p_career_id: careerId, p_event_id: eventId, p_placement: placement,
+        });
+      } catch {} // Silently fail if not Tier 4
       setShowResults(true);
     }
   }
