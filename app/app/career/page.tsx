@@ -958,7 +958,16 @@ export default function CareerPage() {
                           </Badge>
                         )}
                         <Badge className="bg-white/10 backdrop-blur-sm text-white/80 text-[11px] font-medium capitalize border border-white/5 px-2.5 py-0.5">
-                          {next_event.event_type.replace('_', ' ')}
+                          {next_event.event_type === 'open' ? 'Tournament'
+                            : next_event.event_type === 'league' ? 'League Match'
+                            : next_event.event_type === 'relegation_tournament' ? 'Tournament'
+                            : next_event.event_type === 'premier_league_match' ? 'Premier League'
+                            : next_event.event_type === 'pro_tour' ? 'Pro Tour'
+                            : next_event.event_type === 'county_championship_group' ? 'Championship Group'
+                            : next_event.event_type === 'county_championship_knockout' ? 'Championship Knockout'
+                            : next_event.event_type === 'q_school_semi' ? 'Q School Semi'
+                            : next_event.event_type === 'q_school_final' ? 'Q School Final'
+                            : next_event.event_type.replace(/_/g, ' ')}
                         </Badge>
                         {next_event.day && (
                           <Badge className="bg-slate-700/50 backdrop-blur-sm text-slate-300 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
