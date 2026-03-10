@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -133,13 +133,13 @@ export default function CareerPage() {
         router.push(`/app/career/season-end?careerId=${careerId}`);
         return;
       }
-
+      
       setData(homeData);
 
-      // Check if next event is a tournament choice â€" show popup
+      // Check if next event is a tournament choice — show popup
       if (homeData.next_event?.event_type === 'tournament_choice') {
-        const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', {
-          p_event_id: homeData.next_event.id
+        const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', { 
+          p_event_id: homeData.next_event.id 
         });
         if (options) {
           setTournamentChoiceEvent({ id: homeData.next_event.id, name: homeData.next_event.event_name });
@@ -193,23 +193,23 @@ export default function CareerPage() {
           .select('result, player_average, event_id')
           .eq('career_id', careerId)
           .in('result', ['win', 'loss']);
-
+        
         // Filter to current season by checking event season
         const { data: seasonEvents } = await supabase
           .from('career_events')
           .select('id, season')
           .eq('career_id', careerId)
           .eq('season', homeData.career.season);
-
+        
         const seasonEventIds = new Set((seasonEvents || []).map((e: any) => e.id));
         const currentSeasonMatches = (seasonMatches || []).filter((m: any) => seasonEventIds.has(m.event_id));
-
+        
         const played = currentSeasonMatches.length;
         const won = currentSeasonMatches.filter((m: any) => m.result === 'win').length;
         const lost = currentSeasonMatches.filter((m: any) => m.result === 'loss').length;
         const avgs = currentSeasonMatches.filter((m: any) => m.player_average > 0).map((m: any) => m.player_average);
         const average = avgs.length > 0 ? avgs.reduce((a: number, b: number) => a + b, 0) / avgs.length : 0;
-
+        
         setSeasonMatchStats({ played, won, lost, average });
       } catch (e) { /* ignore */ }
 
@@ -245,33 +245,33 @@ export default function CareerPage() {
       const winTournamentName = tournamentWin?.title || tournamentWin?.description?.replace('Won ', '') || 'the tournament';
 
       if (tournamentWin) {
-        newEmails.push({ id: `win-${tournamentWin.day || day}`, subject: `ðŸ† ${winTournamentName} â€" Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance â€" keep this form up and bigger stages await.`, type: 'win' });
+        newEmails.push({ id: `win-${tournamentWin.day || day}`, subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance — keep this form up and bigger stages await.`, type: 'win' });
       }
       if (leagueWin) {
-        newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: `ðŸ† ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
+        newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: `🏆 ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
       }
       // Sponsor offer email
       const sponsorOfferMilestone = milestones.find((m: any) => m.milestone_type === 'sponsor_offer');
       if (sponsorOfferMilestone) {
-        newEmails.push({
-          id: `sponsor-offer-${sponsorOfferMilestone.day || day}`,
-          subject: `ðŸ'¼ ${sponsorOfferMilestone.title}`,
-          body: `${sponsorOfferMilestone.description} Check your notifications â€" looks like you have a sponsorship offer!`,
-          type: 'sponsor_offer'
+        newEmails.push({ 
+          id: `sponsor-offer-${sponsorOfferMilestone.day || day}`, 
+          subject: `💼 ${sponsorOfferMilestone.title}`, 
+          body: `${sponsorOfferMilestone.description} Check your notifications — looks like you have a sponsorship offer!`, 
+          type: 'sponsor_offer' 
         });
       }
 
       if (hasPromotion) {
         const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Pro Tour', 5: 'Premier League' };
         const tierName = tierNames[tier] || `Tier ${tier}`;
-        newEmails.push({ id: `promo-${tier}`, subject: `Welcome to the ${tierName}!`, body: `You've earned your place. The ${tierName} is a step up â€" tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
+        newEmails.push({ id: `promo-${tier}`, subject: `Welcome to the ${tierName}!`, body: `You've earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
       }
       if (tournamentLoss && tier === 1 && !hasPromotion) {
         const nextType = homeData.next_event?.event_type;
         if (nextType === 'training') {
-          newEmails.push({ id: `regroup-${day}`, subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in â€" we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
+          newEmails.push({ id: `regroup-${day}`, subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in — we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
         } else if (nextType === 'trial_tournament') {
-          newEmails.push({ id: `retry-${day}`, subject: 'Here\'s Another Shot! ðŸŽ¯', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
+          newEmails.push({ id: `retry-${day}`, subject: 'Here\'s Another Shot! 🎯', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
         }
       }
       if (tier === 1 && day <= 1 && !tournamentLoss) {
@@ -300,7 +300,7 @@ export default function CareerPage() {
           });
           newEmails.unshift({
             id: `tournament-invite-${inviteEvents[0].id}`,
-            subject: `ðŸ† ${inviteEvents[0].event_name} â€" You're Invited!`,
+            subject: `🏆 ${inviteEvents[0].event_name} — You're Invited!`,
             body: `You've been invited to the ${inviteEvents[0].event_name}! A ${inviteEvents[0].bracket_size || 16}-player knockout tournament. Do you want to enter?`,
             type: 'tournament_invite',
             isNew: true,
@@ -328,32 +328,18 @@ export default function CareerPage() {
       localStorage.setItem(storageKey, JSON.stringify(allEmails.map(e => ({ ...e, isNew: false }))));
       setEmails(allEmails);
 
-      // Check if County Championship group stage just completed (all 3 group matches done, no knockout yet)
+      // Check if County Championship group stage just completed
       if (homeData.career.tier === 3) {
         const { data: groupEvents } = await supabase
-          .from('career_events')
-          .select('id, status')
-          .eq('career_id', homeData.career.id)
-          .eq('season', homeData.career.season)
-          .eq('event_type', 'county_championship_group');
-
+          .from('career_events').select('id, status').eq('career_id', homeData.career.id)
+          .eq('season', homeData.career.season).eq('event_type', 'county_championship_group');
         const allGroupDone = groupEvents && groupEvents.length === 3 && groupEvents.every((e: any) => e.status === 'completed');
-
         if (allGroupDone) {
-          // Check no knockout exists yet
           const { data: knockoutEvents } = await supabase
-            .from('career_events')
-            .select('id')
-            .eq('career_id', homeData.career.id)
-            .eq('season', homeData.career.season)
-            .eq('event_type', 'county_championship_knockout')
-            .limit(1);
-
+            .from('career_events').select('id').eq('career_id', homeData.career.id)
+            .eq('season', homeData.career.season).eq('event_type', 'county_championship_knockout').limit(1);
           if (!knockoutEvents || knockoutEvents.length === 0) {
-            // Show group results popup
-            const { data: groupData } = await supabase.rpc('rpc_get_county_championship_group', {
-              p_career_id: homeData.career.id,
-            });
+            const { data: groupData } = await supabase.rpc('rpc_get_county_championship_group', { p_career_id: homeData.career.id });
             if (groupData?.standings) {
               const sorted = [...groupData.standings].sort((a: any, b: any) => b.pts - a.pts || (b.lf - b.la) - (a.lf - a.la));
               const playerIdx = sorted.findIndex((s: any) => s.is_player);
@@ -438,7 +424,7 @@ export default function CareerPage() {
         'Rapid','The Gladiator','Venomous','Bulletproof','The Tornado',
         null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
       const arcs: string[] = ['scorer','finisher','grinder','streaky','clutch','allrounder'];
-      // Seeded pseudo-random using career ID characters â€" Fisher-Yates shuffle
+      // Seeded pseudo-random using career ID characters — Fisher-Yates shuffle
       const cid = data.career.id || '';
       const hash = (n: number) => {
         let h = 0; for (let c = 0; c < cid.length; c++) h = ((h << 5) - h + cid.charCodeAt(c) + n * 997) | 0;
@@ -471,7 +457,7 @@ export default function CareerPage() {
       // Simulate ranking fluctuations based on career day
       const careerDay = data.career.day || 1;
       const simulated = pool.map(p => {
-        // Each player's form fluctuates differently per day â€" some gain, some drop
+        // Each player's form fluctuates differently per day — some gain, some drop
         // Accumulate small rating changes over career days for natural drift
         // Each player gets a small shift per day that accumulates
         let ratingShift = 0;
@@ -579,7 +565,7 @@ export default function CareerPage() {
     setPlayingEvent(true);
     try {
       const { next_event } = data;
-
+      
       // For Tier 2+ league matches, go to weekly fixtures page first
       if (data.career.tier >= 2 && next_event.event_type === 'league') {
         router.push(`/app/career/week/${careerId}?careerId=${careerId}`);
@@ -631,33 +617,42 @@ export default function CareerPage() {
         const supabase = createClient();
         const { data: qualResult } = await supabase.rpc('rpc_regional_tour_t3_qualification', { p_career_id: careerId });
         if (qualResult?.error) { toast.error(qualResult.error); setPlayingEvent(false); return; }
-        if (qualResult?.auto_qualified) {
-          toast.success(qualResult.message, { duration: 5000 });
-        } else {
-          toast.info(qualResult.message, { duration: 5000 });
-        }
+        toast.info(qualResult.message, { duration: 5000 });
         await new Promise(r => setTimeout(r, 1500));
         loadCareer();
         setPlayingEvent(false);
         return;
       }
 
-      // Q School semi/final and Regional qual match â€" dartbot match BO9/BO7
+      // Q School semi/final and Regional qual match - dartbot match BO9/BO7
       if (['q_school_semi', 'q_school_final', 'regional_qual_match'].includes(next_event.event_type)) {
         const supabase = createClient();
         const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
         if (error) throw error;
         if (matchData?.error) throw new Error(matchData.error);
-
         const avg = matchData.bot_average || 60;
-        const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
-          : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
-          : avg <= 90 ? 'pro' : 'worldClass';
+        const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
         const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
-
         setConfig({
           mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
           bestOf: bestOfMap[matchData.best_of] || 'best-of-9', atcOpponent: 'bot',
+          career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
+        });
+        router.push('/app/play/training/501');
+        return;
+      }
+
+      // County Championship group match - launch as dartbot match (like league)
+      if (next_event.event_type === 'county_championship_group') {
+        const supabase = createClient();
+        const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
+        if (error) throw error;
+        if (matchData?.error) throw new Error(matchData.error);
+        const avg = matchData.bot_average || 55;
+        const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
+        setConfig({
+          mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
+          bestOf: 'best-of-5', atcOpponent: 'bot',
           career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
         });
         router.push('/app/play/training/501');
@@ -670,28 +665,7 @@ export default function CareerPage() {
         return;
       }
 
-      // County Championship group match â€" launch as dartbot match (like league)
-      if (next_event.event_type === 'county_championship_group') {
-        const supabase = createClient();
-        const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
-        if (error) throw error;
-        if (matchData?.error) throw new Error(matchData.error);
-
-        const avg = matchData.bot_average || 55;
-        const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
-          : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
-          : avg <= 90 ? 'pro' : 'worldClass';
-
-        setConfig({
-          mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
-          bestOf: 'best-of-5', atcOpponent: 'bot',
-          career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
-        });
-        router.push('/app/play/training/501');
-        return;
-      }
-
-      // Training event â†' pick a random training mode and route there
+      // Training event - pick a random training mode and route there
       if (next_event.event_type === 'training') {
         // Mark training event as completed
         const supabase = createClient();
@@ -708,7 +682,7 @@ export default function CareerPage() {
       if (matchData?.error) throw new Error(matchData.error);
       if (matchData?.skipped) {
         if (matchData.promoted) {
-          toast.success(`ðŸŽ‰ ${matchData.message}`, { duration: 5000 });
+          toast.success(`🎉 ${matchData.message}`, { duration: 5000 });
         } else {
           toast.info(matchData.message);
         }
@@ -764,7 +738,7 @@ export default function CareerPage() {
                         <tierCfg.icon className="w-5 h-5 text-white/60" />
                         <div className="flex-1">
                           <span className="font-bold text-white">{tierCfg.name}</span>
-                          <p className="text-sm text-slate-400">Season {save.season} â€¢ Week {save.week} â€¢ {save.difficulty}</p>
+                          <p className="text-sm text-slate-400">Season {save.season} • Week {save.week} • {save.difficulty}</p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-500" />
                       </div>
@@ -823,7 +797,7 @@ export default function CareerPage() {
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName
-    : next_event?.event_type === 'league' ? `Weekend League Night â€" Matchday ${leagueMatchday}`
+    : next_event?.event_type === 'league' ? `Weekend League Night — Matchday ${leagueMatchday}`
     : next_event?.event_name;
   const displayDay = Math.max(next_event?.day || 0, career.day || 0) || 1;
 
@@ -835,7 +809,7 @@ export default function CareerPage() {
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto space-y-4">
 
-        {/* â•â•â• TOP BAR: Name + Tier + REP â•â•â• */}
+        {/* ═══ TOP BAR: Name + Tier + REP ═══ */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => router.push('/app/play')} className="text-slate-400 hover:text-white px-2">
@@ -849,11 +823,11 @@ export default function CareerPage() {
                 <h1 className="font-black text-white text-lg leading-tight">{tierCfg.name}</h1>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-semibold ${diffInfo.color}`}>{diffInfo.label}</span>
-                  <span className="text-slate-600 text-xs">â€¢</span>
+                  <span className="text-slate-600 text-xs">•</span>
                   <span className="text-slate-400 text-xs">
                     {career.tier === 1 ? `Day ${displayDay}` : `S${career.season} W${career.week}`}
                   </span>
-                  <span className="text-slate-600 text-xs">â€¢</span>
+                  <span className="text-slate-600 text-xs">•</span>
                   <span className="text-slate-500 text-xs">Day {displayDay}</span>
                 </div>
               </div>
@@ -865,17 +839,17 @@ export default function CareerPage() {
               <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
               <span className="text-amber-400/60 text-[10px] font-medium">REP</span>
             </div>
-            {/* Form indicator â€" hidden until form tracking is implemented */}
+            {/* Form indicator — hidden until form tracking is implemented */}
           </div>
         </div>
 
-        {/* â•â•â• MAIN GRID: FIFA-style dashboard â•â•â• */}
+        {/* ═══ MAIN GRID: FIFA-style dashboard ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-          {/* â"€â"€â"€ LEFT COLUMN: Continue + Notifications â"€â"€â"€ */}
+          {/* ─── LEFT COLUMN: Continue + Notifications ─── */}
           <div className="lg:col-span-4 space-y-4">
 
-            {/* CONTINUE / NEXT EVENT â€" highlighted card */}
+            {/* CONTINUE / NEXT EVENT — highlighted card */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500/15 via-orange-600/10 to-slate-900/80 ring-1 ring-amber-500/30 shadow-lg shadow-amber-500/5">
                 {/* Decorative glow */}
@@ -896,112 +870,60 @@ export default function CareerPage() {
                         <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
                         <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
                         <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
-                        <p className="text-xs text-slate-500 mb-4">{willPromote ? 'ðŸŽ‰ Promotion secured!' : (career.tier >= 3 && playerRank > (totalLeagueOpponents + 1 - 2)) ? 'âš ï¸ Relegation...' : 'New season with fresh competition ahead.'}</p>
+                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured!' : (career.tier >= 3 && playerRank > (totalLeagueOpponents + 1 - 2)) ? '⚠️ Relegation...' : 'New season with fresh competition ahead.'}</p>
                       </div>
                       <Button
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
-                          // County Circuit (Tier 3): structured championship instead of random tournaments
+                          // County Circuit (Tier 3): structured championship
                           if (career.tier === 3 && !showInvitePopup) {
                             const supabase2 = createClient();
-
-                            // Check if championship already exists
                             const { data: champEvents } = await supabase2
-                              .from('career_events')
-                              .select('id, status')
-                              .eq('career_id', careerId)
+                              .from('career_events').select('id, status').eq('career_id', careerId)
                               .in('event_type', ['county_championship_group', 'county_championship_knockout'])
-                              .gte('sequence_no', 300)
-                              .limit(1);
-
+                              .gte('sequence_no', 300).limit(1);
                             if (!champEvents || champEvents.length === 0) {
-                              const { data: champResult } = await supabase2.rpc('rpc_create_county_championship', {
-                                p_career_id: careerId,
-                              });
-
-                              if (champResult?.excluded) {
-                                // Bottom 2 â€" skip to sponsor/advance
-                              } else if (champResult?.success) {
-                                setShowChampionshipIntro(true);
-                                return;
-                              }
+                              const { data: champResult } = await supabase2.rpc('rpc_create_county_championship', { p_career_id: careerId });
+                              if (champResult?.success) { setShowChampionshipIntro(true); return; }
                             }
                           }
                           // Regional Tour (Tier 4): Q School for 3rd-6th
                           else if (career.tier === 4 && !showInvitePopup) {
                             const supabase2 = createClient();
-                            // Check if Q School already exists
                             const { data: qEvents } = await supabase2
-                              .from('career_events')
-                              .select('id')
-                              .eq('career_id', careerId)
-                              .in('event_type', ['q_school_semi', 'q_school_final'])
-                              .limit(1);
-
+                              .from('career_events').select('id').eq('career_id', careerId)
+                              .in('event_type', ['q_school_semi', 'q_school_final']).limit(1);
                             if (!qEvents || qEvents.length === 0) {
-                              // Check if player is 3rd-6th (Q School eligible)
                               if (playerRank >= 3 && playerRank <= 6) {
-                                const { data: qResult } = await supabase2.rpc('rpc_regional_tour_q_school', {
-                                  p_career_id: careerId,
-                                });
+                                const { data: qResult } = await supabase2.rpc('rpc_regional_tour_q_school', { p_career_id: careerId });
                                 if (qResult?.success) {
-                                  setQSchoolData({
-                                    player_rank: qResult.player_rank,
-                                    semi_opponent: qResult.semi_opponent,
-                                    semi_opponent_rank: qResult.semi_opponent_rank,
-                                  });
+                                  setQSchoolData({ player_rank: qResult.player_rank, semi_opponent: qResult.semi_opponent, semi_opponent_rank: qResult.semi_opponent_rank });
                                   setShowQSchoolIntro(true);
                                   return;
                                 }
                               }
                             }
-                            // Top 2 or 7th+: go straight to advance
                           }
-                          // Other tiers: Offer end-of-season tournaments (Tier 2+, only if not already offered)
-                          else if (career.tier >= 2 && career.tier !== 3 && career.tier !== 4 && !showInvitePopup) {
+                          // Pub Leagues (Tier 2): random end-of-season tournaments
+                          else if (career.tier === 2 && !showInvitePopup) {
                             const supabase2 = createClient();
-
-                            // Check if tournaments were already offered/played this season
                             const { data: anyEndSeasonEvents } = await supabase2
-                              .from('career_events')
-                              .select('id, status')
-                              .eq('career_id', careerId)
-                              .eq('event_type', 'open')
-                              .gte('sequence_no', 200)
-                              .limit(1);
-
-                            // Only offer if never offered before this season
+                              .from('career_events').select('id, status').eq('career_id', careerId)
+                              .eq('event_type', 'open').gte('sequence_no', 200).limit(1);
                             if (!anyEndSeasonEvents || anyEndSeasonEvents.length === 0) {
-                              // Create tournament invites
-                              try {
-                                await supabase2.rpc('rpc_create_end_season_tournaments', {
-                                  p_career_id: careerId,
-                                });
-                              } catch { /* ignore */ }
-
-                              // Fetch the new invites
+                              try { await supabase2.rpc('rpc_create_end_season_tournaments', { p_career_id: careerId }); } catch { /* ignore */ }
                               const { data: newInvites } = await supabase2
-                                .from('career_events')
-                                .select('id, event_name, bracket_size')
-                                .eq('career_id', careerId)
-                                .eq('status', 'pending_invite')
-                                .eq('event_type', 'open')
-                                .order('sequence_no', { ascending: true });
-
+                                .from('career_events').select('id, event_name, bracket_size').eq('career_id', careerId)
+                                .eq('status', 'pending_invite').eq('event_type', 'open').order('sequence_no', { ascending: true });
                               if (newInvites && newInvites.length > 0) {
-                                setPendingInvites(newInvites.map(inv => ({
-                                  event_id: inv.id,
-                                  event_name: inv.event_name,
-                                  bracket_size: inv.bracket_size || 16,
-                                })));
+                                setPendingInvites(newInvites.map(inv => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
                                 setShowInvitePopup(true);
                                 return;
                               }
                             }
-                            // If already offered (played/declined/completed), skip straight to sponsor/advance
                           }
-
+                          
                           // Check for sponsor renewal before advancing
                           const supabase = createClient();
                           const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
@@ -1012,7 +934,7 @@ export default function CareerPage() {
                             setShowSponsorRenewal(true);
                             return;
                           }
-                          // No sponsor â€" advance directly
+                          // No sponsor — advance directly
                           await advanceToNextSeason();
                         }}
                       >
@@ -1088,7 +1010,7 @@ export default function CareerPage() {
                       </div>
                       <p className="text-slate-400 text-xs mb-3">{sponsorOffer.flavour_text}</p>
                       {sponsorOffer.objectives && sponsorOffer.objectives.length > 0 && (
-                        <p className="text-amber-400/70 text-[10px] mb-3">ðŸŽ¯ Goal: {sponsorOffer.objectives[0]?.description}</p>
+                        <p className="text-amber-400/70 text-[10px] mb-3">🎯 Goal: {sponsorOffer.objectives[0]?.description}</p>
                       )}
                       <div className="flex gap-2">
                         <Button
@@ -1144,9 +1066,9 @@ export default function CareerPage() {
                           {sp.rep_objectives && sp.rep_objectives.length > 0 && (
                             <div className={`text-[10px] mt-2 px-2 py-1.5 rounded-lg ${sp.objectives_progress?.completed ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/5'}`}>
                               {sp.objectives_progress?.completed ? (
-                                <span className="text-emerald-400 font-bold">âœ… Goal Reached! +10 REP</span>
+                                <span className="text-emerald-400 font-bold">✅ Goal Reached! +10 REP</span>
                               ) : (
-                                <span className="text-amber-400/70">ðŸŽ¯ Goal: {sp.rep_objectives[0]?.description}</span>
+                                <span className="text-amber-400/70">🎯 Goal: {sp.rep_objectives[0]?.description}</span>
                               )}
                             </div>
                           )}
@@ -1218,10 +1140,10 @@ export default function CareerPage() {
             </motion.div>
           </div>
 
-          {/* â"€â"€â"€ CENTER COLUMN: Tournament Draw (BIGGER) â"€â"€â"€ */}
+          {/* ─── CENTER COLUMN: Tournament Draw (BIGGER) ─── */}
           <div className="lg:col-span-5 space-y-4">
 
-            {/* Tournament Draw / Bracket Preview â€" LARGE */}
+            {/* Tournament Draw / Bracket Preview — LARGE */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
                 <div className="p-5">
@@ -1377,8 +1299,8 @@ export default function CareerPage() {
             {emails.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
                 <Card className={`border-0 backdrop-blur-sm shadow-lg ${
-                  emails.some(e => e.isNew)
-                    ? 'bg-cyan-500/10 ring-2 ring-cyan-400/40 shadow-cyan-500/10'
+                  emails.some(e => e.isNew) 
+                    ? 'bg-cyan-500/10 ring-2 ring-cyan-400/40 shadow-cyan-500/10' 
                     : 'bg-slate-800/40 ring-1 ring-white/[0.06]'
                 }`}>
                   <div className="p-5">
@@ -1393,8 +1315,8 @@ export default function CareerPage() {
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {emails.map((email) => (
                         <div key={email.id} className={`p-3 rounded-xl border group relative ${
-                          email.isNew
-                            ? 'bg-gradient-to-r from-cyan-500/15 to-cyan-500/5 border-cyan-400/30'
+                          email.isNew 
+                            ? 'bg-gradient-to-r from-cyan-500/15 to-cyan-500/5 border-cyan-400/30' 
                             : 'bg-gradient-to-r from-cyan-500/5 to-transparent border-cyan-500/10'
                         }`}>
                           <div className="flex items-start gap-2 mb-1">
@@ -1426,7 +1348,7 @@ export default function CareerPage() {
                                   // Update this email to accepted, remove all other tournament invites (auto-declined on backend)
                                   setEmails(prev => prev
                                     .filter(e => e.type !== 'tournament_invite' || e.id === email.id)
-                                    .map(e => e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('ðŸ† ', '').replace(' â€" You\'re Invited!', '')}. Good luck! ðŸŽ¯` } : e)
+                                    .map(e => e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('🏆 ', '').replace(' — You\'re Invited!', '')}. Good luck! 🎯` } : e)
                                   );
                                   setPendingInvites([]);
                                   setPendingInvite(null);
@@ -1454,8 +1376,8 @@ export default function CareerPage() {
                                   if (res?.error) { toast.error(res.error); return; }
                                   toast.success(res?.message || 'Tournament declined.');
                                   // Change email to show declined status
-                                  setEmails(prev => prev.map(e =>
-                                    e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! ðŸ'ª` } : e
+                                  setEmails(prev => prev.map(e => 
+                                    e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! 💪` } : e
                                   ));
                                   // Update pending invites list
                                   setPendingInvites(prev => prev.filter(inv => inv.event_id !== eventId));
@@ -1481,7 +1403,7 @@ export default function CareerPage() {
 
           </div>
 
-          {/* â"€â"€â"€ RIGHT COLUMN: World Rankings (always) â"€â"€â"€ */}
+          {/* ─── RIGHT COLUMN: World Rankings (always) ─── */}
           <div className="lg:col-span-3 space-y-4">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
@@ -1551,7 +1473,7 @@ export default function CareerPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-white text-xs font-semibold truncate">{award.title}</span>
-                                {award.count > 1 && <Badge className="bg-amber-500/20 text-amber-400 text-[9px] px-1 py-0 border-0">Ã-{award.count}</Badge>}
+                                {award.count > 1 && <Badge className="bg-amber-500/20 text-amber-400 text-[9px] px-1 py-0 border-0">×{award.count}</Badge>}
                               </div>
                               <p className="text-slate-500 text-[10px]">
                                 {award.days.length > 0 ? `Day ${award.days.join(', ')}` : ''}
@@ -1617,7 +1539,7 @@ export default function CareerPage() {
                           onClick={() => router.push(`/app/career/stats?id=${careerId}`)}
                           className="w-full text-center text-blue-400 hover:text-blue-300 text-[11px] font-medium mt-1 transition-colors"
                         >
-                          View All Time Stats â†'
+                          View All Time Stats →
                         </button>
                       </div>
                     );
@@ -1656,7 +1578,7 @@ export default function CareerPage() {
           </div>
         </div>
 
-        {/* â•â•â• DIALOGS â•â•â• */}
+        {/* ═══ DIALOGS ═══ */}
 
         {/* Tournament Choice (Tier 1 first event) */}
         <Dialog open={showTournamentChoice} onOpenChange={setShowTournamentChoice}>
@@ -1744,7 +1666,7 @@ export default function CareerPage() {
         </Dialog>
       </div>
 
-      {/* Tournament Invite Popup â€" forced decision (supports 1 or 2 invites side by side) */}
+      {/* Tournament Invite Popup — forced decision (supports 1 or 2 invites side by side) */}
       {showInvitePopup && pendingInvites.length > 0 && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div
@@ -1832,8 +1754,8 @@ export default function CareerPage() {
           >
             <Card className="border-0 bg-gradient-to-b from-slate-800 to-slate-900 ring-1 ring-purple-500/30 shadow-2xl overflow-hidden">
               <div className="p-6 text-center">
-                <div className="text-4xl mb-3">ðŸ'¼</div>
-                <h2 className="text-xl font-bold text-white mb-1">Season End â€" Sponsor Decision</h2>
+                <div className="text-4xl mb-3">💼</div>
+                <h2 className="text-xl font-bold text-white mb-1">Season End — Sponsor Decision</h2>
                 <p className="text-slate-400 text-sm mb-5">Your sponsorship deal is up for review.</p>
 
                 {/* Current sponsor - Renew option */}
@@ -1852,7 +1774,7 @@ export default function CareerPage() {
                     }}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-purple-400 font-bold uppercase">ðŸ"" Renew</span>
+                      <span className="text-xs text-purple-400 font-bold uppercase">🔄 Renew</span>
                     </div>
                     <div className="text-white font-bold">{sponsorRenewalData.current_sponsor.name}</div>
                     <p className="text-purple-300/60 text-xs">+{(sponsorRenewalData.current_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
@@ -1879,7 +1801,7 @@ export default function CareerPage() {
                     }}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-blue-400 font-bold uppercase">ðŸ"€ Switch to</span>
+                      <span className="text-xs text-blue-400 font-bold uppercase">🔀 Switch to</span>
                     </div>
                     <div className="text-white font-bold">{sponsorRenewalData.alternative_sponsor.name}</div>
                     <p className="text-blue-300/60 text-xs">+{(sponsorRenewalData.alternative_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
@@ -1900,7 +1822,7 @@ export default function CareerPage() {
                     await advanceToNextSeason();
                   }}
                 >
-                  Drop sponsor â€" go independent â†'
+                  Drop sponsor — go independent →
                 </button>
               </div>
             </Card>
@@ -1913,10 +1835,10 @@ export default function CareerPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
           <div className="relative max-w-lg w-full mx-4 bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl ring-1 ring-amber-500/30 shadow-2xl overflow-hidden">
             <div className="p-6 text-center">
-              <div className="text-4xl mb-3">ðŸ†</div>
+              <div className="text-4xl mb-3">🏆</div>
               <h2 className="text-xl font-bold text-white mb-1">Tournament Invitation</h2>
               <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league.</p>
-
+              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 {/* Option 1 */}
                 <button
@@ -1951,8 +1873,8 @@ export default function CareerPage() {
                 >
                   <div className="text-amber-400 text-lg font-bold mb-1">{tournamentOptions.option1.name}</div>
                   <div className="flex items-center gap-2 text-slate-400 text-xs">
-                    <span>ðŸ'¥ {tournamentOptions.option1.bracket_size} players</span>
-                    <span>â€¢</span>
+                    <span>👥 {tournamentOptions.option1.bracket_size} players</span>
+                    <span>•</span>
                     <span>{tournamentOptions.option1.format}</span>
                   </div>
                 </button>
@@ -1990,8 +1912,8 @@ export default function CareerPage() {
                 >
                   <div className="text-blue-400 text-lg font-bold mb-1">{tournamentOptions.option2.name}</div>
                   <div className="flex items-center gap-2 text-slate-400 text-xs">
-                    <span>ðŸ'¥ {tournamentOptions.option2.bracket_size} players</span>
-                    <span>â€¢</span>
+                    <span>👥 {tournamentOptions.option2.bracket_size} players</span>
+                    <span>•</span>
                     <span>{tournamentOptions.option2.format}</span>
                   </div>
                 </button>
@@ -2027,7 +1949,7 @@ export default function CareerPage() {
                   }
                 }}
               >
-                Decline both â€" continue with league â†'
+                Decline both — continue with league →
               </button>
             </div>
           </div>
@@ -2047,7 +1969,7 @@ export default function CareerPage() {
             <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-emerald-500/30 overflow-hidden">
               {/* Decorative top bar */}
               <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" />
-
+              
               <div className="p-8 text-center">
                 {/* Trophy animation */}
                 <motion.div
@@ -2094,7 +2016,7 @@ export default function CareerPage() {
                       loadCareer();
                     }}
                   >
-                    Let&apos;s Go! ðŸŽ¯
+                    Let&apos;s Go! 🎯
                   </Button>
                 </motion.div>
               </div>
@@ -2115,14 +2037,14 @@ export default function CareerPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-orange-500/10 to-red-500/20 rounded-2xl blur-xl" />
             <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-red-500/30 overflow-hidden">
               <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-red-500" />
-
+              
               <div className="p-8 text-center">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: 'spring', damping: 10 }}
                 >
-                  <div className="text-6xl mb-4">ðŸ"‰</div>
+                  <div className="text-6xl mb-4">📉</div>
                 </motion.div>
 
                 <motion.div
@@ -2167,7 +2089,7 @@ export default function CareerPage() {
                       loadCareer();
                     }}
                   >
-                    Time to Rebuild ðŸ'ª
+                    Time to Rebuild 💪
                   </Button>
                 </motion.div>
               </div>
@@ -2179,45 +2101,26 @@ export default function CareerPage() {
       {/* Q School Intro Popup */}
       {showQSchoolIntro && qSchoolData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="relative max-w-md w-full mx-4"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-amber-500/10 to-orange-500/20 rounded-2xl blur-xl" />
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative max-w-md w-full mx-4">
             <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-orange-500/30 overflow-hidden">
               <div className="h-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500" />
               <div className="p-8 text-center">
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', damping: 10 }}>
-                  <div className="text-6xl mb-4">ðŸŽ"</div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                  <h2 className="text-2xl font-black text-white mb-2">Q School</h2>
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30 mb-4">
-                    <span className="text-orange-400 font-bold text-sm">Your Last Shot at Promotion</span>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-                  <div className="text-left bg-slate-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
-                    <p className="text-slate-400 text-xs">You finished <span className="text-white font-bold">{qSchoolData.player_rank}{qSchoolData.player_rank === 3 ? 'rd' : 'th'}</span> in the league â€" top 2 auto-promoted, but you can still earn it.</p>
-                    <p className="text-white font-semibold mt-3">âš"ï¸ Semi-Final (BO9)</p>
-                    <p className="text-slate-400 text-xs">You vs <span className="text-orange-400 font-semibold">{qSchoolData.semi_opponent}</span> ({qSchoolData.player_rank}th vs {qSchoolData.semi_opponent_rank}th)</p>
-                    <p className="text-white font-semibold mt-3">ðŸ† Final (BO9)</p>
-                    <p className="text-slate-400 text-xs">Win the final â†' promoted to World Tour</p>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
-                  <Button
-                    className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white font-black py-3 text-base shadow-lg shadow-orange-500/30"
-                    onClick={() => {
-                      setShowQSchoolIntro(false);
-                      loadCareer();
-                    }}
-                  >
-                    Enter Q School ðŸŽ"
-                  </Button>
-                </motion.div>
+                <div className="text-6xl mb-4">&#x1F393;</div>
+                <h2 className="text-2xl font-black text-white mb-2">Q School</h2>
+                <div className="inline-block px-4 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30 mb-4">
+                  <span className="text-orange-400 font-bold text-sm">Your Last Shot at Promotion</span>
+                </div>
+                <div className="text-left bg-slate-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+                  <p className="text-slate-400 text-xs">You finished <span className="text-white font-bold">{qSchoolData.player_rank}th</span> in the league.</p>
+                  <p className="text-white font-semibold mt-3">Semi-Final (BO9)</p>
+                  <p className="text-slate-400 text-xs">You vs <span className="text-orange-400 font-semibold">{qSchoolData.semi_opponent}</span></p>
+                  <p className="text-white font-semibold mt-3">Final (BO9)</p>
+                  <p className="text-slate-400 text-xs">Win the final = promoted to World Tour</p>
+                </div>
+                <Button className="w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white font-black py-3"
+                  onClick={() => { setShowQSchoolIntro(false); loadCareer(); }}>
+                  Enter Q School
+                </Button>
               </div>
             </div>
           </motion.div>
@@ -2227,46 +2130,27 @@ export default function CareerPage() {
       {/* County Championship Intro Popup */}
       {showChampionshipIntro && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="relative max-w-md w-full mx-4"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-blue-500/10 to-purple-500/20 rounded-2xl blur-xl" />
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative max-w-md w-full mx-4">
             <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-purple-500/30 overflow-hidden">
               <div className="h-1.5 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500" />
               <div className="p-8 text-center">
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', damping: 10 }}>
-                  <div className="text-6xl mb-4">ðŸ†</div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                  <h2 className="text-2xl font-black text-white mb-2">County Championship</h2>
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
-                    <span className="text-purple-400 font-bold text-sm">End-of-Season Tournament</span>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-                  <div className="text-left bg-slate-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
-                    <p className="text-white font-semibold">ðŸ"‹ Group Stage</p>
-                    <p className="text-slate-400 text-xs">4 players, round-robin, Best of 5. Top 2 advance.</p>
-                    <p className="text-white font-semibold mt-3">âš"ï¸ Knockout Stage</p>
-                    <p className="text-slate-400 text-xs">32-player bracket. BO5 all rounds, Final = BO7.</p>
-                    <p className="text-white font-semibold mt-3">ðŸŽ¯ Win = Promotion</p>
-                    <p className="text-slate-400 text-xs">Win the knockout to earn promotion â€" even from 3rd place in the league!</p>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
-                  <Button
-                    className="w-full bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-400 hover:to-blue-500 text-white font-black py-3 text-base shadow-lg shadow-purple-500/30"
-                    onClick={() => {
-                      setShowChampionshipIntro(false);
-                      loadCareer();
-                    }}
-                  >
-                    Enter Championship ðŸ†
-                  </Button>
-                </motion.div>
+                <div className="text-6xl mb-4">&#x1F3C6;</div>
+                <h2 className="text-2xl font-black text-white mb-2">County Championship</h2>
+                <div className="inline-block px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
+                  <span className="text-purple-400 font-bold text-sm">End-of-Season Tournament</span>
+                </div>
+                <div className="text-left bg-slate-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+                  <p className="text-white font-semibold">Group Stage</p>
+                  <p className="text-slate-400 text-xs">4 players, round-robin, Best of 5. Top 2 advance.</p>
+                  <p className="text-white font-semibold mt-3">Knockout Stage</p>
+                  <p className="text-slate-400 text-xs">32-player bracket. BO5 all rounds, Final = BO7.</p>
+                  <p className="text-white font-semibold mt-3">Win = Promotion</p>
+                  <p className="text-slate-400 text-xs">Win the knockout to earn promotion!</p>
+                </div>
+                <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-600 text-white font-black py-3"
+                  onClick={() => { setShowChampionshipIntro(false); loadCareer(); }}>
+                  Enter Championship
+                </Button>
               </div>
             </div>
           </motion.div>
@@ -2276,19 +2160,11 @@ export default function CareerPage() {
       {/* County Championship Group Results Popup */}
       {showGroupResults && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="relative max-w-md w-full mx-4"
-          >
-            <div className={`absolute inset-0 bg-gradient-to-br ${groupQualified ? 'from-emerald-500/20 via-teal-500/10 to-emerald-500/20' : 'from-red-500/20 via-orange-500/10 to-red-500/20'} rounded-2xl blur-xl`} />
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative max-w-md w-full mx-4">
             <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-white/10 overflow-hidden">
               <div className={`h-1.5 ${groupQualified ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-red-500 to-orange-500'}`} />
               <div className="p-6 text-center">
                 <h2 className="text-xl font-black text-white mb-3">Group Stage Results</h2>
-
-                {/* Mini standings table */}
                 <div className="bg-slate-800/50 rounded-lg overflow-hidden mb-4">
                   <table className="w-full text-xs">
                     <thead>
@@ -2297,63 +2173,37 @@ export default function CareerPage() {
                         <th className="text-left py-2 px-2">Player</th>
                         <th className="text-center py-2 px-1">W</th>
                         <th className="text-center py-2 px-1">L</th>
-                        <th className="text-center py-2 px-1">LF</th>
-                        <th className="text-center py-2 px-1">LA</th>
-                        <th className="text-center py-2 px-1 font-bold">Pts</th>
+                        <th className="text-center py-2 px-1">Pts</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[...groupStandings]
-                        .sort((a, b) => b.pts - a.pts || (b.lf - b.la) - (a.lf - a.la))
-                        .map((s, i) => (
-                          <tr key={i} className={`border-b border-white/5 ${s.is_player ? 'bg-emerald-500/10' : ''} ${i < 2 ? '' : 'opacity-50'}`}>
-                            <td className="py-2 px-3 text-slate-500">{i + 1}</td>
-                            <td className={`py-2 px-2 font-medium ${s.is_player ? 'text-emerald-400' : 'text-white'}`}>{s.name}</td>
-                            <td className="text-center py-2 px-1 text-emerald-400">{s.w}</td>
-                            <td className="text-center py-2 px-1 text-red-400">{s.l}</td>
-                            <td className="text-center py-2 px-1 text-slate-400">{s.lf}</td>
-                            <td className="text-center py-2 px-1 text-slate-400">{s.la}</td>
-                            <td className="text-center py-2 px-1 text-white font-bold">{s.pts}</td>
-                          </tr>
-                        ))}
+                      {[...groupStandings].sort((a, b) => b.pts - a.pts || (b.lf - b.la) - (a.lf - a.la)).map((s, i) => (
+                        <tr key={i} className={`border-b border-white/5 ${s.is_player ? 'bg-emerald-500/10' : ''} ${i >= 2 ? 'opacity-50' : ''}`}>
+                          <td className="py-2 px-3 text-slate-500">{i + 1}</td>
+                          <td className={`py-2 px-2 font-medium ${s.is_player ? 'text-emerald-400' : 'text-white'}`}>{s.name}</td>
+                          <td className="text-center py-2 px-1 text-emerald-400">{s.w}</td>
+                          <td className="text-center py-2 px-1 text-red-400">{s.l}</td>
+                          <td className="text-center py-2 px-1 text-white font-bold">{s.pts}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
-
                 {groupQualified ? (
-                  <div className="mb-4">
-                    <p className="text-emerald-400 font-bold text-sm">âœ… Qualified for the 32-player knockout!</p>
-                    <p className="text-slate-400 text-xs mt-1">BO5 all rounds. Final = BO7.</p>
-                  </div>
+                  <p className="text-emerald-400 font-bold text-sm mb-4">Qualified for the 32-player knockout!</p>
                 ) : (
-                  <div className="mb-4">
-                    <p className="text-red-400 font-bold text-sm">âŒ Eliminated in the group stage</p>
-                    <p className="text-slate-400 text-xs mt-1">Finished {groupPlayerRank}{groupPlayerRank === 3 ? 'rd' : 'th'} â€" only top 2 advance.</p>
-                  </div>
+                  <p className="text-red-400 font-bold text-sm mb-4">Eliminated in the group stage</p>
                 )}
-
-                <Button
-                  className={`w-full font-black py-3 text-base shadow-lg ${
-                    groupQualified
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white'
-                      : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white'
-                  }`}
+                <Button className={`w-full font-black py-3 ${groupQualified ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white' : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white'}`}
                   onClick={async () => {
                     setShowGroupResults(false);
                     if (groupQualified) {
-                      // Advance to knockout
                       const supabase = createClient();
-                      const { data: knockoutResult } = await supabase.rpc('rpc_county_championship_to_knockout', {
-                        p_career_id: careerId,
-                      });
-                      if (knockoutResult?.qualified) {
-                        toast.success('Knockout bracket created!');
-                      }
+                      await supabase.rpc('rpc_county_championship_to_knockout', { p_career_id: careerId });
                     }
                     loadCareer();
-                  }}
-                >
-                  {groupQualified ? 'Enter Knockout Stage âš"ï¸' : 'Continue'}
+                  }}>
+                  {groupQualified ? 'Enter Knockout Stage' : 'Continue'}
                 </Button>
               </div>
             </div>
