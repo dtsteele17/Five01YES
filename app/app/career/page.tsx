@@ -1217,7 +1217,8 @@ export default function CareerPage() {
                                   );
                                   setPendingInvites([]);
                                   setPendingInvite(null);
-                                  loadCareer();
+                                  // Delay reload to ensure DB commit completes
+                                  setTimeout(() => loadCareer(), 500);
                                 }}
                               >
                                 Accept
@@ -1245,7 +1246,7 @@ export default function CareerPage() {
                                   ));
                                   // Update pending invites list
                                   setPendingInvites(prev => prev.filter(inv => inv.event_id !== eventId));
-                                  loadCareer();
+                                  setTimeout(() => loadCareer(), 500);
                                 }}
                               >
                                 Decline
