@@ -51,9 +51,11 @@ export default function CareerBracketPage() {
 
   useEffect(() => {
     const resultStr = sessionStorage.getItem('career_bracket_result');
+    console.log('[BRACKET] useEffect check:', { hasResult: !!resultStr, hasBracket: !!bracket, bracketId });
     if (resultStr && bracket && bracketId) {
       sessionStorage.removeItem('career_bracket_result');
       const result = JSON.parse(resultStr);
+      console.log('[BRACKET] Processing stored result:', result);
       handleMatchResult(result.won, result.playerLegs, result.opponentLegs);
     }
   }, [bracket, bracketId]);
@@ -173,16 +175,22 @@ export default function CareerBracketPage() {
   }
 
   async function handleMatchResult(won: boolean, playerLegs: number, opponentLegs: number) {
-    if (!bracket || !bracketId || !careerId || !eventId) return;
+    if (!bracket || !bracketId || !careerId || !eventId) {
+      console.error('[BRACKET] handleMatchResult: missing data', { bracket: !!bracket, bracketId, careerId, eventId });
+      return;
+    }
+    console.log('[BRACKET] Processing result:', { won, playerLegs, opponentLegs, currentRound: bracket.currentRound });
     const updated = processRoundAfterPlayerMatch(bracket, won, playerLegs, opponentLegs, formatLegs);
+    console.log('[BRACKET] After process:', { newRound: updated.currentRound, completed: updated.completed, playerEliminated: updated.playerEliminated });
     setBracket(updated);
     const supabase = createClient();
     // Save bracket state directly to table (more reliable than RPC)
-    await supabase.from('career_brackets').update({
+    const { error: saveError } = await supabase.from('career_brackets').update({
       bracket_data: updated as any,
       current_round: updated.currentRound,
       status: updated.completed ? 'completed' : 'active',
     }).eq('id', bracketId);
+    if (saveError) console.error('[BRACKET] Save error:', saveError);
     if (updated.completed) {
       const playerWon = updated.winnerId === 'player';
       const { data: completeData } = await supabase.rpc('rpc_career_complete_bracket_event', {
@@ -246,7 +254,7 @@ export default function CareerBracketPage() {
     const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
       : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
       : avg <= 90 ? 'pro' : 'worldClass';
-    const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' };
+    const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
     setConfig({
       mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
       bestOf: bestOfMap[formatLegs] || 'best-of-3', atcOpponent: 'bot',
