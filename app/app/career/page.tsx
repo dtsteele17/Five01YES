@@ -725,12 +725,7 @@ export default function CareerPage() {
               <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
               <span className="text-amber-400/60 text-[10px] font-medium">REP</span>
             </div>
-            {typeof career.form === 'number' && isFinite(career.form) && career.form !== 0 && (
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${career.form > 0 ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
-                <TrendingUp className="w-3 h-3" />
-                {career.form > 0 ? '+' : ''}{(career.form * 100).toFixed(0)}%
-              </div>
-            )}
+            {/* Form indicator — hidden until form tracking is implemented */}
           </div>
         </div>
 

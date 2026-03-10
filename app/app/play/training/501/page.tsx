@@ -665,6 +665,9 @@ export default function DartbotMatchPage() {
   const [player2CheckoutsMade, setPlayer2CheckoutsMade] = useState(0);
   const [player2CheckoutAttempts, setPlayer2CheckoutAttempts] = useState(0);
   const [showDartsAtDoubleModal, setShowDartsAtDoubleModal] = useState(false);
+  const [showCheckoutDartsModal, setShowCheckoutDartsModal] = useState(false);
+  const [checkoutDartsThrown, setCheckoutDartsThrown] = useState(0);
+  const [pendingCheckoutScore, setPendingCheckoutScore] = useState(0);
   const [pendingVisitData, setPendingVisitData] = useState<{ score: number; minDarts: 1 | 2 | 3; isCheckout: boolean } | null>(null);
   const botTimerRef = useRef<number | null>(null);
   const botTurnIdRef = useRef(0);
@@ -1399,17 +1402,15 @@ export default function DartbotMatchPage() {
     const isCheckout = newScore === 0;
     const isCheckoutAttempt = currentScore <= 50 && currentScore > 0;
     
-    // IMPORTANT: For typed scores, checkout does NOT require double-out
-    // The user is entering their actual score, so if they say they checked out, they did
+    // For typed checkout: ask how many darts thrown, then how many at double
     if (isCheckout) {
-      // Allow checkout without double-out verification for typed scores
-      setPlayer1TotalDartsAtDouble(prev => prev + 1);
-      setPlayer1CheckoutsMade(prev => prev + 1);
-      handleScoreSubmit(score, 3, undefined, true, 1);
+      setPendingCheckoutScore(score);
+      setShowCheckoutDartsModal(true);
       setScoreInput('');
       return;
     }
     
+    // For checkout attempts (within range but didn't check out): ask darts at double
     if (isCheckoutAttempt && doubleOut) { setPendingVisitData({ score, minDarts: 3, isCheckout }); setShowDartsAtDoubleModal(true); }
     else { handleScoreSubmit(score, 3, undefined, true, 0); setScoreInput(''); }
   };
@@ -2247,6 +2248,57 @@ export default function DartbotMatchPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Checkout Darts Modal — Step 1: How many darts thrown? */}
+      {showCheckoutDartsModal && checkoutDartsThrown === 0 && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-2xl border border-emerald-500/30 p-6 max-w-xs w-full mx-4 text-center">
+            <h3 className="text-white font-bold text-lg mb-1">Checkout! 🎯</h3>
+            <p className="text-slate-400 text-sm mb-4">How many darts thrown this visit?</p>
+            <div className="flex gap-3 justify-center">
+              {[1, 2, 3].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  className="w-16 h-16 rounded-xl bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 active:scale-95 text-emerald-400 font-bold text-xl transition-all cursor-pointer"
+                  onClick={() => setCheckoutDartsThrown(n)}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Darts Modal — Step 2: How many darts at double? */}
+      {showCheckoutDartsModal && checkoutDartsThrown > 0 && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-2xl border border-amber-500/30 p-6 max-w-xs w-full mx-4 text-center">
+            <h3 className="text-white font-bold text-lg mb-1">Darts at Double</h3>
+            <p className="text-slate-400 text-sm mb-4">How many darts were thrown at a double?</p>
+            <div className="flex gap-3 justify-center">
+              {Array.from({ length: checkoutDartsThrown }, (_, i) => i + 1).map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  className="w-16 h-16 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 active:scale-95 text-amber-400 font-bold text-xl transition-all cursor-pointer"
+                  onClick={() => {
+                    setPlayer1TotalDartsAtDouble(prev => prev + n);
+                    setPlayer1CheckoutsMade(prev => prev + 1);
+                    handleScoreSubmit(pendingCheckoutScore, checkoutDartsThrown, undefined, true, n);
+                    setShowCheckoutDartsModal(false);
+                    setCheckoutDartsThrown(0);
+                    setPendingCheckoutScore(0);
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
