@@ -62,6 +62,7 @@ export default function WeekFixtures() {
 
   async function loadWeekFixtures() {
     setLoading(true);
+    console.log('[WEEK] Loading fixtures', { careerId, showResultsEventId });
     try {
       const supabase = createClient();
       
@@ -90,8 +91,10 @@ export default function WeekFixtures() {
         setWeekData(fixScores(data));
       }
     } catch (err: any) {
+      console.error('[WEEK] Error loading fixtures:', err);
       toast.error('Failed to load fixtures');
     } finally {
+      console.log('[WEEK] Fixtures loaded:', weekData ? 'yes' : 'null');
       setLoading(false);
     }
   }
@@ -147,7 +150,7 @@ export default function WeekFixtures() {
       const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
         : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
         : avg <= 90 ? 'pro' : 'worldClass';
-      const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11' };
+      const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
 
       const opponentName = playerFixture.away_team;
       
