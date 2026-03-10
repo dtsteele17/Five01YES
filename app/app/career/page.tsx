@@ -726,51 +726,46 @@ export default function CareerPage() {
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
-                          // Offer end-of-season tournaments (Tier 2+)
+                          // Offer end-of-season tournaments (Tier 2+, only if not already offered)
                           if (career.tier >= 2 && !showInvitePopup) {
-                            const supabase = createClient();
-                            // Create tournament invites if they don't exist yet
-                            const { data: existingInvites } = await supabase
+                            const supabase2 = createClient();
+                            
+                            // Check if tournaments were already offered/played this season
+                            const { data: anyEndSeasonEvents } = await supabase2
                               .from('career_events')
-                              .select('id, event_name, bracket_size')
+                              .select('id, status')
                               .eq('career_id', careerId)
-                              .eq('status', 'pending_invite')
                               .eq('event_type', 'open')
-                              .order('sequence_no', { ascending: true });
+                              .gte('sequence_no', 200)
+                              .limit(1);
                             
-                            if (existingInvites && existingInvites.length > 0) {
-                              setPendingInvites(existingInvites.map(inv => ({
-                                event_id: inv.id,
-                                event_name: inv.event_name,
-                                bracket_size: inv.bracket_size || 16,
-                              })));
-                              setShowInvitePopup(true);
-                              return;
+                            // Only offer if never offered before this season
+                            if (!anyEndSeasonEvents || anyEndSeasonEvents.length === 0) {
+                              // Create tournament invites
+                              await supabase2.rpc('rpc_create_end_season_tournaments', {
+                                p_career_id: careerId,
+                              }).catch(() => null);
+                              
+                              // Fetch the new invites
+                              const { data: newInvites } = await supabase2
+                                .from('career_events')
+                                .select('id, event_name, bracket_size')
+                                .eq('career_id', careerId)
+                                .eq('status', 'pending_invite')
+                                .eq('event_type', 'open')
+                                .order('sequence_no', { ascending: true });
+                              
+                              if (newInvites && newInvites.length > 0) {
+                                setPendingInvites(newInvites.map(inv => ({
+                                  event_id: inv.id,
+                                  event_name: inv.event_name,
+                                  bracket_size: inv.bracket_size || 16,
+                                })));
+                                setShowInvitePopup(true);
+                                return;
+                              }
                             }
-                            
-                            // Create new tournament invites via RPC
-                            await supabase.rpc('rpc_create_end_season_tournaments', {
-                              p_career_id: careerId,
-                            }).catch(() => null);
-                            
-                            // Re-fetch invites after creation
-                            const { data: newInvites } = await supabase
-                              .from('career_events')
-                              .select('id, event_name, bracket_size')
-                              .eq('career_id', careerId)
-                              .eq('status', 'pending_invite')
-                              .eq('event_type', 'open')
-                              .order('sequence_no', { ascending: true });
-                            
-                            if (newInvites && newInvites.length > 0) {
-                              setPendingInvites(newInvites.map(inv => ({
-                                event_id: inv.id,
-                                event_name: inv.event_name,
-                                bracket_size: inv.bracket_size || 16,
-                              })));
-                              setShowInvitePopup(true);
-                              return;
-                            }
+                            // If already offered (played/declined/completed), skip straight to sponsor/advance
                           }
                           
                           // Check for sponsor renewal before advancing

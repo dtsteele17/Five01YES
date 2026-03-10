@@ -37,11 +37,11 @@ BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id AND user_id = auth.uid();
   IF NOT FOUND THEN RETURN json_build_object('error', 'Career not found'); END IF;
   
-  -- Check no invites already exist
+  -- Check if end-of-season tournaments already exist (any status — offered, accepted, completed, skipped)
   IF EXISTS (
     SELECT 1 FROM career_events 
     WHERE career_id = p_career_id AND season = v_career.season 
-      AND event_type = 'open' AND status = 'pending_invite'
+      AND event_type = 'open' AND sequence_no >= 200
   ) THEN
     RETURN json_build_object('already_exists', true);
   END IF;
