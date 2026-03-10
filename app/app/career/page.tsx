@@ -659,7 +659,7 @@ export default function CareerPage() {
         return;
       }
 
-      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_tour_players_championship', 'pro_tour_open', 'pro_tour_major'];
+      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_tour_players_championship', 'pro_tour_open', 'pro_tour_major', 'relegation_tournament'];
       if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
         router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
         return;
