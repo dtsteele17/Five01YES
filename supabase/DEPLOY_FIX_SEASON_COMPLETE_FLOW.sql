@@ -38,18 +38,28 @@ BEGIN
   FROM career_league_standings
   WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE;
 
-  -- Get next event — include pending_invite and tournament_choice
+  -- Get next event — only active/pending events (NOT pending_invite — those stay in emails)
   SELECT ce.* INTO v_next_event 
   FROM career_events ce
   WHERE ce.career_id = p_career_id 
-    AND ce.status IN ('active', 'pending', 'pending_invite', 'tournament_choice')
+    AND ce.status IN ('active', 'pending')
     AND ce.season = v_career.season
   ORDER BY 
     CASE WHEN ce.status = 'active' THEN 0 ELSE 1 END,
     CASE WHEN ce.event_type IN ('open', 'qualifier', 'major', 'season_finals', 'tournament_choice') THEN 0 ELSE 1 END,
-    CASE WHEN ce.status = 'pending_invite' THEN 0 ELSE 1 END,
     ce.sequence_no ASC
   LIMIT 1;
+  
+  -- If no active/pending events, check for pending_invite (end-of-season tournament)
+  IF v_next_event.id IS NULL THEN
+    SELECT ce.* INTO v_next_event 
+    FROM career_events ce
+    WHERE ce.career_id = p_career_id 
+      AND ce.status = 'pending_invite'
+      AND ce.season = v_career.season
+    ORDER BY ce.sequence_no ASC
+    LIMIT 1;
+  END IF;
 
   IF v_next_event.id IS NOT NULL THEN
     SELECT cm.* INTO v_next_match

@@ -650,7 +650,7 @@ export default function CareerPage() {
   // Season is only complete when all league matches done AND no pending/active tournaments remain
   const leagueMatchesDone = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
   const hasPendingTournament = next_event && ['open', 'tournament_choice'].includes(next_event.event_type);
-  const hasPendingInvites = pendingInvites.length > 0;
+  const hasPendingInvites = pendingInvites.length > 0 || (next_event?.status === 'pending_invite');
   const seasonComplete = leagueMatchesDone && !hasPendingTournament && !hasPendingInvites;
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
@@ -697,7 +697,7 @@ export default function CareerPage() {
               <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
               <span className="text-amber-400/60 text-[10px] font-medium">REP</span>
             </div>
-            {career.form != null && !isNaN(career.form) && career.form !== 0 && (
+            {typeof career.form === 'number' && isFinite(career.form) && career.form !== 0 && (
               <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${career.form > 0 ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
                 <TrendingUp className="w-3 h-3" />
                 {career.form > 0 ? '+' : ''}{(career.form * 100).toFixed(0)}%
@@ -762,7 +762,7 @@ export default function CareerPage() {
                         Next Season
                       </Button>
                     </>
-                  ) : next_event && (next_event.status === 'pending_invite' || next_event.event_type === 'tournament_choice') ? (
+                  ) : next_event && leagueMatchesDone && (next_event.status === 'pending_invite' || next_event.event_type === 'tournament_choice') ? (
                     <>
                       <div className="text-center py-2">
                         <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
