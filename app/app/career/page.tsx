@@ -269,9 +269,35 @@ export default function CareerPage() {
         newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
 
-      // Clear any stale pending invites (tournaments now offered via Next Season button)
-      setPendingInvites([]);
-      setPendingInvite(null);
+      // Check for pending mid-season tournament invites
+      try {
+        const { data: inviteEvents } = await supabase
+          .from('career_events')
+          .select('id, event_name, bracket_size')
+          .eq('career_id', careerId)
+          .eq('status', 'pending_invite')
+          .eq('event_type', 'open')
+          .lt('sequence_no', 200)
+          .order('sequence_no', { ascending: true })
+          .limit(1);
+        if (inviteEvents && inviteEvents.length > 0) {
+          setPendingInvite({
+            event_id: inviteEvents[0].id,
+            event_name: inviteEvents[0].event_name,
+            bracket_size: inviteEvents[0].bracket_size || 16,
+          });
+          newEmails.unshift({
+            id: `tournament-invite-${inviteEvents[0].id}`,
+            subject: `🏆 ${inviteEvents[0].event_name} — You're Invited!`,
+            body: `You've been invited to the ${inviteEvents[0].event_name}! A ${inviteEvents[0].bracket_size || 16}-player knockout tournament. Do you want to enter?`,
+            type: 'tournament_invite',
+            isNew: true,
+          });
+        } else {
+          setPendingInvite(null);
+        }
+        setPendingInvites([]);
+      } catch (e) { setPendingInvite(null); setPendingInvites([]); }
       if (newEmails.length === 0) {
         newEmails.push({ id: `default-${day}`, subject: 'Keep Going!', body: 'Your journey continues. Every match is a chance to prove yourself.', type: 'default' });
       }
@@ -491,7 +517,11 @@ export default function CareerPage() {
       return;
     }
 
-    // Mid-season tournament invites removed — tournaments now offered via Next Season button
+    // If there's a pending mid-season tournament invite, force user to decide before continuing
+    if (pendingInvite && data.next_event?.event_type === 'league') {
+      setShowInvitePopup(true);
+      return;
+    }
 
     setPlayingEvent(true);
     try {
