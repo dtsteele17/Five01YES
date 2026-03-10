@@ -679,7 +679,8 @@ export default function CareerPage() {
   const leagueMatchesDone = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
   const hasPendingTournament = next_event && ['open', 'tournament_choice'].includes(next_event.event_type);
   const hasPendingInvites = pendingInvites.length > 0 || (next_event?.status === 'pending_invite');
-  const seasonComplete = leagueMatchesDone && !hasPendingTournament && !hasPendingInvites;
+  // Season is only complete when league done AND no events remain at all
+  const seasonComplete = leagueMatchesDone && !hasPendingTournament && !hasPendingInvites && !next_event;
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName
