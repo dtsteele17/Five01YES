@@ -803,8 +803,8 @@ export default function CareerPage() {
   const leagueMatchday = playerStanding ? (playerStanding.played || 0) + 1 : 1;
   // Season is only complete when all league matches done AND no pending/active tournaments remain
   const leagueMatchesDone = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
-  const hasRemainingEvents = next_event != null;
-  // Season is only complete when league done AND no events remain
+  // A 'season_end' event is a marker, not playable - treat as no remaining events
+  const hasRemainingEvents = next_event != null && next_event.event_type !== 'season_end';
   const seasonComplete = leagueMatchesDone && !hasRemainingEvents;
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
