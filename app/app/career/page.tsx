@@ -772,9 +772,11 @@ export default function CareerPage() {
                             // Only offer if never offered before this season
                             if (!anyEndSeasonEvents || anyEndSeasonEvents.length === 0) {
                               // Create tournament invites
-                              await supabase2.rpc('rpc_create_end_season_tournaments', {
-                                p_career_id: careerId,
-                              }).catch(() => null);
+                              try {
+                                await supabase2.rpc('rpc_create_end_season_tournaments', {
+                                  p_career_id: careerId,
+                                });
+                              } catch { /* ignore */ }
                               
                               // Fetch the new invites
                               const { data: newInvites } = await supabase2
