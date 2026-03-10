@@ -103,6 +103,11 @@ export default function CareerPage() {
   const [showSponsorRenewal, setShowSponsorRenewal] = useState(false);
   const [sponsorRenewalData, setSponsorRenewalData] = useState<any>(null);
   const [processingRenewal, setProcessingRenewal] = useState(false);
+  const [showChampionshipIntro, setShowChampionshipIntro] = useState(false);
+  const [showGroupResults, setShowGroupResults] = useState(false);
+  const [groupStandings, setGroupStandings] = useState<any[]>([]);
+  const [groupQualified, setGroupQualified] = useState<boolean | null>(null);
+  const [groupPlayerRank, setGroupPlayerRank] = useState<number>(0);
 
   useEffect(() => { loadCareer(); }, [careerId]);
 
@@ -317,6 +322,44 @@ export default function CareerPage() {
       const allEmails = [...freshEmails, ...stored.map(e => ({ ...e, isNew: false }))];
       localStorage.setItem(storageKey, JSON.stringify(allEmails.map(e => ({ ...e, isNew: false }))));
       setEmails(allEmails);
+
+      // Check if County Championship group stage just completed (all 3 group matches done, no knockout yet)
+      if (homeData.career.tier === 3) {
+        const { data: groupEvents } = await supabase
+          .from('career_events')
+          .select('id, status')
+          .eq('career_id', homeData.career.id)
+          .eq('season', homeData.career.season)
+          .eq('event_type', 'county_championship_group');
+        
+        const allGroupDone = groupEvents && groupEvents.length === 3 && groupEvents.every((e: any) => e.status === 'completed');
+        
+        if (allGroupDone) {
+          // Check no knockout exists yet
+          const { data: knockoutEvents } = await supabase
+            .from('career_events')
+            .select('id')
+            .eq('career_id', homeData.career.id)
+            .eq('season', homeData.career.season)
+            .eq('event_type', 'county_championship_knockout')
+            .limit(1);
+          
+          if (!knockoutEvents || knockoutEvents.length === 0) {
+            // Show group results popup
+            const { data: groupData } = await supabase.rpc('rpc_get_county_championship_group', {
+              p_career_id: homeData.career.id,
+            });
+            if (groupData?.standings) {
+              const sorted = [...groupData.standings].sort((a: any, b: any) => b.pts - a.pts || (b.lf - b.la) - (a.lf - a.la));
+              const playerIdx = sorted.findIndex((s: any) => s.is_player);
+              setGroupStandings(groupData.standings);
+              setGroupPlayerRank(playerIdx + 1);
+              setGroupQualified(playerIdx < 2);
+              setShowGroupResults(true);
+            }
+          }
+        }
+      }
 
       // Show tournament choice if Tier 1, Day 1, first event is a trial
       if (homeData.career.tier === 1 && homeData.career.day === 1 && homeData.next_event?.event_type === 'trial_tournament') {
@@ -544,9 +587,30 @@ export default function CareerPage() {
         return;
       }
 
-      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals'];
+      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout'];
       if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
         router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
+        return;
+      }
+
+      // County Championship group match — launch as dartbot match (like league)
+      if (next_event.event_type === 'county_championship_group') {
+        const supabase = createClient();
+        const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
+        if (error) throw error;
+        if (matchData?.error) throw new Error(matchData.error);
+
+        const avg = matchData.bot_average || 55;
+        const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
+          : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
+          : avg <= 90 ? 'pro' : 'worldClass';
+
+        setConfig({
+          mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
+          bestOf: 'best-of-5', atcOpponent: 'bot',
+          career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
+        });
+        router.push('/app/play/training/501');
         return;
       }
 
@@ -761,8 +825,34 @@ export default function CareerPage() {
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
-                          // Offer end-of-season tournaments (Tier 2+, only if not already offered)
-                          if (career.tier >= 2 && !showInvitePopup) {
+                          // County Circuit (Tier 3): structured championship instead of random tournaments
+                          if (career.tier === 3 && !showInvitePopup) {
+                            const supabase2 = createClient();
+                            
+                            // Check if championship already exists
+                            const { data: champEvents } = await supabase2
+                              .from('career_events')
+                              .select('id, status')
+                              .eq('career_id', careerId)
+                              .in('event_type', ['county_championship_group', 'county_championship_knockout'])
+                              .gte('sequence_no', 300)
+                              .limit(1);
+                            
+                            if (!champEvents || champEvents.length === 0) {
+                              const { data: champResult } = await supabase2.rpc('rpc_create_county_championship', {
+                                p_career_id: careerId,
+                              });
+                              
+                              if (champResult?.excluded) {
+                                // Bottom 2 — skip to sponsor/advance
+                              } else if (champResult?.success) {
+                                setShowChampionshipIntro(true);
+                                return;
+                              }
+                            }
+                          }
+                          // Other tiers: Offer end-of-season tournaments (Tier 2+, only if not already offered)
+                          else if (career.tier >= 2 && career.tier !== 3 && !showInvitePopup) {
                             const supabase2 = createClient();
                             
                             // Check if tournaments were already offered/played this season
@@ -1973,6 +2063,143 @@ export default function CareerPage() {
                     Time to Rebuild 💪
                   </Button>
                 </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* County Championship Intro Popup */}
+      {showChampionshipIntro && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="relative max-w-md w-full mx-4"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-blue-500/10 to-purple-500/20 rounded-2xl blur-xl" />
+            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-purple-500/30 overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500" />
+              <div className="p-8 text-center">
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: 'spring', damping: 10 }}>
+                  <div className="text-6xl mb-4">🏆</div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                  <h2 className="text-2xl font-black text-white mb-2">County Championship</h2>
+                  <div className="inline-block px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
+                    <span className="text-purple-400 font-bold text-sm">End-of-Season Tournament</span>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+                  <div className="text-left bg-slate-800/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+                    <p className="text-white font-semibold">📋 Group Stage</p>
+                    <p className="text-slate-400 text-xs">4 players, round-robin, Best of 5. Top 2 advance.</p>
+                    <p className="text-white font-semibold mt-3">⚔️ Knockout Stage</p>
+                    <p className="text-slate-400 text-xs">32-player bracket. BO5 all rounds, Final = BO7.</p>
+                    <p className="text-white font-semibold mt-3">🎯 Win = Promotion</p>
+                    <p className="text-slate-400 text-xs">Win the knockout to earn promotion — even from 3rd place in the league!</p>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
+                  <Button
+                    className="w-full bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-400 hover:to-blue-500 text-white font-black py-3 text-base shadow-lg shadow-purple-500/30"
+                    onClick={() => {
+                      setShowChampionshipIntro(false);
+                      loadCareer();
+                    }}
+                  >
+                    Enter Championship 🏆
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* County Championship Group Results Popup */}
+      {showGroupResults && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="relative max-w-md w-full mx-4"
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${groupQualified ? 'from-emerald-500/20 via-teal-500/10 to-emerald-500/20' : 'from-red-500/20 via-orange-500/10 to-red-500/20'} rounded-2xl blur-xl`} />
+            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl border border-white/10 overflow-hidden">
+              <div className={`h-1.5 ${groupQualified ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-red-500 to-orange-500'}`} />
+              <div className="p-6 text-center">
+                <h2 className="text-xl font-black text-white mb-3">Group Stage Results</h2>
+                
+                {/* Mini standings table */}
+                <div className="bg-slate-800/50 rounded-lg overflow-hidden mb-4">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/10 text-slate-400">
+                        <th className="text-left py-2 px-3">#</th>
+                        <th className="text-left py-2 px-2">Player</th>
+                        <th className="text-center py-2 px-1">W</th>
+                        <th className="text-center py-2 px-1">L</th>
+                        <th className="text-center py-2 px-1">LF</th>
+                        <th className="text-center py-2 px-1">LA</th>
+                        <th className="text-center py-2 px-1 font-bold">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...groupStandings]
+                        .sort((a, b) => b.pts - a.pts || (b.lf - b.la) - (a.lf - a.la))
+                        .map((s, i) => (
+                          <tr key={i} className={`border-b border-white/5 ${s.is_player ? 'bg-emerald-500/10' : ''} ${i < 2 ? '' : 'opacity-50'}`}>
+                            <td className="py-2 px-3 text-slate-500">{i + 1}</td>
+                            <td className={`py-2 px-2 font-medium ${s.is_player ? 'text-emerald-400' : 'text-white'}`}>{s.name}</td>
+                            <td className="text-center py-2 px-1 text-emerald-400">{s.w}</td>
+                            <td className="text-center py-2 px-1 text-red-400">{s.l}</td>
+                            <td className="text-center py-2 px-1 text-slate-400">{s.lf}</td>
+                            <td className="text-center py-2 px-1 text-slate-400">{s.la}</td>
+                            <td className="text-center py-2 px-1 text-white font-bold">{s.pts}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {groupQualified ? (
+                  <div className="mb-4">
+                    <p className="text-emerald-400 font-bold text-sm">✅ Qualified for the 32-player knockout!</p>
+                    <p className="text-slate-400 text-xs mt-1">BO5 all rounds. Final = BO7.</p>
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <p className="text-red-400 font-bold text-sm">❌ Eliminated in the group stage</p>
+                    <p className="text-slate-400 text-xs mt-1">Finished {groupPlayerRank}{groupPlayerRank === 3 ? 'rd' : 'th'} — only top 2 advance.</p>
+                  </div>
+                )}
+
+                <Button
+                  className={`w-full font-black py-3 text-base shadow-lg ${
+                    groupQualified
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white'
+                      : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white'
+                  }`}
+                  onClick={async () => {
+                    setShowGroupResults(false);
+                    if (groupQualified) {
+                      // Advance to knockout
+                      const supabase = createClient();
+                      const { data: knockoutResult } = await supabase.rpc('rpc_county_championship_to_knockout', {
+                        p_career_id: careerId,
+                      });
+                      if (knockoutResult?.qualified) {
+                        toast.success('Knockout bracket created!');
+                      }
+                    }
+                    loadCareer();
+                  }}
+                >
+                  {groupQualified ? 'Enter Knockout Stage ⚔️' : 'Continue'}
+                </Button>
               </div>
             </div>
           </motion.div>

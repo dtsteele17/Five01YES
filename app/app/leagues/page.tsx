@@ -163,7 +163,8 @@ export default function LeaguesPage() {
           {filtered.map((league, index) => (
             <Card
               key={league.id}
-              className="bg-slate-900/50 border-white/10 hover:border-emerald-500/30 transition-colors overflow-hidden"
+              className="bg-slate-900/50 border-white/10 hover:border-emerald-500/30 transition-colors overflow-hidden cursor-pointer"
+              onClick={() => router.push(`/app/leagues/${league.id}`)}
             >
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 sm:p-5">
                 <div className={`w-12 h-12 bg-gradient-to-br ${getLeagueColor(index)} rounded-xl flex items-center justify-center flex-shrink-0`}>
@@ -209,7 +210,7 @@ export default function LeaguesPage() {
                       size="sm"
                       className="bg-emerald-500 hover:bg-emerald-400 text-white font-medium"
                       disabled={joining === league.id}
-                      onClick={() => handleJoin(league.id)}
+                      onClick={(e) => { e.stopPropagation(); handleJoin(league.id); }}
                     >
                       {joining === league.id ? 'Joining...' : 'Join'}
                     </Button>
@@ -218,7 +219,7 @@ export default function LeaguesPage() {
                     size="sm"
                     variant="outline"
                     className="border-white/10 text-white hover:bg-white/5"
-                    onClick={() => router.push(`/app/leagues/${league.id}`)}
+                    onClick={(e) => { e.stopPropagation(); router.push(`/app/leagues/${league.id}`); }}
                   >
                     View
                   </Button>
