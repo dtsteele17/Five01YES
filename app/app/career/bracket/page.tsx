@@ -44,21 +44,20 @@ export default function CareerBracketPage() {
   const [showResults, setShowResults] = useState(false);
   const [tournamentResult, setTournamentResult] = useState<any>(null);
   const [routingToTraining, setRoutingToTraining] = useState(false);
+  const [pendingResult, setPendingResult] = useState<{ won: boolean; playerLegs: number; opponentLegs: number } | null>(null);
 
   useEffect(() => {
     if (careerId && eventId) initBracket();
   }, [careerId, eventId]);
 
+  // Process pending result when bracket is ready
   useEffect(() => {
-    const resultStr = sessionStorage.getItem('career_bracket_result');
-    console.log('[BRACKET] useEffect check:', { hasResult: !!resultStr, hasBracket: !!bracket, bracketId });
-    if (resultStr && bracket && bracketId) {
-      sessionStorage.removeItem('career_bracket_result');
-      const result = JSON.parse(resultStr);
-      console.log('[BRACKET] Processing stored result:', result);
-      handleMatchResult(result.won, result.playerLegs, result.opponentLegs);
+    if (pendingResult && bracket && bracketId) {
+      console.log('[BRACKET] Processing pending result:', pendingResult, 'currentRound:', bracket.currentRound);
+      handleMatchResult(pendingResult.won, pendingResult.playerLegs, pendingResult.opponentLegs);
+      setPendingResult(null);
     }
-  }, [bracket, bracketId]);
+  }, [pendingResult, bracket, bracketId]);
 
   async function initBracket() {
     setLoading(true);
@@ -132,7 +131,21 @@ export default function CareerBracketPage() {
       await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', data.bracket_id);
       setBracket(newBracket);
     }
+
     setLoading(false);
+
+    // Process any pending match result from sessionStorage
+    // Use setTimeout to ensure state has settled after setBracket above
+    setTimeout(() => {
+      const resultStr = sessionStorage.getItem('career_bracket_result');
+      if (resultStr) {
+        sessionStorage.removeItem('career_bracket_result');
+        const result = JSON.parse(resultStr);
+        console.log('[BRACKET] Processing stored result (deferred):', result);
+        // Trigger a re-render with a flag to process the result
+        setPendingResult(result);
+      }
+    }, 100);
   }
 
   // Build participants from career_opponents table (deterministic, no RPC needed)
