@@ -24,13 +24,12 @@ BEGIN
     RETURN json_build_object('error', 'Career not found');
   END IF;
 
-  -- Auto-skip stale Tier 1 events if player is Tier 2+
+  -- Auto-skip ALL trial tournaments if player is Tier 2+ (regardless of season)
   IF v_career.tier >= 2 THEN
     UPDATE career_events SET status = 'skipped'
     WHERE career_id = p_career_id 
       AND status IN ('pending', 'active')
-      AND event_type IN ('trial_tournament')
-      AND season < v_career.season;
+      AND event_type = 'trial_tournament';
   END IF;
 
   -- Get league table position
