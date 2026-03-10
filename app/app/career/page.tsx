@@ -134,6 +134,18 @@ export default function CareerPage() {
         return;
       }
       
+      // Auto-skip legacy relegation_tournament events (replaced by dynamic end-of-season tournaments)
+      if (homeData.next_event?.event_type === 'relegation_tournament') {
+        await supabase.from('career_events').update({ status: 'skipped' }).eq('id', homeData.next_event.id);
+        // Reload to get the real next event
+        const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+        if (refreshed && !refreshed.error) {
+          setData(refreshed);
+          setLoading(false);
+          return;
+        }
+      }
+
       setData(homeData);
 
       // Check if next event is a tournament choice — show popup
