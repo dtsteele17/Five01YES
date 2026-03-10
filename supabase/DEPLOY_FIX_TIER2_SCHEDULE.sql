@@ -1,3 +1,5 @@
+UPDATE career_events SET template_id = NULL WHERE template_id IN (SELECT id FROM career_schedule_templates WHERE tier = 2);
+
 DELETE FROM career_schedule_templates WHERE tier = 2;
 
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES
