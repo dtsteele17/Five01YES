@@ -269,41 +269,9 @@ export default function CareerPage() {
         newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
 
-      // Check for pending tournament invites (show all)
-      try {
-        const { data: inviteEvents } = await supabase
-          .from('career_events')
-          .select('id, event_name, bracket_size')
-          .eq('career_id', careerId)
-          .eq('status', 'pending_invite')
-          .eq('event_type', 'open')
-          .order('sequence_no', { ascending: true });
-        if (inviteEvents && inviteEvents.length > 0) {
-          // Track all pending invites for dual popup
-          setPendingInvites(inviteEvents.map(inv => ({
-            event_id: inv.id,
-            event_name: inv.event_name,
-            bracket_size: inv.bracket_size || 16,
-          })));
-          // Also set single pendingInvite for backward compat
-          setPendingInvite({
-            event_id: inviteEvents[0].id,
-            event_name: inviteEvents[0].event_name,
-            bracket_size: inviteEvents[0].bracket_size || 16,
-          });
-          for (const inv of inviteEvents) {
-            newEmails.unshift({
-              id: `tournament-invite-${inv.id}`,
-              subject: `🏆 ${inv.event_name} — You're Invited!`,
-              body: `You've been invited to the ${inv.event_name}! A ${inv.bracket_size || 16}-player end-of-season knockout tournament at the local. Do you want to enter?`,
-              type: 'tournament_invite',
-              isNew: true,
-            });
-          }
-        } else {
-          setPendingInvites([]);
-        }
-      } catch (e) { /* ignore */ }
+      // Clear any stale pending invites (tournaments now offered via Next Season button)
+      setPendingInvites([]);
+      setPendingInvite(null);
       if (newEmails.length === 0) {
         newEmails.push({ id: `default-${day}`, subject: 'Keep Going!', body: 'Your journey continues. Every match is a chance to prove yourself.', type: 'default' });
       }
@@ -523,11 +491,7 @@ export default function CareerPage() {
       return;
     }
 
-    // If there's a pending tournament invite, force user to decide before continuing
-    if (pendingInvite && data.next_event.event_type === 'league') {
-      setShowInvitePopup(true);
-      return;
-    }
+    // Mid-season tournament invites removed — tournaments now offered via Next Season button
 
     setPlayingEvent(true);
     try {
@@ -677,10 +641,9 @@ export default function CareerPage() {
   const leagueMatchday = playerStanding ? (playerStanding.played || 0) + 1 : 1;
   // Season is only complete when all league matches done AND no pending/active tournaments remain
   const leagueMatchesDone = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
-  const hasPendingTournament = next_event && ['open', 'tournament_choice'].includes(next_event.event_type);
-  const hasPendingInvites = pendingInvites.length > 0 || (next_event?.status === 'pending_invite');
-  // Season is only complete when league done AND no events remain at all
-  const seasonComplete = leagueMatchesDone && !hasPendingTournament && !hasPendingInvites && !next_event;
+  const hasRemainingEvents = next_event != null;
+  // Season is only complete when league done AND no events remain
+  const seasonComplete = leagueMatchesDone && !hasRemainingEvents;
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName
@@ -763,11 +726,53 @@ export default function CareerPage() {
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
                         disabled={advancingSeason}
                         onClick={async () => {
-                          // Check for pending tournament invites first
-                          if (pendingInvites.length > 0) {
-                            setShowInvitePopup(true);
-                            return;
+                          // Offer end-of-season tournaments (Tier 2+)
+                          if (career.tier >= 2 && !showInvitePopup) {
+                            const supabase = createClient();
+                            // Create tournament invites if they don't exist yet
+                            const { data: existingInvites } = await supabase
+                              .from('career_events')
+                              .select('id, event_name, bracket_size')
+                              .eq('career_id', careerId)
+                              .eq('status', 'pending_invite')
+                              .eq('event_type', 'open')
+                              .order('sequence_no', { ascending: true });
+                            
+                            if (existingInvites && existingInvites.length > 0) {
+                              setPendingInvites(existingInvites.map(inv => ({
+                                event_id: inv.id,
+                                event_name: inv.event_name,
+                                bracket_size: inv.bracket_size || 16,
+                              })));
+                              setShowInvitePopup(true);
+                              return;
+                            }
+                            
+                            // Create new tournament invites via RPC
+                            await supabase.rpc('rpc_create_end_season_tournaments', {
+                              p_career_id: careerId,
+                            }).catch(() => null);
+                            
+                            // Re-fetch invites after creation
+                            const { data: newInvites } = await supabase
+                              .from('career_events')
+                              .select('id, event_name, bracket_size')
+                              .eq('career_id', careerId)
+                              .eq('status', 'pending_invite')
+                              .eq('event_type', 'open')
+                              .order('sequence_no', { ascending: true });
+                            
+                            if (newInvites && newInvites.length > 0) {
+                              setPendingInvites(newInvites.map(inv => ({
+                                event_id: inv.id,
+                                event_name: inv.event_name,
+                                bracket_size: inv.bracket_size || 16,
+                              })));
+                              setShowInvitePopup(true);
+                              return;
+                            }
                           }
+                          
                           // Check for sponsor renewal before advancing
                           const supabase = createClient();
                           const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
@@ -784,27 +789,6 @@ export default function CareerPage() {
                       >
                         {advancingSeason ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ChevronRight className="w-5 h-5 mr-1" />}
                         Next Season
-                      </Button>
-                    </>
-                  ) : next_event && leagueMatchesDone && (next_event.status === 'pending_invite' || next_event.event_type === 'tournament_choice') ? (
-                    <>
-                      <div className="text-center py-2">
-                        <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
-                        <h2 className="text-xl font-black text-white mb-1">End of Season Tournament</h2>
-                        <p className="text-sm text-slate-400 mb-4">Choose a tournament to play before next season.</p>
-                      </div>
-                      <Button
-                        className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black py-3 text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
-                        onClick={() => {
-                          if (next_event.status === 'pending_invite' || pendingInvites.length > 0) {
-                            setShowInvitePopup(true);
-                          } else {
-                            handlePlayEvent();
-                          }
-                        }}
-                      >
-                        <Trophy className="w-5 h-5 mr-2" />
-                        Choose Tournament
                       </Button>
                     </>
                   ) : next_event ? (
