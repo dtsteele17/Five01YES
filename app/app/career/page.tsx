@@ -483,9 +483,9 @@ export default function CareerPage() {
         newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
       }
 
-      // Check for pending mid-season tournament invites
+      // Check for pending mid-season tournament invites (Tier 2 only - Tier 3+ handled by popup system)
       try {
-        const { data: inviteEvents } = await supabase
+        const { data: inviteEvents } = homeData.career.tier === 2 ? await supabase
           .from('career_events')
           .select('id, event_name, bracket_size')
           .eq('career_id', careerId)
@@ -493,7 +493,7 @@ export default function CareerPage() {
           .eq('event_type', 'open')
           .lt('sequence_no', 200)
           .order('sequence_no', { ascending: true })
-          .limit(1);
+          .limit(1) : { data: null };
         if (inviteEvents && inviteEvents.length > 0) {
           setPendingInvite({
             event_id: inviteEvents[0].id,
