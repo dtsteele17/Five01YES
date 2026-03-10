@@ -97,6 +97,7 @@ export default function CareerPage() {
   const [tournamentChoiceEvent, setTournamentChoiceEvent] = useState<{ id: string; name: string } | null>(null);
   const [tournamentOptions, setTournamentOptions] = useState<{ option1: any; option2: any } | null>(null);
   const [choosingTournament, setChoosingTournament] = useState(false);
+  const [seasonMatchStats, setSeasonMatchStats] = useState<{ played: number; won: number; lost: number; average: number } | null>(null);
   const [showSponsorRenewal, setShowSponsorRenewal] = useState(false);
   const [sponsorRenewalData, setSponsorRenewalData] = useState<any>(null);
   const [processingRenewal, setProcessingRenewal] = useState(false);
@@ -172,6 +173,33 @@ export default function CareerPage() {
       } else {
         setPendingInvite(null);
       }
+
+      // Fetch season match stats (all matches including tournaments)
+      try {
+        const { data: seasonMatches } = await supabase
+          .from('career_matches')
+          .select('result, player_average, event_id')
+          .eq('career_id', careerId)
+          .in('result', ['win', 'loss']);
+        
+        // Filter to current season by checking event season
+        const { data: seasonEvents } = await supabase
+          .from('career_events')
+          .select('id, season')
+          .eq('career_id', careerId)
+          .eq('season', homeData.career.season);
+        
+        const seasonEventIds = new Set((seasonEvents || []).map((e: any) => e.id));
+        const currentSeasonMatches = (seasonMatches || []).filter((m: any) => seasonEventIds.has(m.event_id));
+        
+        const played = currentSeasonMatches.length;
+        const won = currentSeasonMatches.filter((m: any) => m.result === 'win').length;
+        const lost = currentSeasonMatches.filter((m: any) => m.result === 'loss').length;
+        const avgs = currentSeasonMatches.filter((m: any) => m.player_average > 0).map((m: any) => m.player_average);
+        const average = avgs.length > 0 ? avgs.reduce((a: number, b: number) => a + b, 0) / avgs.length : 0;
+        
+        setSeasonMatchStats({ played, won, lost, average });
+      } catch (e) { /* ignore */ }
 
       // Sponsor offers handled in notification tile (career_sponsor_contracts status='offered')
 
@@ -1337,15 +1365,24 @@ export default function CareerPage() {
                       <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
                         <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
                       </div>
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">League Stats</span>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Season Stats</span>
                     </div>
                   </div>
                   {(() => {
+                    // Combine league standings + tournament matches for full season stats
                     const p = playerStanding;
-                    const played = p?.played || 0;
-                    const won = p?.won || 0;
-                    const lost = p?.lost || 0;
-                    const avg = p?.average || career.form || 0;
+                    const leaguePlayed = p?.played || 0;
+                    const leagueWon = p?.won || 0;
+                    const leagueLost = p?.lost || 0;
+                    const leagueAvg = p?.average || 0;
+                    // seasonMatchStats populated from career_matches in loadCareer
+                    const tourneyPlayed = (seasonMatchStats?.played || 0) - leaguePlayed;
+                    const tourneyWon = (seasonMatchStats?.won || 0) - leagueWon;
+                    const tourneyLost = (seasonMatchStats?.lost || 0) - leagueLost;
+                    const played = seasonMatchStats?.played || leaguePlayed;
+                    const won = seasonMatchStats?.won || leagueWon;
+                    const lost = seasonMatchStats?.lost || leagueLost;
+                    const avg = seasonMatchStats?.average || leagueAvg;
                     return (
                       <div className="space-y-2">
                         <div className="grid grid-cols-4 gap-2">
