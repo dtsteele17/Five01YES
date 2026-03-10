@@ -148,48 +148,33 @@ export default function CareerPage() {
 
       setData(homeData);
 
-      // Tier 2 end-of-season: auto-trigger tournament invites when league is done
+      // Tier 2 Pub Leagues: after 7 league matches, auto-create mandatory end-of-season tournament
       if (homeData.career.tier === 2 && homeData.standings) {
         const playerSt = homeData.standings.find((s: any) => s.is_player);
         const totalOpponents = homeData.standings.filter((s: any) => !s.is_player).length;
         const leagueDone = playerSt && (playerSt.played || 0) >= totalOpponents;
-        // Check if no playable events remain (season_end or null)
         const noPlayableEvents = !homeData.next_event || homeData.next_event.event_type === 'season_end';
         
         if (leagueDone && noPlayableEvents) {
-          // Check if end-of-season tournaments already exist
+          // Check if end-of-season tournament already exists
           const { data: endSeasonEvents } = await supabase
-            .from('career_events').select('id, status, event_name, bracket_size')
+            .from('career_events').select('id, status')
             .eq('career_id', careerId)
             .eq('season', homeData.career.season)
             .eq('event_type', 'open')
             .gte('sequence_no', 200);
           
-          const hasUnplayed = endSeasonEvents?.some((e: any) => e.status === 'pending_invite');
-          const allHandled = endSeasonEvents && endSeasonEvents.length > 0 && !hasUnplayed;
+          const allDone = endSeasonEvents && endSeasonEvents.length > 0 && endSeasonEvents.every((e: any) => e.status === 'completed' || e.status === 'skipped');
           
           if (!endSeasonEvents || endSeasonEvents.length === 0) {
-            // Create end-of-season tournaments
-            try { await supabase.rpc('rpc_create_end_season_tournaments', { p_career_id: careerId }); } catch {}
-            const { data: newInvites } = await supabase
-              .from('career_events').select('id, event_name, bracket_size')
-              .eq('career_id', careerId).eq('status', 'pending_invite').eq('event_type', 'open')
-              .order('sequence_no', { ascending: true });
-            if (newInvites && newInvites.length > 0) {
-              setPendingInvites(newInvites.map(inv => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
-              setShowInvitePopup(true);
-              setLoading(false);
-              return;
-            }
-          } else if (hasUnplayed) {
-            // Show existing pending invites
-            const invites = endSeasonEvents.filter((e: any) => e.status === 'pending_invite');
-            setPendingInvites(invites.map((inv: any) => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
-            setShowInvitePopup(true);
-            setLoading(false);
-            return;
+            // Create mandatory end-of-season tournament (Tier 2 only - single tournament, no choice)
+            try { await supabase.rpc('rpc_create_tier2_end_season_tournament', { p_career_id: careerId }); } catch {}
+            // Reload to pick up the new tournament as next_event
+            const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+            if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
           }
-          // If allHandled (completed/skipped), fall through to show Season Complete normally
+          // If tournament exists and not done, it will show as next_event naturally
+          // If all done, fall through to show Season Complete
         }
       }
 
@@ -962,23 +947,9 @@ export default function CareerPage() {
                               }
                             }
                           }
-                          // Pub Leagues (Tier 2): random end-of-season tournaments
-                          else if (career.tier === 2 && !showInvitePopup) {
-                            const supabase2 = createClient();
-                            const { data: anyEndSeasonEvents } = await supabase2
-                              .from('career_events').select('id, status').eq('career_id', careerId)
-                              .eq('event_type', 'open').gte('sequence_no', 200).limit(1);
-                            if (!anyEndSeasonEvents || anyEndSeasonEvents.length === 0) {
-                              try { await supabase2.rpc('rpc_create_end_season_tournaments', { p_career_id: careerId }); } catch { /* ignore */ }
-                              const { data: newInvites } = await supabase2
-                                .from('career_events').select('id, event_name, bracket_size').eq('career_id', careerId)
-                                .eq('status', 'pending_invite').eq('event_type', 'open').order('sequence_no', { ascending: true });
-                              if (newInvites && newInvites.length > 0) {
-                                setPendingInvites(newInvites.map(inv => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
-                                setShowInvitePopup(true);
-                                return;
-                              }
-                            }
+                          // Tier 2: tournament is mandatory and handled in loadCareer, so just advance
+                          else if (career.tier === 2) {
+                            // Fall through to advanceToNextSeason below
                           }
                           
                           // Check for sponsor renewal before advancing
