@@ -200,13 +200,66 @@ BOTTOM 2 → 😞 Relegated to County Circuit
 
 ---
 
-## WORLD TOUR (Tier 5) — TBD
+## PRO TOUR (Tier 5)
 
-- **14 players**, **13 league matches**, **Best of 9/11/13 legs**
-- Tournament invites every 3 matches
-- Top tier — no further promotion
-- Bottom 2 → relegated to Regional Tour
-- (Full spec pending from Dan)
+- **No league matches** — pure tournament circuit
+- **8 tournaments** per season (5 Players Championships + 1 Open + 1 Major)
+- **Global Rankings**: Top 100 players, show Top 21 + user position
+- **Premier League**: Top 10 ranked players, round-robin (9 matches, BO11), runs alongside tournaments
+- **Bottom 10** in rankings relegated to Regional Tour
+- Rankings use rolling window (8% decay per tournament)
+
+```
+ENTER PRO TOUR
+      ↓
+(Rankings initialized: 100 AI players + user)
+(If ranked Top 10: Premier League invitation!)
+      ↓
+PLAYERS CHAMPIONSHIP 1 (128 players, knockout)
+  L128-L32: BO11 | L16: BO13 | QF: BO15 | SF: BO17 | F: BO19
+  Rating: L128=1, L64=3, L32=6, L16=10, QF=15, SF=20, RU=30, W=40
+      ↓
+PREMIER LEAGUE NIGHT 1 (if in PL)
+      ↓
+PLAYERS CHAMPIONSHIP 2 → PL NIGHT 2 → PLAYERS CHAMPIONSHIP 3 → PL NIGHT 3
+      ↓
+PRO TOUR OPEN (128 players, higher rating rewards)
+  L128-L32: BO11 | L16: BO13 | QF: BO15 | SF: BO17 | F: BO21
+  Rating: L128=2, L64=4, L32=8, L16=12, QF=18, SF=25, RU=35, W=50
+      ↓
+PL NIGHT 4 → PLAYERS CHAMPIONSHIP 4 → PL NIGHT 5 → PLAYERS CHAMPIONSHIP 5 → PL NIGHT 6
+      ↓
+PRO TOUR MAJOR QUALIFICATION
+  Top 32 in rankings auto-qualify
+  Others play qualifier match
+      ↓
+PL NIGHT 7
+      ↓
+PRO TOUR MAJOR (128 players, biggest event)
+  L128: BO11 | L64: BO13 | L32: BO15 | L16: BO17 | QF: BO19 | SF: BO21 | F: BO23
+  Rating: L128=3, L64=6, L32=10, L16=15, QF=20, SF=30, RU=45, W=60
+      ↓
+PL NIGHT 8 → PL NIGHT 9
+      ↓
+SEASON END → Rankings update
+```
+
+### Relegation
+```
+BOTTOM 10 IN RANKINGS (rank 91-100) → 😞 Relegated to Regional Tour
+  Lose Pro Tour card
+  Drop to Tier 4
+```
+
+### Premier League
+```
+TOP 10 IN RANKINGS → Invited to Premier League
+  9 round-robin matches (vs other Top 10 players)
+  BO11 each match
+  Interleaved between Pro Tour tournaments
+  PL wins give +2 ranking rating each
+  Win 7+ of 9 = Premier League Champion trophy
+```
 
 ---
 
