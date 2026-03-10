@@ -148,6 +148,51 @@ export default function CareerPage() {
 
       setData(homeData);
 
+      // Tier 2 end-of-season: auto-trigger tournament invites when league is done
+      if (homeData.career.tier === 2 && homeData.standings) {
+        const playerSt = homeData.standings.find((s: any) => s.is_player);
+        const totalOpponents = homeData.standings.filter((s: any) => !s.is_player).length;
+        const leagueDone = playerSt && (playerSt.played || 0) >= totalOpponents;
+        // Check if no playable events remain (season_end or null)
+        const noPlayableEvents = !homeData.next_event || homeData.next_event.event_type === 'season_end';
+        
+        if (leagueDone && noPlayableEvents) {
+          // Check if end-of-season tournaments already exist
+          const { data: endSeasonEvents } = await supabase
+            .from('career_events').select('id, status, event_name, bracket_size')
+            .eq('career_id', careerId)
+            .eq('season', homeData.career.season)
+            .eq('event_type', 'open')
+            .gte('sequence_no', 200);
+          
+          const hasUnplayed = endSeasonEvents?.some((e: any) => e.status === 'pending_invite');
+          const allHandled = endSeasonEvents && endSeasonEvents.length > 0 && !hasUnplayed;
+          
+          if (!endSeasonEvents || endSeasonEvents.length === 0) {
+            // Create end-of-season tournaments
+            try { await supabase.rpc('rpc_create_end_season_tournaments', { p_career_id: careerId }); } catch {}
+            const { data: newInvites } = await supabase
+              .from('career_events').select('id, event_name, bracket_size')
+              .eq('career_id', careerId).eq('status', 'pending_invite').eq('event_type', 'open')
+              .order('sequence_no', { ascending: true });
+            if (newInvites && newInvites.length > 0) {
+              setPendingInvites(newInvites.map(inv => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
+              setShowInvitePopup(true);
+              setLoading(false);
+              return;
+            }
+          } else if (hasUnplayed) {
+            // Show existing pending invites
+            const invites = endSeasonEvents.filter((e: any) => e.status === 'pending_invite');
+            setPendingInvites(invites.map((inv: any) => ({ event_id: inv.id, event_name: inv.event_name, bracket_size: inv.bracket_size || 16 })));
+            setShowInvitePopup(true);
+            setLoading(false);
+            return;
+          }
+          // If allHandled (completed/skipped), fall through to show Season Complete normally
+        }
+      }
+
       // Check if next event is a tournament choice — show popup
       if (homeData.next_event?.event_type === 'tournament_choice') {
         const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', { 
