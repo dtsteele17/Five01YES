@@ -271,21 +271,21 @@ export default function CareerBracketPage() {
       const lastNames = ['Smith','Jones','Brown','Wilson','Taylor','Clark','Lewis','Walker','Hall','Green','Baker','King','Wright','Scott','Adams','Hill','Moore','Wood','Kelly','Evans','Murphy','Cox','Webb','Stone','Cole','Ford','Ross','Reed','Mills','West','Fox','Hayes','Day','Hart','Long','Cross','Lane','Flynn','Nash','Burke','Walsh','Burns','Quinn','Rhodes','Marshall','Hunter','Barker','Holmes','Watson','Palmer','Ryan','Wells','Price','Bennett','Campbell','Murray','Stewart','Crawford','Cameron','Davidson','Grant','Hamilton','Robertson','Thomson','Henderson','Ferguson','Simpson','Patterson','O\'Brien','McCarthy','O\'Neill','Byrne','Doyle','Brennan','Daly','Gallagher','Reilly','Novak','Kowalski','Petrov','Ivanov','Mueller','Fischer','Weber','Schneider','Becker','Hoffman','Berg','Lindqvist','Johansson','Andersen','Olsen','Virtanen','De Boer','Van Dijk','Jansen','Garcia','Martinez','Lopez','Hernandez','Gonzalez','Perez','Santos','Silva','Costa','Ferreira','Patel','Sharma','Singh','Kumar','Khan','Tanaka','Sato','Chen','Wang','Kim','Park','Lee','Yang'];
       const archetypes = ['allrounder','power','precision','finishing'];
       const remaining = bracketSize - participants.length;
-      // Better hash function (mulberry32-inspired)
-      const hash = (n: number) => { let t = n + 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+      const nicknames = ['The Hammer','Ice','Bulletproof','The Ace','Dynamite','Ironside','The Flash','Viper','The Rock','Blitz','Thunder','The Machine','Scorpion','Wildcard','The Wolf','Maverick','The Surgeon','Hotshot','Cobra','The Natural','Laser','The Viking','Tornado','The Dart','The Beast','The Thorn','Lightning','Old Reliable','Big Dog','Hard Man'];
       let attempts = 0;
       for (let i = 0; i < remaining && attempts < 500; attempts++) {
-        const fn = firstNames[Math.floor(hash(seed * 31 + attempts * 7) * firstNames.length)];
-        const ln = lastNames[Math.floor(hash(seed * 37 + attempts * 13 + 9999) * lastNames.length)];
-        const name = `${fn} ${ln}`;
+        const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
+        const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
+        const nick = Math.random() < 0.25 ? nicknames[Math.floor(Math.random() * nicknames.length)] : null;
+        const name = nick ? `${fn} '${nick}' ${ln}` : `${fn} ${ln}`;
         if (!usedNames.has(name)) {
           usedNames.add(name);
-          const skill = Math.round((30 + hash(seed + attempts * 17 + 777) * 40) * mult);
+          const skill = Math.round((30 + Math.random() * 40) * mult);
           participants.push({
             id: `outside_${i}`,
             name,
             skill,
-            archetype: archetypes[Math.floor(hash(seed + attempts * 23 + 333) * archetypes.length)],
+            archetype: archetypes[Math.floor(Math.random() * archetypes.length)],
             isPlayer: false,
             seed: participants.length + 1,
           });
