@@ -129,6 +129,8 @@ export default function CareerPage() {
   const supabase = createClient();
 
   if (careerId) {
+   // Pro Tour: restore major event if qualifier was completed
+   await supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId }).catch(() => {});
    const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
    if (error || homeData?.error) {
     toast.error('Failed to load career');
@@ -898,6 +900,11 @@ export default function CareerPage() {
     const supabase = createClient();
     const { data: qualResult } = await supabase.rpc('rpc_pro_tour_major_qualification', { p_career_id: careerId });
     if (qualResult?.error) { toast.error(qualResult.error); setPlayingEvent(false); return; }
+    if (qualResult?.already_exists) {
+     // Qualifier already created but not played yet - restore major to waiting and reload
+     toast.info('Qualifier match is ready');
+     loadCareer(); setPlayingEvent(false); return;
+    }
     toast.info(qualResult.message, { duration: 5000 });
     await new Promise(r => setTimeout(r, 1500));
     if (qualResult.auto_qualified) {
