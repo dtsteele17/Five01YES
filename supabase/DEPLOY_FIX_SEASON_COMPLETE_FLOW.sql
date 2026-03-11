@@ -93,10 +93,10 @@ BEGIN
   -- Recent milestones
   SELECT json_agg(row_to_json(m)) INTO v_recent_milestones
   FROM (
-    SELECT milestone_type, title, description, day, created_at
+    SELECT milestone_type, title, description, day, season, tier, created_at
     FROM career_milestones
-    WHERE career_id = p_career_id AND season = v_career.season
-    ORDER BY created_at DESC LIMIT 5
+    WHERE career_id = p_career_id
+    ORDER BY created_at DESC LIMIT 10
   ) m;
 
   -- Awards (tournament wins etc.)
