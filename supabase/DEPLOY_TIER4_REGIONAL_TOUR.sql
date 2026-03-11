@@ -249,7 +249,7 @@ BEGIN
         AND (legs_for - legs_against) > (SELECT legs_for - legs_against FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = 4 AND is_player = TRUE)));
 
   IF v_player_rank < 3 OR v_player_rank > 6 THEN
-    RETURN json_build_object('error', 'Player rank ' || v_player_rank || ' does not qualify for Q School (3rd-6th only)');
+    RETURN json_build_object('error', 'Player rank ' || v_player_rank || ' does not qualify for Tour School (3rd-6th only)');
   END IF;
 
   IF EXISTS (
@@ -270,11 +270,11 @@ BEGIN
   LIMIT 1;
 
   INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, status, day)
-  VALUES (p_career_id, v_career.season, 300, 'q_school_semi', 'Q School Semi-Final', 9, 'pending', v_career.day + 5)
+  VALUES (p_career_id, v_career.season, 300, 'q_school_semi', 'Tour School Semi-Final', 9, 'pending', v_career.day + 5)
   RETURNING id INTO v_semi_id;
 
   INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, status, day)
-  VALUES (p_career_id, v_career.season, 301, 'q_school_final', 'Q School Final', 9, 'pending', v_career.day + 7)
+  VALUES (p_career_id, v_career.season, 301, 'q_school_final', 'Tour School Final', 9, 'pending', v_career.day + 7)
   RETURNING id INTO v_final_id;
 
   RETURN json_build_object('success', true, 'player_rank', v_player_rank,
@@ -296,8 +296,8 @@ BEGIN
     SELECT * INTO v_event FROM career_events WHERE id = NEW.event_id;
     IF v_event.event_type = 'q_school_final' THEN
       INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
-      SELECT NEW.career_id, 'q_school_winner', 'Q School Winner!',
-        'Won Q School to earn promotion to the Pro Tour!',
+      SELECT NEW.career_id, 'q_school_winner', 'Tour School Winner!',
+        'Won Tour School to earn promotion to the Pro Tour!',
         cp.tier, cp.season, cp.week, cp.day
       FROM career_profiles cp WHERE cp.id = NEW.career_id
       ON CONFLICT DO NOTHING;

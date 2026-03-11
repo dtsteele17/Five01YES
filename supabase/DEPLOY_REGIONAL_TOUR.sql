@@ -3,7 +3,7 @@
 -- 15 players, 14 league matches BO7, 2pts/win
 -- 3 tournaments integrated into season with league points
 -- T3 = 64-player Major with qualification
--- Q School for 3rd-6th place
+-- Tour School for 3rd-6th place
 -- ============================================================
 
 -- ============================================
@@ -209,7 +209,7 @@ $$;
 GRANT EXECUTE ON FUNCTION rpc_regional_tour_t3_qualification(UUID) TO authenticated;
 
 -- ============================================
--- 4. Q School (after final league table)
+-- 4. Tour School (after final league table)
 -- 3rd-6th enter 4-player knockout BO9
 -- ============================================
 DROP FUNCTION IF EXISTS rpc_regional_tour_q_school(UUID);
@@ -232,7 +232,7 @@ BEGIN
   IF NOT FOUND THEN RETURN json_build_object('error', 'Career not found'); END IF;
 
   IF v_career.tier != 4 THEN
-    RETURN json_build_object('error', 'Q School is only for Tier 4');
+    RETURN json_build_object('error', 'Tour School is only for Tier 4');
   END IF;
 
   -- Count players and calculate rank
@@ -246,12 +246,12 @@ BEGIN
       OR (points = (SELECT points FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE)
         AND (legs_for - legs_against) > (SELECT legs_for - legs_against FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = TRUE)));
 
-  -- Only 3rd-6th qualify for Q School
+  -- Only 3rd-6th qualify for Tour School
   IF v_player_rank < 3 OR v_player_rank > 6 THEN
-    RETURN json_build_object('error', 'Only ranks 3-6 enter Q School', 'player_rank', v_player_rank);
+    RETURN json_build_object('error', 'Only ranks 3-6 enter Tour School', 'player_rank', v_player_rank);
   END IF;
 
-  -- Check if Q School already exists
+  -- Check if Tour School already exists
   IF EXISTS (
     SELECT 1 FROM career_events WHERE career_id = p_career_id AND season = v_career.season
       AND event_type = 'q_school_semi'
@@ -303,14 +303,14 @@ BEGIN
 
   SELECT co.name INTO v_semi_opponent_name FROM career_opponents co WHERE co.id = v_semi_opponent_id;
 
-  -- Create Q School semi-final event
+  -- Create Tour School semi-final event
   INSERT INTO career_events (
     career_id, season, sequence_no, event_type, event_name,
     format_legs, day, status
   ) VALUES (
     p_career_id, v_career.season, 400,
     'q_school_semi',
-    'Q School Semi-Final — ' || v_player_rank || ' vs ' || v_semi_opponent_rank,
+    'Tour School Semi-Final — ' || v_player_rank || ' vs ' || v_semi_opponent_rank,
     9, v_career.day + 3, 'pending'
   ) RETURNING id INTO v_event_id;
 
@@ -353,7 +353,7 @@ BEGIN
     SELECT co.name INTO v_other_winner_name FROM career_opponents co WHERE co.id = v_other_winner_id;
 
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
-    VALUES (p_career_id, 'q_school_data', 'Q School Data',
+    VALUES (p_career_id, 'q_school_data', 'Tour School Data',
       json_build_object(
         'player_rank', v_player_rank,
         'semi_opponent_rank', v_semi_opponent_rank,
@@ -377,7 +377,7 @@ $$;
 GRANT EXECUTE ON FUNCTION rpc_regional_tour_q_school(UUID) TO authenticated;
 
 -- ============================================
--- 5. Q School semi-final complete → create final if won
+-- 5. Tour School semi-final complete → create final if won
 -- ============================================
 DROP FUNCTION IF EXISTS rpc_regional_tour_q_school_semi_complete(UUID, UUID, BOOLEAN);
 CREATE OR REPLACE FUNCTION rpc_regional_tour_q_school_semi_complete(
@@ -407,13 +407,13 @@ BEGIN
   WHERE event_id = p_event_id AND career_id = p_career_id;
 
   IF NOT p_player_won THEN
-    -- Eliminated from Q School
+    -- Eliminated from Tour School
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
-    VALUES (p_career_id, 'q_school_eliminated', 'Q School — Semi-Final Exit',
-      'Lost in the Q School semi-final. Staying in the Regional Tour next season.',
+    VALUES (p_career_id, 'q_school_eliminated', 'Tour School — Semi-Final Exit',
+      'Lost in the Tour School semi-final. Staying in the Regional Tour next season.',
       v_career.tier, v_career.season, v_career.week, v_career.day);
 
-    RETURN json_build_object('success', true, 'promoted', false, 'message', 'Q School semi-final loss — staying in Regional Tour');
+    RETURN json_build_object('success', true, 'promoted', false, 'message', 'Tour School semi-final loss — staying in Regional Tour');
   END IF;
 
   -- Won semi — create final
@@ -441,7 +441,7 @@ BEGIN
   ) VALUES (
     p_career_id, v_career.season, 410,
     'q_school_final',
-    'Q School Final',
+    'Tour School Final',
     9, v_career.day + 3, 'pending'
   ) RETURNING id INTO v_final_event_id;
 
@@ -460,7 +460,7 @@ $$;
 GRANT EXECUTE ON FUNCTION rpc_regional_tour_q_school_semi_complete(UUID, UUID, BOOLEAN) TO authenticated;
 
 -- ============================================
--- 6. Q School final complete → promotion if won
+-- 6. Tour School final complete → promotion if won
 -- ============================================
 DROP FUNCTION IF EXISTS rpc_regional_tour_q_school_final_complete(UUID, UUID, BOOLEAN);
 CREATE OR REPLACE FUNCTION rpc_regional_tour_q_school_final_complete(
@@ -486,18 +486,18 @@ BEGIN
 
   IF p_player_won THEN
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
-    VALUES (p_career_id, 'q_school_winner', 'Q School Champion!',
-      'Won Q School to earn promotion to the World Tour!',
+    VALUES (p_career_id, 'q_school_winner', 'Tour School Champion!',
+      'Won Tour School to earn promotion to the World Tour!',
       v_career.tier, v_career.season, v_career.week, v_career.day);
 
-    RETURN json_build_object('success', true, 'promoted', true, 'message', 'Q School winner — promoted to World Tour!');
+    RETURN json_build_object('success', true, 'promoted', true, 'message', 'Tour School winner — promoted to World Tour!');
   ELSE
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
-    VALUES (p_career_id, 'q_school_eliminated', 'Q School — Final Loss',
-      'Lost the Q School final. Staying in the Regional Tour next season.',
+    VALUES (p_career_id, 'q_school_eliminated', 'Tour School — Final Loss',
+      'Lost the Tour School final. Staying in the Regional Tour next season.',
       v_career.tier, v_career.season, v_career.week, v_career.day);
 
-    RETURN json_build_object('success', true, 'promoted', false, 'message', 'Q School final loss — staying in Regional Tour');
+    RETURN json_build_object('success', true, 'promoted', false, 'message', 'Tour School final loss — staying in Regional Tour');
   END IF;
 END;
 $$;
@@ -506,19 +506,19 @@ GRANT EXECUTE ON FUNCTION rpc_regional_tour_q_school_final_complete(UUID, UUID, 
 
 -- ============================================
 -- 7. Update advance_to_next_season for Regional Tour
--- Handles: top 2 auto-promote, 3rd-6th Q School, bottom 2 relegated, rest stay
+-- Handles: top 2 auto-promote, 3rd-6th Tour School, bottom 2 relegated, rest stay
 -- ============================================
 -- NOTE: The existing rpc_career_advance_to_next_season in DEPLOY_CAREER_FLOW_V2.sql
 -- already handles promotion (top 2) and relegation (bottom 2) for all tiers.
--- Q School is handled separately BEFORE advance_to_next_season is called.
+-- Tour School is handled separately BEFORE advance_to_next_season is called.
 -- The frontend will:
 --   1. Show final table after T3
---   2. If rank 3-6: trigger Q School flow
---   3. After Q School resolves: check for q_school_winner milestone
+--   2. If rank 3-6: trigger Tour School flow
+--   3. After Tour School resolves: check for q_school_winner milestone
 --   4. If winner: promote via advance_to_next_season (which checks tournament_win milestone)
 --   5. If not: advance_to_next_season handles stay/relegate normally
 
--- Add Q School winner check to advance function
+-- Add Tour School winner check to advance function
 -- The existing function checks for 'tournament_win' milestone with 'Championship' in title
 -- We need it to also check for 'q_school_winner' milestone
 -- Update: override advance_to_next_season to also check q_school_winner
@@ -582,7 +582,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- Check for Q School promotion (Regional Tour)
+  -- Check for Tour School promotion (Regional Tour)
   IF v_career.tier = 4 AND v_player_rank > 2 THEN
     IF EXISTS (
       SELECT 1 FROM career_milestones
@@ -631,7 +631,7 @@ BEGIN
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
     VALUES (p_career_id, 'promotion', 'Promoted to ' || v_tier_name,
       CASE
-        WHEN v_is_q_school_promotion THEN 'Won Q School to earn promotion to ' || v_tier_name || '!'
+        WHEN v_is_q_school_promotion THEN 'Won Tour School to earn promotion to ' || v_tier_name || '!'
         WHEN v_is_tournament_promotion THEN 'Won the County Championship to earn promotion to ' || v_tier_name || '!'
         ELSE 'Earned promotion from ' || v_old_tier_name || ' to ' || v_tier_name || '!'
       END,

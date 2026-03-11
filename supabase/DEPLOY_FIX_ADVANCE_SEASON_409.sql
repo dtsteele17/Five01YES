@@ -71,7 +71,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- Check for Q School promotion (Regional Tour)
+  -- Check for Tour School promotion (Regional Tour)
   IF v_career.tier = 4 AND v_player_rank > 2 THEN
     IF EXISTS (
       SELECT 1 FROM career_milestones
@@ -120,7 +120,7 @@ BEGIN
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
     VALUES (p_career_id, 'promotion', 'Promoted to ' || v_tier_name,
       CASE
-        WHEN v_is_q_school_promotion THEN 'Won Q School to earn promotion to ' || v_tier_name || '!'
+        WHEN v_is_q_school_promotion THEN 'Won Tour School to earn promotion to ' || v_tier_name || '!'
         WHEN v_is_tournament_promotion THEN 'Won the County Championship to earn promotion to ' || v_tier_name || '!'
         ELSE 'Earned promotion from ' || v_old_tier_name || ' to ' || v_tier_name || '!'
       END,

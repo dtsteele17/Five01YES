@@ -344,7 +344,7 @@ export default function CareerPage() {
      } else if (!t3Done) {
       // Tournament 3 in progress - will show as next event
      } else if (t3Done && !qSchool?.length) {
-      // T3 done, check if Q School needed (3rd-6th)
+      // T3 done, check if Tour School needed (3rd-6th)
       // This is handled by Next Season button
      }
      // If everything done, fall through to Season Complete
@@ -972,7 +972,7 @@ export default function CareerPage() {
     return;
    }
 
-   // Q School semi/final and Regional qual match - dartbot match BO9/BO7
+   // Tour School semi/final and Regional qual match - dartbot match BO9/BO7
    if (['q_school_semi', 'q_school_final', 'regional_qual_match'].includes(next_event.event_type)) {
     const supabase = createClient();
     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
@@ -1249,7 +1249,7 @@ export default function CareerPage() {
              if (career.tier === 3) {
               // Fall through to advanceToNextSeason below
              }
-             // National Tour (Tier 4): Q School for 3rd-6th
+             // National Tour (Tier 4): Tour School for 3rd-6th
              else if (career.tier === 4) {
               const supabase2 = createClient();
               const { data: qEvents } = await supabase2
@@ -1267,11 +1267,11 @@ export default function CareerPage() {
                 }
                }
               } else if (!qAllDone) {
-               // Q School in progress, reload to show next match
+               // Tour School in progress, reload to show next match
                loadCareer();
                return;
               }
-              // Q School done or not needed, fall through to advance
+              // Tour School done or not needed, fall through to advance
              }
              // Tier 2: tournament is mandatory and handled in loadCareer, so just advance
              else if (career.tier === 2) {
@@ -1319,8 +1319,8 @@ export default function CareerPage() {
               : next_event.event_type?.startsWith('pro_') ? 'Pro Tour'
               : next_event.event_type === 'county_championship_group' ? 'Championship Group'
               : next_event.event_type === 'county_championship_knockout' ? 'Championship Knockout'
-              : next_event.event_type === 'q_school_semi' ? 'Q School Semi'
-              : next_event.event_type === 'q_school_final' ? 'Q School Final'
+              : next_event.event_type === 'q_school_semi' ? 'Tour School Semi'
+              : next_event.event_type === 'q_school_final' ? 'Tour School Final'
               : next_event.event_type.replace(/_/g, ' ')}
             </Badge>
             {next_event.event_type?.startsWith('pro_') && (() => {
@@ -1552,7 +1552,7 @@ export default function CareerPage() {
            ))}
            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-500">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Promotion</span>
-            {career.tier === 4 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Q School</span>}
+            {career.tier === 4 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Tour School</span>}
             {career.tier >= 3 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Relegation</span>}
            </div>
           </div>
@@ -2610,7 +2610,7 @@ export default function CareerPage() {
     </div>
    )}
 
-   {/* Q School Intro Popup */}
+   {/* Tour School Intro Popup */}
    {showQSchoolIntro && qSchoolData && (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
      <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative max-w-md w-full mx-4">
@@ -2618,7 +2618,7 @@ export default function CareerPage() {
        <div className="h-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500" />
        <div className="p-8 text-center">
         <div className="text-6xl mb-4">&#x1F393;</div>
-        <h2 className="text-2xl font-black text-white mb-2">Q School</h2>
+        <h2 className="text-2xl font-black text-white mb-2">Tour School</h2>
         <div className="inline-block px-4 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30 mb-4">
          <span className="text-orange-400 font-bold text-sm">Your Last Shot at Promotion</span>
         </div>
@@ -2631,7 +2631,7 @@ export default function CareerPage() {
         </div>
         <Button className="w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white font-black py-3"
          onClick={() => { setShowQSchoolIntro(false); loadCareer(); }}>
-         Enter Q School
+         Enter Tour School
         </Button>
        </div>
       </div>
