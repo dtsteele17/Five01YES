@@ -1271,7 +1271,7 @@ export default function CareerPage() {
               : next_event.event_type.replace(/_/g, ' ')}
             </Badge>
             {next_event.event_type?.startsWith('pro_') && (() => {
-             try { const m = JSON.parse(next_event.metadata || '{}'); if (m.country) return <Badge className="bg-blue-500/10 text-blue-400 text-[11px] font-medium border border-blue-500/20 px-2.5 py-0.5"><Globe className="w-3 h-3 mr-1" />{m.country}</Badge>; } catch {} return null;
+             try { const m = JSON.parse((next_event as any).metadata || '{}'); if (m.country) return <Badge className="bg-blue-500/10 text-blue-400 text-[11px] font-medium border border-blue-500/20 px-2.5 py-0.5"><Globe className="w-3 h-3 mr-1" />{m.country}</Badge>; } catch {} return null;
             })()}
             {next_event.day && (
              <Badge className="bg-slate-700/50 backdrop-blur-sm text-slate-300 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
