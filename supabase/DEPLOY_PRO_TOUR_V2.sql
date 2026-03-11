@@ -80,18 +80,27 @@ DECLARE
   v_points NUMERIC;
   v_start_rank INT;
   v_first_names TEXT[] := ARRAY[
-    'Michael','James','Peter','Gary','Phil','Adrian','Gerwyn','Nathan','Joe','Dave',
-    'Rob','Chris','Luke','Damon','Kim','Brendan','Daryl','Danny','Mensur','Gabriel',
-    'Dimitri','Fallon','Ross','Stephen','Keane','Martin','Dirk','Raymond','Simon','Andrew',
-    'Ryan','Josh','Callan','Jonny','Devon','Ricardo','Jose','Florian','Keegan','Boris',
-    'Mervyn','Ted','John','Mark','Alan','Scott','Ritchie','Ian','Jamie','Wayne',
-    'Colin','Terry','Andy','Steve','Dean','Kevin','Barry','Darren','Nigel','Paul',
-    'Stuart','Vincent','Max','Jeff','Liam','Connor','Ethan','Jake','Tyler','Ben',
-    'Matt','Tom','Will','Sam','Dan','Alex','Harry','Oscar','Leo','Alfie',
-    'George','Charlie','Noah','Arthur','Logan','Finley','Archie','Theo','Mason','Jack',
-    'Ricky','Graham','Stan','Reg','Noel','Glen','Clive','Vince','Trevor','Roy'
+    'Dan','Kyran','Josh','Ellis','Elliott','Anson','Ethan','Jordan','Matt','Harry',
+    'Hans','Chris','Kai','Gabe','Jacob','Michael','James','Peter','Gary','Phil',
+    'Adrian','Gerwyn','Nathan','Joe','Dave','Rob','Luke','Damon','Kim','Brendan',
+    'Daryl','Danny','Mensur','Gabriel','Dimitri','Fallon','Ross','Stephen','Keane','Martin',
+    'Dirk','Raymond','Simon','Andrew','Ryan','Callan','Jonny','Devon','Ricardo','Jose',
+    'Florian','Keegan','Boris','Mervyn','Ted','John','Mark','Alan','Scott','Ritchie',
+    'Ian','Jamie','Wayne','Colin','Terry','Andy','Steve','Dean','Kevin','Barry',
+    'Darren','Nigel','Paul','Stuart','Vincent','Max','Jeff','Liam','Connor','Jake',
+    'Tyler','Ben','Tom','Will','Sam','Alex','Oscar','Leo','Alfie','George',
+    'Charlie','Noah','Arthur','Logan','Finley','Archie','Theo','Mason','Jack','Ricky',
+    'Graham','Stan','Noel','Glen','Clive','Vince','Trevor','Roy','Wesley','Jelle',
+    'Maik','Niels','Lars','Sven','Bjorn','Karel','Pieter','Joost','Rik','Derk',
+    'Jurgen','Stefan','Dieter','Rainer','Helmut','Klaus','Wolfgang','Heinrich','Manfred','Fritz',
+    'Tomas','Krzysztof','Piotr','Radek','Jiri','Mikkel','Rasmus','Kasper','Karel','Ruben',
+    'Sergio','Pablo','Antonio','Diego','Rafael','Marco','Fabio','Luca','Alessandro','Roberto',
+    'Yuki','Kenji','Haruto','Arjun','Vikram','Hamza','Omar','Ibrahim','Reece','Callum',
+    'Declan','Ronan','Cillian','Paddy','Rhys','Owen','Toby','Freddie','Harvey','Zach',
+    'Brandon','Kian','Roman','Joel','Micah','Jasper','Felix','Hugo','Rocco','Enzo'
   ];
   v_surnames TEXT[] := ARRAY[
+    'Steele','Wells','Hall','Maier','Holmes','Baker','Hutchinson','Perry','Davies',
     'van Gerwen','Anderson','Wright','Price','Smith','Lewis','Aspinall','Cross','Clayton','Chisnall',
     'Wade','Humphries','Searle','Heta','de Graaf','Dolan','Gurney','Noppert','Clemens','Cullen',
     'van den Bergh','Sherrock','Rock','Bunting','Barry','Schindler','van Duijvenbode','Whitlock','Ratajski','Gilding',
@@ -99,12 +108,40 @@ DECLARE
     'King','Hankey','Lowe','Bristow','Taylor','Wilson','Painter','Jenkins','Part','Barneveld',
     'Thornton','Adams','Mitchell','Warren','Waites','Ashton','Nicholson','Beaton','Mardle','Hamilton',
     'Webster','Fitton','Fordham','Evetts','Hughes','Owen','Green','Cooper','Evans','Harris',
-    'Clark','Robinson','Turner','Baker','Wood','Hall','Walker','Allen','Young','Phillips',
-    'Thompson','White','Jackson','Martin','Davies','Roberts','Campbell','Edwards','Miller','Watts',
-    'Fraser','Reid','Stewart','Murray','Bennett','Shaw','Kelly','Stone','Fox','Webb'
+    'Clark','Robinson','Turner','Wood','Walker','Allen','Young','Phillips',
+    'Thompson','White','Jackson','Martin','Roberts','Campbell','Edwards','Miller','Watts',
+    'Fraser','Reid','Stewart','Murray','Bennett','Shaw','Kelly','Stone','Fox','Webb',
+    'de Boer','Jansen','Dekker','Bakker','Visser','Smit','Mulder','de Jong','van Dijk','Vermeer',
+    'Bos','Hendriks','Scholten','Vos','Kuijpers','Peters','Willems','Brouwer',
+    'Mueller','Fischer','Weber','Schneider','Becker','Hoffman','Richter','Braun','Zimmerman','Krause',
+    'Kowalski','Nowak','Mazur','Kolar','Horvath','Szabo','Larsen','Eriksen','Lindqvist','Johansson',
+    'Garcia','Martinez','Lopez','Hernandez','Santos','Silva','Costa','Ferreira',
+    'Patel','Sharma','Singh','Kumar','Khan','Tanaka','Sato','Chen','Wang','Kim',
+    'Connolly','Murphy','Gallagher','Doyle','Brennan','Quinn','Reilly','Byrne','Daly','Keane',
+    'Spencer','Rhodes','Pearce','Knight','Griffin','Cole','Chambers','Marsh','Barker','Holt'
+  ];
+  v_nicknames TEXT[] := ARRAY[
+    'The Power','The Iceman','Snakebite','Voltage','The Machine','Rapid','The Bullet','Mighty',
+    'The Hammer','Deadly','Lightning','The Rocket','Wolfie','The Warrior','Silverback','The Cobra',
+    'Barney','The Magician','Big Fish','Duzza','The Asset','Cool Hand','Jackpot','The Dream',
+    'Special One','The Phoenix','Flash','Deadeye','The Natural','Ruthless','The Menace','Fireball',
+    'Darth Maple','The Pie Man','Heavy Metal','The Thorn','Noddy','The Count','Robbo','The Viking',
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+    NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
   ];
   v_used_names TEXT[] := ARRAY[]::TEXT[];
   v_candidate TEXT;
+  v_nickname TEXT;
 BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id AND user_id = auth.uid();
   IF NOT FOUND THEN RETURN json_build_object('error', 'Career not found'); END IF;
@@ -120,8 +157,10 @@ BEGIN
 
   FOR v_i IN 1..99 LOOP
     LOOP
+      v_nickname := v_nicknames[1 + ((v_i * 17 + v_career.career_seed) * 43 + length(v_used_names::text)) % array_length(v_nicknames, 1)];
       v_candidate := v_first_names[1 + ((v_i * 7 + v_career.career_seed) * 31 + length(v_used_names::text)) % array_length(v_first_names, 1)]
-        || ' ' || v_surnames[1 + ((v_i * 13 + v_career.career_seed) * 37 + length(v_used_names::text)) % array_length(v_surnames, 1)];
+        || COALESCE(' ''' || v_nickname || ''' ', ' ')
+        || v_surnames[1 + ((v_i * 13 + v_career.career_seed) * 37 + length(v_used_names::text)) % array_length(v_surnames, 1)];
       EXIT WHEN NOT (v_candidate = ANY(v_used_names));
       v_career.career_seed := v_career.career_seed + 1;
     END LOOP;
