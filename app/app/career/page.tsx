@@ -34,6 +34,22 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
  'nightmare': { label: 'Nightmare', color: 'text-red-400' },
 };
 
+// Bot average ranges per difficulty, with small tier bump (+2 per tier above 1)
+function getDifficultyAverage(difficulty: string, tier: number): number {
+ const tierBump = Math.max(0, (tier - 1)) * 2;
+ const ranges: Record<string, [number, number]> = {
+  'rookie': [30, 36],
+  'amateur': [38, 45],
+  'semi-pro': [50, 57],
+  'pro': [62, 70],
+  'world-class': [75, 83],
+  'nightmare': [84, 93],
+ };
+ const range = ranges[difficulty] || ranges['amateur'];
+ const base = range[0] + Math.random() * (range[1] - range[0]);
+ return Math.min(95, Math.round(base + tierBump));
+}
+
 const TRIAL_TOURNAMENTS = [
  { id: 'brass_anchor', name: 'The Brass Anchor Open' },
  { id: 'saturday_shoutout', name: 'Saturday Shoutout Cup' },
@@ -160,6 +176,10 @@ export default function CareerPage() {
    }
 
    setData(homeData);
+
+   // Load player name from career_profiles
+   const { data: profileData } = await supabase.from('career_profiles').select('player_name').eq('id', careerId).single();
+   if (profileData?.player_name) setCareerName(profileData.player_name);
 
    // Tier 2 Pub Leagues: after 7 league matches, auto-create mandatory end-of-season tournament
    if (homeData.career.tier === 2 && homeData.standings) {
@@ -934,7 +954,7 @@ export default function CareerPage() {
     const supabase = createClient();
     const { data: matchData, error } = await supabase.rpc('rpc_pro_tour_start_qualifier', { p_career_id: careerId });
     if (error || matchData?.error) { toast.error(matchData?.error || 'Failed to start qualifier'); setPlayingEvent(false); return; }
-    const avg = matchData.bot_average || 72;
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
     const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     setConfig({
      mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
@@ -955,7 +975,7 @@ export default function CareerPage() {
      loadCareer(); setPlayingEvent(false); return;
     }
     if (matchData?.error) throw new Error(matchData.error);
-    const avg = matchData.bot_average || 70;
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
     const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
     setConfig({
@@ -985,7 +1005,7 @@ export default function CareerPage() {
     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
     if (error) throw error;
     if (matchData?.error) throw new Error(matchData.error);
-    const avg = matchData.bot_average || 60;
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
     const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
     setConfig({
@@ -1003,7 +1023,7 @@ export default function CareerPage() {
     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
     if (error) throw error;
     if (matchData?.error) throw new Error(matchData.error);
-    const avg = matchData.bot_average || 55;
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
     const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     setConfig({
      mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
@@ -1066,7 +1086,7 @@ export default function CareerPage() {
     return;
    }
 
-   const avg = matchData.bot_average || 50;
+   const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
    const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
     : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
     : avg <= 90 ? 'pro' : 'worldClass';
@@ -1158,6 +1178,7 @@ export default function CareerPage() {
 
  if (!data) return null;
  const { career, next_event, standings, sponsors, recent_milestones } = data;
+ const playerName = careerName || 'You';
  const tierCfg = TIER_CONFIG[career.tier] || TIER_CONFIG[1];
  const diffInfo = DIFFICULTY_LABELS[career.difficulty] || { label: career.difficulty, color: 'text-white' };
  const chosenName = chosenTournament ? TRIAL_TOURNAMENTS.find(t => t.id === chosenTournament)?.name : null;
@@ -1549,7 +1570,7 @@ export default function CareerPage() {
            {[...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).map((row: any, i: number) => (
             <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
              <span className={`w-5 font-bold ${i < 2 ? 'text-emerald-400' : (career.tier === 4 && i >= 2 && i <= 5) ? 'text-amber-400' : (career.tier === 4 && i >= standings.length - 3) ? 'text-red-400' : (career.tier === 3 && i >= standings.length - 2) ? 'text-red-400' : 'text-slate-500'}`}>{i + 1}</span>
-             <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
+             <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.is_player ? playerName : row.name}</span>
              <span className="w-7 text-center text-slate-500">{row.played}</span>
              <span className="w-7 text-center text-slate-500">{row.won || 0}</span>
              <span className="w-7 text-center text-slate-500">{row.lost || 0}</span>
@@ -2009,14 +2030,26 @@ export default function CareerPage() {
         <p className="text-slate-500 text-[10px]">Difficulty cannot be changed mid-career</p>
        </div>
        <div>
-        <label className="text-slate-400 text-xs font-medium mb-1 block">Career Display Name</label>
+        <label className="text-slate-400 text-xs font-medium mb-1 block">Player Name</label>
         <Input
          value={careerName}
          onChange={(e) => setCareerName(e.target.value)}
-         placeholder="Enter a name for this career..."
+         placeholder="Enter your player name..."
          className="bg-slate-800 border-white/10 text-white"
         />
+        <p className="text-slate-500 text-[10px] mt-1">This name replaces &quot;You&quot; throughout career mode</p>
        </div>
+       <Button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+        onClick={async () => {
+         if (!careerId) return;
+         const supabase = createClient();
+         await supabase.from('career_profiles').update({ player_name: careerName || null }).eq('id', careerId);
+         toast.success('Player name saved!');
+         setShowSettings(false);
+         loadCareer();
+        }}>
+        <Save className="w-4 h-4 mr-2" /> Save Settings
+       </Button>
        <Button variant="outline" className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
         onClick={() => { toast.info('Abandon career from the Play page menu'); setShowSettings(false); }}>
         Abandon Career
