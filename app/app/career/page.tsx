@@ -954,7 +954,7 @@ export default function CareerPage() {
     const supabase = createClient();
     const { data: matchData, error } = await supabase.rpc('rpc_pro_tour_start_qualifier', { p_career_id: careerId });
     if (error || matchData?.error) { toast.error(matchData?.error || 'Failed to start qualifier'); setPlayingEvent(false); return; }
-    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || 50);
     const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     setConfig({
      mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
@@ -975,7 +975,7 @@ export default function CareerPage() {
      loadCareer(); setPlayingEvent(false); return;
     }
     if (matchData?.error) throw new Error(matchData.error);
-    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || 50);
     const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
     setConfig({
@@ -1005,7 +1005,7 @@ export default function CareerPage() {
     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
     if (error) throw error;
     if (matchData?.error) throw new Error(matchData.error);
-    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || 50);
     const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
     setConfig({
@@ -1023,7 +1023,7 @@ export default function CareerPage() {
     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
     if (error) throw error;
     if (matchData?.error) throw new Error(matchData.error);
-    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
+    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || 50);
     const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
     setConfig({
      mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
@@ -1086,7 +1086,7 @@ export default function CareerPage() {
     return;
    }
 
-   const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || );
+   const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || 50);
    const diffKey = avg <= 30 ? 'novice' : avg <= 40 ? 'beginner' : avg <= 50 ? 'casual'
     : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
     : avg <= 90 ? 'pro' : 'worldClass';
