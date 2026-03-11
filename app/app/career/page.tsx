@@ -1371,9 +1371,9 @@ export default function CareerPage() {
                         <span className="w-8 text-center">LD</span>
                         <span className="w-9 text-center">Pts</span>
                       </div>
-                      {[...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).slice(0, 12).map((row: any, i: number) => (
+                      {[...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).map((row: any, i: number) => (
                         <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
-                          <span className={`w-5 font-bold ${i < 2 ? 'text-emerald-400' : i >= standings.length - 2 ? 'text-red-400' : 'text-slate-500'}`}>{i + 1}</span>
+                          <span className={`w-5 font-bold ${i < 2 ? 'text-emerald-400' : (career.tier === 4 && i >= 2 && i <= 5) ? 'text-amber-400' : (career.tier >= 3 && i >= standings.length - 2) ? 'text-red-400' : 'text-slate-500'}`}>{i + 1}</span>
                           <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
                           <span className="w-7 text-center text-slate-500">{row.played}</span>
                           <span className="w-7 text-center text-slate-500">{row.won || 0}</span>
@@ -1384,7 +1384,8 @@ export default function CareerPage() {
                       ))}
                       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-500">
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Promotion</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Relegation</span>
+                        {career.tier === 4 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Q School</span>}
+                        {career.tier >= 3 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Relegation</span>}
                       </div>
                     </div>
                   ) : next_event ? (
