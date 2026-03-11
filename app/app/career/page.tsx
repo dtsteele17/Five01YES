@@ -867,7 +867,9 @@ export default function CareerPage() {
    const { data: result, error } = await supabase.rpc('rpc_career_advance_to_next_season', {
     p_career_id: careerId,
    });
+   console.log('[ADVANCE] Result:', result, 'Error:', error);
    if (error) throw error;
+   if (result?.error) throw new Error(result.error);
    if (result?.promoted) {
     setPromotionTierName(result.tier_name);
     setShowPromotionPopup(true);
@@ -1307,15 +1309,17 @@ export default function CareerPage() {
              }
              
              // Check for sponsor renewal before advancing
-             const supabase = createClient();
-             const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
-              p_career_id: careerId,
-             });
-             if (sponsorOptions?.has_sponsor) {
-              setSponsorRenewalData(sponsorOptions);
-              setShowSponsorRenewal(true);
-              return;
-             }
+             try {
+              const supabase = createClient();
+              const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
+               p_career_id: careerId,
+              });
+              if (sponsorOptions?.has_sponsor) {
+               setSponsorRenewalData(sponsorOptions);
+               setShowSponsorRenewal(true);
+               return;
+              }
+             } catch (e) { console.error('Sponsor check failed:', e); }
              // No sponsor advance directly
              await advanceToNextSeason();
             }}
