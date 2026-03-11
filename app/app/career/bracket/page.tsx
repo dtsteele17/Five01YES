@@ -101,7 +101,7 @@ export default function CareerBracketPage() {
       .select('id, bracket_data, bracket_size, rounds_total, current_round, status')
       .eq('event_id', eventId)
       .eq('career_id', careerId)
-      .single();
+      .maybeSingle();
 
     if (existingBracket?.bracket_data?.matches?.length > 0) {
       // ✅ Bracket has real data — load it directly, no RPC call

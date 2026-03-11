@@ -367,7 +367,7 @@ export default function CareerPage() {
      .eq('career_id', careerId)
      .eq('status', 'offered')
      .limit(1)
-     .single();
+     .maybeSingle();
     if (offerData) {
      const { data: sponsorData } = await supabase
       .from('career_sponsor_catalog')
@@ -433,7 +433,7 @@ export default function CareerPage() {
      .select('bracket_data, current_round, status')
      .eq('event_id', homeData.next_event.id)
      .eq('career_id', careerId)
-     .single();
+     .maybeSingle();
     if (bracketData?.bracket_data?.matches) {
      setActiveBracket(bracketData.bracket_data);
     }
