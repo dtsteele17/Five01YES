@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight, ArrowLeft, Loader as Loader2, Star, TrendingUp, Calendar, Dumbbell, Award, Zap, Users, ChartBar as BarChart3, Sparkles, Clock, Settings, Save, Bell, Table2, ChevronDown, X, Trash2, Mail } from 'lucide-react';
+import { Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight, ArrowLeft, Loader as Loader2, Star, TrendingUp, Calendar, Dumbbell, Award, Zap, Users, ChartBar as BarChart3, Sparkles, Clock, Settings, Save, Bell, Table2, ChevronDown, X, Trash2, Mail, Globe } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { CAREER_TRAINING_RETURN_KEY, getRandomCareerTrainingRoute } from '@/lib/career/trainingRoutes';
 
@@ -112,6 +112,12 @@ export default function CareerPage() {
   const [showChampionshipIntro, setShowChampionshipIntro] = useState(false);
   const [showGroupResults, setShowGroupResults] = useState(false);
   const [groupStandings, setGroupStandings] = useState<any[]>([]);
+  const [showOptionalTournament, setShowOptionalTournament] = useState(false);
+  const [optionalTournamentEvent, setOptionalTournamentEvent] = useState<any>(null);
+  const [showChampionsStandings, setShowChampionsStandings] = useState(false);
+  const [championsStandings, setChampionsStandings] = useState<any[]>([]);
+  const [showChampionsPlayoffs, setShowChampionsPlayoffs] = useState(false);
+  const [championsPlayoffData, setChampionsPlayoffData] = useState<any>(null);
   const [groupQualified, setGroupQualified] = useState<boolean | null>(null);
   const [groupPlayerRank, setGroupPlayerRank] = useState<number>(0);
 
@@ -688,6 +694,46 @@ export default function CareerPage() {
     setShowRankings(true);
   }
 
+  async function handleSkipOptionalTournament() {
+    if (!careerId || !optionalTournamentEvent) return;
+    const supabase = createClient();
+    const { data: result } = await supabase.rpc('rpc_pro_tour_skip_tournament', {
+      p_career_id: careerId, p_event_id: optionalTournamentEvent.id
+    });
+    if (result?.error) { toast.error(result.error); return; }
+    toast.info(`Skipped ${optionalTournamentEvent.event_name} — rankings updated in background`);
+    setShowOptionalTournament(false);
+    setOptionalTournamentEvent(null);
+    loadCareer();
+  }
+
+  async function handleEnterOptionalTournament() {
+    if (!careerId || !optionalTournamentEvent) return;
+    setShowOptionalTournament(false);
+    router.push(`/app/career/bracket?careerId=${careerId}&eventId=${optionalTournamentEvent.id}`);
+  }
+
+  async function loadChampionsStandings() {
+    if (!careerId || !data?.career) return;
+    const supabase = createClient();
+    const { data: result } = await supabase.rpc('rpc_champions_series_get_standings', {
+      p_career_id: careerId, p_season: data.career.season
+    });
+    if (result?.standings) {
+      setChampionsStandings(result.standings);
+      setShowChampionsStandings(true);
+    }
+  }
+
+  async function checkChampionsPlayoffs() {
+    if (!careerId) return;
+    const supabase = createClient();
+    const { data: result } = await supabase.rpc('rpc_champions_series_playoffs', { p_career_id: careerId });
+    if (result?.error) return;
+    setChampionsPlayoffData(result);
+    setShowChampionsPlayoffs(true);
+  }
+
   function deleteEmail(emailId: string) {
     if (!data?.career?.id) return;
     const storageKey = `career_emails_${data.career.id}`;
@@ -721,6 +767,24 @@ export default function CareerPage() {
     setAdvancingSeason(true);
     try {
       const supabase = createClient();
+      const tier = data?.career?.tier;
+
+      // Pro Tour (Tier 5) — use dedicated season end + new season RPCs
+      if (tier === 5) {
+        const { data: seasonEnd } = await supabase.rpc('rpc_pro_tour_season_end', { p_career_id: careerId });
+        if (seasonEnd?.error) throw new Error(seasonEnd.error);
+
+        if (seasonEnd?.qualifies_champions_series) {
+          toast.success('Qualified for the Champions Series!', { duration: 4000 });
+        }
+
+        const { data: newSeason, error: nsErr } = await supabase.rpc('rpc_pro_tour_new_season', { p_career_id: careerId });
+        if (nsErr) throw nsErr;
+        toast.success(`Pro Tour Season ${newSeason?.new_season} begins!${newSeason?.champions_series ? ' Champions Series awaits!' : ''}`);
+        loadCareer();
+        return;
+      }
+
       const { data: result, error } = await supabase.rpc('rpc_career_advance_to_next_season', {
         p_career_id: careerId,
       });
@@ -864,7 +928,21 @@ export default function CareerPage() {
         return;
       }
 
-      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_players_championship', 'pro_open', 'pro_major', 'pro_world_series', 'champions_series_night', 'relegation_tournament'];
+      // Optional Pro Tour Players Championship — show Enter/Skip prompt
+      if (next_event.event_type === 'pro_players_championship') {
+        setOptionalTournamentEvent(next_event);
+        setShowOptionalTournament(true);
+        setPlayingEvent(false);
+        return;
+      }
+
+      // Champions Series night — mini bracket (8 players)
+      if (next_event.event_type === 'champions_series_night') {
+        router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
+        return;
+      }
+
+      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_open', 'pro_major', 'pro_world_series', 'relegation_tournament'];
       if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
         router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
         return;
@@ -1633,6 +1711,25 @@ export default function CareerPage() {
               </Card>
             </motion.div>
 
+            {/* Champions Series Standings (Tier 5 only) */}
+            {career.tier >= 5 && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+                <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-purple-500/20 shadow-lg">
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="w-4 h-4 text-purple-400" />
+                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Champions Series</span>
+                    </div>
+                    <p className="text-slate-400 text-xs mb-2">Top 8 players compete over 8 nights</p>
+                    <Button variant="ghost" size="sm" className="text-purple-400 text-xs hover:text-purple-300"
+                      onClick={loadChampionsStandings}>
+                      View Standings
+                    </Button>
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+
             {/* Awards / Trophy Cabinet */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
@@ -1886,7 +1983,96 @@ export default function CareerPage() {
         </Dialog>
       </div>
 
-      {/* Tournament Invite Popup ??? forced decision (supports 1 or 2 invites side by side) */}
+      {/* Optional Pro Tour Tournament Prompt */}
+      {showOptionalTournament && optionalTournamentEvent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#12121f] border border-white/10 rounded-xl p-6 max-w-sm w-full text-center">
+            <Globe className="w-10 h-10 text-blue-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-white mb-1">{optionalTournamentEvent.event_name}</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              {(() => { try { const m = JSON.parse(optionalTournamentEvent.metadata || '{}'); return m.country ? `Location: ${m.country}` : ''; } catch { return ''; } })()}
+            </p>
+            <p className="text-slate-500 text-xs mb-6">
+              {optionalTournamentEvent.bracket_size}-player knockout tournament. This event is optional — you can skip it, but other players will still earn ranking points.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                onClick={handleSkipOptionalTournament}>
+                Skip Tournament
+              </Button>
+              <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={handleEnterOptionalTournament}>
+                Enter Tournament
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Champions Series Standings */}
+      <Dialog open={showChampionsStandings} onOpenChange={setShowChampionsStandings}>
+        <DialogContent className="bg-[#12121f] border-white/10 text-white max-w-md">
+          <DialogTitle className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-purple-400" /> Champions Series Standings
+          </DialogTitle>
+          <div className="space-y-0">
+            <div className="flex text-[10px] text-slate-500 uppercase px-2 py-1 border-b border-white/10">
+              <span className="w-6">#</span>
+              <span className="flex-1">Player</span>
+              <span className="w-8 text-center">Pts</span>
+              <span className="w-10 text-center">LD</span>
+              <span className="w-8 text-center">LF</span>
+            </div>
+            {championsStandings.map((p: any, i: number) => (
+              <div key={i} className={`flex items-center text-xs px-2 py-1.5 border-b border-white/5 ${p.is_player ? 'bg-blue-500/10 border-l-2 border-l-blue-400' : i < 4 ? 'bg-purple-500/5' : ''}`}>
+                <span className={`w-6 ${i < 4 ? 'text-purple-400 font-bold' : 'text-slate-500'}`}>{i + 1}</span>
+                <span className={`flex-1 font-medium ${p.is_player ? 'text-blue-400' : 'text-slate-300'}`}>{p.player_name}</span>
+                <span className="w-8 text-center text-white font-bold">{p.points}</span>
+                <span className={`w-10 text-center ${p.leg_difference > 0 ? 'text-emerald-400' : p.leg_difference < 0 ? 'text-red-400' : 'text-slate-500'}`}>{p.leg_difference > 0 ? '+' : ''}{p.leg_difference}</span>
+                <span className="w-8 text-center text-slate-500">{p.legs_for}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-slate-500 text-[10px] text-center mt-2">Top 4 qualify for playoffs</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* Champions Series Playoffs Result */}
+      {showChampionsPlayoffs && championsPlayoffData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#12121f] border border-white/10 rounded-xl p-6 max-w-sm w-full text-center">
+            <Trophy className="w-10 h-10 text-purple-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-white mb-2">Champions Series Playoffs</h3>
+            {championsPlayoffData.qualified ? (
+              <>
+                <p className="text-emerald-400 text-sm font-medium mb-2">
+                  Finished {championsPlayoffData.player_position}{championsPlayoffData.player_position === 1 ? 'st' : championsPlayoffData.player_position === 2 ? 'nd' : championsPlayoffData.player_position === 3 ? 'rd' : 'th'} — Qualified!
+                </p>
+                <p className="text-slate-400 text-xs mb-4">{championsPlayoffData.semi_matchup}</p>
+                <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full"
+                  onClick={() => { setShowChampionsPlayoffs(false); loadCareer(); }}>
+                  Continue to Playoffs
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-red-400 text-sm font-medium mb-2">
+                  Finished {championsPlayoffData.player_position}th — Did not qualify
+                </p>
+                <p className="text-slate-500 text-xs mb-4">Only the Top 4 advance to the playoffs</p>
+                <Button variant="outline" className="border-slate-600 text-slate-300 w-full"
+                  onClick={() => { setShowChampionsPlayoffs(false); loadCareer(); }}>
+                  Continue
+                </Button>
+              </>
+            )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Tournament Invite Popup — forced decision (supports 1 or 2 invites side by side) */}
       {showInvitePopup && pendingInvites.length > 0 && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div

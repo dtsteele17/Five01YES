@@ -187,9 +187,31 @@ export default function CareerBracketPage() {
 
   // Build participants from career_opponents table (deterministic, no RPC needed)
   async function buildParticipantsFromDB(supabase: any, carId: string, bracketSize: number, evtId: string) {
-    const { data: career } = await supabase.from('career_profiles').select('tier, career_seed, difficulty').eq('id', carId).single();
-    const { data: evt } = await supabase.from('career_events').select('sequence_no').eq('id', evtId).single();
+    const { data: career } = await supabase.from('career_profiles').select('tier, career_seed, difficulty, season').eq('id', carId).single();
+    const { data: evt } = await supabase.from('career_events').select('sequence_no, event_type').eq('id', evtId).single();
     if (!career) return [];
+
+    // Champions Series night — 8 fixed players from career_champions_series
+    if (evt?.event_type === 'champions_series_night') {
+      const { data: csPlayers } = await supabase
+        .from('career_champions_series')
+        .select('player_name, is_player, ranking_at_qualification, points')
+        .eq('career_id', carId)
+        .eq('season', career.season)
+        .order('ranking_at_qualification');
+      if (!csPlayers) return [];
+      const seed = (career.career_seed || 0) + (evt.sequence_no || 0) * 100;
+      const hash = (n: number) => { let t = n + 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+      const shuffled = [...csPlayers].sort((a: any, b: any) => hash(seed + a.player_name.length * 31) - hash(seed + b.player_name.length * 37));
+      return shuffled.map((p: any, i: number) => ({
+        id: p.is_player ? 'player' : `cs_${i}`,
+        name: p.player_name,
+        skill: Math.max(30, 80 - (p.ranking_at_qualification || 1) * 3),
+        archetype: 'allrounder',
+        isPlayer: p.is_player,
+        seed: i + 1,
+      }));
+    }
     const { data: opponents } = await supabase
       .from('career_opponents')
       .select('id, first_name, last_name, nickname, skill_rating, archetype')
@@ -287,7 +309,42 @@ export default function CareerBracketPage() {
         await supabase.rpc('rpc_tier4_award_tournament_points', {
           p_career_id: careerId, p_event_id: eventId, p_placement: placement,
         });
-      } catch {} // Silently fail if not Tier 4
+      } catch {}
+      // Award Pro Tour ranking points (Tier 5)
+      try {
+        const placementMap: Record<string, string> = {
+          'Winner': 'W', 'Runner-Up': 'RU', 'Semi-Finalist': 'SF',
+          'Quarter-Finalist': 'QF', 'Round of 16 Exit': 'L16', 'Last 16': 'L16',
+          'Round 2 Exit': 'L32', 'Round 1 Exit': 'L64',
+        };
+        const shortPlacement = placementMap[placement] || (() => {
+          if (placement.includes('Round') && placement.includes('Exit')) {
+            const round = parseInt(placement);
+            if (updated.totalRounds >= 7) return round <= 1 ? 'L128' : round <= 2 ? 'L64' : round <= 3 ? 'L32' : 'L16';
+            return round <= 1 ? 'L64' : round <= 2 ? 'L32' : 'L16';
+          }
+          return 'L64';
+        })();
+        await supabase.rpc('rpc_pro_tour_award_points', {
+          p_career_id: careerId, p_event_id: eventId, p_placement: shortPlacement,
+        });
+      } catch {}
+      // Champions Series night completion (Tier 5)
+      try {
+        const csResult = eventType?.startsWith('champions_series') ? (
+          playerWon ? 'winner' : updated.playerEliminatedRound === updated.totalRounds ? 'runner_up'
+            : updated.playerEliminatedRound === updated.totalRounds - 1 ? 'semi' : 'qf'
+        ) : null;
+        if (csResult) {
+          const playerMatches = updated.matches.filter(m => !m.simulated && m.score);
+          const pLegsFor = playerMatches.reduce((s, m) => s + (m.participant1?.isPlayer ? (m.score?.p1Legs || 0) : (m.score?.p2Legs || 0)), 0);
+          const pLegsAgainst = playerMatches.reduce((s, m) => s + (m.participant1?.isPlayer ? (m.score?.p2Legs || 0) : (m.score?.p1Legs || 0)), 0);
+          await supabase.rpc('rpc_champions_series_night_complete', {
+            p_career_id: careerId, p_event_id: eventId,
+            p_player_result: csResult, p_player_legs_for: pLegsFor, p_player_legs_against: pLegsAgainst,
+          });
+        }
+      } catch {}
       setShowResults(true);
     }
   }

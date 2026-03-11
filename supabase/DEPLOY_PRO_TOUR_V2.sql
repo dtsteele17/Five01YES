@@ -542,9 +542,9 @@ BEGIN
   END LOOP;
 
   FOR v_night IN 1..8 LOOP
-    INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, day, status)
+    INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day, status)
     VALUES (p_career_id, p_season, 500 + v_night, 'champions_series_night',
-      'Champions Series - ' || v_locations[v_night], 11, v_career.day + (v_night * 10), 'pending')
+      'Champions Series - ' || v_locations[v_night], 11, 8, v_career.day + (v_night * 10), 'pending')
     RETURNING id INTO v_evt_id;
   END LOOP;
 
