@@ -22,7 +22,7 @@ const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; acce
  2: { name: 'Pub Leagues', icon: Flame, color: 'blue', accent: 'blue-500' },
  3: { name: 'County Circuit', icon: Shield, color: 'purple', accent: 'purple-500' },
  4: { name: 'National Tour', icon: Trophy, color: 'orange', accent: 'orange-500' },
- 5: { name: 'World Tour', icon: Crown, color: 'amber', accent: 'amber-500' },
+ 5: { name: 'Pro Tour', icon: Crown, color: 'amber', accent: 'amber-500' },
 };
 
 const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
@@ -590,6 +590,8 @@ export default function CareerPage() {
 
   if (tier >= 5) {
    const supabase = createClient();
+   // Auto-init rankings if not yet created
+   await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
    const { data: rankData } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
    if (rankData?.top25) {
     setWorldRankings(rankData.top25.map((r: any) => ({
@@ -1738,8 +1740,8 @@ export default function CareerPage() {
        </Card>
       </motion.div>
 
-      {/* Champions Series Standings (Tier 5 only) */}
-      {career.tier >= 5 && (
+      {/* Champions Series Standings (Tier 5 only, when CS is active) */}
+      {career.tier >= 5 && data?.next_event?.event_type?.startsWith('champions_series') && (
        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
         <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-purple-500/20 shadow-lg">
          <div className="p-4">
@@ -2555,7 +2557,7 @@ export default function CareerPage() {
          <p className="text-white font-semibold mt-3">Semi-Final (BO9)</p>
          <p className="text-slate-400 text-xs">You vs <span className="text-orange-400 font-semibold">{qSchoolData.semi_opponent}</span></p>
          <p className="text-white font-semibold mt-3">Final (BO9)</p>
-         <p className="text-slate-400 text-xs">Win the final = promoted to World Tour</p>
+         <p className="text-slate-400 text-xs">Win the final = promoted to Pro Tour</p>
         </div>
         <Button className="w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white font-black py-3"
          onClick={() => { setShowQSchoolIntro(false); loadCareer(); }}>
