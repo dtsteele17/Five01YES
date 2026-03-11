@@ -205,30 +205,46 @@ BEGIN
 
   ELSE
     v_new_tier := v_career.tier;
-    v_top2_opponents := v_ranked_opponents[1:2];
-    v_keep_opponents := v_ranked_opponents[3:array_length(v_ranked_opponents, 1)];
+    DECLARE
+      v_relegation_count SMALLINT;
+      v_promoted_count SMALLINT := 2;
+      v_total_opponents SMALLINT;
+      v_new_count SMALLINT;
+    BEGIN
+      v_total_opponents := array_length(v_ranked_opponents, 1);
+      v_relegation_count := CASE v_career.tier WHEN 4 THEN 3 WHEN 3 THEN 2 WHEN 2 THEN 0 ELSE 0 END;
 
-    UPDATE career_profiles SET
-      season = v_new_season, week = 1, day = v_new_day, updated_at = now()
-    WHERE id = p_career_id;
+      v_top2_opponents := v_ranked_opponents[1:v_promoted_count];
+      IF v_relegation_count > 0 AND v_total_opponents > v_relegation_count THEN
+        v_keep_opponents := v_ranked_opponents[(v_promoted_count + 1):(v_total_opponents - v_relegation_count)];
+      ELSE
+        v_keep_opponents := v_ranked_opponents[(v_promoted_count + 1):v_total_opponents];
+      END IF;
 
-    INSERT INTO career_league_standings (career_id, season, tier, is_player)
-    VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
+      v_new_count := v_promoted_count + v_relegation_count;
 
-    INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
-    SELECT p_career_id, v_new_season, v_new_tier, unnest(v_keep_opponents), FALSE;
+      UPDATE career_profiles SET
+        season = v_new_season, week = 1, day = v_new_day, updated_at = now()
+      WHERE id = p_career_id;
 
-    PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, 2, v_career.career_seed + v_new_season * 100);
+      INSERT INTO career_league_standings (career_id, season, tier, is_player)
+      VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
 
-    INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
-    SELECT p_career_id, v_new_season, v_new_tier, id, FALSE
-    FROM career_opponents
-    WHERE career_id = p_career_id AND tier = v_new_tier
-      AND id NOT IN (SELECT unnest(v_keep_opponents))
-      AND id NOT IN (SELECT unnest(v_top2_opponents))
-      AND id NOT IN (SELECT unnest(v_ranked_opponents))
-    ORDER BY created_at DESC
-    LIMIT 2;
+      INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
+      SELECT p_career_id, v_new_season, v_new_tier, unnest(v_keep_opponents), FALSE;
+
+      PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, v_new_count, v_career.career_seed + v_new_season * 100);
+
+      INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
+      SELECT p_career_id, v_new_season, v_new_tier, id, FALSE
+      FROM career_opponents
+      WHERE career_id = p_career_id AND tier = v_new_tier
+        AND id NOT IN (SELECT unnest(v_keep_opponents))
+        AND id NOT IN (SELECT unnest(v_top2_opponents))
+        AND id NOT IN (SELECT unnest(v_ranked_opponents))
+      ORDER BY created_at DESC
+      LIMIT v_new_count;
+    END;
 
     INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
     SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
