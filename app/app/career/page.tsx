@@ -918,28 +918,37 @@ export default function CareerPage() {
     return;
    }
 
-   // Pro Tour Major Qualifier match - dartbot BO11
+   // Pro Tour Major Qualifier match - dartbot BO11 (uses same RPC as league/championship matches)
    if (next_event.event_type === 'pro_major_qualifier') {
     const supabase = createClient();
-    // Create match room directly for qualifier
-    const { data: room, error: roomErr } = await supabase.from('match_room').insert({
-     user_id: (await supabase.auth.getUser()).data.user?.id,
-     source: 'career', match_type: 'career', status: 'waiting',
-    }).select('id').single();
-    if (roomErr || !room) { toast.error('Failed to create match'); setPlayingEvent(false); return; }
-    // Create career_matches row
-    const { data: matchRow } = await supabase.from('career_matches').insert({
-     career_id: careerId, event_id: next_event.id, room_id: room.id,
-     opponent_name: 'Qualifier Opponent', bot_average: 72, best_of: 11,
-    }).select('id').single();
-    // Mark event active
-    await supabase.from('career_events').update({ status: 'active' }).eq('id', next_event.id);
-    setConfig({
-     mode: '501', botDifficulty: 'advanced' as any, botAverage: 72, doubleOut: true,
-     bestOf: 'best-of-11', atcOpponent: 'bot',
-     career: { careerId, eventId: next_event.id, eventName: next_event.event_name, matchId: matchRow?.id || room.id, opponentId: 'qualifier_bot', opponentName: 'Qualifier Opponent' },
-    });
-    router.push('/app/play/training/501');
+    try {
+     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
+     if (error) console.error('[QUALIFIER] RPC error:', error);
+     if (matchData?.error) console.error('[QUALIFIER] Data error:', matchData.error);
+     if (error || matchData?.error || !matchData?.match_id) {
+      // Fallback: launch directly as dartbot match without RPC
+      await supabase.from('career_events').update({ status: 'active' }).eq('id', next_event.id);
+      setConfig({
+       mode: '501', botDifficulty: 'advanced' as any, botAverage: 72, doubleOut: true,
+       bestOf: 'best-of-11', atcOpponent: 'bot',
+       career: { careerId, eventId: next_event.id, eventName: next_event.event_name, matchId: next_event.id, opponentId: 'qualifier_bot', opponentName: 'Qualifier Opponent' },
+      });
+      router.push('/app/play/training/501');
+      return;
+     }
+     const avg = matchData.bot_average || 72;
+     const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
+     setConfig({
+      mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
+      bestOf: 'best-of-11', atcOpponent: 'bot',
+      career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent?.id || 'qualifier_bot', opponentName: matchData.opponent?.name || 'Qualifier Opponent' },
+     });
+     router.push('/app/play/training/501');
+    } catch (err: any) {
+     console.error('[QUALIFIER] Exception:', err);
+     toast.error('Failed to start qualifier');
+     setPlayingEvent(false);
+    }
     return;
    }
 
