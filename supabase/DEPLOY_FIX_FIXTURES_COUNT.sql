@@ -89,7 +89,7 @@ BEGIN
           AND ce.season = v_career.season
           AND cm.result != 'pending'
       )
-    ORDER BY random()
+    ORDER BY md5(co.id::text || v_event.id::text)
     LIMIT 1;
 
     IF v_player_opponent.id IS NULL THEN
@@ -99,7 +99,7 @@ BEGIN
         AND ls.season = v_career.season 
         AND ls.tier = v_career.tier
         AND ls.is_player = FALSE
-      ORDER BY random()
+      ORDER BY md5(co.id::text || v_event.id::text)
       LIMIT 1;
     END IF;
 
@@ -143,7 +143,7 @@ BEGIN
       AND ls.tier = v_career.tier
       AND ls.is_player = FALSE
       AND ls.opponent_id != v_player_opponent.id
-    ORDER BY random()
+    ORDER BY md5(co.id::text || v_event.id::text)
     LIMIT (v_other_match_count * 2)
   ) INTO v_other_opponents;
 
@@ -151,9 +151,9 @@ BEGIN
   FOR v_i IN 1..v_other_match_count LOOP
     IF v_i * 2 <= array_length(v_other_opponents, 1) THEN
       DECLARE
-        v_home_wins BOOLEAN := random() < 0.5;
+        v_home_wins BOOLEAN := (ascii(md5(v_other_opponents[v_i * 2 - 1].id::text || v_event.id::text)) % 2) = 0;
         v_winner_legs INTEGER := v_legs_to_win;  -- Always exactly legs_to_win (e.g. 3 for BO5)
-        v_loser_legs INTEGER := floor(random() * v_legs_to_win)::integer;  -- 0 to legs_to_win-1
+        v_loser_legs INTEGER := (ascii(md5(v_other_opponents[v_i * 2].id::text || v_event.id::text)) % v_legs_to_win)::integer;  -- 0 to legs_to_win-1
       BEGIN
         v_fixtures := v_fixtures || json_build_object(
           'id', 'sim_match_' || v_i,

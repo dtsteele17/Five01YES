@@ -77,16 +77,16 @@ BEGIN
       AND ls.tier = v_career.tier
       AND ls.is_player = FALSE
       AND ls.opponent_id != v_player_opponent.id
-    ORDER BY random()
+    ORDER BY md5(co.id::text || v_event.id::text)
     LIMIT (v_other_match_count * 2)
   ) INTO v_other_opponents;
 
   FOR v_i IN 1..v_other_match_count LOOP
     IF v_i * 2 <= array_length(v_other_opponents, 1) THEN
       DECLARE
-        v_home_wins BOOLEAN := random() < 0.5;
+        v_home_wins BOOLEAN := (ascii(md5(v_other_opponents[v_i * 2 - 1].id::text || v_event.id::text)) % 2) = 0;
         v_winner_legs INTEGER := v_legs_to_win;
-        v_loser_legs INTEGER := floor(random() * v_legs_to_win)::integer;
+        v_loser_legs INTEGER := (ascii(md5(v_other_opponents[v_i * 2].id::text || v_event.id::text)) % v_legs_to_win)::integer;
         v_home_name TEXT;
         v_away_name TEXT;
       BEGIN
@@ -115,7 +115,7 @@ BEGIN
   END LOOP;
 
   RETURN json_build_object(
-    'week', v_career.week,
+    'week', v_event.sequence_no,
     'tier', v_career.tier,
     'season', v_career.season,
     'event_name', v_event.event_name,
