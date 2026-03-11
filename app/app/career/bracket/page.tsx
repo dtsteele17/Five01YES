@@ -124,7 +124,34 @@ export default function CareerBracketPage() {
 
     // Step 2: No bracket at all — call init RPC ONCE to create the bracket row + generate opponents
     const { data, error } = await supabase.rpc('rpc_career_init_bracket_event', { p_career_id: careerId, p_event_id: eventId });
-    if (error || data?.error) { toast.error(data?.error || 'Failed to init bracket'); router.push(`/app/career?id=${careerId}`); return; }
+    if (error || data?.error) {
+      console.warn('[BRACKET] RPC failed, falling back to client-side generation:', error?.message || data?.error);
+      // Fallback: create bracket row manually and generate client-side
+      const bSize = eventInfo?.bracket_size || searchParams.get('bracketSize') ? parseInt(searchParams.get('bracketSize')!) : 32;
+      const fLegs = eventInfo?.format_legs || searchParams.get('formatLegs') ? parseInt(searchParams.get('formatLegs')!) : 7;
+      const participants = await buildParticipantsFromDB(supabase, careerId!, bSize, eventId!);
+      if (participants.length >= bSize) {
+        // Mark event active
+        await supabase.from('career_events').update({ status: 'active' }).eq('id', eventId);
+        // Create bracket row
+        const rounds = Math.log2(bSize);
+        const { data: newRow } = await supabase.from('career_brackets').insert({
+          event_id: eventId, career_id: careerId, bracket_size: bSize,
+          rounds_total: rounds, current_round: 1, bracket_data: {}, status: 'active'
+        }).select('id').single();
+        if (newRow) {
+          const newBracket = generateBracket(participants, bSize, fLegs);
+          await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', newRow.id);
+          setBracketId(newRow.id);
+          setBracket(newBracket);
+          setLoading(false);
+          return;
+        }
+      }
+      toast.error('Failed to create bracket');
+      router.push(`/app/career?id=${careerId}`);
+      return;
+    }
 
     setBracketId(data.bracket_id);
     if (data.event_name) setEventName(data.event_name);

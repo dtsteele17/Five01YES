@@ -143,6 +143,46 @@ BEGIN
     WHERE career_id = p_career_id AND season = v_career.season AND tier = 4 AND is_player = TRUE;
   END IF;
 
+  -- Simulate tournament points for AI league opponents
+  DECLARE
+    v_ai_record RECORD;
+    v_ai_points INTEGER;
+    v_placements TEXT[];
+    v_rand REAL;
+  BEGIN
+    IF v_is_major THEN
+      v_placements := ARRAY['Last 64','Last 64','Last 64','Last 64','Last 64','Last 64','Last 32','Last 32','Last 32','Last 16','Last 16','Quarter-Finalist','Semi-Finalist','Runner-Up'];
+    ELSE
+      v_placements := ARRAY['Last 32','Last 32','Last 32','Last 32','Last 32','Last 16','Last 16','Last 16','Quarter-Finalist','Quarter-Finalist','Semi-Finalist','Runner-Up'];
+    END IF;
+
+    FOR v_ai_record IN
+      SELECT ls.id FROM career_league_standings ls
+      WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4 AND ls.is_player = FALSE
+    LOOP
+      v_rand := random();
+      DECLARE
+        v_ai_placement TEXT;
+      BEGIN
+        v_ai_placement := v_placements[1 + floor(v_rand * array_length(v_placements, 1))::int];
+        IF v_is_major THEN
+          v_ai_points := CASE v_ai_placement
+            WHEN 'Winner' THEN 7 WHEN 'Runner-Up' THEN 6 WHEN 'Semi-Finalist' THEN 5
+            WHEN 'Quarter-Finalist' THEN 4 WHEN 'Last 16' THEN 3 WHEN 'Last 32' THEN 2 ELSE 0
+          END;
+        ELSE
+          v_ai_points := CASE v_ai_placement
+            WHEN 'Winner' THEN 5 WHEN 'Runner-Up' THEN 4 WHEN 'Semi-Finalist' THEN 3
+            WHEN 'Quarter-Finalist' THEN 2 WHEN 'Last 16' THEN 1 ELSE 0
+          END;
+        END IF;
+        IF v_ai_points > 0 THEN
+          UPDATE career_league_standings SET points = points + v_ai_points WHERE id = v_ai_record.id;
+        END IF;
+      END;
+    END LOOP;
+  END;
+
   RETURN json_build_object('success', true, 'points_awarded', v_points, 'placement', p_placement, 'is_major', v_is_major);
 END;
 $$;
