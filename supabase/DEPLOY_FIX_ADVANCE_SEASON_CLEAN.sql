@@ -107,7 +107,7 @@ BEGIN
   FROM career_league_standings
   WHERE career_id = p_career_id AND season = v_career.season AND tier = v_career.tier AND is_player = FALSE;
 
-  v_num_opponents := CASE v_career.tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 14 WHEN 5 THEN 13 ELSE 7 END;
+  v_num_opponents := CASE v_career.tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 WHEN 5 THEN 13 ELSE 7 END;
 
   IF v_player_rank <= 2 OR v_is_tournament_promotion OR v_is_q_school_promotion THEN
     v_is_promotion := TRUE;
@@ -126,7 +126,7 @@ BEGIN
       tier = v_new_tier, season = v_new_season, week = 1, day = v_new_day, updated_at = now()
     WHERE id = p_career_id;
 
-    v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 14 WHEN 5 THEN 13 ELSE 7 END;
+    v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 WHEN 5 THEN 13 ELSE 7 END;
 
     PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, v_num_opponents,
       v_career.career_seed + v_new_season * 100);
@@ -176,7 +176,7 @@ BEGIN
     UPDATE career_sponsor_contracts SET status = 'terminated'
     WHERE career_id = p_career_id AND status = 'active';
 
-    v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 14 ELSE 7 END;
+    v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 ELSE 7 END;
 
     PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, v_num_opponents,
       v_career.career_seed + v_new_season * 100);

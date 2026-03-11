@@ -183,16 +183,46 @@ export default function CareerBracketPage() {
     const participants: BracketParticipant[] = [
       { id: 'player', name: 'You', skill: 50, archetype: 'allrounder', isPlayer: true, seed: 1 },
     ];
+    const usedNames = new Set<string>();
+    // Add league opponents first (all of them for Tier 4)
     for (let i = 0; i < bracketSize - 1 && i < shuffled.length; i++) {
       const o = shuffled[i];
+      const name = `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`;
+      usedNames.add(name);
       participants.push({
         id: o.id,
-        name: `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`,
+        name,
         skill: Math.round(o.skill_rating * mult),
         archetype: o.archetype,
         isPlayer: false,
         seed: i + 2,
       });
+    }
+    // Fill remaining spots with random outside players
+    if (participants.length < bracketSize) {
+      const firstNames = ['James','Tom','Chris','Ryan','Jake','Dan','Mike','Sam','Luke','Alex','Joe','Will','Ben','Matt','Nick','Rob','Steve','Dave','Phil','Ian','Lee','Gary','Paul','Pete','Kevin','Andy','Mark','John','Liam','Owen','Theo','Max','Kai','Finn','Jack','Noah','Leo','Mia','Amy','Sarah','Emma','Holly','Zoe','Kate','Lucy','Sophie','Lily','Eva','Isla','Ruby','Ellie','Freya','Hannah','Grace','Chloe','Lauren','Molly','Amber','Jade','Ella'];
+      const lastNames = ['Smith','Jones','Brown','Wilson','Taylor','Clark','Lewis','Walker','Hall','Green','Baker','King','Wright','Scott','Adams','Hill','Moore','Wood','Kelly','Evans','Murphy','Cox','Webb','Stone','Cole','Ford','Ross','Reed','Mills','West','Fox','Hayes','Day','Hart','Long','Cross','Lane','Flynn','Nash','Cole','Burke','Walsh','Burns','Quinn'];
+      const archetypes = ['allrounder','power','precision','finishing'];
+      const remaining = bracketSize - participants.length;
+      let attempts = 0;
+      for (let i = 0; i < remaining && attempts < 200; attempts++) {
+        const fn = firstNames[Math.floor(Math.abs(Math.sin(seed + i + attempts) * 10000) % firstNames.length)];
+        const ln = lastNames[Math.floor(Math.abs(Math.cos(seed + i + attempts) * 10000) % lastNames.length)];
+        const name = `${fn} ${ln}`;
+        if (!usedNames.has(name)) {
+          usedNames.add(name);
+          const skill = Math.round((30 + Math.abs(Math.sin(seed + i + attempts + 7) * 40)) * mult);
+          participants.push({
+            id: `outside_${i}`,
+            name,
+            skill,
+            archetype: archetypes[Math.floor(Math.abs(Math.sin(seed + i + attempts + 3) * 100) % archetypes.length)],
+            isPlayer: false,
+            seed: participants.length + 1,
+          });
+          i++;
+        }
+      }
     }
     return participants;
   }

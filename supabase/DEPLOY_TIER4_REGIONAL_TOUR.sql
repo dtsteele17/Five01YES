@@ -61,7 +61,7 @@ BEGIN
 
   IF p_tournament_num = 1 THEN v_expected_leagues := 5; v_seq := 50; v_size := 32;
   ELSIF p_tournament_num = 2 THEN v_expected_leagues := 10; v_seq := 100; v_size := 32;
-  ELSIF p_tournament_num = 3 THEN v_expected_leagues := 14; v_seq := 200; v_size := 64;
+  ELSIF p_tournament_num = 3 THEN v_expected_leagues := 15; v_seq := 200; v_size := 64;
   ELSE RETURN json_build_object('error', 'Invalid tournament number'); END IF;
 
   SELECT COUNT(*) INTO v_completed_leagues
