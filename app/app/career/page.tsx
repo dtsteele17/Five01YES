@@ -21,7 +21,7 @@ const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; acce
   1: { name: 'Local Circuit Trials', icon: Target, color: 'emerald', accent: 'emerald-500' },
   2: { name: 'Pub Leagues', icon: Flame, color: 'blue', accent: 'blue-500' },
   3: { name: 'County Circuit', icon: Shield, color: 'purple', accent: 'purple-500' },
-  4: { name: 'Regional Tour', icon: Trophy, color: 'orange', accent: 'orange-500' },
+  4: { name: 'National Tour', icon: Trophy, color: 'orange', accent: 'orange-500' },
   5: { name: 'World Tour', icon: Crown, color: 'amber', accent: 'amber-500' },
 };
 
@@ -77,6 +77,7 @@ export default function CareerPage() {
   // World Rankings popup
   const [showRankings, setShowRankings] = useState(false);
   const [worldRankings, setWorldRankings] = useState<any[]>([]);
+  const [playerRankingRow, setPlayerRankingRow] = useState<any>(null);
 
   // Tournament choice (Tier 1 first event)
   const [showTournamentChoice, setShowTournamentChoice] = useState(false);
@@ -273,7 +274,7 @@ export default function CareerPage() {
         }
       }
 
-      // Tier 4 Regional Tour: mandatory tournaments after match 5, 10, and 14 (with T3 qualification)
+      // Tier 4 National Tour: mandatory tournaments after match 5, 10, and 14 (with T3 qualification)
       if (homeData.career.tier === 4 && homeData.standings) {
         const playerSt = homeData.standings.find((s: any) => s.is_player);
         const totalOpponents = homeData.standings.filter((s: any) => !s.is_player).length;
@@ -338,7 +339,7 @@ export default function CareerPage() {
         }
       }
 
-      // Check if next event is a tournament choice — show popup
+      // Check if next event is a tournament choice ??? show popup
       if (homeData.next_event?.event_type === 'tournament_choice') {
         const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', { 
           p_event_id: homeData.next_event.id 
@@ -447,33 +448,33 @@ export default function CareerPage() {
       const winTournamentName = tournamentWin?.title || tournamentWin?.description?.replace('Won ', '') || 'the tournament';
 
       if (tournamentWin) {
-        newEmails.push({ id: `win-${tournamentWin.day || day}`, subject: `🏆 ${winTournamentName} — Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance — keep this form up and bigger stages await.`, type: 'win' });
+        newEmails.push({ id: `win-${tournamentWin.day || day}`, subject: `???? ${winTournamentName} ??? Champion!`, body: `Congratulations! You won ${winTournamentName}. That's a statement performance ??? keep this form up and bigger stages await.`, type: 'win' });
       }
       if (leagueWin) {
-        newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: `🏆 ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
+        newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: `???? ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
       }
       // Sponsor offer email
       const sponsorOfferMilestone = milestones.find((m: any) => m.milestone_type === 'sponsor_offer');
       if (sponsorOfferMilestone) {
         newEmails.push({ 
           id: `sponsor-offer-${sponsorOfferMilestone.day || day}`, 
-          subject: `💼 ${sponsorOfferMilestone.title}`, 
-          body: `${sponsorOfferMilestone.description} Check your notifications — looks like you have a sponsorship offer!`, 
+          subject: `???? ${sponsorOfferMilestone.title}`, 
+          body: `${sponsorOfferMilestone.description} Check your notifications ??? looks like you have a sponsorship offer!`, 
           type: 'sponsor_offer' 
         });
       }
 
       if (hasPromotion) {
-        const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Regional Tour', 5: 'Pro Tour' };
+        const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'National Tour', 5: 'Pro Tour' };
         const tierName = tierNames[tier] || `Tier ${tier}`;
-        newEmails.push({ id: `promo-${tier}`, subject: `Welcome to the ${tierName}!`, body: `You've earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
+        newEmails.push({ id: `promo-${tier}`, subject: `Welcome to the ${tierName}!`, body: `You've earned your place. The ${tierName} is a step up ??? tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
       }
       if (tournamentLoss && tier === 1 && !hasPromotion) {
         const nextType = homeData.next_event?.event_type;
         if (nextType === 'training') {
-          newEmails.push({ id: `regroup-${day}`, subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in — we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
+          newEmails.push({ id: `regroup-${day}`, subject: 'Time to Regroup', body: 'The last tournament didn\'t go to plan. Get some practice in ??? we think you\'ve got what it takes for the pub leagues.', type: 'knockout' });
         } else if (nextType === 'trial_tournament') {
-          newEmails.push({ id: `retry-${day}`, subject: 'Here\'s Another Shot! 🎯', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
+          newEmails.push({ id: `retry-${day}`, subject: 'Here\'s Another Shot! ????', body: 'Here is your shot at another tournament after the last one didn\'t go to plan! Good luck!', type: 'knockout' });
         }
       }
       if (tier === 1 && day <= 1 && !tournamentLoss) {
@@ -502,7 +503,7 @@ export default function CareerPage() {
           });
           newEmails.unshift({
             id: `tournament-invite-${inviteEvents[0].id}`,
-            subject: `🏆 ${inviteEvents[0].event_name} — You're Invited!`,
+            subject: `???? ${inviteEvents[0].event_name} ??? You're Invited!`,
             body: `You've been invited to the ${inviteEvents[0].event_name}! A ${inviteEvents[0].bracket_size || 16}-player knockout tournament. Do you want to enter?`,
             type: 'tournament_invite',
             isNew: true,
@@ -582,23 +583,25 @@ export default function CareerPage() {
     const tier = data.career.tier;
 
     if (tier >= 5) {
-      // Tier 5+: show actual Tier 5 opponents as world rankings
       const supabase = createClient();
-      const { data: opponents } = await supabase
-        .from('career_opponents')
-        .select('first_name, last_name, nickname, skill_rating, archetype')
-        .eq('career_id', careerId)
-        .eq('tier', 5)
-        .order('skill_rating', { ascending: false })
-        .limit(21);
-
-      if (opponents) {
-        setWorldRankings(opponents.map((o: any, i: number) => ({
-          rank: i + 1,
-          name: `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`,
-          rating: Math.round(o.skill_rating * 10),
-          archetype: o.archetype,
+      const { data: rankData } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
+      if (rankData?.top25) {
+        setWorldRankings(rankData.top25.map((r: any) => ({
+          rank: r.ranking_position,
+          name: r.player_name,
+          rating: Math.round(r.ranking_points),
+          isPlayer: r.is_player,
+          pointsChange: Math.round(r.points_change || 0),
         })));
+        if (rankData.player && rankData.player_rank > 25) {
+          setPlayerRankingRow({
+            rank: rankData.player_rank,
+            name: rankData.player.player_name,
+            rating: Math.round(rankData.player.ranking_points),
+            isPlayer: true,
+            pointsChange: Math.round(rankData.player.points_change || 0),
+          });
+        }
       }
     } else {
       // Tiers 1-4: generate fictional world-class players using seeded shuffle
@@ -626,7 +629,7 @@ export default function CareerPage() {
         'Rapid','The Gladiator','Venomous','Bulletproof','The Tornado',
         null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
       const arcs: string[] = ['scorer','finisher','grinder','streaky','clutch','allrounder'];
-      // Seeded pseudo-random using career ID characters — Fisher-Yates shuffle
+      // Seeded pseudo-random using career ID characters ??? Fisher-Yates shuffle
       const cid = data.career.id || '';
       const hash = (n: number) => {
         let h = 0; for (let c = 0; c < cid.length; c++) h = ((h << 5) - h + cid.charCodeAt(c) + n * 997) | 0;
@@ -659,7 +662,7 @@ export default function CareerPage() {
       // Simulate ranking fluctuations based on career day
       const careerDay = data.career.day || 1;
       const simulated = pool.map(p => {
-        // Each player's form fluctuates differently per day — some gain, some drop
+        // Each player's form fluctuates differently per day ??? some gain, some drop
         // Accumulate small rating changes over career days for natural drift
         // Each player gets a small shift per day that accumulates
         let ratingShift = 0;
@@ -781,7 +784,7 @@ export default function CareerPage() {
       }
 
       // Pro Tour Major Qualification - auto-check rank
-      if (next_event.event_type === 'pro_tour_major_qualification') {
+      if (next_event.event_type === 'pro_major_qualifier') {
         const supabase = createClient();
         const { data: qualResult } = await supabase.rpc('rpc_pro_tour_major_qualification', { p_career_id: careerId });
         if (qualResult?.error) { toast.error(qualResult.error); setPlayingEvent(false); return; }
@@ -793,7 +796,7 @@ export default function CareerPage() {
       }
 
       // Premier League match - dartbot match
-      if (next_event.event_type === 'premier_league_match') {
+      if (next_event.event_type === 'champions_series_semi' || next_event.event_type === 'champions_series_final') {
         const supabase = createClient();
         const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
         if (error) throw error;
@@ -814,7 +817,7 @@ export default function CareerPage() {
         return;
       }
 
-      // Regional Tour T3 Qualification - auto-check rank
+      // National Tour T3 Qualification - auto-check rank
       if (next_event.event_type === 'regional_t3_qualification') {
         const supabase = createClient();
         const { data: qualResult } = await supabase.rpc('rpc_regional_tour_t3_qualification', { p_career_id: careerId });
@@ -861,7 +864,7 @@ export default function CareerPage() {
         return;
       }
 
-      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_tour_players_championship', 'pro_tour_open', 'pro_tour_major', 'relegation_tournament'];
+      const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_players_championship', 'pro_open', 'pro_major', 'pro_world_series', 'champions_series_night', 'relegation_tournament'];
       if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
         router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
         return;
@@ -884,7 +887,7 @@ export default function CareerPage() {
       if (matchData?.error) throw new Error(matchData.error);
       if (matchData?.skipped) {
         if (matchData.promoted) {
-          toast.success(`🎉 ${matchData.message}`, { duration: 5000 });
+          toast.success(`???? ${matchData.message}`, { duration: 5000 });
         } else {
           toast.info(matchData.message);
         }
@@ -940,7 +943,7 @@ export default function CareerPage() {
                         <tierCfg.icon className="w-5 h-5 text-white/60" />
                         <div className="flex-1">
                           <span className="font-bold text-white">{tierCfg.name}</span>
-                          <p className="text-sm text-slate-400">Season {save.season} • Week {save.week} • {save.difficulty}</p>
+                          <p className="text-sm text-slate-400">Season {save.season} ??? Week {save.week} ??? {save.difficulty}</p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-500" />
                       </div>
@@ -999,7 +1002,7 @@ export default function CareerPage() {
   const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
   const willPromote = seasonComplete && playerRank <= 2;
   const displayEventName = (career.tier === 1 && chosenName) ? chosenName
-    : next_event?.event_type === 'league' ? `Weekend League Night — Matchday ${leagueMatchday}`
+    : next_event?.event_type === 'league' ? `Weekend League Night ??? Matchday ${leagueMatchday}`
     : next_event?.event_name;
   const displayDay = Math.max(next_event?.day || 0, career.day || 0) || 1;
 
@@ -1011,7 +1014,7 @@ export default function CareerPage() {
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto space-y-4">
 
-        {/* ═══ TOP BAR: Name + Tier + REP ═══ */}
+        {/* ????????? TOP BAR: Name + Tier + REP ????????? */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => router.push('/app/play')} className="text-slate-400 hover:text-white px-2">
@@ -1025,11 +1028,11 @@ export default function CareerPage() {
                 <h1 className="font-black text-white text-lg leading-tight">{tierCfg.name}</h1>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-semibold ${diffInfo.color}`}>{diffInfo.label}</span>
-                  <span className="text-slate-600 text-xs">•</span>
+                  <span className="text-slate-600 text-xs">???</span>
                   <span className="text-slate-400 text-xs">
                     {career.tier === 1 ? `Day ${displayDay}` : `S${career.season} W${career.week}`}
                   </span>
-                  <span className="text-slate-600 text-xs">•</span>
+                  <span className="text-slate-600 text-xs">???</span>
                   <span className="text-slate-500 text-xs">Day {displayDay}</span>
                 </div>
               </div>
@@ -1041,17 +1044,17 @@ export default function CareerPage() {
               <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
               <span className="text-amber-400/60 text-[10px] font-medium">REP</span>
             </div>
-            {/* Form indicator — hidden until form tracking is implemented */}
+            {/* Form indicator ??? hidden until form tracking is implemented */}
           </div>
         </div>
 
-        {/* ═══ MAIN GRID: FIFA-style dashboard ═══ */}
+        {/* ????????? MAIN GRID: FIFA-style dashboard ????????? */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-          {/* ─── LEFT COLUMN: Continue + Notifications ─── */}
+          {/* ????????? LEFT COLUMN: Continue + Notifications ????????? */}
           <div className="lg:col-span-4 space-y-4">
 
-            {/* CONTINUE / NEXT EVENT — highlighted card */}
+            {/* CONTINUE / NEXT EVENT ??? highlighted card */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500/15 via-orange-600/10 to-slate-900/80 ring-1 ring-amber-500/30 shadow-lg shadow-amber-500/5">
                 {/* Decorative glow */}
@@ -1072,7 +1075,7 @@ export default function CareerPage() {
                         <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
                         <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
                         <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
-                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '🎉 Promotion secured!' : (career.tier >= 3 && playerRank > (totalLeagueOpponents + 1 - 2)) ? '⚠️ Relegation...' : 'New season with fresh competition ahead.'}</p>
+                        <p className="text-xs text-slate-500 mb-4">{willPromote ? '???? Promotion secured!' : (career.tier >= 3 && playerRank > (totalLeagueOpponents + 1 - 2)) ? '?????? Relegation...' : 'New season with fresh competition ahead.'}</p>
                       </div>
                       <Button
                         className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
@@ -1082,7 +1085,7 @@ export default function CareerPage() {
                           if (career.tier === 3) {
                             // Fall through to advanceToNextSeason below
                           }
-                          // Regional Tour (Tier 4): Q School for 3rd-6th
+                          // National Tour (Tier 4): Q School for 3rd-6th
                           else if (career.tier === 4) {
                             const supabase2 = createClient();
                             const { data: qEvents } = await supabase2
@@ -1121,7 +1124,7 @@ export default function CareerPage() {
                             setShowSponsorRenewal(true);
                             return;
                           }
-                          // No sponsor — advance directly
+                          // No sponsor ??? advance directly
                           await advanceToNextSeason();
                         }}
                       >
@@ -1148,8 +1151,8 @@ export default function CareerPage() {
                           {next_event.event_type === 'open' ? 'Tournament'
                             : next_event.event_type === 'league' ? 'League Match'
                             : next_event.event_type === 'relegation_tournament' ? 'Tournament'
-                            : next_event.event_type === 'premier_league_match' ? 'Premier League'
-                            : next_event.event_type === 'pro_tour' ? 'Pro Tour'
+                            : next_event.event_type?.startsWith('champions_series') ? 'Champions Series'
+                            : next_event.event_type?.startsWith('pro_') ? 'Pro Tour'
                             : next_event.event_type === 'county_championship_group' ? 'Championship Group'
                             : next_event.event_type === 'county_championship_knockout' ? 'Championship Knockout'
                             : next_event.event_type === 'q_school_semi' ? 'Q School Semi'
@@ -1206,7 +1209,7 @@ export default function CareerPage() {
                       </div>
                       <p className="text-slate-400 text-xs mb-3">{sponsorOffer.flavour_text}</p>
                       {sponsorOffer.objectives && sponsorOffer.objectives.length > 0 && (
-                        <p className="text-amber-400/70 text-[10px] mb-3">🎯 Goal: {sponsorOffer.objectives[0]?.description}</p>
+                        <p className="text-amber-400/70 text-[10px] mb-3">???? Goal: {sponsorOffer.objectives[0]?.description}</p>
                       )}
                       <div className="flex gap-2">
                         <Button
@@ -1262,9 +1265,9 @@ export default function CareerPage() {
                           {sp.rep_objectives && sp.rep_objectives.length > 0 && (
                             <div className={`text-[10px] mt-2 px-2 py-1.5 rounded-lg ${sp.objectives_progress?.completed ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/5'}`}>
                               {sp.objectives_progress?.completed ? (
-                                <span className="text-emerald-400 font-bold">✅ Goal Reached! +10 REP</span>
+                                <span className="text-emerald-400 font-bold">??? Goal Reached! +10 REP</span>
                               ) : (
-                                <span className="text-amber-400/70">🎯 Goal: {sp.rep_objectives[0]?.description}</span>
+                                <span className="text-amber-400/70">???? Goal: {sp.rep_objectives[0]?.description}</span>
                               )}
                             </div>
                           )}
@@ -1336,10 +1339,10 @@ export default function CareerPage() {
             </motion.div>
           </div>
 
-          {/* ─── CENTER COLUMN: Tournament Draw (BIGGER) ─── */}
+          {/* ????????? CENTER COLUMN: Tournament Draw (BIGGER) ????????? */}
           <div className="lg:col-span-5 space-y-4">
 
-            {/* Tournament Draw / Bracket Preview — LARGE */}
+            {/* Tournament Draw / Bracket Preview ??? LARGE */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
                 <div className="p-5">
@@ -1545,7 +1548,7 @@ export default function CareerPage() {
                                   // Update this email to accepted, remove all other tournament invites (auto-declined on backend)
                                   setEmails(prev => prev
                                     .filter(e => e.type !== 'tournament_invite' || e.id === email.id)
-                                    .map(e => e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('🏆 ', '').replace(' — You\'re Invited!', '')}. Good luck! 🎯` } : e)
+                                    .map(e => e.id === email.id ? { ...e, type: 'tournament_accepted', body: `You accepted the invitation to ${email.subject.replace('???? ', '').replace(' ??? You\'re Invited!', '')}. Good luck! ????` } : e)
                                   );
                                   setPendingInvites([]);
                                   setPendingInvite(null);
@@ -1574,7 +1577,7 @@ export default function CareerPage() {
                                   toast.success(res?.message || 'Tournament declined.');
                                   // Change email to show declined status
                                   setEmails(prev => prev.map(e => 
-                                    e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! 💪` } : e
+                                    e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! ????` } : e
                                   ));
                                   // Update pending invites list
                                   setPendingInvites(prev => prev.filter(inv => inv.event_id !== eventId));
@@ -1600,7 +1603,7 @@ export default function CareerPage() {
 
           </div>
 
-          {/* ─── RIGHT COLUMN: World Rankings (always) ─── */}
+          {/* ????????? RIGHT COLUMN: World Rankings (always) ????????? */}
           <div className="lg:col-span-3 space-y-4">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
               <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
@@ -1670,7 +1673,7 @@ export default function CareerPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-white text-xs font-semibold truncate">{award.title}</span>
-                                {award.count > 1 && <Badge className="bg-amber-500/20 text-amber-400 text-[9px] px-1 py-0 border-0">×{award.count}</Badge>}
+                                {award.count > 1 && <Badge className="bg-amber-500/20 text-amber-400 text-[9px] px-1 py-0 border-0">??{award.count}</Badge>}
                               </div>
                               <p className="text-slate-500 text-[10px]">
                                 {award.days.length > 0 ? `Day ${award.days.join(', ')}` : ''}
@@ -1736,7 +1739,7 @@ export default function CareerPage() {
                           onClick={() => router.push(`/app/career/stats?id=${careerId}`)}
                           className="w-full text-center text-blue-400 hover:text-blue-300 text-[11px] font-medium mt-1 transition-colors"
                         >
-                          View All Time Stats →
+                          View All Time Stats ???
                         </button>
                       </div>
                     );
@@ -1775,7 +1778,7 @@ export default function CareerPage() {
           </div>
         </div>
 
-        {/* ═══ DIALOGS ═══ */}
+        {/* ????????? DIALOGS ????????? */}
 
         {/* Tournament Choice (Tier 1 first event) */}
         <Dialog open={showTournamentChoice} onOpenChange={setShowTournamentChoice}>
@@ -1843,27 +1846,47 @@ export default function CareerPage() {
                 <span className="w-12 text-right">Rating</span>
               </div>
               {worldRankings.map((r, i) => (
-                <div key={i} className={`flex items-center text-xs px-2 py-1.5 border-b border-white/5 ${i < 8 ? 'bg-amber-500/5' : ''}`}>
+                <div key={i} className={`flex items-center text-xs px-2 py-1.5 border-b border-white/5 ${r.isPlayer ? 'bg-blue-500/10 border-l-2 border-l-blue-400' : i < 8 ? 'bg-amber-500/5' : ''}`}>
                   <span className={`w-8 ${i < 3 ? 'text-amber-400 font-bold' : i < 8 ? 'text-white' : 'text-slate-500'}`}>{r.rank}</span>
                   <div className="flex-1">
-                    <span className={`font-medium ${i < 8 ? 'text-white' : 'text-slate-300'}`}>{r.name}</span>
-                    <span className="text-slate-500 text-[10px] ml-1 capitalize">({r.archetype})</span>
+                    <span className={`font-medium ${r.isPlayer ? 'text-blue-400' : i < 8 ? 'text-white' : 'text-slate-300'}`}>{r.name}</span>
+                    {r.archetype && <span className="text-slate-500 text-[10px] ml-1 capitalize">({r.archetype})</span>}
                   </div>
                   <span className="w-12 text-right text-slate-400">{r.rating}</span>
+                  {career.tier >= 5 && r.pointsChange !== undefined && (
+                    <span className={`w-10 text-right text-[10px] ${r.pointsChange > 0 ? 'text-emerald-400' : r.pointsChange < 0 ? 'text-red-400' : 'text-slate-600'}`}>
+                      {r.pointsChange > 0 ? '+' : ''}{r.pointsChange}
+                    </span>
+                  )}
                 </div>
               ))}
+              {playerRankingRow && career.tier >= 5 && (
+                <>
+                  <div className="text-center text-slate-600 text-[10px] py-1">...</div>
+                  <div className="flex items-center text-xs px-2 py-1.5 bg-blue-500/10 border-l-2 border-l-blue-400">
+                    <span className="w-8 text-slate-500">{playerRankingRow.rank}</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-blue-400">{playerRankingRow.name}</span>
+                    </div>
+                    <span className="w-12 text-right text-slate-400">{playerRankingRow.rating}</span>
+                    <span className={`w-10 text-right text-[10px] ${playerRankingRow.pointsChange > 0 ? 'text-emerald-400' : playerRankingRow.pointsChange < 0 ? 'text-red-400' : 'text-slate-600'}`}>
+                      {playerRankingRow.pointsChange > 0 ? '+' : ''}{playerRankingRow.pointsChange}
+                    </span>
+                  </div>
+                </>
+              )}
               {worldRankings.length === 0 && (
                 <div className="text-center py-4">
                   <Loader2 className="w-5 h-5 text-slate-400 animate-spin mx-auto" />
                 </div>
               )}
             </div>
-            <p className="text-slate-500 text-[10px] text-center mt-2">Top 8 qualify for Premier League (Tier 5+)</p>
+            <p className="text-slate-500 text-[10px] text-center mt-2">{career.tier === 5 ? 'Top 8 qualify for Champions Series' : ''}</p>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Tournament Invite Popup — forced decision (supports 1 or 2 invites side by side) */}
+      {/* Tournament Invite Popup ??? forced decision (supports 1 or 2 invites side by side) */}
       {showInvitePopup && pendingInvites.length > 0 && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div
@@ -1951,8 +1974,8 @@ export default function CareerPage() {
           >
             <Card className="border-0 bg-gradient-to-b from-slate-800 to-slate-900 ring-1 ring-purple-500/30 shadow-2xl overflow-hidden">
               <div className="p-6 text-center">
-                <div className="text-4xl mb-3">💼</div>
-                <h2 className="text-xl font-bold text-white mb-1">Season End — Sponsor Decision</h2>
+                <div className="text-4xl mb-3">????</div>
+                <h2 className="text-xl font-bold text-white mb-1">Season End ??? Sponsor Decision</h2>
                 <p className="text-slate-400 text-sm mb-5">Your sponsorship deal is up for review.</p>
 
                 {/* Current sponsor - Renew option */}
@@ -1971,7 +1994,7 @@ export default function CareerPage() {
                     }}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-purple-400 font-bold uppercase">🔄 Renew</span>
+                      <span className="text-xs text-purple-400 font-bold uppercase">???? Renew</span>
                     </div>
                     <div className="text-white font-bold">{sponsorRenewalData.current_sponsor.name}</div>
                     <p className="text-purple-300/60 text-xs">+{(sponsorRenewalData.current_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
@@ -1998,7 +2021,7 @@ export default function CareerPage() {
                     }}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-blue-400 font-bold uppercase">🔀 Switch to</span>
+                      <span className="text-xs text-blue-400 font-bold uppercase">???? Switch to</span>
                     </div>
                     <div className="text-white font-bold">{sponsorRenewalData.alternative_sponsor.name}</div>
                     <p className="text-blue-300/60 text-xs">+{(sponsorRenewalData.alternative_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
@@ -2019,7 +2042,7 @@ export default function CareerPage() {
                     await advanceToNextSeason();
                   }}
                 >
-                  Drop sponsor — go independent →
+                  Drop sponsor ??? go independent ???
                 </button>
               </div>
             </Card>
@@ -2032,7 +2055,7 @@ export default function CareerPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
           <div className="relative max-w-lg w-full mx-4 bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl ring-1 ring-amber-500/30 shadow-2xl overflow-hidden">
             <div className="p-6 text-center">
-              <div className="text-4xl mb-3">🏆</div>
+              <div className="text-4xl mb-3">????</div>
               <h2 className="text-xl font-bold text-white mb-1">Tournament Invitation</h2>
               <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league.</p>
               
@@ -2070,8 +2093,8 @@ export default function CareerPage() {
                 >
                   <div className="text-amber-400 text-lg font-bold mb-1">{tournamentOptions.option1.name}</div>
                   <div className="flex items-center gap-2 text-slate-400 text-xs">
-                    <span>👥 {tournamentOptions.option1.bracket_size} players</span>
-                    <span>•</span>
+                    <span>???? {tournamentOptions.option1.bracket_size} players</span>
+                    <span>???</span>
                     <span>{tournamentOptions.option1.format}</span>
                   </div>
                 </button>
@@ -2109,8 +2132,8 @@ export default function CareerPage() {
                 >
                   <div className="text-blue-400 text-lg font-bold mb-1">{tournamentOptions.option2.name}</div>
                   <div className="flex items-center gap-2 text-slate-400 text-xs">
-                    <span>👥 {tournamentOptions.option2.bracket_size} players</span>
-                    <span>•</span>
+                    <span>???? {tournamentOptions.option2.bracket_size} players</span>
+                    <span>???</span>
                     <span>{tournamentOptions.option2.format}</span>
                   </div>
                 </button>
@@ -2146,7 +2169,7 @@ export default function CareerPage() {
                   }
                 }}
               >
-                Decline both — continue with league →
+                Decline both ??? continue with league ???
               </button>
             </div>
           </div>
@@ -2213,7 +2236,7 @@ export default function CareerPage() {
                       loadCareer();
                     }}
                   >
-                    Let&apos;s Go! 🎯
+                    Let&apos;s Go! ????
                   </Button>
                 </motion.div>
               </div>
@@ -2241,7 +2264,7 @@ export default function CareerPage() {
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: 'spring', damping: 10 }}
                 >
-                  <div className="text-6xl mb-4">📉</div>
+                  <div className="text-6xl mb-4">????</div>
                 </motion.div>
 
                 <motion.div
@@ -2286,7 +2309,7 @@ export default function CareerPage() {
                       loadCareer();
                     }}
                   >
-                    Time to Rebuild 💪
+                    Time to Rebuild ????
                   </Button>
                 </motion.div>
               </div>
@@ -2410,3 +2433,4 @@ export default function CareerPage() {
     </div>
   );
 }
+

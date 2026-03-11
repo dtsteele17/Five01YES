@@ -2,21 +2,21 @@ UPDATE career_events SET template_id = NULL WHERE template_id IN (SELECT id FROM
 DELETE FROM career_schedule_templates WHERE tier = 4;
 
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES
-(4, 1,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 2,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 3,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 4,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 5,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 6,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 7,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 8,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 9,  'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 10, 'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 11, 'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 12, 'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 13, 'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 14, 'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 15, 'league', 'Regional Tour Match', 'regional_league', 7, NULL, FALSE, '{}');
+(4, 1,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 2,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 3,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 4,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 5,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 6,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 7,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 8,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 9,  'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 10, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 11, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 12, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 13, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 14, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 15, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}');
 
 DO $$
 DECLARE

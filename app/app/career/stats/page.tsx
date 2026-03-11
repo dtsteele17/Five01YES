@@ -38,7 +38,7 @@ const TIER_NAMES: Record<number, string> = {
   1: 'Local Circuit Trials',
   2: 'Pub Leagues',
   3: 'County Circuit',
-  4: 'Regional Tour',
+  4: 'National Tour',
   5: 'World Tour',
 };
 

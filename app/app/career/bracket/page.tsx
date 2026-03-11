@@ -282,7 +282,7 @@ export default function CareerBracketPage() {
       });
       const placement = getPlacement(updated.playerEliminatedRound, updated.totalRounds, playerWon);
       setTournamentResult({ ...completeData, placement, playerWon });
-      // Award tournament league points for Tier 4 Regional Tour
+      // Award tournament league points for Tier 4 National Tour
       try {
         await supabase.rpc('rpc_tier4_award_tournament_points', {
           p_career_id: careerId, p_event_id: eventId, p_placement: placement,
