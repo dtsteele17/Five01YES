@@ -185,7 +185,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       console.log(`⏱️ Tournament timing: ${secondsUntilStart}s until start`);
 
       // START TIME REACHED - trigger bracket generation! (strict: must be past start time, not just close)
-      if (msUntilStart <= 0 && !showCountdownPopup && !countdownComplete) {
+      // GUARD: Only trigger if bracket hasn't been generated yet - prevents re-triggering on page revisit
+      if (msUntilStart <= 0 && !showCountdownPopup && !countdownComplete && !tournament.bracket_generated_at) {
         console.log('🏆 START TIME REACHED! Generating bracket...');
         
         // Show the countdown popup (1-minute countdown before matches begin)
@@ -216,6 +217,13 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         loadTournament();
         return; // Stop checking, countdown popup handles the rest
       }
+      
+      // If bracket already generated but we just loaded the page after start time,
+      // show countdown popup briefly to inform user tournament is live
+      if (msUntilStart <= 0 && tournament.bracket_generated_at && !showCountdownPopup && !countdownComplete) {
+        // Tournament already started, skip to ready-up flow
+        setCountdownComplete(true);
+      }
     };
 
     // Check every 5 seconds when within 2 minutes of start, otherwise every 30 seconds
@@ -231,7 +239,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
     const interval = setInterval(checkTournamentTiming, checkInterval);
     return () => clearInterval(interval);
-  }, [tournament?.status, tournament?.start_at, tournamentId]);
+  }, [tournament?.status, tournament?.start_at, tournament?.bracket_generated_at, tournamentId]);
 
   const loadCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();

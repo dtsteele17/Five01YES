@@ -108,6 +108,18 @@ export default function GlobalTournamentMonitor() {
         // Only show popup AFTER start time has passed (within 60s window)
         // Never show before start time or more than 60s after
         if (msSinceStart >= 0 && msSinceStart <= 60000 && !showCountdown && !countdownComplete) {
+          // Trigger bracket generation if not already done (in case user isn't on tournament detail page)
+          if (!t.bracket_generated_at) {
+            try {
+              console.log('[GlobalTournamentMonitor] Triggering bracket generation for:', t.name);
+              await supabase.rpc('complete_tournament_flow_progression', {
+                p_tournament_id: t.id
+              });
+            } catch (err) {
+              console.log('[GlobalTournamentMonitor] Progression RPC error (may already be in progress):', err);
+            }
+          }
+          
           setActiveTournament({ id: t.id, name: t.name, startTime: t.start_at });
           setShowCountdown(true);
           dismissedTournamentsRef.current.add(t.id);

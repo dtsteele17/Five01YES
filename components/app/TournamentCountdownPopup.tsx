@@ -29,7 +29,7 @@ export function TournamentCountdownPopup({
 
   useEffect(() => {
     if (!isVisible) return;
-    generateBracketAndFindOpponent();
+    loadBracketAndFindOpponent();
   }, [isVisible]);
 
   // Sync countdown to server timestamp so all users finish at the same time
@@ -52,52 +52,44 @@ export function TournamentCountdownPopup({
     return () => clearInterval(timer);
   }, [phase, matchStartTime, onComplete]);
 
-  const generateBracketAndFindOpponent = async () => {
+  const loadBracketAndFindOpponent = async () => {
     try {
       setPhase('generating');
 
-      // Check if bracket already generated (another user may have triggered it)
-      const { data: tCheck } = await supabase
-        .from('tournaments')
-        .select('bracket_generated_at')
-        .eq('id', tournamentId)
-        .single();
+      // Wait for bracket to be generated (by tournament detail page or server)
+      // Poll briefly if not ready yet
+      let bracketReady = false;
+      let attempts = 0;
+      const maxAttempts = 10; // Wait up to 5 seconds
+      
+      while (!bracketReady && attempts < maxAttempts) {
+        const { data: tCheck } = await supabase
+          .from('tournaments')
+          .select('bracket_generated_at, started_at')
+          .eq('id', tournamentId)
+          .single();
 
-      if (!tCheck?.bracket_generated_at) {
-        // Generate bracket
-        const { data, error } = await supabase.rpc('generate_tournament_bracket', {
-          p_tournament_id: tournamentId
-        });
-
-        console.log('[TournamentCountdown] Bracket generation result:', data, error?.message);
-
-        if (error) {
-          console.error('Bracket generation error:', error);
-          // Don't keep retrying on constraint errors — SQL needs updating
-          if (error.code === '23514') {
-            console.error('[TournamentCountdown] CHECK constraint error — SQL needs re-running');
-            setBracketGenerated(true); // stop retrying
-            return;
+        if (tCheck?.bracket_generated_at) {
+          bracketReady = true;
+          setBracketGenerated(true);
+          
+          // Set countdown based on server timestamp
+          if (tCheck.started_at) {
+            // All users count down to started_at + 60 seconds
+            setMatchStartTime(new Date(new Date(tCheck.started_at).getTime() + 60000));
+          } else {
+            // Fallback: 60s from now
+            setMatchStartTime(new Date(Date.now() + 60000));
           }
+        } else {
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
-      } else {
-        console.log('[TournamentCountdown] Bracket already generated, skipping');
       }
 
-      setBracketGenerated(true);
-
-      // Get the server-side started_at timestamp so all users sync to the same countdown
-      const { data: tournamentData } = await supabase
-        .from('tournaments')
-        .select('started_at')
-        .eq('id', tournamentId)
-        .single();
-
-      if (tournamentData?.started_at) {
-        // All users count down to started_at + 60 seconds
-        setMatchStartTime(new Date(new Date(tournamentData.started_at).getTime() + 60000));
-      } else {
-        // Fallback: 60s from now
+      if (!bracketReady) {
+        console.log('[TournamentCountdown] Bracket not ready after waiting, proceeding anyway');
+        setBracketGenerated(true);
         setMatchStartTime(new Date(Date.now() + 60000));
       }
 
