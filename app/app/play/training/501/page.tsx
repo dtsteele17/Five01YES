@@ -1855,6 +1855,15 @@ export default function DartbotMatchPage() {
           <Button variant="outline" size="sm" onClick={() => setShowEndMatchDialog(true)} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
             <X className="w-4 h-4 mr-2" />End
           </Button>
+          {/* DEV: Instant Win button for testing */}
+          <Button variant="outline" size="sm" onClick={() => {
+            const needed = legsToWin;
+            setPlayer1LegsWon(needed);
+            setPlayer2LegsWon(0);
+            setMatchWinner('player1');
+          }} className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 text-xs">
+            ⚡ Win
+          </Button>
           <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
             <Wifi className="w-3 h-3 mr-1" />
             {config.bestOf.replace('best-of-', 'Best of ')}
