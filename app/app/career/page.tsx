@@ -290,7 +290,7 @@ export default function CareerPage() {
     const nextIsLeague = homeData.next_event?.event_type === 'league';
 
     // After match 5: Tournament 1 (32-player, mandatory)
-    if (leagueGamesPlayed === 5 && (nextIsLeague || noPlayableEvents)) {
+    if (leagueGamesPlayed >= 5 && (nextIsLeague || noPlayableEvents)) {
      const { data: t1 } = await supabase.from('career_events').select('id')
       .eq('career_id', careerId).eq('season', homeData.career.season)
       .eq('event_type', 'open').gte('sequence_no', 50).lt('sequence_no', 60).limit(1);
@@ -302,7 +302,7 @@ export default function CareerPage() {
     }
 
     // After match 10: Tournament 2 (32-player, mandatory)
-    if (leagueGamesPlayed === 10 && (nextIsLeague || noPlayableEvents)) {
+    if (leagueGamesPlayed >= 10 && (nextIsLeague || noPlayableEvents)) {
      const { data: t2 } = await supabase.from('career_events').select('id')
       .eq('career_id', careerId).eq('season', homeData.career.season)
       .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
