@@ -190,7 +190,7 @@ export default function TimelinePage() {
                           {getMilestoneIcon(m.milestone_type)}
                           <h3 className="font-semibold text-sm truncate">{m.title}</h3>
                         </div>
-                        {m.description && (
+                        {m.description && !m.description.startsWith('Points change:') && (
                           <p className="text-xs text-slate-400 mt-0.5">{m.description}</p>
                         )}
                       </div>
