@@ -660,25 +660,23 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_career career_profiles;
-  v_standings RECORD[];
-  v_top4 RECORD;
+  v_top4 JSON;
   v_player_pos INT;
-  v_i INT := 0;
 BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id AND user_id = auth.uid();
   IF NOT FOUND THEN RETURN json_build_object('error', 'Career not found'); END IF;
 
   SELECT json_agg(row_to_json(t)) INTO v_top4 FROM (
-    SELECT player_name, is_player, points, legs_for, legs_against,
-      ROW_NUMBER() OVER (ORDER BY points DESC, (legs_for - legs_against) DESC, legs_for DESC) AS pos
-    FROM career_champions_series
-    WHERE career_id = p_career_id AND season = v_career.season
-    ORDER BY points DESC, (legs_for - legs_against) DESC, legs_for DESC
-    LIMIT 4
+    SELECT player_name, is_player, points, legs_for, legs_against, pos FROM (
+      SELECT player_name, is_player, points, legs_for, legs_against,
+        ROW_NUMBER() OVER (ORDER BY points DESC, (legs_for - legs_against) DESC, legs_for DESC) AS pos
+      FROM career_champions_series
+      WHERE career_id = p_career_id AND season = v_career.season
+    ) ranked WHERE pos <= 4
   ) t;
 
   SELECT pos INTO v_player_pos FROM (
-    SELECT player_name, is_player,
+    SELECT is_player,
       ROW_NUMBER() OVER (ORDER BY points DESC, (legs_for - legs_against) DESC, legs_for DESC) AS pos
     FROM career_champions_series
     WHERE career_id = p_career_id AND season = v_career.season
