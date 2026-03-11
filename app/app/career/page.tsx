@@ -677,10 +677,10 @@ export default function CareerPage() {
         ratingShift = Math.max(-15, Math.min(15, ratingShift));
         return { ...p, rating: Math.max(750, p.baseRating + ratingShift) };
       });
-      // Sort by current rating, take top 21
+      // Sort by current rating, take top 25
       simulated.sort((a, b) => b.rating - a.rating);
-      const top21 = simulated.slice(0, 21);
-      setWorldRankings(top21.map((s, i) => ({ rank: i + 1, name: s.name, rating: s.rating, archetype: s.archetype })));
+      const top25 = simulated.slice(0, 25);
+      setWorldRankings(top25.map((s, i) => ({ rank: i + 1, name: s.name, rating: s.rating, archetype: s.archetype })));
     }
     setShowRankings(true);
   }
@@ -1621,7 +1621,7 @@ export default function CareerPage() {
                     <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto mb-2">
                       <Trophy className="w-5 h-5 text-blue-400/50" />
                     </div>
-                    <p className="text-slate-400 text-xs font-medium">Top 21 World Players</p>
+                    <p className="text-slate-400 text-xs font-medium">Top 25 World Players</p>
                     <Button variant="ghost" size="sm" className="text-blue-400 text-xs mt-2 hover:text-blue-300" onClick={loadWorldRankings}>
                       Preview World Rankings
                     </Button>
