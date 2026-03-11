@@ -129,6 +129,10 @@ export default function CareerPage() {
   const supabase = createClient();
 
   if (careerId) {
+   // Init world rankings if not yet created (idempotent)
+   await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
+   // Simulate small ranking changes for Tiers 1-4 (skipped at Tier 5)
+   await supabase.rpc('rpc_world_rankings_simulate', { p_career_id: careerId });
    // Pro Tour: restore major event if qualifier was completed
    await supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId });
    const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
