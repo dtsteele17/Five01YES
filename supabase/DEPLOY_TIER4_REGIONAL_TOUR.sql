@@ -1,3 +1,11 @@
+DO $$ BEGIN
+  EXECUTE (SELECT string_agg('ALTER TABLE career_schedule_templates DROP CONSTRAINT IF EXISTS ' || quote_ident(conname), '; ')
+    FROM pg_constraint WHERE conrelid = 'career_schedule_templates'::regclass AND contype = 'c');
+  EXECUTE (SELECT string_agg('ALTER TABLE career_events DROP CONSTRAINT IF EXISTS ' || quote_ident(conname), '; ')
+    FROM pg_constraint WHERE conrelid = 'career_events'::regclass AND contype = 'c');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 UPDATE career_events SET template_id = NULL WHERE template_id IN (SELECT id FROM career_schedule_templates WHERE tier = 4);
 DELETE FROM career_schedule_templates WHERE tier = 4;
 
