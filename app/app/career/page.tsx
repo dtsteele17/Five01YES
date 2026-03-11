@@ -746,7 +746,14 @@ export default function CareerPage() {
     const nightsPlayed = Math.min(completedEvents?.length || 0, 8);
     
     if (nightsPlayed === 0) {
-     toast.info('Champions Series begins after the first Pro Tour event');
+     // Show top 8 with 0 games played
+     const top8 = rankData.top25.slice(0, 8);
+     const emptyStandings = top8.map((r: any, i: number) => ({
+      player_name: r.player_name, is_player: r.is_player, points: 0,
+      legs_for: 0, legs_against: 0, leg_difference: 0, ranking_at_qualification: i + 1
+     }));
+     setChampionsStandings(emptyStandings);
+     setShowChampionsStandings(true);
      return;
     }
     
