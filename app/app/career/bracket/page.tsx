@@ -39,6 +39,7 @@ export default function CareerBracketPage() {
   const [eventName, setEventName] = useState('');
   const [eventType, setEventType] = useState('');
   const [eventSequence, setEventSequence] = useState<number | null>(null);
+  const [careerTier, setCareerTier] = useState<number>(0);
   const [formatLegs, setFormatLegs] = useState(3);
   const [roundFormats, setRoundFormats] = useState<Record<string, number> | null>(null);
   const [playingMatch, setPlayingMatch] = useState(false);
@@ -76,6 +77,9 @@ export default function CareerBracketPage() {
       setEventType(eventInfo.event_type || '');
       setEventSequence(eventInfo.sequence_no ?? null);
       setFormatLegs(eventInfo.format_legs || 3);
+      // Get career tier
+      const { data: cp } = await supabase.from('career_profiles').select('tier').eq('id', careerId).single();
+      if (cp) setCareerTier(cp.tier);
       
       // Load round-specific formats for Pro Tour events
       if (eventInfo.event_type?.startsWith('pro_') || eventInfo.event_type === 'champions_series_night') {
@@ -328,8 +332,8 @@ export default function CareerBracketPage() {
           p_career_id: careerId, p_event_id: eventId, p_placement: placement,
         });
       } catch {}
-      // Award Pro Tour ranking points (Tier 5)
-      try {
+      // Award Pro Tour ranking points (Tier 5 only)
+      if (careerTier === 5) try {
         const placementMap: Record<string, string> = {
           'Winner': 'W', 'Runner-Up': 'RU', 'Semi-Finalist': 'SF',
           'Quarter-Finalist': 'QF', 'Round of 16 Exit': 'L16', 'Last 16': 'L16',
