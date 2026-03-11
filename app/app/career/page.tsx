@@ -728,16 +728,38 @@ export default function CareerPage() {
    setChampionsStandings(result.standings);
    setShowChampionsStandings(true);
   } else {
-   // Simulate CS from top 8 world rankings if no real CS data
+   // Simulate CS from top 8 world rankings — progresses with each completed tournament
    const { data: rankData } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
    if (rankData?.top25) {
+    // Count completed Pro Tour events this season to determine CS progress
+    const { data: completedEvents } = await supabase
+     .from('career_events').select('id')
+     .eq('career_id', careerId).eq('season', data?.career?.season)
+     .in('status', ['completed', 'skipped'])
+     .in('event_type', ['pro_players_championship', 'pro_open', 'pro_major', 'pro_world_series']);
+    const nightsPlayed = Math.min(completedEvents?.length || 0, 8);
+    
+    if (nightsPlayed === 0) {
+     toast.info('Champions Series begins after the first Pro Tour event');
+     return;
+    }
+    
     const cid = careerId || '';
     const hash = (n: number) => { let h = 0; for (let c = 0; c < cid.length; c++) h = ((h << 5) - h + cid.charCodeAt(c) + n * 997) | 0; return Math.abs(h); };
     const top8 = rankData.top25.slice(0, 8);
+    // Points: winner=5, RU=3, SF=2, QF=0 per night. Accumulate over nights played.
     const simStandings = top8.map((r: any, i: number) => {
-     const pts = hash(i * 41 + (data?.career?.season || 1) * 71) % 25 + (8 - i) * 2;
-     const lf = hash(i * 53 + 200) % 30 + 20;
-     const la = hash(i * 67 + 300) % 25 + 15;
+     let pts = 0; let lf = 0; let la = 0;
+     for (let night = 1; night <= nightsPlayed; night++) {
+      // Deterministic result per player per night
+      const perf = hash(i * 41 + night * 71 + (data?.career?.season || 1) * 137) % 100;
+      // Better-ranked players perform better on average
+      const boost = (8 - i) * 5;
+      if (perf + boost > 85) { pts += 5; lf += 6 + hash(i + night * 3) % 3; la += 2 + hash(i + night * 7) % 4; }
+      else if (perf + boost > 70) { pts += 3; lf += 5 + hash(i + night * 5) % 3; la += 3 + hash(i + night * 9) % 3; }
+      else if (perf + boost > 50) { pts += 2; lf += 4 + hash(i + night * 11) % 3; la += 4 + hash(i + night * 13) % 3; }
+      else { lf += 2 + hash(i + night * 17) % 3; la += 5 + hash(i + night * 19) % 3; }
+     }
      return { player_name: r.player_name, is_player: r.is_player, points: pts, legs_for: lf, legs_against: la, leg_difference: lf - la, ranking_at_qualification: i + 1 };
     });
     simStandings.sort((a: any, b: any) => b.points - a.points || b.leg_difference - a.leg_difference);
