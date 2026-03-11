@@ -674,7 +674,7 @@ export default function CareerPage() {
     // Accumulate small rating changes over career days for natural drift
     // Each player gets a small shift per day that accumulates
     let ratingShift = 0;
-    for (let d = 1; d <= Math.min(careerDay, 50); d++) {
+    for (let d = 1; d <= Math.min(careerDay, 300); d++) {
      const dh = hash(p.id * 1777 + d * 311);
      const changes = (dh % 7) < 2; // ~30% chance of change per day
      if (changes) {
@@ -685,7 +685,7 @@ export default function CareerPage() {
      }
     }
     // Clamp accumulated shift so rankings don't go crazy
-    ratingShift = Math.max(-15, Math.min(15, ratingShift));
+    ratingShift = Math.max(-40, Math.min(40, ratingShift));
     return { ...p, rating: Math.max(750, p.baseRating + ratingShift) };
    });
    // Sort by current rating, take top 25
@@ -1263,6 +1263,9 @@ export default function CareerPage() {
               : next_event.event_type === 'q_school_final' ? 'Q School Final'
               : next_event.event_type.replace(/_/g, ' ')}
             </Badge>
+            {next_event.event_type?.startsWith('pro_') && (() => {
+             try { const m = JSON.parse(next_event.metadata || '{}'); if (m.country) return <Badge className="bg-blue-500/10 text-blue-400 text-[11px] font-medium border border-blue-500/20 px-2.5 py-0.5"><Globe className="w-3 h-3 mr-1" />{m.country}</Badge>; } catch {} return null;
+            })()}
             {next_event.day && (
              <Badge className="bg-slate-700/50 backdrop-blur-sm text-slate-300 text-[11px] font-medium border border-white/5 px-2.5 py-0.5">
               Day {next_event.day}
@@ -2017,24 +2020,33 @@ export default function CareerPage() {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
       className="bg-[#12121f] border border-white/10 rounded-xl p-6 max-w-sm w-full text-center">
-      <Globe className="w-10 h-10 text-blue-400 mx-auto mb-3" />
-      <h3 className="text-lg font-bold text-white mb-1">{optionalTournamentEvent.event_name}</h3>
-      <p className="text-slate-400 text-sm mb-4">
-       {(() => { try { const m = JSON.parse(optionalTournamentEvent.metadata || '{}'); return m.country ? `Location: ${m.country}` : ''; } catch { return ''; } })()}
-      </p>
-      <p className="text-slate-500 text-xs mb-6">
-       {optionalTournamentEvent.bracket_size}-player knockout tournament. This event is optional — you can skip it, but other players will still earn ranking points.
-      </p>
-      <div className="flex gap-3">
-       <Button variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
-        onClick={handleSkipOptionalTournament}>
-        Skip Tournament
-       </Button>
-       <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-        onClick={handleEnterOptionalTournament}>
-        Enter Tournament
-       </Button>
-      </div>
+      {(() => {
+       let country = ''; let tournamentNum = 0;
+       try { const m = JSON.parse(optionalTournamentEvent.metadata || '{}'); country = m.country || ''; tournamentNum = m.tournament_number || 0; } catch {}
+       return (<>
+        <Globe className="w-12 h-12 text-blue-400 mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-white mb-1">{optionalTournamentEvent.event_name}</h3>
+        {country && <p className="text-blue-400 text-sm font-medium mb-1">{country}</p>}
+        {tournamentNum > 0 && <p className="text-slate-500 text-xs mb-3">Event {tournamentNum} of 8 this season</p>}
+        <p className="text-slate-400 text-xs mb-5">
+         {optionalTournamentEvent.bracket_size}-player knockout tournament. This event is optional — you can skip it, but other players will still earn ranking points.
+        </p>
+        <div className="flex flex-col gap-2">
+         <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={handleEnterOptionalTournament}>
+          Enter Tournament
+         </Button>
+         <Button variant="outline" className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+          onClick={handleSkipOptionalTournament}>
+          Skip Tournament
+         </Button>
+         <Button variant="ghost" className="w-full text-slate-500 hover:text-slate-300 text-xs"
+          onClick={() => { setShowOptionalTournament(false); setOptionalTournamentEvent(null); }}>
+          Back to Career
+         </Button>
+        </div>
+       </>);
+      })()}
      </motion.div>
     </div>
    )}
