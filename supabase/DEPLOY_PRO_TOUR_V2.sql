@@ -47,6 +47,7 @@ DROP POLICY IF EXISTS "Users can modify own champions series" ON career_champion
 CREATE POLICY "Users can modify own champions series" ON career_champions_series
   FOR ALL USING (career_id IN (SELECT id FROM career_profiles WHERE user_id = auth.uid()));
 
+UPDATE career_events SET template_id = NULL WHERE template_id IN (SELECT id FROM career_schedule_templates WHERE tier = 5);
 DELETE FROM career_schedule_templates WHERE tier = 5;
 
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES
