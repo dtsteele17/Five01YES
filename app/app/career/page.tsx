@@ -591,8 +591,11 @@ export default function CareerPage() {
   if (tier >= 5) {
    const supabase = createClient();
    // Auto-init rankings if not yet created
-   await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
-   const { data: rankData } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
+   const { error: initErr } = await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
+   if (initErr) console.error('[RANKINGS] Init error:', initErr);
+   const { data: rankData, error: rankErr } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
+   if (rankErr) console.error('[RANKINGS] Get error:', rankErr);
+   console.log('[RANKINGS] Data:', rankData);
    if (rankData?.top25) {
     setWorldRankings(rankData.top25.map((r: any) => ({
      rank: r.ranking_position,
@@ -721,9 +724,28 @@ export default function CareerPage() {
   const { data: result } = await supabase.rpc('rpc_champions_series_get_standings', {
    p_career_id: careerId, p_season: data.career.season
   });
-  if (result?.standings) {
+  if (result?.standings && result.standings.length > 0) {
    setChampionsStandings(result.standings);
    setShowChampionsStandings(true);
+  } else {
+   // Simulate CS from top 8 world rankings if no real CS data
+   const { data: rankData } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
+   if (rankData?.top25) {
+    const cid = careerId || '';
+    const hash = (n: number) => { let h = 0; for (let c = 0; c < cid.length; c++) h = ((h << 5) - h + cid.charCodeAt(c) + n * 997) | 0; return Math.abs(h); };
+    const top8 = rankData.top25.slice(0, 8);
+    const simStandings = top8.map((r: any, i: number) => {
+     const pts = hash(i * 41 + (data?.career?.season || 1) * 71) % 25 + (8 - i) * 2;
+     const lf = hash(i * 53 + 200) % 30 + 20;
+     const la = hash(i * 67 + 300) % 25 + 15;
+     return { player_name: r.player_name, is_player: r.is_player, points: pts, legs_for: lf, legs_against: la, leg_difference: lf - la, ranking_at_qualification: i + 1 };
+    });
+    simStandings.sort((a: any, b: any) => b.points - a.points || b.leg_difference - a.leg_difference);
+    setChampionsStandings(simStandings);
+    setShowChampionsStandings(true);
+   } else {
+    toast.info('Champions Series data not available yet');
+   }
   }
  }
 
@@ -1750,8 +1772,8 @@ export default function CareerPage() {
        </Card>
       </motion.div>
 
-      {/* Champions Series Standings (Tier 5 only, when CS is active) */}
-      {career.tier >= 5 && data?.next_event?.event_type?.startsWith('champions_series') && (
+      {/* Champions Series Standings (Tier 5 only) */}
+      {career.tier >= 5 && (
        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
         <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-purple-500/20 shadow-lg">
          <div className="p-4">
