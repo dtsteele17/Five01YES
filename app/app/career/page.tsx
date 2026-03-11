@@ -464,7 +464,7 @@ export default function CareerPage() {
       }
 
       if (hasPromotion) {
-        const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Pro Tour', 5: 'Premier League' };
+        const tierNames: Record<number, string> = { 2: 'Pub Leagues', 3: 'County Circuit', 4: 'Regional Tour', 5: 'Pro Tour' };
         const tierName = tierNames[tier] || `Tier ${tier}`;
         newEmails.push({ id: `promo-${tier}`, subject: `Welcome to the ${tierName}!`, body: `You've earned your place. The ${tierName} is a step up — tougher opponents, higher stakes. Time to prove you belong.`, type: 'promotion' });
       }
@@ -1642,7 +1642,7 @@ export default function CareerPage() {
                   </div>
                   {(() => {
                     // Filter out first_tournament_win (has generic title), keep tournament_win + league_win
-                    const awards = (data.awards || []).filter((a: any) => a.milestone_type !== 'first_tournament_win');
+                    const awards = (data.awards || []).filter((a: any) => a.milestone_type !== 'first_tournament_win' && a.milestone_type !== 'promotion' && a.milestone_type !== 'relegation');
                     if (awards.length === 0) {
                       return (
                         <div className="text-center py-4">
