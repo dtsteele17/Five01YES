@@ -35,7 +35,7 @@ BEGIN
     END IF;
 
     UPDATE career_pro_rankings
-    SET ranking_points = GREATEST(5, ranking_points + v_change)
+    SET prev_points = ranking_points, ranking_points = GREATEST(5, ranking_points + v_change)
     WHERE id = v_ai.id;
   END LOOP;
 

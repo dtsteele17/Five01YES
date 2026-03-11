@@ -81,6 +81,7 @@ BEGIN
   END IF;
 
   UPDATE career_pro_rankings SET
+    prev_points = ranking_points,
     ranking_points = GREATEST(0, ranking_points + v_point_change),
     expected_round = CASE
       WHEN ranking_position <= 10 THEN 'L16'
@@ -146,6 +147,7 @@ BEGIN
       END IF;
 
       UPDATE career_pro_rankings SET
+        prev_points = ranking_points,
         ranking_points = GREATEST(0, ranking_points + v_ai_base_change),
         expected_round = CASE
           WHEN ranking_position <= 10 THEN 'L16'
