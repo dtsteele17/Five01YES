@@ -907,9 +907,19 @@ export default function CareerPage() {
   }
 
   // If there's a pending mid-season tournament invite, force user to decide before continuing
-  if (pendingInvite && data.next_event?.event_type === 'league') {
-   setShowInvitePopup(true);
-   return;
+  if ((pendingInvite || pendingInvites.length > 0) && data.next_event?.event_type === 'league') {
+   // Check DB for any pending_invite events
+   const supabase = createClient();
+   const { data: pendingEvts } = await supabase.from('career_events').select('id, event_name, bracket_size')
+    .eq('career_id', careerId).eq('status', 'pending_invite').eq('event_type', 'open');
+   if (pendingEvts && pendingEvts.length > 0) {
+    setPendingInvites(pendingEvts.map(e => ({ event_id: e.id, event_name: e.event_name, bracket_size: e.bracket_size || 16 })));
+    setShowInvitePopup(true);
+    return;
+   }
+   // No actual pending invites, clear stale state
+   setPendingInvite(null);
+   setPendingInvites([]);
   }
 
   setPlayingEvent(true);
