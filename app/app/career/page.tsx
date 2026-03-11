@@ -847,15 +847,39 @@ export default function CareerPage() {
         return;
       }
 
-      // Pro Tour Major Qualification - auto-check rank
-      if (next_event.event_type === 'pro_major_qualifier') {
+      // Pro Tour Major - check qualification first
+      if (next_event.event_type === 'pro_major') {
         const supabase = createClient();
         const { data: qualResult } = await supabase.rpc('rpc_pro_tour_major_qualification', { p_career_id: careerId });
         if (qualResult?.error) { toast.error(qualResult.error); setPlayingEvent(false); return; }
         toast.info(qualResult.message, { duration: 5000 });
         await new Promise(r => setTimeout(r, 1500));
-        loadCareer();
-        setPlayingEvent(false);
+        if (qualResult.auto_qualified) {
+          // Go straight to the major bracket
+          router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
+        } else {
+          // Qualifier event created, reload to show it
+          loadCareer();
+          setPlayingEvent(false);
+        }
+        return;
+      }
+
+      // Pro Tour Major Qualifier match - dartbot BO11
+      if (next_event.event_type === 'pro_major_qualifier') {
+        const supabase = createClient();
+        const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
+        if (error) throw error;
+        if (matchData?.error) throw new Error(matchData.error);
+        const avg = matchData.bot_average || 70;
+        const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
+        const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
+        setConfig({
+          mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
+          bestOf: bestOfMap[matchData.best_of] || 'best-of-11', atcOpponent: 'bot',
+          career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: matchData.opponent.id, opponentName: matchData.opponent.name },
+        });
+        router.push('/app/play/training/501');
         return;
       }
 
@@ -2417,8 +2441,15 @@ export default function CareerPage() {
                 >
                   <Button
                     className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black py-3 text-base shadow-lg shadow-emerald-500/30"
-                    onClick={() => {
+                    onClick={async () => {
                       setShowPromotionPopup(false);
+                      // Init Pro Tour rankings when promoted to Tier 5
+                      if (promotionTierName === 'Pro Tour') {
+                        try {
+                          const supabase = createClient();
+                          await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
+                        } catch {}
+                      }
                       loadCareer();
                     }}
                   >

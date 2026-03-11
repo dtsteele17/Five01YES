@@ -53,7 +53,7 @@ BEGIN
 
   v_old_tier_name := CASE v_career.tier
     WHEN 1 THEN 'Local Circuit' WHEN 2 THEN 'Pub Leagues' WHEN 3 THEN 'County Circuit'
-    WHEN 4 THEN 'Regional Tour' WHEN 5 THEN 'Pro Tour' ELSE 'Tier ' || v_career.tier
+    WHEN 4 THEN 'National Tour' WHEN 5 THEN 'Pro Tour' ELSE 'Tier ' || v_career.tier
   END;
 
   SELECT COUNT(*)::SMALLINT INTO v_total_players FROM career_league_standings
@@ -114,7 +114,7 @@ BEGIN
     v_new_tier := LEAST(v_career.tier + 1, 5);
 
     v_tier_name := CASE v_new_tier
-      WHEN 3 THEN 'County Circuit' WHEN 4 THEN 'Regional Tour' WHEN 5 THEN 'Pro Tour' ELSE 'Tier ' || v_new_tier
+      WHEN 3 THEN 'County Circuit' WHEN 4 THEN 'National Tour' WHEN 5 THEN 'Pro Tour' ELSE 'Tier ' || v_new_tier
     END;
 
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
@@ -126,25 +126,32 @@ BEGIN
       tier = v_new_tier, season = v_new_season, week = 1, day = v_new_day, updated_at = now()
     WHERE id = p_career_id;
 
-    v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 WHEN 5 THEN 13 ELSE 7 END;
+    IF v_new_tier = 5 THEN
+      INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day, status)
+      SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+        v_new_day + t.sequence_no * 10, 'pending'
+      FROM career_schedule_templates t WHERE t.tier = 5 ORDER BY t.sequence_no;
+    ELSE
+      v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 ELSE 7 END;
 
-    PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, v_num_opponents,
-      v_career.career_seed + v_new_season * 100);
+      PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, v_num_opponents,
+        v_career.career_seed + v_new_season * 100);
 
-    INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
-    SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
-      v_new_day + t.sequence_no * 6
-    FROM career_schedule_templates t WHERE t.tier = v_new_tier ORDER BY t.sequence_no;
+      INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day)
+      SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
+        v_new_day + t.sequence_no * 6
+      FROM career_schedule_templates t WHERE t.tier = v_new_tier ORDER BY t.sequence_no;
 
-    INSERT INTO career_league_standings (career_id, season, tier, is_player)
-    VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
+      INSERT INTO career_league_standings (career_id, season, tier, is_player)
+      VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
 
-    INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
-    SELECT p_career_id, v_new_season, v_new_tier, id, FALSE
-    FROM career_opponents
-    WHERE career_id = p_career_id AND tier = v_new_tier
-    ORDER BY created_at DESC
-    LIMIT v_num_opponents;
+      INSERT INTO career_league_standings (career_id, season, tier, opponent_id, is_player)
+      SELECT p_career_id, v_new_season, v_new_tier, id, FALSE
+      FROM career_opponents
+      WHERE career_id = p_career_id AND tier = v_new_tier
+      ORDER BY created_at DESC
+      LIMIT v_num_opponents;
+    END IF;
 
     RETURN json_build_object(
       'success', true, 'promoted', true, 'relegated', false,
@@ -159,7 +166,7 @@ BEGIN
     v_new_tier := v_career.tier - 1;
 
     v_tier_name := CASE v_new_tier
-      WHEN 2 THEN 'Pub Leagues' WHEN 3 THEN 'County Circuit' WHEN 4 THEN 'Regional Tour' ELSE 'Tier ' || v_new_tier
+      WHEN 2 THEN 'Pub Leagues' WHEN 3 THEN 'County Circuit' WHEN 4 THEN 'National Tour' ELSE 'Tier ' || v_new_tier
     END;
 
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, week, day)
