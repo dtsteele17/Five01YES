@@ -306,7 +306,7 @@ export default function CareerPage() {
     }
    }
 
-   // Tier 4 National Tour: mandatory tournaments after match 5, 10, and 14 (with T3 qualification)
+   // Tier 4 National Tour: mandatory tournaments after match 5, 10, and 15 (with T3 qualification)
    if (homeData.career.tier === 4 && homeData.standings) {
     const playerSt = homeData.standings.find((s: any) => s.is_player);
     const totalOpponents = homeData.standings.filter((s: any) => !s.is_player).length;
@@ -328,19 +328,26 @@ export default function CareerPage() {
     }
 
     // After match 10: Tournament 2 (32-player, mandatory)
-    if (leagueGamesPlayed >= 10 && (nextIsLeague || noPlayableEvents)) {
-     const { data: t2 } = await supabase.from('career_events').select('id')
+    // Check if T1 is done first, then trigger T2
+    if (leagueGamesPlayed >= 10) {
+     const { data: t1check } = await supabase.from('career_events').select('id, status')
       .eq('career_id', careerId).eq('season', homeData.career.season)
-      .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
-     if (!t2 || t2.length === 0) {
-      try { await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 2 }); } catch {}
-      const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
-      if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+      .eq('event_type', 'open').gte('sequence_no', 50).lt('sequence_no', 60).limit(1);
+     const t1Done = t1check && t1check.length > 0 && (t1check[0].status === 'completed' || t1check[0].status === 'skipped');
+     if (t1Done) {
+      const { data: t2 } = await supabase.from('career_events').select('id')
+       .eq('career_id', careerId).eq('season', homeData.career.season)
+       .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
+      if (!t2 || t2.length === 0) {
+       try { await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 2 }); } catch {}
+       const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+       if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+      }
      }
     }
 
-    // After match 14: Tournament 3 (64-player major, with qualification check)
-    if (leagueDone && noPlayableEvents) {
+    // After all league matches: Tournament 3 (64-player major, with qualification check)
+    if (leagueDone) {
      const { data: t3 } = await supabase.from('career_events').select('id, status')
       .eq('career_id', careerId).eq('season', homeData.career.season)
       .eq('event_type', 'open').gte('sequence_no', 200).limit(1);

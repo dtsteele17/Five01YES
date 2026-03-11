@@ -23,7 +23,8 @@ INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name
 (4, 11, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
 (4, 12, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
 (4, 13, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
-(4, 14, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}');
+(4, 14, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}'),
+(4, 15, 'league', 'National Tour Match', 'regional_league', 7, NULL, FALSE, '{}');
 
 DROP FUNCTION IF EXISTS _random_regional_tournament_name();
 CREATE OR REPLACE FUNCTION _random_regional_tournament_name()
