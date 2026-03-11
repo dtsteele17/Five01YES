@@ -954,8 +954,15 @@ export default function CareerPage() {
     return;
    }
 
-   // Optional Pro Tour Players Championship — show Enter/Skip prompt
+   // Optional Pro Tour Players Championship — show Enter/Skip prompt (unless already entered)
    if (next_event.event_type === 'pro_players_championship') {
+    const supabase = createClient();
+    const { data: existingBracket } = await supabase
+     .from('career_brackets').select('id').eq('career_id', careerId).eq('event_id', next_event.id).limit(1);
+    if (existingBracket && existingBracket.length > 0) {
+     router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
+     return;
+    }
     setOptionalTournamentEvent(next_event);
     setShowOptionalTournament(true);
     setPlayingEvent(false);
