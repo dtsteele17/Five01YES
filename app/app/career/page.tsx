@@ -1101,7 +1101,7 @@ export default function CareerPage() {
  // A 'season_end' event is a marker, not playable - treat as no remaining events
  const hasRemainingEvents = next_event != null && next_event.event_type !== 'season_end';
  const seasonComplete = leagueMatchesDone && !hasRemainingEvents;
- const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff 0) - (a.legs_diff 0)).findIndex((s: any) => s.is_player) + 1 : 0;
+ const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
  const willPromote = seasonComplete && playerRank <= 2;
  const displayEventName = (career.tier === 1 && chosenName) ? chosenName
   : next_event?.event_type === 'league' ? `Weekend League Night - Matchday ${leagueMatchday}`
@@ -1476,14 +1476,14 @@ export default function CareerPage() {
             <span className="w-8 text-center">LD</span>
             <span className="w-9 text-center">Pts</span>
            </div>
-           {[...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff 0) - (a.legs_diff 0)).map((row: any, i: number) => (
+           {[...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).map((row: any, i: number) => (
             <div key={i} className={`flex items-center text-xs px-2 py-2 transition-colors ${row.is_player ? 'bg-amber-500/10 rounded-lg ring-1 ring-amber-500/20' : 'hover:bg-white/[0.02]'} ${i < standings.length - 1 && !row.is_player ? 'border-b border-white/[0.04]' : ''}`}>
              <span className={`w-5 font-bold ${i < 2 ? 'text-emerald-400' : (career.tier === 4 && i >= 2 && i <= 5) ? 'text-amber-400' : (career.tier === 4 && i >= standings.length - 3) ? 'text-red-400' : (career.tier === 3 && i >= standings.length - 2) ? 'text-red-400' : 'text-slate-500'}`}>{i + 1}</span>
              <span className={`flex-1 font-medium truncate ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.name}</span>
              <span className="w-7 text-center text-slate-500">{row.played}</span>
              <span className="w-7 text-center text-slate-500">{row.won || 0}</span>
              <span className="w-7 text-center text-slate-500">{row.lost || 0}</span>
-             <span className={`w-8 text-center text-xs ${(row.legs_diff 0) > 0 ? 'text-emerald-400' : (row.legs_diff 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>{(row.legs_diff 0) > 0 ? '+' : ''}{row.legs_diff 0}</span>
+             <span className={`w-8 text-center text-xs ${(row.legs_diff ?? 0) > 0 ? 'text-emerald-400' : (row.legs_diff ?? 0) < 0 ? 'text-red-400' : 'text-slate-500'}`}>{(row.legs_diff ?? 0) > 0 ? '+' : ''}{row.legs_diff ?? 0}</span>
              <span className={`w-9 text-center font-bold ${row.is_player ? 'text-amber-400' : 'text-white'}`}>{row.points}</span>
             </div>
            ))}
