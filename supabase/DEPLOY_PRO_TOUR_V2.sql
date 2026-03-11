@@ -51,21 +51,21 @@ UPDATE career_events SET template_id = NULL WHERE template_id IN (SELECT id FROM
 DELETE FROM career_schedule_templates WHERE tier = 5;
 
 INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name, event_subtype, format_legs, bracket_size, training_available, metadata) VALUES
-(5, 1,  'pro_players_championship', 'Players Championship', 'pc_england', 9, 64, FALSE,
+(5, 1,  'pro_players_championship', 'Players Championship - England', 'pc_england', 9, 64, FALSE,
   '{"country":"England","tournament_number":1,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
-(5, 2,  'pro_players_championship', 'Players Championship', 'pc_germany', 9, 64, FALSE,
+(5, 2,  'pro_players_championship', 'Players Championship - Germany', 'pc_germany', 9, 64, FALSE,
   '{"country":"Germany","tournament_number":2,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
-(5, 3,  'pro_players_championship', 'Players Championship', 'pc_netherlands', 9, 64, FALSE,
+(5, 3,  'pro_players_championship', 'Players Championship - Netherlands', 'pc_netherlands', 9, 64, FALSE,
   '{"country":"Netherlands","tournament_number":3,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
-(5, 4,  'pro_open', 'Pro Tour Open', 'pro_open_ireland', 9, 128, FALSE,
+(5, 4,  'pro_open', 'Pro Tour Open - Ireland', 'pro_open_ireland', 9, 128, FALSE,
   '{"country":"Ireland","tournament_number":4,"optional":false,"round_formats":{"L128":9,"L64":9,"L32":11,"L16":13,"QF":15,"SF":17,"F":19},"rating_table":{"L128":3,"L64":8,"L32":15,"L16":25,"QF":40,"SF":55,"RU":75,"W":100}}'),
-(5, 5,  'pro_players_championship', 'Players Championship', 'pc_scotland', 9, 64, FALSE,
+(5, 5,  'pro_players_championship', 'Players Championship - Scotland', 'pc_scotland', 9, 64, FALSE,
   '{"country":"Scotland","tournament_number":5,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
-(5, 6,  'pro_players_championship', 'Players Championship', 'pc_austria', 9, 64, FALSE,
+(5, 6,  'pro_players_championship', 'Players Championship - Austria', 'pc_austria', 9, 64, FALSE,
   '{"country":"Austria","tournament_number":6,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
-(5, 7,  'pro_major', 'Pro Tour Major', 'pro_major_england', 11, 128, FALSE,
+(5, 7,  'pro_major', 'Pro Tour Major - England', 'pro_major_england', 11, 128, FALSE,
   '{"country":"England","tournament_number":7,"optional":false,"qualification_required":true,"top_32_auto_qualify":true,"qualifier_format":11,"round_formats":{"L128":11,"L64":11,"L32":13,"L16":15,"QF":17,"SF":19,"F":21},"rating_table":{"L128":5,"L64":12,"L32":20,"L16":35,"QF":50,"SF":70,"RU":95,"W":130}}'),
-(5, 8,  'pro_world_series', 'World Series Event', 'ws_usa', 9, 128, FALSE,
+(5, 8,  'pro_world_series', 'World Series - USA', 'ws_usa', 9, 128, FALSE,
   '{"country":"USA","tournament_number":8,"optional":false,"round_formats":{"L128":9,"L64":9,"L32":11,"L16":13,"QF":15,"SF":17,"F":19},"rating_table":{"L128":3,"L64":8,"L32":15,"L16":25,"QF":40,"SF":55,"RU":75,"W":100}}');
 
 DROP FUNCTION IF EXISTS rpc_pro_tour_init_rankings(UUID);

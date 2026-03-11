@@ -40,6 +40,7 @@ export default function CareerBracketPage() {
   const [eventType, setEventType] = useState('');
   const [eventSequence, setEventSequence] = useState<number | null>(null);
   const [formatLegs, setFormatLegs] = useState(3);
+  const [roundFormats, setRoundFormats] = useState<Record<string, number> | null>(null);
   const [playingMatch, setPlayingMatch] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [tournamentResult, setTournamentResult] = useState<any>(null);
@@ -75,6 +76,23 @@ export default function CareerBracketPage() {
       setEventType(eventInfo.event_type || '');
       setEventSequence(eventInfo.sequence_no ?? null);
       setFormatLegs(eventInfo.format_legs || 3);
+      
+      // Load round-specific formats for Pro Tour events
+      if (eventInfo.event_type?.startsWith('pro_') || eventInfo.event_type === 'champions_series_night') {
+        const { data: tmpl } = await supabase
+          .from('career_schedule_templates')
+          .select('metadata')
+          .eq('tier', 5)
+          .eq('event_type', eventInfo.event_type)
+          .limit(1)
+          .single();
+        if (tmpl?.metadata) {
+          try {
+            const meta = typeof tmpl.metadata === 'string' ? JSON.parse(tmpl.metadata) : tmpl.metadata;
+            if (meta.round_formats) setRoundFormats(meta.round_formats);
+          } catch {}
+        }
+      }
     }
 
     // Step 1: Check if bracket already exists in DB with real data
@@ -401,9 +419,17 @@ export default function CareerBracketPage() {
       : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite'
       : avg <= 90 ? 'pro' : 'worldClass';
     const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
+    // Determine round-specific format for Pro Tour events
+    let matchFormat = formatLegs;
+    if (roundFormats && bracket.totalRounds && bracket.currentRound) {
+      const roundsFromEnd = bracket.totalRounds - bracket.currentRound;
+      const roundKey = roundsFromEnd === 0 ? 'F' : roundsFromEnd === 1 ? 'SF' : roundsFromEnd === 2 ? 'QF'
+        : `L${Math.pow(2, roundsFromEnd + 1)}`;
+      matchFormat = roundFormats[roundKey] || formatLegs;
+    }
     setConfig({
       mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
-      bestOf: bestOfMap[formatLegs] || 'best-of-3', atcOpponent: 'bot',
+      bestOf: bestOfMap[matchFormat] || 'best-of-3', atcOpponent: 'bot',
       career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
         opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds },
     });
@@ -445,7 +471,14 @@ export default function CareerBracketPage() {
           </div>
           <div className="flex gap-1.5">
             <Badge className="bg-white/10 text-white/70 text-[10px]">{bracket.size}-Player</Badge>
-            <Badge className="bg-white/10 text-white/70 text-[10px]">Best of {formatLegs}</Badge>
+            <Badge className="bg-white/10 text-white/70 text-[10px]">Best of {(() => {
+              if (roundFormats && bracket?.totalRounds && bracket?.currentRound) {
+                const rfe = bracket.totalRounds - bracket.currentRound;
+                const rk = rfe === 0 ? 'F' : rfe === 1 ? 'SF' : rfe === 2 ? 'QF' : `L${Math.pow(2, rfe + 1)}`;
+                return roundFormats[rk] || formatLegs;
+              }
+              return formatLegs;
+            })()}</Badge>
             {!bracket.completed && <Badge className="bg-purple-500/20 text-purple-400 text-[10px]">{roundName}</Badge>}
             {bracket.completed && <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">Complete</Badge>}
           </div>
