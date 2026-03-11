@@ -1,30 +1,5 @@
 ALTER TABLE career_schedule_templates DROP CONSTRAINT IF EXISTS career_schedule_templates_event_type_check;
-ALTER TABLE career_schedule_templates ADD CONSTRAINT career_schedule_templates_event_type_check
-  CHECK (event_type IN (
-    'league','open','qualifier','promotion','training','rest',
-    'trial_tournament','premier_league_night','major','season_finals',
-    'tournament_choice','relegation_tournament','season_end',
-    'regional_tournament','regional_t3_qualification','regional_qual_match',
-    'q_school_semi','q_school_final',
-    'county_championship_group','county_championship_knockout',
-    'pro_players_championship','pro_open','pro_major','pro_world_series',
-    'pro_major_qualifier',
-    'champions_series_night','champions_series_semi','champions_series_final'
-  ));
-
 ALTER TABLE career_events DROP CONSTRAINT IF EXISTS career_events_event_type_check;
-ALTER TABLE career_events ADD CONSTRAINT career_events_event_type_check
-  CHECK (event_type IN (
-    'league','open','qualifier','promotion','training','rest',
-    'trial_tournament','premier_league_night','major','season_finals',
-    'tournament_choice','relegation_tournament','season_end',
-    'regional_tournament','regional_t3_qualification','regional_qual_match',
-    'q_school_semi','q_school_final',
-    'county_championship_group','county_championship_knockout',
-    'pro_players_championship','pro_open','pro_major','pro_world_series',
-    'pro_major_qualifier',
-    'champions_series_night','champions_series_semi','champions_series_final'
-  ));
 
 CREATE TABLE IF NOT EXISTS career_pro_rankings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
