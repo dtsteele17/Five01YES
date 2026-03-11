@@ -1463,41 +1463,39 @@ export default function CareerPage() {
        </Card>
       </motion.div>
 
-      {/* Timeline (moved from center) */}
+      {/* Timeline Button */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
        <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
-        <div className="p-5">
-         <div className="flex items-center gap-2 mb-4">
-          <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
-           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+        <div className="p-4">
+         <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+           <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+           </div>
+           <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Timeline</span>
+           {recent_milestones && recent_milestones.length > 0 && (
+            <span className="text-[10px] text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded-full">{recent_milestones.length}+ events</span>
+           )}
           </div>
-          <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Timeline</span>
+          <Button
+           variant="ghost" size="sm"
+           onClick={() => router.push(`/app/career/timeline?careerId=${careerId}`)}
+           className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 text-xs"
+          >
+           View Timeline &rarr;
+          </Button>
          </div>
-         {recent_milestones && recent_milestones.length > 0 ? (
-          <div className="space-y-3">
-           {recent_milestones.map((ms: any, i: number) => (
-            <div key={i} className="flex items-start gap-3">
-             <div className="mt-1 shrink-0">
-              <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
-             </div>
-             <div className="flex-1">
-              <div className="flex items-center justify-between">
-               <span className="text-white text-sm font-semibold">{ms.title}</span>
-               {ms.day && <span className="text-slate-600 text-[10px] font-medium">Day {ms.day}</span>}
-              </div>
-              {ms.description && <p className="text-slate-500 text-xs mt-0.5">{ms.description}</p>}
-             </div>
-            </div>
-           ))}
-          </div>
-         ) : (
-          <div className="flex items-start gap-3">
+         {recent_milestones && recent_milestones.length > 0 && (
+          <div className="mt-3 flex items-start gap-3">
            <div className="mt-1 shrink-0">
             <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
            </div>
-           <div>
-            <span className="text-white text-sm font-semibold">The Journey Begins</span>
-            <p className="text-slate-500 text-xs mt-0.5">Started a new career on {diffInfo.label.toLowerCase()} difficulty.</p>
+           <div className="flex-1">
+            <div className="flex items-center justify-between">
+             <span className="text-white text-sm font-semibold">{recent_milestones[0].title}</span>
+             {recent_milestones[0].day && <span className="text-slate-600 text-[10px] font-medium">Day {recent_milestones[0].day}</span>}
+            </div>
+            {recent_milestones[0].description && <p className="text-slate-500 text-xs mt-0.5">{recent_milestones[0].description}</p>}
            </div>
           </div>
          )}
