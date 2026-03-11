@@ -130,7 +130,7 @@ export default function CareerPage() {
 
   if (careerId) {
    // Pro Tour: restore major event if qualifier was completed
-   await supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId }).catch(() => {});
+   await supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId });
    const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
    if (error || homeData?.error) {
     toast.error('Failed to load career');
