@@ -367,7 +367,7 @@ export default function CareerPage() {
       .eq('event_type', 'open').gte('sequence_no', 200).limit(1);
      const { data: qSchool } = await supabase.from('career_events').select('id, status')
       .eq('career_id', careerId).eq('season', homeData.career.season)
-      .in('event_type', ['q_school_semi', 'q_school_final']);
+      .in('event_type', ['q_school', 'q_school_semi', 'q_school_final']);
      
      const t3Done = t3 && t3.length > 0 && t3.every((e: any) => e.status === 'completed' || e.status === 'skipped');
      const qDone = qSchool && qSchool.length > 0 && qSchool.every((e: any) => e.status === 'completed' || e.status === 'skipped');
@@ -1047,8 +1047,8 @@ export default function CareerPage() {
     return;
    }
 
-   // Tour School semi/final and Regional qual match - dartbot match BO9/BO7
-   if (['q_school_semi', 'q_school_final', 'regional_qual_match'].includes(next_event.event_type)) {
+   // Regional qual match - dartbot match BO7
+   if (['regional_qual_match'].includes(next_event.event_type)) {
     const supabase = createClient();
     const { data: matchData, error } = await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
     if (error) throw error;
@@ -1103,7 +1103,7 @@ export default function CareerPage() {
     return;
    }
 
-   const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_open', 'pro_major', 'pro_world_series', 'relegation_tournament'];
+   const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_open', 'pro_major', 'pro_world_series', 'relegation_tournament', 'q_school'];
    if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
     router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
     return;
@@ -1331,13 +1331,13 @@ export default function CareerPage() {
               const { data: qEvents } = await supabase2
                .from('career_events').select('id, status').eq('career_id', careerId)
                .eq('season', career.season)
-               .in('event_type', ['q_school_semi', 'q_school_final']);
+               .in('event_type', ['q_school', 'q_school_semi', 'q_school_final']);
               const qAllDone = qEvents && qEvents.length > 0 && qEvents.every((e: any) => e.status === 'completed' || e.status === 'skipped');
               if (!qEvents || qEvents.length === 0) {
                if (playerRank >= 3 && playerRank <= 6) {
                 const { data: qResult } = await supabase2.rpc('rpc_tier4_q_school', { p_career_id: careerId });
                 if (qResult?.success) {
-                 setQSchoolData({ player_rank: qResult.player_rank, semi_opponent: qResult.semi_opponent, semi_opponent_rank: qResult.semi_opponent_rank });
+                 setQSchoolData({ player_rank: qResult.player_rank, semi_opponent: qResult.semi_opponent || 'Opponent', semi_opponent_rank: qResult.semi_opponent_rank || 0 });
                  setShowQSchoolIntro(true);
                  return;
                 }
@@ -1397,6 +1397,7 @@ export default function CareerPage() {
               : next_event.event_type?.startsWith('pro_') ? 'Pro Tour'
               : next_event.event_type === 'county_championship_group' ? 'Championship Group'
               : next_event.event_type === 'county_championship_knockout' ? 'Championship Knockout'
+              : next_event.event_type === 'q_school' ? 'Tour School Playoff'
               : next_event.event_type === 'q_school_semi' ? 'Tour School Semi'
               : next_event.event_type === 'q_school_final' ? 'Tour School Final'
               : next_event.event_type.replace(/_/g, ' ')}
