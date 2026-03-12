@@ -107,8 +107,24 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
   return (
     <motion.div variants={itemVariants} className="h-full">
       <Link href={href} className="h-full block">
-        <Card className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${featured ? 'bg-gradient-to-br from-slate-800/80 to-slate-900/70 border-emerald-500/35 shadow-[0_0_0_1px_rgba(16,185,129,0.18),0_10px_40px_rgba(2,6,23,0.45)]' : 'bg-gradient-to-br from-slate-800/70 to-slate-900/60 border-slate-700/60 hover:border-slate-500/70 shadow-[0_0_0_1px_rgba(100,116,139,0.12),0_10px_30px_rgba(2,6,23,0.42)]'} p-4 sm:p-6`}>
-          <div className={`absolute inset-0 ${color} opacity-5 group-hover:opacity-15 transition-opacity`} />
+        <Card className={`relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full ${
+          featured 
+            ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border-emerald-500/30 hover:border-emerald-500/50' 
+            : color === 'bg-gradient-to-br from-slate-500 to-slate-600'
+              ? 'bg-gradient-to-br from-slate-500/10 to-slate-600/10 border-slate-500/30 hover:border-slate-500/50'
+              : color === 'bg-gradient-to-br from-blue-500 to-blue-600'
+                ? 'bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/30 hover:border-blue-500/50'
+                : 'bg-gradient-to-br from-slate-500/10 to-slate-600/10 border-slate-500/30 hover:border-slate-500/50'
+        } p-4 sm:p-6`}>
+          <div className={`absolute inset-0 ${
+            featured 
+              ? 'bg-gradient-to-br from-emerald-500/5 to-emerald-600/5' 
+              : color === 'bg-gradient-to-br from-slate-500 to-slate-600'
+                ? 'bg-gradient-to-br from-slate-500/5 to-slate-600/5'
+                : color === 'bg-gradient-to-br from-blue-500 to-blue-600'
+                  ? 'bg-gradient-to-br from-blue-500/5 to-blue-600/5'
+                  : 'bg-gradient-to-br from-slate-500/5 to-slate-600/5'
+          } opacity-0 group-hover:opacity-100 transition-opacity`} />
           <div className={`absolute -top-10 -right-10 h-28 w-28 rounded-full ${color} opacity-20 blur-2xl`} />
           <div className={`absolute -bottom-10 -left-10 h-24 w-24 rounded-full ${color} opacity-10 blur-2xl`} />
           
@@ -122,11 +138,27 @@ function GameModeCard({ href, title, subtitle, description, icon, badge, stats, 
 
             <div className="flex-1">
               <div className="mb-3">
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{subtitle}</p>
-                <h3 className="text-base sm:text-xl font-bold text-white mt-1 group-hover:text-emerald-400 transition-colors">{title}</h3>
+                <p className={`text-xs uppercase tracking-wider font-semibold ${
+                  featured 
+                    ? 'text-emerald-400' 
+                    : color === 'bg-gradient-to-br from-slate-500 to-slate-600'
+                      ? 'text-slate-400'
+                      : color === 'bg-gradient-to-br from-blue-500 to-blue-600'
+                        ? 'text-blue-400'
+                        : 'text-slate-400'
+                }`}>{subtitle}</p>
+                <h3 className={`text-base sm:text-xl font-bold text-white mt-1 transition-colors ${
+                  featured 
+                    ? 'group-hover:text-emerald-400' 
+                    : color === 'bg-gradient-to-br from-slate-500 to-slate-600'
+                      ? 'group-hover:text-slate-400'
+                      : color === 'bg-gradient-to-br from-blue-500 to-blue-600'
+                        ? 'group-hover:text-blue-400'
+                        : 'group-hover:text-slate-400'
+                }`}>{title}</h3>
               </div>
 
-              <p className="text-slate-400 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-2">{description}</p>
+              <p className="text-slate-300 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-2">{description}</p>
             </div>
 
             <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-slate-700/30">
@@ -371,8 +403,10 @@ function PrivateMatchCard() {
           onClick={() => setShowModal(true)}
           className="h-full block cursor-pointer"
         >
-          <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-slate-800/40 border-slate-700/50 hover:border-slate-600/50 p-4 sm:p-6">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-10 transition-opacity" />
+          <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-gradient-to-br from-blue-500/10 to-indigo-600/10 border-blue-500/30 hover:border-blue-500/50 p-4 sm:p-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 opacity-20 blur-2xl" />
+            <div className="absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 opacity-10 blur-2xl" />
             
             <div className="relative z-10 h-full flex flex-col">
               <div className="flex items-start justify-between mb-4">
@@ -386,11 +420,11 @@ function PrivateMatchCard() {
 
               <div className="flex-1">
                 <div className="mb-3">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Social</p>
+                  <p className="text-xs text-blue-400 uppercase tracking-wider font-semibold">Social</p>
                   <h3 className="text-xl font-bold text-white mt-1 group-hover:text-blue-400 transition-colors">Private Match</h3>
                 </div>
 
-                <p className="text-slate-400 text-sm mb-4 line-clamp-2">Create a private room and invite your friends for custom matches.</p>
+                <p className="text-slate-300 text-sm mb-4 line-clamp-2">Create a private room and invite your friends for custom matches.</p>
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-slate-700/30">
@@ -564,24 +598,26 @@ export default function PlayPage() {
 
           {/* Career Mode */}
           <motion.div variants={itemVariants} className="h-full">
-            <Card className="relative overflow-hidden group h-full bg-gradient-to-br from-slate-800/70 to-slate-900/60 border-slate-700/60 shadow-[0_0_0_1px_rgba(100,116,139,0.12),0_10px_30px_rgba(2,6,23,0.42)] p-4 sm:p-6">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600 opacity-5" />
-              <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 opacity-20 blur-2xl" />
+            <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] h-full bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border-yellow-500/30 hover:border-yellow-500/50 p-4 sm:p-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 opacity-20 blur-2xl" />
+              <div className="absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 opacity-10 blur-2xl" />
+              
               <div className="relative z-10 h-full flex flex-col">
                 <div className="flex items-start justify-between mb-3 sm:mb-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
                     <Swords className="w-7 h-7 text-white" />
                   </div>
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">New</Badge>
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Single Player</p>
-                  <h3 className="text-base sm:text-xl font-bold text-white mt-1">Career Mode</h3>
-                  <p className="text-slate-400 text-xs sm:text-sm mt-2 mb-3 sm:mb-4 line-clamp-2">Climb from pub leagues to the world stage. Play offline vs AI opponents.</p>
+                  <p className="text-xs text-yellow-400 uppercase tracking-wider font-semibold">Single Player</p>
+                  <h3 className="text-base sm:text-xl font-bold text-white mt-1 group-hover:text-yellow-400 transition-colors">Career Mode</h3>
+                  <p className="text-slate-300 text-xs sm:text-sm mt-2 mb-3 sm:mb-4 line-clamp-2">Climb from pub leagues to the world stage. Play offline vs AI opponents.</p>
                 </div>
                 <div className="flex gap-2 pt-3 sm:pt-4 border-t border-slate-700/30">
                   <Link href="/app/career/start" className="flex-1 min-w-0">
-                    <Button variant="outline" size="sm" className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-xs sm:text-sm px-2 sm:px-3">
+                    <Button variant="outline" size="sm" className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 text-xs sm:text-sm px-2 sm:px-3">
                       New
                     </Button>
                   </Link>
