@@ -44,6 +44,8 @@ BEGIN
     completed_at = now()
   WHERE id = p_match_id;
 
+  UPDATE career_events SET status = 'completed' WHERE id = v_event.id AND status = 'active';
+
   IF v_event.event_type = 'league' THEN
     IF p_won THEN
       UPDATE career_league_standings SET
@@ -56,8 +58,6 @@ BEGIN
         legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
       WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
     END IF;
-
-    UPDATE career_events SET status = 'completed' WHERE id = v_event.id;
 
     UPDATE career_profiles SET
       week = week + 1, day = day + 7, updated_at = now()
