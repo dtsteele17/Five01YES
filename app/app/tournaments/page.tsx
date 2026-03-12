@@ -309,6 +309,15 @@ export default function TournamentsPage() {
       const userId = user?.id;
       setCurrentUserId(userId || null);
       
+      // Clean up stale tournaments (5+ mins past start, no games started)
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      await supabase
+        .from('tournaments')
+        .delete()
+        .in('status', ['registration', 'scheduled', 'checkin'])
+        .lt('start_at', fiveMinAgo)
+        .is('bracket_generated_at', null);
+
       // Get all recent tournaments - let frontend handle filtering
       const { data: directData, error: directError } = await supabase
         .from('tournaments')
