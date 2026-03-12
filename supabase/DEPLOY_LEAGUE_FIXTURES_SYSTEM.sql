@@ -235,10 +235,29 @@ BEGIN
   v_best_of := COALESCE(v_event.format_legs, CASE v_career.tier WHEN 3 THEN 5 WHEN 4 THEN 7 ELSE 3 END);
 
   SELECT * INTO v_match FROM career_matches WHERE event_id = v_event.id AND career_id = p_career_id LIMIT 1;
-  SELECT * INTO v_opponent FROM career_opponents WHERE id = v_match.opponent_id;
 
   IF v_match.id IS NOT NULL THEN
     v_match_id := v_match.id;
+    SELECT * INTO v_opponent FROM career_opponents WHERE id = v_match.opponent_id;
+  END IF;
+
+  IF v_opponent.id IS NULL THEN
+    SELECT co.* INTO v_opponent FROM career_matchday_fixtures cmf
+    JOIN career_opponents co ON co.id = CASE WHEN cmf.is_player_home THEN cmf.away_opponent_id ELSE cmf.home_opponent_id END
+    WHERE cmf.event_id = v_event.id AND (cmf.is_player_home = TRUE OR cmf.is_player_away = TRUE)
+    LIMIT 1;
+  END IF;
+
+  IF v_opponent.id IS NULL THEN
+    SELECT co.* INTO v_opponent FROM career_events ce
+    JOIN career_matches cm ON cm.event_id = ce.id
+    JOIN career_opponents co ON co.id = cm.opponent_id
+    WHERE ce.id = v_event.id LIMIT 1;
+    IF v_opponent.id IS NULL THEN
+      SELECT * INTO v_opponent FROM career_opponents
+      WHERE career_id = p_career_id
+      ORDER BY md5(id::text || v_event.id::text) LIMIT 1;
+    END IF;
   END IF;
 
   v_player_fixture := json_build_object(
