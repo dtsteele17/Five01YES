@@ -641,6 +641,21 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     }
   };
 
+  const handleDeleteTournament = async () => {
+    if (!confirm('Are you sure you want to delete this tournament?')) return;
+    try {
+      await supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId);
+      await supabase.from('tournaments').delete().eq('id', tournamentId);
+      toast.success('Tournament deleted');
+      router.push('/app/tournaments');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete tournament');
+    }
+  };
+
+  const canDeleteTournament = isCreator && tournament?.start_at && 
+    (new Date(tournament.start_at).getTime() - Date.now()) > 24 * 60 * 60 * 1000;
+
   const handleUnregister = async () => {
     if (!currentUserId) return;
     try {
@@ -863,6 +878,17 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                   >
                     <Settings className="w-4 h-4 mr-2" />
                     Manage
+                  </Button>
+                )}
+                {canDeleteTournament && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteTournament}
+                    className="bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Delete
                   </Button>
                 )}
                 {/* Join/Joined button in hero */}
