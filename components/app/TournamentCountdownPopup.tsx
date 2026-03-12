@@ -103,7 +103,7 @@ export function TournamentCountdownPopup({
           .eq('round', 1)
           .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (myMatch) {
           const opponentId = myMatch.player1_id === user.id ? myMatch.player2_id : myMatch.player1_id;
@@ -112,7 +112,7 @@ export function TournamentCountdownPopup({
               .from('profiles')
               .select('username')
               .eq('user_id', opponentId)
-              .single();
+              .maybeSingle();
             setOpponentName(profile?.username || 'Unknown Player');
           } else {
             // No opponent = bye round
