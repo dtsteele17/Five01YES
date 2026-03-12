@@ -926,6 +926,23 @@ export default function QuickMatchLobbyPage() {
       }
 
       setUserId(user.id);
+
+      // Fetch last 5 quick match results
+      try {
+        const { data: recentMatches } = await supabase
+          .from('match_rooms')
+          .select('winner_id, player1_id, player2_id')
+          .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+          .eq('status', 'completed')
+          .not('winner_id', 'is', null)
+          .order('updated_at', { ascending: false })
+          .limit(5);
+        if (recentMatches && recentMatches.length > 0) {
+          const record = recentMatches.map(m => m.winner_id === user.id ? 'W' : 'L').join('');
+          setLast5Record(record.padEnd(5, '-'));
+        }
+      } catch {}
+
       await fetchLobbies();
 
       // Subscribe to realtime changes
@@ -1943,7 +1960,29 @@ export default function QuickMatchLobbyPage() {
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-4">
         <HeroStat value={totalOpenLobbies} label="Available" icon={Gamepad2} color="bg-blue-500" />
         <HeroStat value={inProgressMatches} label="In Play" icon={Zap} color="bg-emerald-500" />
-        <HeroStat value={last5Record} label="Last 5" icon={Target} color="bg-purple-500" />
+        {/* Last 5 Results */}
+        <div className="relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 p-3 sm:p-6 group hover:border-slate-600/50 transition-all">
+          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {last5Record.split('').map((r, i) => (
+                  <div key={i} className={`w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold ${
+                    r === 'W' ? 'bg-emerald-500/30 text-emerald-400 border border-emerald-500/50' :
+                    r === 'L' ? 'bg-red-500/30 text-red-400 border border-red-500/50' :
+                    'bg-slate-700/50 text-slate-500 border border-slate-600/50'
+                  }`}>
+                    {r}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1 sm:mt-2 uppercase tracking-wider font-medium">Last 5</p>
+            </div>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500 bg-opacity-20 flex items-center justify-center">
+              <Target className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+          </div>
+        </div>
         <div className="hidden sm:block">
           <HeroStat value={realtimeStatus === 'connected' ? 'Live' : 'Connecting'} label="Status" icon={Activity} color="bg-orange-500" />
         </div>
