@@ -754,6 +754,8 @@ export default function CareerPage() {
  async function loadChampionsStandings() {
   if (!careerId || !data?.career) return;
   const supabase = createClient();
+  // Snapshot top 8 for this season (idempotent - only runs once per season)
+  await supabase.rpc('rpc_champions_series_snapshot_top8', { p_career_id: careerId });
   const { data: result } = await supabase.rpc('rpc_champions_series_get_standings', {
    p_career_id: careerId, p_season: data.career.season
   });
@@ -761,7 +763,20 @@ export default function CareerPage() {
    setChampionsStandings(result.standings);
    setShowChampionsStandings(true);
   } else {
-   // Simulate CS from top 8 world rankings — progresses with each completed tournament
+   // Use snapshotted CS players (fixed for the season)
+   const { data: csPlayers } = await supabase.from('career_champions_series')
+    .select('player_name, is_player, points, legs_for, legs_against, ranking_at_qualification')
+    .eq('career_id', careerId).eq('season', data.career.season)
+    .order('ranking_at_qualification', { ascending: true });
+   if (csPlayers && csPlayers.length >= 8) {
+    const standings = csPlayers.map((p: any) => ({
+     ...p, leg_difference: (p.legs_for || 0) - (p.legs_against || 0)
+    }));
+    setChampionsStandings(standings);
+    setShowChampionsStandings(true);
+    return;
+   }
+   // Final fallback: use live rankings (should rarely happen)
    const { data: rankData } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
    if (rankData?.top25) {
     // Count completed Pro Tour events this season to determine CS progress
