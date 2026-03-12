@@ -147,7 +147,6 @@ export default function CareerPage() {
   if (careerId) {
    // Fire-and-forget helper RPCs (none are critical for page load)
    await Promise.allSettled([
-    supabase.rpc('rpc_generate_season_fixtures', { p_career_id: careerId }),
     supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId }),
     supabase.rpc('rpc_world_rankings_simulate', { p_career_id: careerId }),
     supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId }),
