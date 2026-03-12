@@ -25,7 +25,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
 import { trackScoreAchievement, trackMatchEnd } from '@/lib/achievementTracker';
-import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
+import { DartsAtDoubleModal, getDartsAtDoubleOptions, shouldShowDartsAtDoublePopup } from '@/components/app/DartsAtDoubleModal';
 import { toast } from 'sonner';
 import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } from '@/lib/sfx';
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
@@ -668,7 +668,7 @@ export default function DartbotMatchPage() {
   const [showCheckoutDartsModal, setShowCheckoutDartsModal] = useState(false);
   const [checkoutDartsThrown, setCheckoutDartsThrown] = useState(0);
   const [pendingCheckoutScore, setPendingCheckoutScore] = useState(0);
-  const [pendingVisitData, setPendingVisitData] = useState<{ score: number; minDarts: 1 | 2 | 3; isCheckout: boolean } | null>(null);
+  const [pendingVisitData, setPendingVisitData] = useState<{ score: number; options?: number[]; minDarts?: 1 | 2 | 3; isCheckout: boolean } | null>(null);
   const botTimerRef = useRef<number | null>(null);
   const botTurnIdRef = useRef(0);
   const matchOverRef = useRef(false);
@@ -1400,7 +1400,6 @@ export default function DartbotMatchPage() {
     const doubleOut = config.doubleOut;
     const newScore = currentScore - score;
     const isCheckout = newScore === 0;
-    const isCheckoutAttempt = currentScore <= 50 && currentScore > 0;
     
     // For typed checkout: ask how many darts thrown, then how many at double
     if (isCheckout) {
@@ -1410,9 +1409,15 @@ export default function DartbotMatchPage() {
       return;
     }
     
-    // For checkout attempts (within range but didn't check out): ask darts at double
-    if (isCheckoutAttempt && doubleOut) { setPendingVisitData({ score, minDarts: 3, isCheckout }); setShowDartsAtDoubleModal(true); }
-    else { handleScoreSubmit(score, 3, undefined, true, 0); setScoreInput(''); }
+    // Show darts at double popup if remaining is 50 or below after this visit
+    if (doubleOut && shouldShowDartsAtDoublePopup(currentScore, score)) {
+      const options = getDartsAtDoubleOptions(currentScore);
+      setPendingVisitData({ score, options, isCheckout });
+      setShowDartsAtDoubleModal(true);
+    } else {
+      handleScoreSubmit(score, 3, undefined, true, 0);
+      setScoreInput('');
+    }
   };
 
   const handleDartsAtDoubleConfirm = (dartsAtDouble: number) => {
@@ -2207,7 +2212,7 @@ export default function DartbotMatchPage() {
       {pendingVisitData && (
         <DartsAtDoubleModal
           isOpen={showDartsAtDoubleModal}
-          minDarts={pendingVisitData.minDarts}
+          options={pendingVisitData.options || [0, 1, 2, 3]}
           isCheckout={pendingVisitData.isCheckout}
           onConfirm={handleDartsAtDoubleConfirm}
           onCancel={() => setShowDartsAtDoubleModal(false)}

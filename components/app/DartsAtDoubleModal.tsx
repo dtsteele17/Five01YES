@@ -12,15 +12,27 @@ import { Button } from '@/components/ui/button';
 
 interface DartsAtDoubleModalProps {
   isOpen: boolean;
-  minDarts: 1 | 2 | 3;
+  options: number[];
   isCheckout: boolean;
   onConfirm: (dartsAtDouble: number) => void;
   onCancel: () => void;
 }
 
+export function getDartsAtDoubleOptions(startingScore: number): number[] {
+  if (startingScore <= 50 && startingScore % 2 === 0) return [0, 1, 2, 3];
+  if (startingScore >= 51 && startingScore <= 110) return [0, 1, 2];
+  if (startingScore >= 111 && startingScore <= 170) return [0, 1];
+  return [0, 1];
+}
+
+export function shouldShowDartsAtDoublePopup(startingScore: number, visitScore: number): boolean {
+  const remaining = startingScore - visitScore;
+  return remaining > 0 && remaining <= 50;
+}
+
 export function DartsAtDoubleModal({
   isOpen,
-  minDarts,
+  options,
   isCheckout,
   onConfirm,
   onCancel,
@@ -35,45 +47,28 @@ export function DartsAtDoubleModal({
     }
   }, [isOpen]);
 
-  // Keyboard shortcut: press 0-3 to instantly confirm (no Enter needed)
+  const validOptions = isCheckout ? options.filter(opt => opt >= 1) : options;
+  const validOptionsRef = useRef(validOptions);
+  validOptionsRef.current = validOptions;
+
   useEffect(() => {
     if (!isOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const num = parseInt(e.key);
       if (!isNaN(num) && validOptionsRef.current.includes(num)) {
         e.preventDefault();
-        // Auto-confirm immediately on keypress
-        if (isCheckout && num === 0) {
-          // Can't select 0 on checkout
-          return;
-        }
         onConfirm(num);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isCheckout, onConfirm]);
-
-  const getMaxOptions = () => {
-    if (minDarts === 3) return [0, 1];
-    if (minDarts === 2) return [0, 1, 2];
-    if (minDarts === 1) return [0, 1, 2, 3];
-    return [0];
-  };
 
   const handleConfirm = () => {
     if (isCheckout && selectedDarts === 0) {
       setError('If you checked out, you must have had at least 1 dart at a double.');
       return;
     }
-
-    if (isCheckout && minDarts === 3 && selectedDarts !== 1) {
-      setError('If you checked out, you must have had at least 1 dart at a double.');
-      return;
-    }
-
     onConfirm(selectedDarts);
     setSelectedDarts(0);
     setError('');
@@ -85,11 +80,6 @@ export function DartsAtDoubleModal({
     onCancel();
   };
 
-  const options = getMaxOptions();
-  const validOptions = isCheckout ? options.filter(opt => opt >= 1) : options;
-  const validOptionsRef = useRef(validOptions);
-  validOptionsRef.current = validOptions;
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
       <DialogContent>
@@ -98,7 +88,7 @@ export function DartsAtDoubleModal({
         </DialogHeader>
         <div className="py-4">
           <p className="text-sm text-muted-foreground mb-4">
-            How many darts did you have at a double (or bull) this visit?
+            How many darts did you throw at a double this visit?
           </p>
           <div className="flex flex-wrap gap-2">
             {validOptions.map((num) => (

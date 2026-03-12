@@ -30,7 +30,7 @@ import { getCheckoutOptions, isBust, isValidCheckout, calculateStats, getLegsToW
 import { getStartScore } from '@/lib/game-modes';
 import { checkScoreAchievements } from '@/lib/utils/achievements';
 import EditVisitModal from '@/components/app/EditVisitModal';
-import { DartsAtDoubleModal } from '@/components/app/DartsAtDoubleModal';
+import { DartsAtDoubleModal, getDartsAtDoubleOptions, shouldShowDartsAtDoublePopup } from '@/components/app/DartsAtDoubleModal';
 import { toast } from 'sonner';
 import { useMatchPersistence } from '@/lib/hooks/useMatchPersistence';
 import { normalizeMatchConfig } from '@/lib/match/defaultMatchConfig';
@@ -112,7 +112,7 @@ export default function LocalMatchPage() {
   const [showDartsAtDoubleModal, setShowDartsAtDoubleModal] = useState(false);
   const [pendingVisitData, setPendingVisitData] = useState<{
     score: number;
-    minDarts: 1 | 2 | 3;
+    options?: number[]; minDarts?: 1 | 2 | 3;
     isCheckout: boolean;
   } | null>(null);
 
@@ -1470,7 +1470,7 @@ export default function LocalMatchPage() {
       {pendingVisitData && (
         <DartsAtDoubleModal
           isOpen={showDartsAtDoubleModal}
-          minDarts={pendingVisitData.minDarts}
+          options={pendingVisitData?.options || [0, 1, 2, 3]}
           isCheckout={pendingVisitData.isCheckout}
           onConfirm={handleDartsAtDoubleConfirm}
           onCancel={() => {
