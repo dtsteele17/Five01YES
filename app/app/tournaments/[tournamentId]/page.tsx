@@ -348,15 +348,20 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       if (userIsCreator && !justJoined) {
         setIsRegistered(true);
         
-        // Ensure creator is registered in the database
+        // Ensure creator is registered in the database (direct upsert)
         try {
-          const { data: autoRegisterResult } = await supabase.rpc('auto_register_tournament_creator', {
-            p_tournament_id: tournamentId,
-            p_creator_user_id: currentUserId
-          });
-          console.log('Auto-register creator result:', autoRegisterResult);
+          const { error: regError } = await supabase
+            .from('tournament_participants')
+            .upsert({
+              tournament_id: tournamentId,
+              user_id: currentUserId,
+              role: 'admin',
+              status: 'registered',
+              joined_at: new Date().toISOString()
+            }, { onConflict: 'tournament_id,user_id' });
+          if (regError) console.log('Creator auto-register:', regError.message);
         } catch (error) {
-          console.log('Auto-register creator not available yet:', error);
+          console.log('Creator auto-register fallback failed:', error);
         }
       }
 
