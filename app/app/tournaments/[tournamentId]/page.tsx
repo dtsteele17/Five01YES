@@ -622,6 +622,24 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     }
   };
 
+  const handleUnregister = async () => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('tournament_participants')
+        .delete()
+        .eq('tournament_id', tournamentId)
+        .eq('user_id', currentUserId);
+      if (error) throw error;
+      toast.success('Unregistered from tournament');
+      setIsRegistered(false);
+      setJustJoined(false);
+      await loadTournament(true);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to unregister');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -828,22 +846,25 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                     Manage
                   </Button>
                 )}
-                {/* Join button in hero for non-registered users */}
-                {!isRegistered && ['registration', 'scheduled', 'checkin'].includes(tournament.status) && (
+                {/* Join/Joined button in hero */}
+                {isRegistered && ['registration', 'scheduled', 'checkin'].includes(tournament.status) ? (
+                  <Button
+                    disabled
+                    className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-default"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Joined
+                  </Button>
+                ) : !isRegistered && ['registration', 'scheduled', 'checkin'].includes(tournament.status) ? (
                   <Button
                     onClick={handleJoinTournament}
-                    disabled={joinLoading || participants.length >= tournament.max_participants || justJoined}
+                    disabled={joinLoading || participants.length >= tournament.max_participants}
                     className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/25 transition-all"
                   >
                     {joinLoading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                         Joining...
-                      </>
-                    ) : justJoined ? (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Joined!
                       </>
                     ) : (
                       <>
@@ -852,7 +873,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                       </>
                     )}
                   </Button>
-                )}
+                ) : null}
               </div>
             </div>
           </motion.div>
@@ -1308,6 +1329,14 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                         <PlayCircle className="w-4 h-4 mr-2" />
                         View My Matches
                       </Button>
+                    )}
+                    {!isCreator && ['registration', 'scheduled', 'checkin'].includes(tournament.status) && (
+                      <button
+                        onClick={handleUnregister}
+                        className="w-full text-xs text-slate-500 hover:text-red-400 transition-colors mt-2"
+                      >
+                        Unregister
+                      </button>
                     )}
                   </div>
                 )}
