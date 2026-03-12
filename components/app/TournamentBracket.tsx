@@ -192,19 +192,19 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
 
   return (
     <div className="w-full overflow-x-auto pb-4">
-      <div className="flex items-stretch gap-0 min-w-max px-4">
+      <div className="flex items-stretch gap-0 min-w-max px-2 sm:px-4">
         {roundNumbers.map((roundNum, roundIndex) => {
           const roundMatches = roundsData[roundNum];
           const roundName = getRoundName(roundNum);
           
           // Calculate vertical spacing - increases with each round
-          const matchHeight = 72; // Height of each match slot
+          const matchHeight = 56; // Height of each match slot
           const gap = matchHeight * Math.pow(2, roundIndex); // Exponentially increasing gap
 
           return (
             <div key={roundNum} className="flex flex-col items-center">
               {/* Round header */}
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 px-4">
+              <div className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 sm:mb-4 px-2 sm:px-4">
                 {roundName}
               </div>
               
@@ -216,10 +216,10 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                 {roundMatches.map((match) => (
                   <div key={match.id} className="flex items-center">
                     {/* Match box */}
-                    <div className="w-48 flex-shrink-0">
+                    <div className="w-32 sm:w-48 flex-shrink-0">
                       {/* Player 1 */}
                       <div className={`
-                        flex items-center justify-between px-3 py-2 border rounded-t-lg text-sm
+                        flex items-center justify-between px-2 py-1.5 sm:px-3 sm:py-2 border rounded-t-lg text-xs sm:text-sm
                         ${match.winner_id === match.player1_id && match.player1_id && match.player2_id
                           ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'
                           : match.winner_id && match.winner_id !== match.player1_id && match.player1_id && match.player2_id
@@ -247,7 +247,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
                       
                       {/* Player 2 */}
                       <div className={`
-                        flex items-center justify-between px-3 py-2 border border-t-0 rounded-b-lg text-sm
+                        flex items-center justify-between px-2 py-1.5 sm:px-3 sm:py-2 border border-t-0 rounded-b-lg text-xs sm:text-sm
                         ${match.winner_id === match.player2_id && match.player1_id && match.player2_id
                           ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'
                           : match.winner_id && match.winner_id !== match.player2_id && match.player1_id && match.player2_id
@@ -276,7 +276,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
 
                     {/* Connector line to next round */}
                     {roundIndex < roundNumbers.length - 1 && (
-                      <div className="w-8 flex-shrink-0 border-t border-slate-600" />
+                      <div className="w-4 sm:w-8 flex-shrink-0 border-t border-slate-600" />
                     )}
                   </div>
                 ))}
@@ -293,7 +293,7 @@ export function TournamentBracket({ tournamentId, tournamentStatus }: Tournament
             </div>
             <div className="flex flex-col justify-center flex-1">
               <div className={`
-                w-48 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 text-sm font-bold
+                w-32 sm:w-48 flex items-center justify-center gap-1.5 sm:gap-2 px-2 py-2 sm:px-4 sm:py-3 rounded-lg border-2 text-xs sm:text-sm font-bold
                 ${champion 
                   ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300'
                   : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
