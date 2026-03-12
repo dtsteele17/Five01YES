@@ -1003,14 +1003,14 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
     }
 
     // Calculate sigma for this throw
-    // Checkout attempts have higher pressure/scatter based on difficulty
+    // Better bots are MORE accurate on doubles, worse bots have pressure
     let checkoutPressure = 1.0;
     if (isCheckoutAttempt) {
-      // Higher pressure for lower checkouts (more nerve-wracking)
-      // Professional players handle pressure better
-      const basePressure = currentRemaining <= 40 ? 1.2 : 1.1;
-      const skillAdjustment = Math.max(0.7, 1 - (level / 200)); // Better players handle pressure better
-      checkoutPressure = 1 + (basePressure - 1) * skillAdjustment;
+      if (level >= 80) checkoutPressure = 0.85; // Pro+ bots are clutch
+      else if (level >= 65) checkoutPressure = 0.9;
+      else if (level >= 50) checkoutPressure = 1.0; // Neutral
+      else if (level >= 35) checkoutPressure = 1.1; // Slight pressure
+      else checkoutPressure = 1.2; // Beginners choke
     }
     const sigma = getBaseSigma(level) * formMultiplier * checkoutPressure;
 
@@ -1021,6 +1021,13 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
       const recoveryChance = Math.min(0.9, level / 100);
       if (Math.random() < recoveryChance) {
         dart = simulateDart(aimTarget, sigma * 0.7);
+      }
+    }
+    // Double retry: good bots get a second chance on missed doubles
+    if (isAimingAtDouble && !dart.isDouble && level >= 40) {
+      const doubleRetryChance = level >= 80 ? 0.45 : level >= 65 ? 0.30 : level >= 50 ? 0.20 : 0.10;
+      if (Math.random() < doubleRetryChance) {
+        dart = simulateDart(aimTarget, sigma * 0.8);
       }
     }
     darts.push(dart);
