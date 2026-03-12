@@ -468,14 +468,60 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-3">
+            {/* Quick Actions + Last 5 Games */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
               <Link href="/app/play">
                 <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-100 font-bold px-6 sm:px-8 shadow-xl">
                   <Play className="w-5 h-5 mr-2" />
                   Play Now
                 </Button>
               </Link>
+              
+              {/* Last 5 Games - Mobile Compact */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-xs text-slate-400">
+                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Last 5</span>
+                </div>
+                {last5Games.length > 0 ? (
+                  <div className="flex items-center gap-1.5">
+                    {last5Games.map((result, index) => (
+                      <div
+                        key={index}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                          result === 'win'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : result === 'loss'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        }`}
+                      >
+                        {result === 'win' ? 'W' : result === 'loss' ? 'L' : 'D'}
+                      </div>
+                    ))}
+                    {/* Fill empty slots if less than 5 games */}
+                    {Array.from({ length: Math.max(0, 5 - last5Games.length) }).map((_, index) => (
+                      <div
+                        key={`empty-${index}`}
+                        className="w-7 h-7 rounded-lg bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-xs font-bold text-slate-500"
+                      >
+                        -
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <div
+                        key={`empty-${index}`}
+                        className="w-7 h-7 rounded-lg bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-xs font-bold text-slate-500"
+                      >
+                        -
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -741,60 +787,9 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Right Column - 1/3 width - Last 5 Games + Online Friends + Achievements */}
+        {/* Right Column - Online Friends + Achievements */}
         <div className="space-y-3 sm:space-y-6">
-          {/* Last 5 Games Record - Now at top */}
-          <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden max-sm:mx-1 max-sm:rounded-xl">
-            <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                </div>
-                <h2 className="text-base sm:text-lg font-bold text-white">Last 5 Games</h2>
-              </div>
-              <Link href="/app/stats">
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm">
-                  History
-                </Button>
-              </Link>
-            </div>
-            <div className="p-3 sm:p-6">
-              {last5Games.length > 0 ? (
-                <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                  {last5Games.map((result, index) => (
-                    <div
-                      key={index}
-                      className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-lg sm:text-xl font-black ${
-                        result === 'win'
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : result === 'loss'
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      }`}
-                    >
-                      {result === 'win' ? 'W' : result === 'loss' ? 'L' : 'D'}
-                    </div>
-                  ))}
-                  {/* Fill empty slots if less than 5 games */}
-                  {Array.from({ length: Math.max(0, 5 - last5Games.length) }).map((_, index) => (
-                    <div
-                      key={`empty-${index}`}
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-lg sm:text-xl font-black text-slate-600"
-                    >
-                      -
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Activity className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-                  <p className="text-slate-400 text-sm">No games played yet</p>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Online Friends Detail - Moved below Last 5 Games */}
+          {/* Online Friends Detail */}
           <Card className="bg-slate-800/30 border-slate-700/50 overflow-hidden max-sm:mx-1 max-sm:rounded-xl">
             <div className="p-3 sm:p-6 border-b border-slate-700/50 flex items-center justify-between">
               <div className="flex items-center gap-2 sm:gap-3">
