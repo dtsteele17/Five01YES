@@ -657,547 +657,284 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Premium Header Section */}
-      <div className="bg-slate-900/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4">
-          <div className="flex items-center gap-3">
+      {/* Compact Sticky Header */}
+      <div className="bg-slate-900/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/app/tournaments')}
-              className="text-slate-400 hover:text-white"
+              className="text-slate-400 hover:text-white px-2"
             >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back
+              <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div className="text-sm text-slate-500 font-medium">
-              / Tournaments / {tournament.name}
+            <div className="flex-1 min-w-0 text-center">
+              <h1 className="text-base sm:text-lg font-bold text-white truncate">{tournament.name}</h1>
+              <div className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs text-slate-400">
+                <span>{tournament.game_mode}</span>
+                <span className="text-slate-600">&middot;</span>
+                <span>BO{tournament.legs_per_match}</span>
+                <span className="text-slate-600">&middot;</span>
+                <span>{participants.length}/{tournament.max_participants}</span>
+                <span className="text-slate-600">&middot;</span>
+                <Badge
+                  className={`${statusInfo.color} text-[10px] font-medium border px-1.5 py-0 h-4 ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
+                >
+                  {statusInfo.label}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white px-2">
+                <Share2 className="w-4 h-4" />
+              </Button>
+              {isCreator && (
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white px-2">
+                  <Settings className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-6">
 
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-
-          {/* Premium Tournament Header Card */}
-          <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-2xl shadow-slate-900/25">
-            <CardContent className="p-8">
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 via-emerald-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                      <Trophy className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">{tournament.name}</h1>
-                      <div className="flex items-center gap-4 text-slate-400 mt-2">
-                        <div className="flex items-center gap-1">
-                          <Target className="w-4 h-4" />
-                          <span>{tournament.game_mode} Darts</span>
-                        </div>
-                        <span>•</span>
-                        <span>Best of {tournament.legs_per_match}</span>
-                        <span>•</span>
-                        <span>{tournament.max_participants} Players</span>
-                        <span>•</span>
-                        <span className="capitalize">{tournament.entry_type}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <Badge
-                      className={`${statusInfo.color} text-base font-semibold border px-4 py-2 w-fit shadow-sm ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
-                    >
-                      <StatusIcon className="w-5 h-5 mr-2" />
-                      {statusInfo.label}
-                    </Badge>
-
-                    {tournament.start_at && (
-                      <div className="flex items-center gap-2 text-slate-300 bg-slate-800/30 px-4 py-2 rounded-xl">
-                        <Calendar className="w-4 h-4" />
-                        <span className="font-medium">{formatDate(tournament.start_at)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
+        {/* Join / Status Bar */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <Card className="bg-slate-900/60 border-white/10">
+            <CardContent className="p-3 sm:p-4">
+              {!isRegistered ? (
                 <div className="flex items-center gap-3">
-                  <Button variant="outline" size="sm" className="bg-slate-800/30 border-white/20 text-white hover:bg-slate-700">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold text-white">{participants.length}/{tournament.max_participants} players</div>
+                      {tournament.start_at && (
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(tournament.start_at)}
+                        </span>
+                      )}
+                    </div>
+                    <Progress value={getRegistrationProgress()} className="h-1.5 bg-slate-800 mt-1.5" />
+                  </div>
+                  <Button
+                    onClick={handleJoinTournament}
+                    disabled={(() => {
+                      const now = new Date();
+                      const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
+                      const isBeforeStartTime = startTime ? now < startTime : true;
+                      const canJoin = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
+                      return joinLoading || participants.length >= tournament.max_participants || !canJoin || justJoined;
+                    })()}
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3 shrink-0"
+                  >
+                    {joinLoading ? (
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white" />
+                    ) : justJoined ? (
+                      <><CheckCircle className="w-3.5 h-3.5 mr-1" /> Joining...</>
+                    ) : (
+                      <><UserPlus className="w-3.5 h-3.5 mr-1" /> Join</>
+                    )}
                   </Button>
-
-                  {isCreator && (
-                    <Button variant="outline" size="sm" className="bg-slate-800/30 border-white/20 text-white hover:bg-slate-700">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-white">Registered</span>
+                    <span className="text-xs text-slate-400 ml-2">
+                      {tournament.status === 'registration' && 'Waiting for start'}
+                      {tournament.status === 'ready' && 'Starting soon!'}
+                      {tournament.status === 'in_progress' && 'Good luck!'}
+                      {tournament.status === 'completed' && 'Finished'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400">{participants.length}/{tournament.max_participants}</div>
+                  {tournament.status === 'in_progress' && (
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3">
+                      <PlayCircle className="w-3.5 h-3.5 mr-1" /> Matches
                     </Button>
                   )}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
-
-          {/* Premium Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Registration Progress */}
-            <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-                      <Users className="w-5 h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">{participants.length}/{tournament.max_participants}</div>
-                      <div className="text-sm text-slate-400">Players Registered</div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Progress
-                      value={getRegistrationProgress()}
-                      className="h-3 bg-slate-800"
-                    />
-                    <div className="text-xs text-slate-500 font-medium">
-                      {getRegistrationProgress()}% Full
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Tournament Format */}
-            <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                      <Target className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">Best of {tournament.legs_per_match}</div>
-                      <div className="text-sm text-slate-400">Match Format</div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-slate-300">
-                    {tournament.round_scheduling === 'multiDay' ? 'Multi-Day' : 'Single Day'} • {tournament.game_mode} Darts
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Tournament Timing */}
-            <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">
-                        {(() => {
-                          // Real-time status check
-                          const now = new Date();
-                          const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
-                          const isBeforeStartTime = startTime ? now < startTime : true;
-                          const shouldBeOpen = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
-                          
-                          if (shouldBeOpen) return 'Open';
-                          if (tournament.status === 'ready') return 'Starting';
-                          if (tournament.status === 'in_progress') return 'Live';
-                          if (tournament.status === 'cancelled') return 'Cancelled';
-                          if (tournament.status === 'completed') return 'Complete';
-                          
-                          // If time has passed but tournament is still 'scheduled', it should be processed
-                          if (!isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status)) {
-                            return 'Processing';
-                          }
-                          
-                          return 'Complete';
-                        })()}
-                      </div>
-                      <div className="text-sm text-slate-400">Status</div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-slate-300">
-                    {tournament.entry_type === 'open' ? 'Open Entry' : 'Invite Only'}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </motion.div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-3">
-            <Tabs defaultValue={tournament.status === 'in_progress' || tournament.status === 'completed' ? 'bracket' : 'overview'} className="space-y-8">
-              <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10 p-2">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 bg-transparent">
-                  <TabsTrigger
-                    value="overview"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/25 rounded-xl py-3 px-3 sm:px-6 font-medium transition-all duration-200"
-                  >
-                    <Target className="w-4 h-4 mr-2" />
-                    Overview
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="players"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/25 rounded-xl py-3 px-3 sm:px-6 font-medium transition-all duration-200"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    Players ({participants.length})
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="bracket"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-xl py-3 px-3 sm:px-6 font-medium transition-all duration-200"
-                  >
-                    <Trophy className="w-4 h-4 mr-2" />
-                    Bracket
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
-                <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-                        <Target className="w-5 h-5 text-emerald-400" />
-                      </div>
-                      <CardTitle className="text-white text-xl">About This Tournament</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {tournament.description ? (
-                      <div className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
-                        <p className="text-slate-300 leading-relaxed">{tournament.description}</p>
-                      </div>
-                    ) : (
-                      <div className="bg-slate-800/30 rounded-xl p-4 border border-white/5">
-                        <p className="text-slate-400 italic">No description provided for this tournament.</p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-800/30 rounded-xl p-4 space-y-3">
-                        <h4 className="font-semibold text-white flex items-center gap-2">
-                          <div className="w-6 h-6 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                            <Trophy className="w-3 h-3 text-emerald-400" />
-                          </div>
-                          Tournament Rules
-                        </h4>
-                        <ul className="space-y-2 text-sm text-slate-300">
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                            {tournament.game_mode} starting score
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                            Best of {tournament.legs_per_match} legs per match
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                            Double out finish required
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                            Single elimination bracket
-                          </li>
-                        </ul>
-                      </div>
-                      <div className="bg-slate-800/30 rounded-xl p-4 space-y-3">
-                        <h4 className="font-semibold text-white flex items-center gap-2">
-                          <div className="w-6 h-6 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                            <Users className="w-3 h-3 text-blue-400" />
-                          </div>
-                          Format Details
-                        </h4>
-                        <ul className="space-y-2 text-sm text-slate-300">
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                            {tournament.max_participants} player maximum
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                            {tournament.entry_type === 'open' ? 'Open registration' : 'Invite only'}
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                            {tournament.round_scheduling === 'multiDay' ? 'Multi-day' : 'Single day'} event
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                            Real-time match progression
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Recent Activity */}
-                <Card className="bg-slate-900/50 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white">Recent Activity</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {participants.slice(-5).reverse().map((participant, index) => (
-                        <motion.div
-                          key={participant.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          className="flex items-center gap-3 text-sm"
-                        >
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback className="bg-slate-700 text-slate-300">
-                              {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <span className="text-white font-medium">
-                              {participant.profiles?.username || 'Unknown Player'}
-                            </span>
-                            <span className="text-slate-400"> joined the tournament</span>
-                          </div>
-                          <span className="text-xs text-slate-500">
-                            {new Date(participant.joined_at).toLocaleDateString()}
-                          </span>
-                        </motion.div>
-                      ))}
-
-                      {participants.length === 0 && (
-                        <p className="text-slate-400 text-center py-4">No players have joined yet</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Players Tab */}
-              <TabsContent value="players" className="space-y-6">
-                <Card className="bg-slate-900/60 backdrop-blur-sm border-white/10 shadow-lg">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                          <Users className="w-5 h-5 text-blue-400" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-white text-xl">Tournament Players</CardTitle>
-                          <p className="text-slate-400 text-sm">{participants.length} of {tournament.max_participants} registered</p>
-                        </div>
-                      </div>
-                      
-                      {/* Invite Button - Only for tournament creators */}
-                      {isCreator && tournament.status === 'registration' && (
-                        <Button
-                          onClick={() => setShowInviteModal(true)}
-                          className="bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 text-white font-semibold shadow-lg shadow-emerald-500/25"
-                        >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Invite Players
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {participants.map((participant, index) => (
-                        <motion.div
-                          key={participant.id}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50"
-                        >
-                          <Avatar className="w-10 h-10">
-                            <AvatarFallback className="bg-slate-700 text-white font-semibold">
-                              {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-white font-medium truncate">
-                              {participant.profiles?.username || 'Unknown Player'}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              Joined {new Date(participant.joined_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                          {participant.role === 'admin' && (
-                            <Crown className="w-4 h-4 text-yellow-400" />
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    {participants.length === 0 && (
-                      <div className="text-center py-8">
-                        <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                        <p className="text-slate-400">No players registered yet</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Bracket Tab */}
-              <TabsContent value="bracket">
-                <Card className="bg-slate-900/50 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white">Tournament Bracket</CardTitle>
-                    <CardDescription className="text-slate-400">
-                      {tournament.bracket_generated_at
-                        ? 'Interactive tournament bracket - click matches for details'
-                        : 'Bracket will be generated when tournament starts'
-                      }
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {tournament.bracket_generated_at ? (
-                      <TournamentBracketTab tournamentId={tournamentId} />
-                    ) : (
-                      <div className="text-center py-12">
-                        <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-slate-300 mb-2">Bracket Not Generated</h3>
-                        <p className="text-slate-400 mb-4">
-                          The tournament bracket will be created automatically when the tournament starts.
-                        </p>
-                        {tournament.status === 'registration' && (
-                          <p className="text-sm text-slate-500">
-                            Waiting for more players to join ({participants.length}/{tournament.max_participants} registered)
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+        {/* Tabs */}
+        <Tabs defaultValue={tournament.status === 'in_progress' || tournament.status === 'completed' ? 'bracket' : 'overview'} className="space-y-3 sm:space-y-6">
+          <div className="bg-slate-900/50 backdrop-blur-sm rounded-xl border border-white/10 p-1.5">
+            <TabsList className="grid w-full grid-cols-3 bg-transparent gap-1">
+              <TabsTrigger
+                value="overview"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-lg py-2 px-2 text-xs sm:text-sm font-medium transition-all"
+              >
+                <Target className="w-3.5 h-3.5 mr-1 sm:mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="players"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-lg py-2 px-2 text-xs sm:text-sm font-medium transition-all"
+              >
+                <Users className="w-3.5 h-3.5 mr-1 sm:mr-2" />
+                Players ({participants.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="bracket"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-lg py-2 px-2 text-xs sm:text-sm font-medium transition-all"
+              >
+                <Trophy className="w-3.5 h-3.5 mr-1 sm:mr-2" />
+                Bracket
+              </TabsTrigger>
+            </TabsList>
           </div>
 
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-3 sm:space-y-4">
+            {/* Description */}
+            {tournament.description && (
+              <Card className="bg-slate-900/60 border-white/10">
+                <CardContent className="p-3 sm:p-5">
+                  <p className="text-sm text-slate-300 leading-relaxed">{tournament.description}</p>
+                </CardContent>
+              </Card>
+            )}
 
+            {/* Rules & Format - compact 2-col */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              <Card className="bg-slate-900/60 border-white/10">
+                <CardContent className="p-3 sm:p-4">
+                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5 mb-2">
+                    <Trophy className="w-3 h-3 text-emerald-400" />
+                    Rules
+                  </h4>
+                  <ul className="space-y-1 text-[11px] sm:text-xs text-slate-400">
+                    <li>{tournament.game_mode} start</li>
+                    <li>BO{tournament.legs_per_match} legs</li>
+                    <li>Double out</li>
+                    <li>Single elim</li>
+                  </ul>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-900/60 border-white/10">
+                <CardContent className="p-3 sm:p-4">
+                  <h4 className="text-xs font-semibold text-white flex items-center gap-1.5 mb-2">
+                    <Users className="w-3 h-3 text-blue-400" />
+                    Format
+                  </h4>
+                  <ul className="space-y-1 text-[11px] sm:text-xs text-slate-400">
+                    <li>{tournament.max_participants} players max</li>
+                    <li>{tournament.entry_type === 'open' ? 'Open entry' : 'Invite only'}</li>
+                    <li>{tournament.round_scheduling === 'multiDay' ? 'Multi-day' : 'Single day'}</li>
+                    <li>Real-time</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Right Sidebar */}
-          <div className="space-y-6">
-            {/* Join/Status Card */}
-            <Card className="bg-slate-900/50 border-white/10 sticky top-6">
-              <CardContent className="p-4 sm:p-6">
-                {!isRegistered ? (
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold text-white mb-2">Join Tournament</h3>
-                      <p className="text-sm text-slate-400 mb-4">
-                        {participants.length === tournament.max_participants
-                          ? 'Tournament is full!'
-                          : `${tournament.max_participants - participants.length} spots remaining`
-                        }
-                      </p>
-                    </div>
-
-                    <Button
-                      onClick={handleJoinTournament}
-                      disabled={(() => {
-                        // Real-time join availability check
-                        const now = new Date();
-                        const startTime = tournament.start_at ? new Date(tournament.start_at) : null;
-                        const isBeforeStartTime = startTime ? now < startTime : true;
-                        const canJoin = isBeforeStartTime && ['registration', 'scheduled', 'checkin'].includes(tournament.status);
-                        
-                        return joinLoading || 
-                               participants.length >= tournament.max_participants || 
-                               !canJoin || 
-                               justJoined;
-                      })()}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            {/* Recent Activity */}
+            <Card className="bg-slate-900/50 border-white/10">
+              <CardContent className="p-3 sm:p-5">
+                <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-3">Recent Activity</h4>
+                <div className="space-y-2">
+                  {participants.slice(-5).reverse().map((participant, index) => (
+                    <motion.div
+                      key={participant.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center gap-2 text-xs"
                     >
-                      {joinLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                          Joining...
-                        </>
-                      ) : justJoined ? (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Registering...
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Join Tournament
-                        </>
-                      )}
+                      <Avatar className="w-6 h-6">
+                        <AvatarFallback className="bg-slate-700 text-slate-300 text-[10px]">
+                          {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white font-medium">{participant.profiles?.username || 'Unknown'}</span>
+                      <span className="text-slate-500">joined</span>
+                      <span className="text-slate-600 ml-auto text-[10px]">
+                        {new Date(participant.joined_at).toLocaleDateString()}
+                      </span>
+                    </motion.div>
+                  ))}
+                  {participants.length === 0 && (
+                    <p className="text-slate-500 text-center text-xs py-3">No players yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Players Tab */}
+          <TabsContent value="players">
+            <Card className="bg-slate-900/60 border-white/10">
+              <CardContent className="p-3 sm:p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs text-slate-400">{participants.length} of {tournament.max_participants} registered</div>
+                  {isCreator && tournament.status === 'registration' && (
+                    <Button onClick={() => setShowInviteModal(true)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 h-7">
+                      <UserPlus className="w-3 h-3 mr-1" /> Invite
                     </Button>
-
-                    {tournament.entry_type === 'invite_only' && (
-                      <p className="text-xs text-amber-400 text-center">
-                        ⚠️ This tournament requires an invitation
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center space-y-4">
-                    <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
-                      <CheckCircle className="w-6 h-6 text-emerald-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white mb-1">You're Registered!</h3>
-                      <p className="text-sm text-slate-400">
-                        {tournament.status === 'registration' && 'You will be notified when the tournament starts'}
-                        {tournament.status === 'ready' && 'Tournament is starting soon!'}
-                        {tournament.status === 'in_progress' && 'Good luck in your matches!'}
-                        {tournament.status === 'completed' && 'Tournament has ended'}
-                      </p>
-                    </div>
-
-                    {tournament.status === 'in_progress' && (
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                        <PlayCircle className="w-4 h-4 mr-2" />
-                        View My Matches
-                      </Button>
-                    )}
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {participants.map((participant, index) => (
+                    <motion.div
+                      key={participant.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="flex items-center gap-2.5 p-2 bg-slate-800/30 rounded-lg border border-slate-700/30"
+                    >
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-slate-700 text-white text-xs font-semibold">
+                          {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-white font-medium truncate">
+                          {participant.profiles?.username || 'Unknown Player'}
+                        </div>
+                      </div>
+                      {participant.role === 'admin' && (
+                        <Crown className="w-3.5 h-3.5 text-yellow-400" />
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+                {participants.length === 0 && (
+                  <div className="text-center py-6">
+                    <Users className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-slate-500 text-xs">No players registered yet</p>
                   </div>
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
 
-            {/* Tournament Stats */}
+          {/* Bracket Tab */}
+          <TabsContent value="bracket">
             <Card className="bg-slate-900/50 border-white/10">
-              <CardHeader>
-                <CardTitle className="text-white text-base">Tournament Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
-                  <div className="p-3 bg-slate-800/30 rounded-lg">
-                    <div className="text-lg font-bold text-emerald-400">{participants.length}</div>
-                    <div className="text-xs text-slate-400">Players</div>
+              <CardContent className="p-3 sm:p-5">
+                {tournament.bracket_generated_at ? (
+                  <TournamentBracketTab tournamentId={tournamentId} />
+                ) : (
+                  <div className="text-center py-8">
+                    <Trophy className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                    <h3 className="text-sm font-semibold text-slate-300 mb-1">Bracket Not Generated</h3>
+                    <p className="text-xs text-slate-500">
+                      Will be created when the tournament starts.
+                      {tournament.status === 'registration' && ` (${participants.length}/${tournament.max_participants} registered)`}
+                    </p>
                   </div>
-                </div>
-
-                <div className="text-xs text-slate-500 space-y-1">
-                  <div>Created: {new Date(tournament.created_at).toLocaleDateString()}</div>
-                  {tournament.started_at && (
-                    <div>Started: {new Date(tournament.started_at).toLocaleDateString()}</div>
-                  )}
-                </div>
+                )}
               </CardContent>
             </Card>
-          </div>
-        </div>
-
+          </TabsContent>
+        </Tabs>
         {/* Tournament Invite Modal */}
         {tournament && (
           <TournamentInviteModal
