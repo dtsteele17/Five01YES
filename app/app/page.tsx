@@ -764,18 +764,18 @@ export default function DashboardPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-semibold truncate">{game.name}</p>
                           <p className="text-slate-400 text-sm">
-                            {game.opponent ? `vs ${game.opponent}` : ''}
-                            {game.legs_per_match ? `${game.opponent ? ' • ' : ''}Best of ${game.legs_per_match}` : ''}
+                            {game.legs_per_match ? `Best of ${game.legs_per_match}` : ''}
+                            {game.opponent ? ` · vs ${game.opponent}` : ''}
+                          </p>
+                          <p className="text-slate-500 text-xs mt-0.5">
+                            {new Date(game.scheduled_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at {new Date(game.scheduled_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                             <Clock className="w-3 h-3 mr-1" />
                             {formatScheduledTime(game.scheduled_at)}
                           </Badge>
-                          <p className="text-[10px] text-slate-500 mt-1">
-                            {new Date(game.scheduled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at {new Date(game.scheduled_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                          </p>
                         </div>
                       </div>
                     </Link>
