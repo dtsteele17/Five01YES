@@ -246,16 +246,16 @@ export default function DashboardPage() {
             .limit(10),
           supabase
             .from('career_matches')
-            .select('result, completed_at')
+            .select('result, updated_at')
             .not('result', 'is', null)
-            .order('completed_at', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(10)
         ]);
 
         // Combine and sort by date, then take the 5 most recent
         const allGames = [
           ...(recentGames || []).map((g: any) => ({ result: g.result, date: g.played_at })),
-          ...(careerGames || []).map((g: any) => ({ result: g.result, date: g.completed_at }))
+          ...(careerGames || []).map((g: any) => ({ result: g.result, date: g.updated_at }))
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
         setLast5Games(allGames.map(g => g.result));

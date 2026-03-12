@@ -74,13 +74,13 @@ export function useRecentMatches(limit: number = 5) {
         .select(`
           id, result, player_legs_won, opponent_legs_won,
           player_average, opponent_average, player_checkout_pct,
-          player_180s, player_highest_checkout, completed_at,
+          player_180s, player_highest_checkout, updated_at,
           career_opponents!inner(first_name, last_name, nickname),
           career_events!inner(event_name, event_type),
           career_profiles!inner(tier)
         `)
         .not('result', 'is', null)
-        .order('completed_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(limit);
 
       if (fetchError) {
@@ -177,7 +177,7 @@ export function useRecentMatches(limit: number = 5) {
           visits_100_plus: 0, // Not tracked
           visits_140_plus: 0, // Not tracked
           visits_180: match.player_180s || 0,
-          played_at: match.completed_at,
+          played_at: match.updated_at,
           // Career-specific fields
           career_tier: profile.tier,
           career_event: eventContext,
