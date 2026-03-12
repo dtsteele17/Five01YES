@@ -346,7 +346,18 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       });
 
       setTournament(tournamentData);
-      const userIsCreator = currentUserId === tournamentData.created_by;
+      let userIsCreator = currentUserId === tournamentData.created_by;
+      // Fallback: check if user is admin participant
+      if (!userIsCreator && currentUserId) {
+        const { data: adminCheck } = await supabase
+          .from('tournament_participants')
+          .select('role')
+          .eq('tournament_id', tournamentId)
+          .eq('user_id', currentUserId)
+          .eq('role', 'admin')
+          .maybeSingle();
+        if (adminCheck) userIsCreator = true;
+      }
       setIsCreator(userIsCreator);
       
       // If user is the creator, they should be automatically registered
