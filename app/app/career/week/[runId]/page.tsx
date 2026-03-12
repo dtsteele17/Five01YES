@@ -62,7 +62,7 @@ export default function WeekFixtures() {
 
   async function loadWeekFixtures() {
     setLoading(true);
-    console.log('[WEEK] Loading fixtures', { careerId, showResultsEventId });
+    console.log('[WEEK] Loading fixtures', { careerId, showResultsEventId, url: window.location.href });
     try {
       const supabase = createClient();
       
@@ -73,6 +73,7 @@ export default function WeekFixtures() {
           p_event_id: showResultsEventId,
         });
         if (error) {
+          console.warn('[WEEK] rpc_get_week_fixtures_for_event failed, falling back:', error.message);
           // Fallback to default if the function doesn't exist yet
           const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
             p_career_id: careerId

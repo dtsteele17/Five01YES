@@ -44,7 +44,7 @@ BEGIN
     completed_at = now()
   WHERE id = p_match_id;
 
-  UPDATE career_events SET status = 'completed' WHERE id = v_event.id AND status = 'active';
+  UPDATE career_events SET status = 'completed' WHERE id = v_event.id AND status IN ('active', 'pending');
 
   IF v_event.event_type = 'league' THEN
     IF p_won THEN

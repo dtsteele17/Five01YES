@@ -1099,6 +1099,7 @@ export default function DartbotMatchPage() {
           } else {
             // League/single match — report directly
             try {
+              console.log('[CAREER-DEBUG] Completing match:', { careerId: config.career.careerId, matchId: config.career.matchId, won: currentMatchWinner === 'player1', p1Legs, p2Legs });
               const careerResult = await supabase.rpc('rpc_career_complete_match', {
                 p_career_id: config.career.careerId,
                 p_match_id: config.career.matchId,
@@ -1111,6 +1112,7 @@ export default function DartbotMatchPage() {
                 p_player_180s: userStats.oneEighties as any,
                 p_player_highest_checkout: userStats.highestCheckout as any,
               });
+              console.log('[CAREER-DEBUG] Complete match response:', JSON.stringify(careerResult.data), 'error:', careerResult.error);
               if (careerResult.data?.success) {
                 console.log('🏆 Career match reported:', careerResult.data);
                 toast.success(`+${careerResult.data.rep_earned} REP`);
