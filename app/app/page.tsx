@@ -236,17 +236,29 @@ export default function DashboardPage() {
           setOnlineFriends(online);
         }
 
-        // Fetch last 5 games for form display
-        const { data: recentGames } = await supabase
-          .from('match_history')
-          .select('result')
-          .eq('user_id', profile.id)
-          .order('played_at', { ascending: false })
-          .limit(5);
+        // Fetch last 5 games for form display (from both match_history and career_matches)
+        const [{ data: recentGames }, { data: careerGames }] = await Promise.all([
+          supabase
+            .from('match_history')
+            .select('result, played_at')
+            .eq('user_id', profile.id)
+            .order('played_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('career_matches')
+            .select('result, completed_at')
+            .not('result', 'is', null)
+            .order('completed_at', { ascending: false })
+            .limit(10)
+        ]);
 
-        if (recentGames) {
-          setLast5Games(recentGames.map((g: any) => g.result));
-        }
+        // Combine and sort by date, then take the 5 most recent
+        const allGames = [
+          ...(recentGames || []).map((g: any) => ({ result: g.result, date: g.played_at })),
+          ...(careerGames || []).map((g: any) => ({ result: g.result, date: g.completed_at }))
+        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+        setLast5Games(allGames.map(g => g.result));
 
         // Fetch upcoming games from tournaments and leagues
         const upcoming: UpcomingGame[] = [];
