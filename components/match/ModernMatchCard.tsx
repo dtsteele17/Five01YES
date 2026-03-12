@@ -40,6 +40,9 @@ export interface ModernMatch {
   played_at: string;
   bot_level?: number;
   opponent_avatar_url?: string | null;
+  // Career-specific fields
+  career_tier?: number;
+  career_event?: string;
 }
 
 interface ModernMatchCardProps {
@@ -101,9 +104,12 @@ export function ModernMatchCard({
 
   // Opponent name
   const isBot = match.match_format === 'dartbot';
-  const opponentName = isBot 
-    ? `DartBot ${match.bot_level ? `(Level ${match.bot_level})` : ''}`
-    : match.opponent_username || 'Unknown Player';
+  const isCareer = match.match_format === 'career';
+  const opponentName = isCareer
+    ? match.opponent_username || 'AI Opponent'
+    : isBot 
+      ? `DartBot ${match.bot_level ? `(Level ${match.bot_level})` : ''}`
+      : match.opponent_username || 'Unknown Player';
 
   // Calculate total legs
   const totalLegs = match.legs_won + match.legs_lost;
@@ -124,8 +130,14 @@ export function ModernMatchCard({
             {/* Left: Opponent info */}
             <div className="flex items-center gap-3">
               {/* Avatar */}
-              <div className={`w-10 h-10 rounded-xl ${isBot ? 'bg-blue-500/20' : 'bg-slate-700'} flex items-center justify-center overflow-hidden`}>
-                {isBot ? (
+              <div className={`w-10 h-10 rounded-xl ${
+                isCareer ? 'bg-yellow-500/20' : 
+                isBot ? 'bg-blue-500/20' : 
+                'bg-slate-700'
+              } flex items-center justify-center overflow-hidden`}>
+                {isCareer ? (
+                  <Crown className="w-5 h-5 text-yellow-400" />
+                ) : isBot ? (
                   <Bot className="w-5 h-5 text-blue-400" />
                 ) : match.opponent_avatar_url ? (
                   <img src={match.opponent_avatar_url} alt={opponentName} className="w-full h-full object-cover" />
@@ -139,6 +151,12 @@ export function ModernMatchCard({
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <span>{gameModeDisplay}</span>
                   <span>•</span>
+                  {isCareer && match.career_event && (
+                    <>
+                      <span className="text-yellow-400">{match.career_event}</span>
+                      <span>•</span>
+                    </>
+                  )}
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
                     {timeAgo}
@@ -235,8 +253,14 @@ export function ModernMatchCard({
                 <p className="text-white font-bold text-lg">{match.legs_lost}</p>
                 <p className="text-slate-500 text-xs">legs won</p>
               </div>
-              <div className={`w-12 h-12 rounded-2xl ${isBot ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-orange-500 to-orange-600'} flex items-center justify-center shadow-lg overflow-hidden`}>
-                {isBot ? (
+              <div className={`w-12 h-12 rounded-2xl ${
+                isCareer ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
+                isBot ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 
+                'bg-gradient-to-br from-orange-500 to-orange-600'
+              } flex items-center justify-center shadow-lg overflow-hidden`}>
+                {isCareer ? (
+                  <Crown className="w-6 h-6 text-white" />
+                ) : isBot ? (
                   <Bot className="w-6 h-6 text-white" />
                 ) : match.opponent_avatar_url ? (
                   <img src={match.opponent_avatar_url} alt={opponentName} className="w-full h-full object-cover" />
@@ -245,9 +269,16 @@ export function ModernMatchCard({
                 )}
               </div>
             </div>
-            <p className={`font-semibold text-sm truncate max-w-[140px] ml-auto ${isBot ? 'text-blue-400' : 'text-orange-400'}`}>
-              {opponentName}
-            </p>
+            <div className="text-right">
+              <p className={`font-semibold text-sm truncate max-w-[140px] ml-auto ${isCareer ? 'text-yellow-400' : isBot ? 'text-blue-400' : 'text-orange-400'}`}>
+                {opponentName}
+              </p>
+              {isCareer && match.career_event && (
+                <p className="text-xs text-slate-400 mt-1 truncate max-w-[140px] ml-auto">
+                  {match.career_event}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

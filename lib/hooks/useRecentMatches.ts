@@ -24,6 +24,9 @@ export interface RecentMatch {
   visits_180: number;
   played_at: string;
   bot_level?: number;
+  // Career-specific fields
+  career_tier?: number;
+  career_event?: string;
   // Opponent stats
   opponent_three_dart_avg?: number;
   opponent_first9_avg?: number;
@@ -63,6 +66,21 @@ export function useRecentMatches(limit: number = 5) {
         .in('match_format', ['quick', 'dartbot'])
         .in('game_mode', [301, 501])
         .order('played_at', { ascending: false })
+        .limit(limit);
+
+      // Also fetch career matches
+      const { data: careerData } = await supabase
+        .from('career_matches')
+        .select(`
+          id, result, player_legs_won, opponent_legs_won,
+          player_average, opponent_average, player_checkout_pct,
+          player_180s, player_highest_checkout, completed_at,
+          career_opponents!inner(first_name, last_name, nickname),
+          career_events!inner(event_name, event_type),
+          career_profiles!inner(tier)
+        `)
+        .not('result', 'is', null)
+        .order('completed_at', { ascending: false })
         .limit(limit);
 
       if (fetchError) {
@@ -117,7 +135,65 @@ export function useRecentMatches(limit: number = 5) {
         }, {} as Record<string, string>);
       }
 
-      // Transform data to include opponent username and all stats
+      // Transform career matches
+      const careerMatches: RecentMatch[] = (careerData || []).map((match: any) => {
+        const opponent = match.career_opponents;
+        const event = match.career_events;
+        const profile = match.career_profiles;
+        
+        // Build opponent name with nickname if available
+        const opponentName = opponent.nickname 
+          ? `${opponent.first_name} "${opponent.nickname}" ${opponent.last_name}`
+          : `${opponent.first_name} ${opponent.last_name}`;
+        
+        // Map tier to tier name
+        const tierNames: Record<number, string> = {
+          1: 'Local League',
+          2: 'Pub League', 
+          3: 'County League',
+          4: 'National Tour',
+          5: 'Pro Tour'
+        };
+        
+        const tierName = tierNames[profile.tier] || `Tier ${profile.tier}`;
+        const eventContext = event.event_type === 'tournament' ? event.event_name : tierName;
+        
+        return {
+          id: match.id,
+          room_id: '', // Career matches don't use room_id
+          opponent_id: '', // Not applicable for AI
+          opponent_username: opponentName,
+          game_mode: 501, // Career is always 501
+          match_format: 'career',
+          result: match.result,
+          legs_won: match.player_legs_won || 0,
+          legs_lost: match.opponent_legs_won || 0,
+          three_dart_avg: match.player_average || 0,
+          first9_avg: 0, // Not tracked in career
+          highest_checkout: match.player_highest_checkout || 0,
+          checkout_percentage: match.player_checkout_pct || 0,
+          darts_thrown: 0, // Not tracked
+          total_score: 0, // Not tracked  
+          visits_100_plus: 0, // Not tracked
+          visits_140_plus: 0, // Not tracked
+          visits_180: match.player_180s || 0,
+          played_at: match.completed_at,
+          // Career-specific fields
+          career_tier: profile.tier,
+          career_event: eventContext,
+          // Opponent stats
+          opponent_three_dart_avg: match.opponent_average || 0,
+          opponent_first9_avg: 0,
+          opponent_highest_checkout: 0,
+          opponent_checkout_percentage: 0,
+          opponent_darts_thrown: 0,
+          opponent_visits_100_plus: 0,
+          opponent_visits_140_plus: 0,
+          opponent_visits_180: 0,
+        };
+      });
+
+      // Transform regular match history data to include opponent username and all stats
       const transformedData: RecentMatch[] = (historyData || []).map((match: any) => ({
         id: match.id,
         room_id: match.room_id,
@@ -152,7 +228,12 @@ export function useRecentMatches(limit: number = 5) {
         opponent_visits_180: match.opponent_visits_180 || 0,
       }));
 
-      setMatches(transformedData);
+      // Combine career matches and regular matches, then sort by date
+      const allMatches = [...careerMatches, ...transformedData]
+        .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime())
+        .slice(0, limit);
+
+      setMatches(allMatches);
     } catch (err) {
       console.error('[useRecentMatches] Unexpected error:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
