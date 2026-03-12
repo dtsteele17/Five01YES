@@ -72,6 +72,18 @@ BEGIN
       WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
     END IF;
 
+    UPDATE career_matchday_fixtures SET
+      home_score = p_player_legs,
+      away_score = p_opponent_legs,
+      simulated = TRUE
+    WHERE event_id = v_event.id AND (is_player_home = TRUE OR is_player_away = TRUE);
+
+    PERFORM rpc_simulate_matchday_results(
+      p_career_id,
+      v_event.id,
+      COALESCE(v_event.format_legs, CASE v_career.tier WHEN 3 THEN 5 WHEN 4 THEN 7 ELSE 3 END)::SMALLINT
+    );
+
     UPDATE career_profiles SET
       week = week + 1, day = day + 7, updated_at = now()
     WHERE id = p_career_id;

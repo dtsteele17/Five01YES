@@ -145,6 +145,8 @@ export default function CareerPage() {
   const supabase = createClient();
 
   if (careerId) {
+   // Generate round-robin fixtures if not yet created (idempotent)
+   await supabase.rpc('rpc_generate_season_fixtures', { p_career_id: careerId }).catch(() => {});
    // Init world rankings if not yet created (idempotent)
    await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
    // Simulate small ranking changes for Tiers 1-4 (skipped at Tier 5)

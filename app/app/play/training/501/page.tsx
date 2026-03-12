@@ -1131,9 +1131,8 @@ export default function DartbotMatchPage() {
               console.log('[CAREER-DEBUG] Complete match response:', JSON.stringify(careerResult.data), 'error:', careerResult.error);
               
               if (careerResult.error) {
-                const errMsg = `${careerResult.error.message || 'unknown'} | code=${careerResult.error.code || '?'} | hint=${careerResult.error.hint || 'none'} | details=${careerResult.error.details || 'none'}`;
-                console.error('[CAREER-DEBUG] RPC Error:', errMsg);
-                alert('CAREER RPC ERROR: ' + errMsg);
+                console.error('[CAREER-DEBUG] RPC Error:', careerResult.error.message, careerResult.error.code);
+                toast.error(`Career match failed: ${careerResult.error.message}`);
                 return;
               }
               
