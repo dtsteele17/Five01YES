@@ -773,6 +773,9 @@ export default function DashboardPage() {
                             <Clock className="w-3 h-3 mr-1" />
                             {formatScheduledTime(game.scheduled_at)}
                           </Badge>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            {new Date(game.scheduled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at {new Date(game.scheduled_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
                         </div>
                       </div>
                     </Link>
