@@ -181,6 +181,18 @@ export default function CareerPage() {
    const { data: profileData } = await supabase.from('career_profiles').select('player_name').eq('id', careerId).single();
    if (profileData?.player_name) setCareerName(profileData.player_name);
 
+   // Tier 1: if all events are done (training completed), auto-advance to Pub Leagues
+   if (homeData.career.tier === 1 && (!homeData.next_event || homeData.next_event.event_type === 'season_end')) {
+    const { data: pendingEvents } = await supabase.from('career_events').select('id')
+     .eq('career_id', careerId).eq('season', homeData.career.season)
+     .in('status', ['pending', 'active']).limit(1);
+    if (!pendingEvents || pendingEvents.length === 0) {
+     // No more events in Tier 1, advance to Pub Leagues
+     await advanceToNextSeason();
+     return;
+    }
+   }
+
    // Tier 2 Pub Leagues: after 7 league matches, auto-create mandatory end-of-season tournament
    if (homeData.career.tier === 2 && homeData.standings) {
     const playerSt = homeData.standings.find((s: any) => s.is_player);

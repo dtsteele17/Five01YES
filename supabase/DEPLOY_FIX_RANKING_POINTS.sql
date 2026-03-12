@@ -65,6 +65,28 @@ BEGIN
   v_player_place_idx := array_position(v_placement_order, p_placement);
   IF v_player_place_idx IS NULL THEN v_player_place_idx := 0; END IF;
 
+  -- Rank-based multiplier: top players earn less, lower players earn more
+  DECLARE
+    v_rank_mult NUMERIC;
+    v_tourney_mult NUMERIC;
+  BEGIN
+    IF v_player_rank <= 5 THEN v_rank_mult := 0.6;
+    ELSIF v_player_rank <= 15 THEN v_rank_mult := 0.75;
+    ELSIF v_player_rank <= 30 THEN v_rank_mult := 0.9;
+    ELSIF v_player_rank <= 50 THEN v_rank_mult := 1.0;
+    ELSIF v_player_rank <= 75 THEN v_rank_mult := 1.2;
+    ELSE v_rank_mult := 1.5;
+    END IF;
+
+    -- Tournament prestige multiplier
+    IF v_event.event_type IN ('pro_world_series', 'pro_major') THEN v_tourney_mult := 1.8;
+    ELSIF v_event.event_type = 'pro_open' THEN v_tourney_mult := 1.4;
+    ELSE v_tourney_mult := 1.0;
+    END IF;
+
+    v_player_points := ROUND(v_player_points * v_rank_mult * v_tourney_mult);
+  END;
+
   v_point_change := v_player_points;
 
   IF v_expected IS NOT NULL THEN
@@ -136,6 +158,22 @@ BEGIN
       v_ai_placement := v_pool[v_rand_idx];
 
       v_ai_points := COALESCE((v_rating_table->>v_ai_placement)::numeric, 0);
+      -- AI rank multiplier (same as player)
+      DECLARE
+        v_ai_rank_mult NUMERIC;
+        v_ai_tourney_mult NUMERIC;
+      BEGIN
+        IF v_ai.ranking_position <= 5 THEN v_ai_rank_mult := 0.6;
+        ELSIF v_ai.ranking_position <= 15 THEN v_ai_rank_mult := 0.75;
+        ELSIF v_ai.ranking_position <= 30 THEN v_ai_rank_mult := 0.9;
+        ELSIF v_ai.ranking_position <= 50 THEN v_ai_rank_mult := 1.0;
+        ELSIF v_ai.ranking_position <= 75 THEN v_ai_rank_mult := 1.2;
+        ELSE v_ai_rank_mult := 1.5; END IF;
+        IF v_event.event_type IN ('pro_world_series', 'pro_major') THEN v_ai_tourney_mult := 1.8;
+        ELSIF v_event.event_type = 'pro_open' THEN v_ai_tourney_mult := 1.4;
+        ELSE v_ai_tourney_mult := 1.0; END IF;
+        v_ai_points := ROUND(v_ai_points * v_ai_rank_mult * v_ai_tourney_mult);
+      END;
       v_ai_base_change := v_ai_points;
 
       IF v_ai.exp_round IS NOT NULL THEN
