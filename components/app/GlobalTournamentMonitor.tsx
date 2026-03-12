@@ -202,7 +202,7 @@ export default function GlobalTournamentMonitor() {
     setShowCountdown(false);
     setCountdownComplete(true);
     if (activeTournament) {
-      router.push(`/app/tournaments/${activeTournament.id}`);
+      router.push(`/app/tournaments/${activeTournament.id}?skipCountdown=1`);
     }
   }, [activeTournament, router]);
 

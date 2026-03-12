@@ -46,10 +46,10 @@ export function CheckoutDetailsDialog({
     // 50-109 can be done with 2 or 3 darts (can't be done with 1 dart that isn't a double, and if it's a checkout, the last dart must be a double)
     // Actually for checkouts, the minimum darts is at least 2 (unless it's a bullseye/double bull checkout which is 50)
     if (score > 50) return [2, 3];
-    // 40-50: could be D20 (1 dart) or S20 D10 (2 darts) for 40, or S20 D15 (2 darts) or bullseye (1 dart) for 50
-    if (score >= 40) return [1, 2, 3];
-    // Under 40: can be done with 1, 2, or 3 darts
-    return [1, 2, 3];
+    // 1-dart checkout only possible if score is even (D1-D20) or 50 (bull)
+    const canOnedart = (score <= 40 && score % 2 === 0) || score === 50;
+    if (canOnedart) return [1, 2, 3];
+    return [2, 3];
   };
 
   const getDoubleOptions = () => {

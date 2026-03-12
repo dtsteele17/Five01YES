@@ -1278,6 +1278,7 @@ export default function QuickMatchRoomPage() {
     if (!room.player2_id) return; // Wait for player 2 to join
     if (room.pregame_status === 'ready') return; // Already completed
     if (room.coin_toss_completed) return; // Match already started
+    if (isTournamentMatch) return; // Tournament matches already went through ready-up
 
     const bothConnected = playersConnected.p1 && playersConnected.p2;
     if (bothConnected && room.status === 'active') {
@@ -2806,7 +2807,9 @@ export default function QuickMatchRoomPage() {
     if (checkoutScore >= 141) return [3]; // Must use 3 darts
     if (checkoutScore >= 110) return [2, 3]; // 2 or 3 darts possible
     if (checkoutScore > 50) return [2, 3]; // 2 or 3 darts
-    return [1, 2, 3]; // Lower scores can be any
+    // 1-dart only possible for even scores (D1-D20) or 50 (bull)
+    if ((checkoutScore <= 40 && checkoutScore % 2 === 0) || checkoutScore === 50) return [1, 2, 3];
+    return [2, 3]; // Odd scores need min 2 darts
   };
 
   const handleInputScoreSubmit = async () => {

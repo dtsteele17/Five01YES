@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -126,6 +126,8 @@ const statusConfig = {
 export default function TournamentDetailPage({ params }: { params: { tournamentId: string } }) {
   const { tournamentId } = params;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const skipCountdown = searchParams.get('skipCountdown') === '1';
   const supabase = createClient();
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -542,28 +544,36 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         if (readyUpShownForRef.current === myNextMatch.id) return;
 
         // Round 1: 60s countdown. Later rounds: 10s (players already waiting)
-        const countdownDuration = 60;
-        console.log(`🎯 Starting ${countdownDuration}s countdown for match:`, myNextMatch.id, 'round:', myNextMatch.round);
         countdownStartedForRef.current = myNextMatch.id;
-        setNextRoundMatchId(myNextMatch.id);
-        setNextRoundTotal(countdownDuration);
-        setNextRoundCountdown(countdownDuration);
-        
-        if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
-        let remaining = countdownDuration;
-        nextRoundTimerRef.current = setInterval(() => {
-          remaining--;
-          setNextRoundCountdown(remaining);
-          if (remaining <= 0) {
-            if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
-            nextRoundTimerRef.current = null;
-            setNextRoundCountdown(null);
-            // Show 3-minute ready-up modal
-            readyUpShownForRef.current = myNextMatch.id;
-            setCurrentMatchId(myNextMatch.id);
-            setShowReadyUpModal(true);
-          }
-        }, 1000);
+
+        if (skipCountdown) {
+          // Already counted down from dashboard/global monitor — go straight to ready-up
+          console.log('Skipping countdown (came from global monitor)');
+          readyUpShownForRef.current = myNextMatch.id;
+          setCurrentMatchId(myNextMatch.id);
+          setShowReadyUpModal(true);
+        } else {
+          const countdownDuration = 60;
+          console.log(`Starting ${countdownDuration}s countdown for match:`, myNextMatch.id, 'round:', myNextMatch.round);
+          setNextRoundMatchId(myNextMatch.id);
+          setNextRoundTotal(countdownDuration);
+          setNextRoundCountdown(countdownDuration);
+          
+          if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+          let remaining = countdownDuration;
+          nextRoundTimerRef.current = setInterval(() => {
+            remaining--;
+            setNextRoundCountdown(remaining);
+            if (remaining <= 0) {
+              if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+              nextRoundTimerRef.current = null;
+              setNextRoundCountdown(null);
+              readyUpShownForRef.current = myNextMatch.id;
+              setCurrentMatchId(myNextMatch.id);
+              setShowReadyUpModal(true);
+            }
+          }, 1000);
+        }
       }
     } catch (error) {
       console.error('[ReadyCheck] Error:', error);
