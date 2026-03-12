@@ -145,14 +145,14 @@ export default function CareerPage() {
   const supabase = createClient();
 
   if (careerId) {
-   // Generate round-robin fixtures if not yet created (idempotent)
-   try { await supabase.rpc('rpc_generate_season_fixtures', { p_career_id: careerId }); } catch (_) {}
-   // Init world rankings if not yet created (idempotent)
-   await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
-   // Simulate small ranking changes for Tiers 1-4 (skipped at Tier 5)
-   await supabase.rpc('rpc_world_rankings_simulate', { p_career_id: careerId });
-   // Pro Tour: restore major event if qualifier was completed
-   await supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId });
+   // Fire-and-forget helper RPCs (none are critical for page load)
+   await Promise.allSettled([
+    supabase.rpc('rpc_generate_season_fixtures', { p_career_id: careerId }),
+    supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId }),
+    supabase.rpc('rpc_world_rankings_simulate', { p_career_id: careerId }),
+    supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId }),
+   ]);
+   // Critical: load career home data
    const { data: homeData, error } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
    if (error || homeData?.error) {
     toast.error('Failed to load career');
