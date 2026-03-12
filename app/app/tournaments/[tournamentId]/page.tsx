@@ -542,7 +542,7 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
         if (readyUpShownForRef.current === myNextMatch.id) return;
 
         // Round 1: 60s countdown. Later rounds: 10s (players already waiting)
-        const countdownDuration = myNextMatch.round <= 1 ? 60 : 10;
+        const countdownDuration = 60;
         console.log(`🎯 Starting ${countdownDuration}s countdown for match:`, myNextMatch.id, 'round:', myNextMatch.round);
         countdownStartedForRef.current = myNextMatch.id;
         setNextRoundMatchId(myNextMatch.id);
