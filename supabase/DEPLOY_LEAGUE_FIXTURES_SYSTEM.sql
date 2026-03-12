@@ -253,15 +253,11 @@ BEGIN
   END IF;
 
   IF v_opponent.id IS NULL THEN
-    SELECT co.* INTO v_opponent FROM career_events ce
-    JOIN career_matches cm ON cm.event_id = ce.id
-    JOIN career_opponents co ON co.id = cm.opponent_id
-    WHERE ce.id = v_event.id LIMIT 1;
-    IF v_opponent.id IS NULL THEN
-      SELECT * INTO v_opponent FROM career_opponents
-      WHERE career_id = p_career_id
-      ORDER BY md5(id::text || v_event.id::text) LIMIT 1;
-    END IF;
+    SELECT co.* INTO v_opponent FROM career_opponents co
+    JOIN career_league_standings cls ON cls.opponent_id = co.id AND cls.career_id = co.career_id AND cls.season = v_career.season
+    WHERE co.career_id = p_career_id
+    ORDER BY md5(co.id::text || v_event.id::text)
+    LIMIT 1;
   END IF;
 
   v_player_fixture := json_build_object(
