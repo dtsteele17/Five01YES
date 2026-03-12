@@ -53,6 +53,7 @@ export default function WeekFixtures() {
   const [weekData, setWeekData] = useState<WeekData | null>(null);
   const [loading, setLoading] = useState(true);
   const [playingMatch, setPlayingMatch] = useState(false);
+  const [showingResults, setShowingResults] = useState(!!showResultsEventId);
 
   useEffect(() => {
     if (careerId) {
@@ -74,14 +75,34 @@ export default function WeekFixtures() {
         });
         if (error) {
           console.warn('[WEEK] rpc_get_week_fixtures_for_event failed, falling back:', error.message);
-          // Fallback to default if the function doesn't exist yet
-          const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
-            p_career_id: careerId
-          });
-          if (fallbackError) throw fallbackError;
-          setWeekData(fixScores(fallbackData));
+          // RPC doesn't exist yet - load the completed event directly from tables
+          const { data: eventData } = await supabase
+            .from('career_events')
+            .select('id, event_name, status, format_legs, sequence_no')
+            .eq('id', showResultsEventId)
+            .single();
+          
+          if (eventData && eventData.status === 'completed') {
+            // Get the matchday fixtures for this event's sequence
+            const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
+              p_career_id: careerId
+            });
+            if (!fallbackError && fallbackData) {
+              // Mark as showing results even with fallback data
+              setWeekData(fixScores(fallbackData));
+              setShowingResults(true);
+            }
+          } else {
+            // Event not completed - just load next pending
+            const { data: fallbackData, error: fallbackError } = await supabase.rpc('rpc_get_week_fixtures_with_match_lock', {
+              p_career_id: careerId
+            });
+            if (fallbackError) throw fallbackError;
+            setWeekData(fixScores(fallbackData));
+          }
         } else {
           setWeekData(fixScores(data));
+          if (showResultsEventId) setShowingResults(true);
         }
       } else {
         // Load next pending league event
@@ -228,7 +249,7 @@ export default function WeekFixtures() {
   const playerWon = playerCompleted && (playerFixture?.home_score || 0) > (playerFixture?.away_score || 0);
   const tierName = TIER_NAMES[weekData.tier] || `Tier ${weekData.tier}`;
   const bestOf = weekData.format_legs || (weekData.tier === 3 ? 5 : weekData.tier === 4 ? 7 : weekData.tier === 5 ? 9 : 3);
-  const isResultsView = !!showResultsEventId;
+  const isResultsView = !!showResultsEventId || showingResults;
 
   const matchdayMatch = weekData.event_name.match(/Matchday\s*(\d+)/i);
   const matchday = matchdayMatch ? matchdayMatch[1] : weekData.week.toString();

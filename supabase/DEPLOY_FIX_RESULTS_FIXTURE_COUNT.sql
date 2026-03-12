@@ -1,5 +1,16 @@
--- Fix: Results view shows correct number of other matches
--- County Circuit (10 players) = 4 other matches, not hardcoded 3
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT oid::regprocedure::text AS sig
+    FROM pg_proc
+    WHERE proname = 'rpc_get_week_fixtures_for_event'
+      AND pronamespace = 'public'::regnamespace
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig || ' CASCADE';
+  END LOOP;
+END $$;
 
 CREATE OR REPLACE FUNCTION rpc_get_week_fixtures_for_event(
   p_career_id UUID,
