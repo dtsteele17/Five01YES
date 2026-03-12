@@ -16,6 +16,7 @@ declare
   v_p1 uuid;
   v_p2 uuid;
   v_status text;
+  v_match_index integer;
 begin
   SELECT * INTO v_tournament FROM public.tournaments WHERE id = p_tournament_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Tournament not found'; END IF;
@@ -46,6 +47,7 @@ begin
 
   v_matches_in_round := v_bracket_size / 2;
 
+  v_match_index := 0;
   v_idx := 1;
   WHILE v_idx <= v_matches_in_round LOOP
     v_p1 := CASE WHEN (v_idx * 2 - 1) <= array_length(v_participants, 1) THEN v_participants[v_idx * 2 - 1] ELSE NULL END;
@@ -56,30 +58,35 @@ begin
     ELSIF v_p1 IS NOT NULL OR v_p2 IS NOT NULL THEN
       v_status := 'bye';
     ELSE
-      v_status := 'empty';
+      v_status := 'pending';
     END IF;
 
     INSERT INTO public.tournament_matches (
-      tournament_id, round, match_number, player1_id, player2_id, status
-    ) VALUES (p_tournament_id, 1, v_idx, v_p1, v_p2, v_status);
+      tournament_id, round, match_index, match_number, player1_id, player2_id, status
+    ) VALUES (p_tournament_id, 1, v_match_index, v_idx, v_p1, v_p2, v_status);
 
+    v_match_index := v_match_index + 1;
     v_idx := v_idx + 1;
   END LOOP;
 
   v_round := 2;
   WHILE v_matches_in_round > 1 LOOP
     v_matches_in_round := v_matches_in_round / 2;
+    v_match_index := 0;
     v_idx := 1;
     WHILE v_idx <= v_matches_in_round LOOP
       INSERT INTO public.tournament_matches (
-        tournament_id, round, match_number, status
-      ) VALUES (p_tournament_id, v_round, v_idx, 'pending');
+        tournament_id, round, match_index, match_number, status
+      ) VALUES (p_tournament_id, v_round, v_match_index, v_idx, 'pending');
+      v_match_index := v_match_index + 1;
       v_idx := v_idx + 1;
     END LOOP;
     v_round := v_round + 1;
   END LOOP;
 
-  UPDATE public.tournaments SET bracket_generated_at = now(), status = 'in_progress' WHERE id = p_tournament_id;
+  UPDATE public.tournaments
+  SET bracket_generated_at = now(), status = 'in_progress', started_at = now()
+  WHERE id = p_tournament_id;
 
   RETURN jsonb_build_object(
     'success', true, 'bracket_size', v_bracket_size,

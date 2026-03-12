@@ -1,10 +1,10 @@
 DROP FUNCTION IF EXISTS complete_tournament_flow_progression(UUID);
 
-CREATE OR REPLACE FUNCTION complete_tournament_flow_progression(p_tournament_id UUID)
+CREATE FUNCTION complete_tournament_flow_progression(p_tournament_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $fn$
 DECLARE
   v_tournament RECORD;
   v_participant_count INTEGER;
@@ -31,14 +31,13 @@ BEGIN
     v_result := generate_tournament_bracket(p_tournament_id);
   END IF;
 
-  IF v_tournament.started_at IS NULL THEN
-    v_result := start_tournament_round_one(p_tournament_id);
-  END IF;
+  PERFORM start_tournament_round_one(p_tournament_id);
 
   UPDATE tournaments SET status = 'in_progress' WHERE id = p_tournament_id;
 
   RETURN jsonb_build_object('success', true, 'action', 'tournament_live', 'participant_count', v_participant_count);
 END;
-$$;
+$fn$;
 
 GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION complete_tournament_flow_progression(UUID) TO anon;
