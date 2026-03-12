@@ -225,6 +225,10 @@ BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id AND user_id = auth.uid();
   IF NOT FOUND THEN RETURN NULL; END IF;
 
+  IF NOT EXISTS (SELECT 1 FROM career_matchday_fixtures WHERE career_id = p_career_id AND season = v_career.season LIMIT 1) THEN
+    PERFORM rpc_generate_season_fixtures(p_career_id);
+  END IF;
+
   SELECT * INTO v_event FROM career_events
   WHERE career_id = p_career_id AND season = v_career.season AND event_type = 'league'
     AND status IN ('pending', 'active')
