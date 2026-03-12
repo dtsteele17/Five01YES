@@ -1278,7 +1278,13 @@ export default function QuickMatchRoomPage() {
     if (!room.player2_id) return; // Wait for player 2 to join
     if (room.pregame_status === 'ready') return; // Already completed
     if (room.coin_toss_completed) return; // Match already started
-    if (isTournamentMatch) return; // Tournament matches already went through ready-up
+    if (isTournamentMatch) {
+      // Tournament matches already went through ready-up — skip lobby but mark both ready for coin toss
+      pregameInitiatedRef.current = true;
+      setPlayer1Ready(true);
+      setPlayer2Ready(true);
+      return;
+    }
 
     const bothConnected = playersConnected.p1 && playersConnected.p2;
     if (bothConnected && room.status === 'active') {

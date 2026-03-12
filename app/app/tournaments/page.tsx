@@ -249,6 +249,18 @@ export default function TournamentsPage() {
 
   useEffect(() => {
     loadTournaments(true); // Force initial load
+
+    // Real-time: new tournaments appear without refresh
+    const channel = supabase
+      .channel('tournaments_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tournaments' }, () => {
+        console.log('New tournament detected via realtime');
+        loadTournaments(true);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tournaments' }, () => {
+        loadTournaments(true);
+      })
+      .subscribe();
     
     // Check for tournament status updates and trigger global transitions every 60 seconds
     const interval = setInterval(() => {
@@ -269,7 +281,10 @@ export default function TournamentsPage() {
       })();
     }, 120000); // Reduced to every 2 minutes to prevent request storms
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [lastLoadTime]);
 
   const loadCurrentUser = async () => {
