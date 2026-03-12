@@ -298,8 +298,7 @@ BEGIN
       'id', v_opponent.id,
       'first_name', v_opponent.first_name,
       'last_name', v_opponent.last_name,
-      'nickname', v_opponent.nickname,
-      'skill_level', v_opponent.skill_level
+      'nickname', v_opponent.nickname
     ),
     'fixtures', to_json(v_fixtures)
   );
