@@ -1791,13 +1791,8 @@ export default function DartbotMatchPage() {
     if (isNaN(score) || score < 0 || score > 180) { toast.error('Invalid score (0-180)'); return; }
     if (!config) { toast.error('Game not ready'); return; }
     if (currentPlayer !== 'player1') { toast.error('Not your turn'); return; }
-    const genericDarts: Dart[] = [{ type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false }];
-    const currentRemaining = player1Score;
-    const newRemaining = currentRemaining - score;
-    if (newRemaining < 0) { await submitScore(0, true, genericDarts, false); return; }
-    if (newRemaining === 1) { await submitScore(0, true, genericDarts, false); return; }
-    const isCheckout = newRemaining === 0;
-    await submitScore(score, false, genericDarts, isCheckout);
+    // Route through handleInputScoreSubmit so checkout and darts-at-double modals are shown
+    handleInputScoreSubmit(score);
   };
 
   async function submitScore(score: number, isBustParam: boolean, darts: Dart[], isCheckout: boolean = false) {
