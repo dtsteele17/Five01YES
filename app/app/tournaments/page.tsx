@@ -98,70 +98,68 @@ function TournamentCard({ tournament, onClick }: { tournament: Tournament; onCli
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <Card 
-        className="bg-slate-900/60 backdrop-blur-sm border-white/10 hover:border-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer h-full overflow-hidden group rounded-2xl"
+        className="bg-slate-900/60 backdrop-blur-sm border-white/10 hover:border-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer h-full overflow-hidden group rounded-xl sm:rounded-2xl"
         onClick={onClick}
       >
         {/* Top accent bar */}
-        <div className="h-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
+        <div className="h-0.5 sm:h-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
         
-        <div className="p-5 space-y-4">
+        <div className="p-2.5 sm:p-4 space-y-2 sm:space-y-3">
           {/* Header: Name + Status */}
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-xl font-black text-white group-hover:text-emerald-400 transition-colors leading-tight">
+          <div>
+            <h3 className="text-sm sm:text-lg font-bold text-white group-hover:text-emerald-400 transition-colors leading-tight truncate">
               {tournament.name}
             </h3>
-            <Badge
-              className={`${statusInfo.color} text-xs font-semibold border shrink-0 ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
-            >
-              <StatusIcon className="w-3 h-3 mr-1" />
-              {statusInfo.label}
-            </Badge>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Badge
+                className={`${statusInfo.color} text-[10px] sm:text-xs font-medium border px-1.5 py-0 h-4 sm:h-5 ${'pulse' in statusInfo && statusInfo.pulse ? 'animate-pulse' : ''}`}
+              >
+                <StatusIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
+                {statusInfo.label}
+              </Badge>
+            </div>
           </div>
 
-          {/* Game info — colour-coded */}
-          <div className="flex items-center gap-3">
-            <Badge className={`text-sm px-3 py-1 border ${
+          {/* Game info — compact */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-4 sm:h-5 border ${
               tournament.game_mode === 301 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
               tournament.game_mode === 501 ? 'bg-blue-500/15 text-blue-400 border-blue-500/30' :
               'bg-slate-800/80 text-slate-300 border-slate-700'
             }`}>
-              <Target className="w-3.5 h-3.5 mr-1.5" />
               {tournament.game_mode}
             </Badge>
-            <Badge className="bg-purple-500/15 text-purple-400 border-purple-500/30 text-sm px-3 py-1">
-              Best of {tournament.legs_per_match}
+            <Badge className="bg-purple-500/15 text-purple-400 border-purple-500/30 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-4 sm:h-5">
+              BO{tournament.legs_per_match}
             </Badge>
           </div>
 
-          {/* Date & Time — prominent */}
+          {/* Date */}
           {tournament.start_at && (
-            <div className="flex items-center gap-2.5 bg-slate-800/40 rounded-xl px-4 py-3">
-              <Calendar className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span className="text-white font-bold text-base">{formatDate(tournament.start_at)}</span>
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-400">
+              <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span className="truncate">{formatDate(tournament.start_at)}</span>
             </div>
           )}
 
           {/* Players + Join */}
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-400" />
-              <span className="text-white font-bold text-lg">{tournament.participant_count || 0}<span className="text-slate-500 font-normal">/{tournament.max_participants}</span></span>
-              {spotsLeft > 0 && spotsLeft <= 5 && (
-                <span className="text-amber-400 text-xs font-medium ml-1">{spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left</span>
-              )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Users className="w-3 h-3 text-slate-400" />
+              <span className="text-white font-bold text-xs sm:text-sm">{tournament.participant_count || 0}<span className="text-slate-500 font-normal">/{tournament.max_participants}</span></span>
             </div>
             
             {tournament.is_registered ? (
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-sm font-bold px-4 py-1.5">
-                <CheckCircle className="w-4 h-4 mr-1.5" />
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0 h-4 sm:h-5">
+                <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
                 Joined
               </Badge>
             ) : ['registration', 'scheduled', 'checkin'].includes(tournament.status) ? (
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 shadow-lg shadow-emerald-500/20">
+              <Badge className="bg-emerald-600 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0 h-4 sm:h-5">
                 Join
-              </Button>
+              </Badge>
             ) : (
-              <Badge variant="outline" className="text-slate-400 border-slate-600 text-sm px-4 py-1.5">
+              <Badge variant="outline" className="text-slate-400 border-slate-600 text-[10px] sm:text-xs px-1.5 py-0 h-4 sm:h-5">
                 View
               </Badge>
             )}
@@ -561,25 +559,24 @@ export default function TournamentsPage() {
 
           {/* Tournament Grid */}
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
               {[...Array(8)].map((_, i) => (
-                <Card key={i} className="bg-slate-900/50 backdrop-blur-sm border-white/10 animate-pulse rounded-2xl">
-                  <CardHeader className="pb-3">
-                    <div className="h-6 bg-slate-700 rounded-xl w-3/4 mb-2" />
-                    <div className="h-4 bg-slate-700 rounded-lg w-1/2" />
+                <Card key={i} className="bg-slate-900/50 backdrop-blur-sm border-white/10 animate-pulse rounded-xl">
+                  <CardHeader className="p-2 sm:pb-3">
+                    <div className="h-4 bg-slate-700 rounded-lg w-3/4 mb-1" />
+                    <div className="h-3 bg-slate-700 rounded-lg w-1/2" />
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="h-4 bg-slate-700 rounded-lg" />
-                      <div className="h-2 bg-slate-700 rounded-full" />
-                      <div className="h-4 bg-slate-700 rounded-lg w-2/3" />
+                  <CardContent className="p-2 pt-0">
+                    <div className="space-y-2">
+                      <div className="h-3 bg-slate-700 rounded-lg" />
+                      <div className="h-1.5 bg-slate-700 rounded-full" />
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : filteredTournaments.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
               {filteredTournaments.map(tournament => (
                 <TournamentCard
                   key={tournament.id}
