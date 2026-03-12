@@ -2925,15 +2925,14 @@ export default function QuickMatchRoomPage() {
       return;
     }
     
-    // Check if player was realistically throwing at doubles (remaining ≤ 50 before the visit)
+    // Check if player was throwing at doubles: either started on checkout (≤50) or ended on checkout (remaining >0 and ≤50)
     const wasOnCheckout = room.double_out !== false && currentRemaining <= 50 && isInCheckoutRange(currentRemaining);
+    const nowOnCheckout = room.double_out !== false && newRemaining > 0 && newRemaining <= 50 && isInCheckoutRange(newRemaining);
     
-    if (wasOnCheckout) {
-      // Ask how many darts were thrown at a double
-      console.log('[TYPED SCORE] Was on checkout (' + currentRemaining + '), asking darts at double');
-      setPendingTypedScore({ score, remaining: currentRemaining });
+    if (wasOnCheckout || nowOnCheckout) {
+      console.log('[TYPED SCORE] Checkout range - was:', currentRemaining, 'now:', newRemaining, 'asking darts at double');
+      setPendingTypedScore({ score, remaining: wasOnCheckout ? currentRemaining : newRemaining });
       setShowDartsAtDoubleDialog(true);
-      // Lock stays held — released by dialog handler
       return;
     }
     
