@@ -1100,6 +1100,22 @@ export default function DartbotMatchPage() {
             // League/single match — report directly
             try {
               console.log('[CAREER-DEBUG] Completing match:', { careerId: config.career.careerId, matchId: config.career.matchId, won: currentMatchWinner === 'player1', p1Legs, p2Legs });
+              
+              // Check if match_id exists in career_matches table first
+              const { data: existingMatch } = await supabase
+                .from('career_matches')
+                .select('id, career_id')
+                .eq('id', config.career.matchId)
+                .single();
+              
+              console.log('[CAREER-DEBUG] Existing match check:', existingMatch);
+              
+              if (!existingMatch) {
+                console.error('[CAREER-DEBUG] Match not found in career_matches table');
+                toast.error('Career match record not found');
+                return;
+              }
+              
               const careerResult = await supabase.rpc('rpc_career_complete_match', {
                 p_career_id: config.career.careerId,
                 p_match_id: config.career.matchId,
@@ -1113,14 +1129,28 @@ export default function DartbotMatchPage() {
                 p_player_highest_checkout: userStats.highestCheckout as any,
               });
               console.log('[CAREER-DEBUG] Complete match response:', JSON.stringify(careerResult.data), 'error:', careerResult.error);
+              
+              if (careerResult.error) {
+                console.error('[CAREER-DEBUG] RPC Error details:', {
+                  message: careerResult.error.message,
+                  details: careerResult.error.details,
+                  hint: careerResult.error.hint,
+                  code: careerResult.error.code
+                });
+                toast.error(`Career match failed: ${careerResult.error.message}`);
+                return;
+              }
+              
               if (careerResult.data?.success) {
                 console.log('🏆 Career match reported:', careerResult.data);
                 toast.success(`+${careerResult.data.rep_earned} REP`);
               } else {
-                console.error('Career match report failed:', careerResult);
+                console.error('Career match report failed:', careerResult.data);
+                toast.error(`Match completion failed: ${careerResult.data?.error || 'Unknown error'}`);
               }
             } catch (err) {
               console.error('Failed to report career match:', err);
+              toast.error('Failed to complete career match');
             }
           }
         }
