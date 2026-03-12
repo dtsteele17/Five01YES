@@ -54,8 +54,7 @@ BEGIN
     opponent_average = p_opponent_average,
     player_checkout_pct = p_player_checkout_pct,
     player_180s = p_player_180s,
-    player_highest_checkout = p_player_highest_checkout,
-    updated_at = now()
+    player_highest_checkout = p_player_highest_checkout
   WHERE id = p_match_id;
 
   UPDATE career_events SET status = 'completed' WHERE id = v_event.id AND status IN ('active', 'pending');
@@ -93,7 +92,7 @@ BEGIN
     SELECT COUNT(*) INTO v_streak FROM (
       SELECT result FROM career_matches
       WHERE career_id = p_career_id AND result IS NOT NULL
-      ORDER BY updated_at DESC LIMIT 10
+      ORDER BY id DESC LIMIT 10
     ) sub WHERE sub.result = 'win';
 
     IF v_streak >= 5 THEN
@@ -106,7 +105,7 @@ BEGIN
     SELECT COUNT(*) INTO v_streak FROM (
       SELECT result FROM career_matches
       WHERE career_id = p_career_id AND result IS NOT NULL
-      ORDER BY updated_at DESC LIMIT 5
+      ORDER BY id DESC LIMIT 5
     ) sub WHERE sub.result = 'loss';
 
     IF v_streak >= 4 THEN
