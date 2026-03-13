@@ -481,11 +481,10 @@ export default function TournamentsPage() {
                     setIsCreateModalOpen(true);
                     console.log('Modal state after setIsCreateModalOpen(true)');
                   }}
-                  disabled
-                  className="bg-slate-700 text-slate-400 cursor-not-allowed font-bold border-0 max-sm:flex-1 max-sm:min-w-[170px] max-sm:text-xs opacity-60"
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold border-0 max-sm:flex-1 max-sm:min-w-[170px] max-sm:text-xs"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Tournament (Locked)
+                  Create Tournament
                 </Button>
               </div>
             </div>
@@ -637,11 +636,11 @@ export default function TournamentsPage() {
               </p>
               {activeTab === 'open' && !searchQuery && (
                 <Button
-                  disabled
-                  className="bg-slate-700 text-slate-400 cursor-not-allowed font-bold px-4 sm:px-8 py-3 rounded-xl opacity-60"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-4 sm:px-8 py-3 rounded-xl"
                 >
                   <Plus className="w-5 h-5 mr-3" />
-                  Create Tournament (Locked)
+                  Create Tournament
                 </Button>
               )}
             </div>
