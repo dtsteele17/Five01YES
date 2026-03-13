@@ -102,7 +102,9 @@ export default function TimelinePage() {
       .from('career_milestones')
       .select('id, milestone_type, title, description, tier, season, day, created_at')
       .eq('career_id', careerId)
-      .order('day', { ascending: false });
+      .order('day', { ascending: false })
+      .order('tier', { ascending: false })
+      .order('created_at', { ascending: false });
     if (!error && data) {
       // Filter out milestone types that shouldn't appear on timeline
       const hidden = new Set(['sponsor_slot_unlocked', 'sponsor_slot_lost', 'sponsor_offer', 'tournament_invite', 'rep_bonus']);
