@@ -683,11 +683,10 @@ export default function CareerPage() {
    const deletedKey = `career_emails_deleted_${homeData.career.id}`;
    const deletedIds: string[] = JSON.parse(localStorage.getItem(deletedKey) || '[]');
 
-   // Add new emails that aren't already stored or deleted
-   // Critical emails (last_chance, sponsor_slot, tournament_invite) always show even if previously cleared
-   const criticalTypes = new Set(['last_chance', 'sponsor_slot', 'tournament_invite', 'cs_qualification']);
+   // Add new emails that aren't already stored
+   // Emails are NEVER auto-deleted - only manual user deletion removes them
    const existingIds = new Set(stored.map(e => e.id));
-   const freshEmails = newEmails.filter(e => !existingIds.has(e.id) && (criticalTypes.has(e.type) || !deletedIds.includes(e.id))).map(e => ({ ...e, isNew: true }));
+   const freshEmails = newEmails.filter(e => !existingIds.has(e.id) && !deletedIds.includes(e.id)).map(e => ({ ...e, isNew: true }));
    // Mark existing stored emails as not new
    const allEmails = [...freshEmails, ...stored.map(e => ({ ...e, isNew: false }))];
    localStorage.setItem(storageKey, JSON.stringify(allEmails.map(e => ({ ...e, isNew: false }))));
@@ -2388,7 +2387,6 @@ export default function CareerPage() {
             });
             if (!error) {
              toast.success(res?.message || 'Tournament accepted!');
-             pendingInvites.forEach(inv => deleteEmail(`tournament-invite-${inv.event_id}`));
              setPendingInvites([]);
              setPendingInvite(null);
              setShowInvitePopup(false);
@@ -2411,7 +2409,6 @@ export default function CareerPage() {
             });
             if (!error) {
              toast.success(res?.message || 'Tournament declined.');
-             deleteEmail(`tournament-invite-${invite.event_id}`);
              const remaining = pendingInvites.filter(inv => inv.event_id !== invite.event_id);
              setPendingInvites(remaining);
              if (remaining.length === 0) {
