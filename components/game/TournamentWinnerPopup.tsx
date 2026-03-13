@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Trophy, Crown, Target, ArrowRight, Eye, Home, Sparkles } from 'lucide-react';
+import { Trophy, Crown, Target, ArrowRight, Eye, Home, Sparkles, Shield, ThumbsUp, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LegByLegStats } from '@/components/match/LegByLegStats';
 import type { LegStats } from '@/lib/stats/legByLegStats';
@@ -69,6 +69,10 @@ export function TournamentWinnerPopup({
   legStats = [],
 }: TournamentWinnerPopupProps) {
   const router = useRouter();
+  const supabase = createClient();
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  
   const isWinner = currentUserId === winnerId;
   const isPlayer1Winner = player1.id === winnerId;
   const winnerName = isPlayer1Winner ? player1.name : player2.name;
@@ -98,10 +102,32 @@ export function TournamentWinnerPopup({
     onClose();
   };
 
+  const opponentId = currentUserId === player1.id ? player2.id : player1.id;
+  const opponentName = currentUserId === player1.id ? player2.name : player1.name;
+  const GRADE_COLORS: Record<string, string> = {
+    'A': 'bg-emerald-600 text-white', 'B': 'bg-blue-600 text-white',
+    'C': 'bg-yellow-600 text-white', 'D': 'bg-orange-600 text-white', 'E': 'bg-red-600 text-white'
+  };
+  const gradeLabels: Record<string, string> = {
+    'A': 'Excellent - Fair play', 'B': 'Good', 'C': 'Average', 'D': 'Suspicious', 'E': 'Cheating'
+  };
+
+  const handleSubmitRating = async () => {
+    if (!selectedGrade) return;
+    try {
+      await supabase.rpc('rate_opponent_safety', {
+        p_match_id: tournamentMatchId,
+        p_rated_user_id: opponentId,
+        p_grade: selectedGrade
+      });
+    } catch (e) { console.log('Rating error:', e); }
+    setRatingSubmitted(true);
+  };
+
   return (
     <Dialog open={isOpen} modal>
       <DialogContent
-        className="bg-slate-900 border-slate-700 text-white w-full max-w-3xl p-0 overflow-hidden"
+        className="bg-slate-900/[0.98] border-slate-700 text-white w-full max-w-3xl p-0 overflow-hidden backdrop-blur-sm"
         style={{ maxHeight: '90vh' }}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -211,6 +237,49 @@ export function TournamentWinnerPopup({
             />
           </div>
         )}
+
+        {/* Trust Rating */}
+        <div className="px-4 pt-3">
+          {!ratingSubmitted ? (
+            <div className="border border-slate-700/50 rounded-lg p-3 bg-slate-800/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-slate-300">Rate {opponentName}</span>
+              </div>
+              <div className="flex gap-1.5 mb-2">
+                {['A', 'B', 'C', 'D', 'E'].map(grade => (
+                  <button
+                    key={grade}
+                    onClick={() => setSelectedGrade(grade)}
+                    className={`flex-1 py-1.5 rounded text-sm font-bold transition-all ${
+                      selectedGrade === grade 
+                        ? `${GRADE_COLORS[grade]} ring-2 ring-white/30 scale-105` 
+                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                    }`}
+                  >
+                    {grade}
+                  </button>
+                ))}
+              </div>
+              {selectedGrade && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">{gradeLabels[selectedGrade]}</span>
+                  <button
+                    onClick={handleSubmitRating}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+                  >
+                    Submit
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 justify-center py-2">
+              <Check className="w-4 h-4" />
+              Rating submitted
+            </div>
+          )}
+        </div>
 
         {/* Action Buttons - different for winner vs loser */}
         <div className="px-4 pb-4 pt-3">
