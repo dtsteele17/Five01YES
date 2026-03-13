@@ -81,7 +81,7 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
   const [touched, setTouched] = useState({ password: false, confirmPassword: false });
-  const [validatingToken, setValidatingToken] = useState(true);
+  const [validatingToken, setValidatingToken] = useState(false);
   const [tokenError, setTokenError] = useState(false);
 
   const passwordStrength = checkPasswordStrength(password);
@@ -170,19 +170,31 @@ export default function ResetPasswordPage() {
         }
       }
 
-      // 4. Timeout — final check
-      setTimeout(() => {
-        supabase.auth.getSession().then(({ data: { session: finalSession } }) => {
-          console.log('[ResetPassword] Final session check:', !!finalSession);
-          if (finalSession) {
-            setTokenError(false);
-          } else {
-            setTokenError(true);
-          }
+      // 4. Keep checking periodically for 5 minutes
+      let attempts = 0;
+      const maxAttempts = 60; // 60 x 5s = 5 minutes
+      const checkInterval = setInterval(async () => {
+        attempts++;
+        const { data: { session: retrySession } } = await supabase.auth.getSession();
+        console.log('[ResetPassword] Retry check', attempts, 'session:', !!retrySession);
+        if (retrySession) {
+          clearInterval(checkInterval);
+          setTokenError(false);
           setValidatingToken(false);
           subscription.unsubscribe();
-        });
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          setTokenError(true);
+          setValidatingToken(false);
+          subscription.unsubscribe();
+        }
       }, 5000);
+
+      // Show the form after a short delay even if still validating
+      // so users can see something is happening
+      setTimeout(() => {
+        setValidatingToken(false);
+      }, 3000);
     };
 
     validateToken();
