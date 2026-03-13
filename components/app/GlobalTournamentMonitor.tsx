@@ -107,7 +107,7 @@ export default function GlobalTournamentMonitor() {
 
         // Only show popup AFTER start time has passed (within 60s window)
         // Never show before start time or more than 60s after
-        if (msSinceStart >= 0 && msSinceStart <= 60000 && !showCountdown && !countdownComplete) {
+        if (msSinceStart >= 0 && msSinceStart <= 120000 && !showCountdown && !countdownComplete) {
           // Trigger bracket generation if not already done (in case user isn't on tournament detail page)
           if (!t.bracket_generated_at) {
             try {
@@ -127,7 +127,7 @@ export default function GlobalTournamentMonitor() {
         }
 
         // If tournament started more than 60s ago, just dismiss it silently
-        if (msSinceStart > 60000) {
+        if (msSinceStart > 120000) {
           dismissedTournamentsRef.current.add(t.id);
         }
       }
@@ -186,13 +186,31 @@ export default function GlobalTournamentMonitor() {
     }
   }, [userId, isOnTournamentPage, showCountdown, countdownComplete, readyUpMatch]);
 
-  // Poll every 15 seconds
+  // Poll every 10 seconds + real-time subscription for instant bracket notifications
   useEffect(() => {
     if (!userId) return;
     checkTournaments();
-    pollingRef.current = setInterval(checkTournaments, 15000);
+    pollingRef.current = setInterval(checkTournaments, 10000);
+
+    // Real-time: detect bracket generation instantly
+    const channel = supabase
+      .channel('global_tournament_monitor')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tournaments',
+        filter: 'status=eq.in_progress'
+      }, (payload: any) => {
+        if (payload.new?.bracket_generated_at && !payload.old?.bracket_generated_at) {
+          console.log('[GlobalTournamentMonitor] Bracket generated via realtime!', payload.new.id);
+          checkTournaments();
+        }
+      })
+      .subscribe();
+
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      supabase.removeChannel(channel);
     };
   }, [userId, checkTournaments]);
 
