@@ -7,6 +7,10 @@ export async function GET(request: Request) {
 
   console.log('[Auth Callback] Processing callback with code:', code ? 'present' : 'missing');
 
+  // Check if this is a password recovery redirect
+  const next = requestUrl.searchParams.get('next');
+  const type = requestUrl.searchParams.get('type');
+
   if (code) {
     try {
       const supabase = await createServerSupabaseClient();
@@ -15,6 +19,12 @@ export async function GET(request: Request) {
       if (sessionError) {
         console.error('[Auth Callback] Session exchange error:', sessionError);
         return NextResponse.redirect(new URL('/login?error=auth_failed', request.url));
+      }
+
+      // Password recovery — redirect to reset password page
+      if (type === 'recovery' || next === '/reset-password') {
+        console.log('[Auth Callback] Password recovery flow, redirecting to reset-password');
+        return NextResponse.redirect(new URL('/reset-password', request.url));
       }
 
       if (data?.user) {
