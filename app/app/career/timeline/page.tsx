@@ -103,7 +103,11 @@ export default function TimelinePage() {
       .select('id, milestone_type, title, description, tier, season, day, created_at')
       .eq('career_id', careerId)
       .order('day', { ascending: false });
-    if (!error && data) setMilestones(data);
+    if (!error && data) {
+      // Filter out milestone types that shouldn't appear on timeline
+      const hidden = new Set(['sponsor_slot_unlocked', 'sponsor_slot_lost', 'sponsor_offer', 'tournament_invite', 'rep_bonus']);
+      setMilestones(data.filter(m => !hidden.has(m.milestone_type)));
+    }
     setLoading(false);
   }
 
