@@ -940,10 +940,21 @@ export default function CareerPage() {
     setPromotionTierName(result.tier_name);
     setShowPromotionPopup(true);
    } else if (result?.relegated) {
-    // Lose a sponsor on relegation from National Tour
-    if (data?.career?.tier === 4) {
-     try { await supabase.rpc('rpc_career_lose_sponsor_on_relegation', { p_career_id: careerId }); } catch {}
+    // Lose sponsor slot + active sponsors on relegation
+    try { await supabase.rpc('rpc_career_lose_sponsor_on_relegation', { p_career_id: careerId }); } catch {}
+    
+    // Add relegation sponsor email if player had a sponsor
+    if (sponsorContract) {
+     const sponsorName = sponsorContract.sponsor_name || 'Your sponsor';
+     setEmails(prev => [{
+      id: `sponsor-relegation-${Date.now()}`,
+      subject: `${sponsorName} has ended their sponsorship`,
+      body: `Due to your relegation from the ${data?.career?.tier === 4 ? 'National Tour' : data?.career?.tier === 3 ? 'County Circuit' : 'league'}, ${sponsorName} has decided to part ways. Keep pushing and new sponsors will come knocking when you climb back up!`,
+      type: 'sponsor_terminated',
+      isNew: true,
+     }, ...prev]);
     }
+    
     setRelegationData({ tier_name: result.tier_name, rep_lost: result.rep_lost || 0 });
     setShowRelegationPopup(true);
    } else {
