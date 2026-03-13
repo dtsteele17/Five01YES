@@ -84,6 +84,38 @@ begin
     v_round := v_round + 1;
   END LOOP;
 
+  -- Process byes: advance lone players to next round
+  FOR v_idx IN 0..(v_bracket_size / 2 - 1) LOOP
+    DECLARE
+      v_bye_match record;
+      v_next_match_index integer;
+      v_bye_winner uuid;
+    BEGIN
+      SELECT * INTO v_bye_match FROM public.tournament_matches
+      WHERE tournament_id = p_tournament_id AND round = 1 AND match_index = v_idx AND status = 'bye';
+
+      IF FOUND THEN
+        v_bye_winner := COALESCE(v_bye_match.player1_id, v_bye_match.player2_id);
+        IF v_bye_winner IS NOT NULL THEN
+          UPDATE public.tournament_matches
+          SET status = 'completed', winner_id = v_bye_winner, completed_at = now()
+          WHERE id = v_bye_match.id;
+
+          v_next_match_index := v_bye_match.match_index / 2;
+          IF v_bye_match.match_index % 2 = 0 THEN
+            UPDATE public.tournament_matches
+            SET player1_id = v_bye_winner
+            WHERE tournament_id = p_tournament_id AND round = 2 AND match_index = v_next_match_index;
+          ELSE
+            UPDATE public.tournament_matches
+            SET player2_id = v_bye_winner
+            WHERE tournament_id = p_tournament_id AND round = 2 AND match_index = v_next_match_index;
+          END IF;
+        END IF;
+      END IF;
+    END;
+  END LOOP;
+
   UPDATE public.tournaments
   SET bracket_generated_at = now(), status = 'in_progress', started_at = now()
   WHERE id = p_tournament_id;
