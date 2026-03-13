@@ -1,3 +1,14 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'career_league_standings' AND column_name = 'tier'
+  ) THEN
+    ALTER TABLE career_league_standings ADD COLUMN tier SMALLINT NOT NULL DEFAULT 1;
+    CREATE INDEX IF NOT EXISTS idx_career_standings_career ON career_league_standings(career_id, season, tier);
+  END IF;
+END $$;
+
 DROP FUNCTION IF EXISTS rpc_simulate_matchday_results(UUID, UUID, SMALLINT);
 
 CREATE OR REPLACE FUNCTION rpc_simulate_matchday_results(
