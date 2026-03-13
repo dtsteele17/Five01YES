@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS rpc_simulate_matchday_results(UUID, UUID, SMALLINT);
+
 CREATE OR REPLACE FUNCTION rpc_simulate_matchday_results(
   p_career_id UUID,
   p_event_id UUID,
@@ -10,10 +12,10 @@ AS $fn$
 DECLARE
   v_career career_profiles;
   v_legs_to_win SMALLINT;
-  v_opponents career_opponents[];
-  v_match_event career_events;
   v_player_opponent_id UUID;
-  v_available UUID[];
+  v_ai_ids UUID[];
+  v_matchday_num INTEGER;
+  v_n INTEGER;
   v_i INTEGER;
   v_home_id UUID;
   v_away_id UUID;
@@ -21,6 +23,10 @@ DECLARE
   v_winner_legs SMALLINT;
   v_loser_legs SMALLINT;
   v_simulated INTEGER := 0;
+  v_shuffled UUID[];
+  v_temp UUID;
+  v_j INTEGER;
+  v_seed INTEGER;
 BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id;
   IF NOT FOUND THEN RETURN json_build_object('simulated', 0); END IF;
@@ -32,26 +38,51 @@ BEGIN
   WHERE cm.event_id = p_event_id AND cm.career_id = p_career_id
   LIMIT 1;
 
-  SELECT array_agg(co.id ORDER BY random())
-  INTO v_available
+  SELECT COUNT(*) INTO v_matchday_num
+  FROM career_events
+  WHERE career_id = p_career_id
+    AND event_type = 'league'
+    AND season = v_career.season
+    AND tier = v_career.tier
+    AND status IN ('completed', 'active', 'pending')
+    AND id <= p_event_id;
+
+  SELECT array_agg(co.id ORDER BY co.id)
+  INTO v_ai_ids
   FROM career_opponents co
   JOIN career_league_standings ls ON ls.opponent_id = co.id AND ls.career_id = p_career_id
     AND ls.season = v_career.season AND ls.tier = v_career.tier
   WHERE co.career_id = p_career_id
     AND co.id != COALESCE(v_player_opponent_id, '00000000-0000-0000-0000-000000000000'::UUID);
 
-  IF v_available IS NULL OR array_length(v_available, 1) < 2 THEN
+  IF v_ai_ids IS NULL OR array_length(v_ai_ids, 1) < 2 THEN
     RETURN json_build_object('simulated', 0);
   END IF;
 
-  v_i := 1;
-  WHILE v_i + 1 <= array_length(v_available, 1) LOOP
-    v_home_id := v_available[v_i];
-    v_away_id := v_available[v_i + 1];
+  v_n := array_length(v_ai_ids, 1);
 
-    v_home_wins := (random() < 0.5);
+  IF v_n % 2 = 1 THEN
+    v_ai_ids := v_ai_ids[1:v_n-1];
+    v_n := v_n - 1;
+  END IF;
+
+  v_shuffled := v_ai_ids;
+  FOR v_i IN REVERSE v_n..2 LOOP
+    v_seed := abs(hashtext(p_event_id::text || v_i::text || v_matchday_num::text));
+    v_j := (v_seed % v_i) + 1;
+    v_temp := v_shuffled[v_i];
+    v_shuffled[v_i] := v_shuffled[v_j];
+    v_shuffled[v_j] := v_temp;
+  END LOOP;
+
+  v_i := 1;
+  WHILE v_i + 1 <= v_n LOOP
+    v_home_id := v_shuffled[v_i];
+    v_away_id := v_shuffled[v_i + 1];
+
+    v_home_wins := (abs(hashtext(v_home_id::text || v_away_id::text || v_matchday_num::text)) % 2) = 0;
     v_winner_legs := v_legs_to_win;
-    v_loser_legs := floor(random() * v_legs_to_win)::SMALLINT;
+    v_loser_legs := (abs(hashtext(v_away_id::text || v_home_id::text || v_matchday_num::text)) % v_legs_to_win)::SMALLINT;
 
     IF v_home_wins THEN
       UPDATE career_league_standings SET
@@ -83,7 +114,7 @@ BEGIN
     v_i := v_i + 2;
   END LOOP;
 
-  RETURN json_build_object('simulated', v_simulated);
+  RETURN json_build_object('simulated', v_simulated, 'matchday', v_matchday_num);
 END;
 $fn$;
 
