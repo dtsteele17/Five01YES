@@ -697,113 +697,29 @@ export default function CareerPage() {
   if (!careerId || !data) return;
   const tier = data.career.tier;
 
-  if (tier >= 5) {
-   const supabase = createClient();
-   // Auto-init rankings if not yet created
-   const { error: initErr } = await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
-   if (initErr) console.error('[RANKINGS] Init error:', initErr);
-   const { data: rankData, error: rankErr } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
-   if (rankErr) console.error('[RANKINGS] Get error:', rankErr);
-   console.log('[RANKINGS] Data:', rankData);
-   if (rankData?.top25) {
-    setWorldRankings(rankData.top25.map((r: any) => ({
-     rank: r.ranking_position,
-     name: r.player_name,
-     rating: Math.round(r.ranking_points),
-     isPlayer: r.is_player,
-     pointsChange: Math.round(r.points_change || 0),
-    })));
-    if (rankData.player && rankData.player_rank > 25) {
-     setPlayerRankingRow({
-      rank: rankData.player_rank,
-      name: rankData.player.player_name,
-      rating: Math.round(rankData.player.ranking_points),
-      isPlayer: true,
-      pointsChange: Math.round(rankData.player.points_change || 0),
-     });
-    }
+  const supabase = createClient();
+  // Auto-init rankings if not yet created (works for all tiers)
+  const { error: initErr } = await supabase.rpc('rpc_pro_tour_init_rankings', { p_career_id: careerId });
+  if (initErr) console.error('[RANKINGS] Init error:', initErr);
+  const { data: rankData, error: rankErr } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
+  if (rankErr) console.error('[RANKINGS] Get error:', rankErr);
+  if (rankData?.top25) {
+   setWorldRankings(rankData.top25.map((r: any) => ({
+    rank: r.ranking_position,
+    name: r.player_name,
+    rating: Math.round(r.ranking_points),
+    isPlayer: r.is_player,
+    pointsChange: Math.round(r.points_change || 0),
+   })));
+   if (rankData.player && rankData.player_rank > 25) {
+    setPlayerRankingRow({
+     rank: rankData.player_rank,
+     name: rankData.player.player_name,
+     rating: Math.round(rankData.player.ranking_points),
+     isPlayer: true,
+     pointsChange: Math.round(rankData.player.points_change || 0),
+    });
    }
-  } else {
-   // Tiers 1-4: generate fictional world-class players using seeded shuffle
-   const fns = ['Marcus','Liam','Theo','Callum','Declan','Sven','Nico','Ruben','Finn','Oscar',
-    'Erik','Hugo','Felix','Matty','Connor','Archie','Owen','Jake','Rhys','Kyle','Paddy',
-    'Zach','Leo','Brendan','Noel','Aidan','Stefan','Kai','Roman','Joel','Toby',
-    'Nathan','Kian','Ethan','Ronan','Cillian','Micah','Ellis','Jasper','Tyler','Harley'];
-   const lns = ['Steele','Reeves','Fox','Knight','Griffin','Cole','Spencer','Rhodes','Pearce',
-    'Burton','Walsh','Brennan','Gallagher','Keane','Sullivan','Richter','Bakker','Visser',
-    'Moreno','Romano','Torres','Webb','Palmer','Mason','Hunt','Holmes','Noble','Fletcher',
-    'Powell','Dixon','Chapman','Ellis','Shaw','Hughes','Barker','Brooks','Watts','Harvey',
-    'Mitchell','Barnes','Doyle','Lynch','Quinn','Byrne','Collins','Maguire','Russell',
-    'Bailey','Marshall','Cooper','Ward','Wells','Murphy','Price','Bennett','Gray',
-    'Kearney','Vaughan','Holt','Jarvis','Whitworth','Donnelly','Finch','Blackwood',
-    'Langley','Thorne','Hartley','Beckett','Crosby','Nolan','Yates','Ashworth',
-    'Whitaker','Fielding','Faulkner','Kirby','Ramsey','Dalton','Conway','Frost',
-    'Oakley','Mercer','Lawson','Calder','Drake','Phelan'];
-   const nns: (string|null)[] = ['The Hammer','Lightning','The Sniper','Deadeye','The Professor','Iceman',
-    'Powerhouse','The Cobra','Dynamite','Maverick','The Phantom','Crosshair','Apex','Nitro',
-    'Wolfie','The General','Showtime','The Dagger','Fireball','Merlin','Thunder',
-    'The Beast','Precision','Hard Man','The Bosh','Razor','The Rocket','Tombstone',
-    'The Flash','Killer','Pitbull','Sidewinder','The Ace','Voltage','Sparky',
-    'The Chief','Big Dog','Smooth','The Hawk','Iron Fist','The Thorn','Chopper',
-    'Snakebite','The Magician','Demolition','The Viking','Stealth','Cyclone','The Machine',
-    'Rapid','The Gladiator','Venomous','Bulletproof','The Tornado',
-    null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
-   const arcs: string[] = ['scorer','finisher','grinder','streaky','clutch','allrounder'];
-   // Seeded pseudo-random using career ID characters Fisher-Yates shuffle
-   const cid = data.career.id || '';
-   const hash = (n: number) => {
-    let h = 0; for (let c = 0; c < cid.length; c++) h = ((h << 5) - h + cid.charCodeAt(c) + n * 997) | 0;
-    return Math.abs(h);
-   };
-   // Build 21 unique combos using seeded shuffle of indices
-   const fnIdx = Array.from({length: fns.length}, (_, i) => i);
-   const lnIdx = Array.from({length: lns.length}, (_, i) => i);
-   const nnIdx = Array.from({length: nns.length}, (_, i) => i);
-   // Seeded Fisher-Yates
-   const shuffle = (arr: number[], seed: number) => {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) { const j = hash(seed + i * 31) % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
-    return a;
-   };
-   const sfn = shuffle(fnIdx, 1);
-   const sln = shuffle(lnIdx, 2);
-   const snn = shuffle(nnIdx, 3);
-   // Generate a pool of ~30 world-class players (more than 21 so some can rotate in/out)
-   const poolSize = 30;
-   const pool = Array.from({length: poolSize}, (_, i) => {
-    const nn = nns[snn[i % snn.length]];
-    return {
-     id: i,
-     name: `${fns[sfn[i % sfn.length]]}${nn ? ` '${nn}'` : ''} ${lns[sln[i % sln.length]]}`,
-     baseRating: 980 - i * 8,
-     archetype: arcs[hash(i * 53 + 97) % arcs.length],
-    };
-   });
-   // Simulate ranking fluctuations based on career day
-   const careerDay = data.career.day || 1;
-   const simulated = pool.map(p => {
-    // Each player's form fluctuates differently per day some gain, some drop
-    // Accumulate small rating changes over career days for natural drift
-    // Each player gets a small shift per day that accumulates
-    let ratingShift = 0;
-    for (let d = 1; d <= Math.min(careerDay, 300); d++) {
-     const dh = hash(p.id * 1777 + d * 311);
-     const changes = (dh % 7) < 2; // ~30% chance of change per day
-     if (changes) {
-      // Top players (low id) shift less: -2 to +2; lower players: -4 to +4
-      const maxShift = p.id < 10 ? 2 : 4;
-      const shift = (dh % (maxShift * 2 + 1)) - maxShift;
-      ratingShift += shift;
-     }
-    }
-    // Clamp accumulated shift so rankings don't go crazy
-    ratingShift = Math.max(-40, Math.min(40, ratingShift));
-    return { ...p, rating: Math.max(750, p.baseRating + ratingShift) };
-   });
-   // Sort by current rating, take top 25
-   simulated.sort((a, b) => b.rating - a.rating);
-   const top25 = simulated.slice(0, 25);
-   setWorldRankings(top25.map((s, i) => ({ rank: i + 1, name: s.name, rating: s.rating, archetype: s.archetype })));
   }
   setShowRankings(true);
  }
@@ -2207,14 +2123,14 @@ export default function CareerPage() {
           {r.archetype && <span className="text-slate-500 text-[10px] ml-1 capitalize">({r.archetype})</span>}
          </div>
          <span className="w-12 text-right text-slate-400">{r.rating}</span>
-         {career.tier >= 5 && r.pointsChange !== undefined && (
+         {r.pointsChange !== undefined && r.pointsChange !== 0 && (
           <span className={`w-10 text-right text-[10px] ${r.pointsChange > 0 ? 'text-emerald-400' : r.pointsChange < 0 ? 'text-red-400' : 'text-slate-600'}`}>
            {r.pointsChange > 0 ? '+' : ''}{r.pointsChange}
           </span>
          )}
         </div>
        ))}
-       {playerRankingRow && career.tier >= 5 && (
+       {playerRankingRow && (
         <>
          <div className="text-center text-slate-600 text-[10px] py-1">...</div>
          <div className="flex items-center text-xs px-2 py-1.5 bg-blue-500/10 border-l-2 border-l-blue-400">
@@ -2235,7 +2151,7 @@ export default function CareerPage() {
         </div>
        )}
       </div>
-      <p className="text-slate-500 text-[10px] text-center mt-2">{career.tier === 5 ? 'Top 8 qualify for Champions Series' : ''}</p>
+      <p className="text-slate-500 text-[10px] text-center mt-2">Top 8 qualify for Champions Series</p>
      </DialogContent>
     </Dialog>
    </div>
