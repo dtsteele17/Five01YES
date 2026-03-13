@@ -1,6 +1,6 @@
 'use client';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/app/UserAvatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
@@ -18,6 +18,7 @@ interface QuickMatchPlayerCardProps {
     dartsThrown: number;
   };
   previewRemaining?: number | null;
+  userId?: string | null;
 }
 
 export function QuickMatchPlayerCard({
@@ -30,6 +31,7 @@ export function QuickMatchPlayerCard({
   position,
   stats,
   previewRemaining,
+  userId,
 }: QuickMatchPlayerCardProps) {
   const statColor = position === 'left' ? 'text-emerald-400' : 'text-blue-400';
   const borderColor = position === 'left' ? 'border-emerald-500/30' : 'border-blue-500/30';
@@ -59,11 +61,12 @@ export function QuickMatchPlayerCard({
       <Card className={`flex-1 bg-slate-800/50 border-2 ${isActive ? borderColor : 'border-white/10'} transition-all`}>
         <div className="p-3 space-y-3">
           <div className="flex items-center space-x-2">
-            <Avatar className="w-8 h-8">
-              <AvatarFallback className={position === 'left' ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs' : 'bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-xs'}>
-                {name.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar 
+              userId={userId} 
+              name={name} 
+              className="w-8 h-8"
+              fallbackClassName={position === 'left' ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs' : 'bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-xs'}
+            />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-white text-sm truncate">{name}</p>
               {isActive && (

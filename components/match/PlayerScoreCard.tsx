@@ -1,6 +1,6 @@
 'use client';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/app/UserAvatar';
 import { Card } from '@/components/ui/card';
 import { TrustRatingBadge } from '@/components/app/TrustRatingBadge';
 
@@ -11,6 +11,7 @@ interface PlayerScoreCardProps {
   legsToWin: number;
   isActive: boolean;
   isMe: boolean;
+  userId?: string | null;
   trustRating?: {
     letter: string | null;
     count: number;
@@ -24,6 +25,7 @@ export function PlayerScoreCard({
   legsToWin,
   isActive,
   isMe,
+  userId,
   trustRating,
 }: PlayerScoreCardProps) {
   return (
@@ -38,17 +40,12 @@ export function PlayerScoreCard({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
-          <Avatar className="w-10 h-10">
-            <AvatarFallback
-              className={`text-white text-sm ${
-                isMe
-                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
-                  : 'bg-gradient-to-br from-blue-400 to-cyan-500'
-              }`}
-            >
-              {name.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar 
+            userId={userId} 
+            name={name} 
+            className="w-10 h-10"
+            fallbackClassName={`text-white text-sm ${isMe ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'}`}
+          />
           <div>
             <p className="text-base font-semibold text-white">{name}</p>
             {!isMe && trustRating && (

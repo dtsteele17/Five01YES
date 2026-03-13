@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/app/UserAvatar';
 import { Progress } from '@/components/ui/progress';
 import { 
   Clock,
@@ -368,11 +368,7 @@ export function TournamentMatchReadyUp({ matchId, tournamentId, onComplete, onCa
                     : 'bg-slate-800/30 border-white/10'
                 }`}>
                   <div className="flex items-center gap-4 mb-4">
-                    <Avatar className="w-12 h-12">
-                      <AvatarFallback className="bg-slate-700 text-white font-semibold">
-                        You
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar userId={currentUserId} name="You" className="w-12 h-12" />
                     <div>
                       <div className="text-white font-semibold">You</div>
                       <div className="text-xs text-slate-400">Player</div>
@@ -429,11 +425,11 @@ export function TournamentMatchReadyUp({ matchId, tournamentId, onComplete, onCa
                     : 'bg-slate-800/30 border-white/10'
                 }`}>
                   <div className="flex items-center gap-4 mb-4">
-                    <Avatar className="w-12 h-12">
-                      <AvatarFallback className="bg-slate-700 text-white font-semibold">
-                        {getOpponentName()[0]}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar 
+                      userId={readyUpData.match.player1_id === currentUserId ? readyUpData.match.player2_id : readyUpData.match.player1_id} 
+                      name={getOpponentName()} 
+                      className="w-12 h-12" 
+                    />
                     <div>
                       <div className="text-white font-semibold">{getOpponentName()}</div>
                       <div className="text-xs text-slate-400">Player</div>

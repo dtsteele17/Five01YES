@@ -4881,6 +4881,7 @@ export default function QuickMatchRoomPage() {
               color="text-emerald-400"
               position="left"
               stats={calculateMatchStats(currentUserId || '')}
+              userId={currentUserId}
             />
             <QuickMatchPlayerCard
               name={opponentPlayer.name}
@@ -4891,6 +4892,7 @@ export default function QuickMatchRoomPage() {
               color="text-blue-400"
               position="right"
               stats={calculateMatchStats(opponentId || '')}
+              userId={opponentId}
             />
           </div>
 
