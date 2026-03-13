@@ -2125,6 +2125,7 @@ export default function CareerPage() {
         <span className="w-8">#</span>
         <span className="flex-1">Player</span>
         <span className="w-12 text-right">Rating</span>
+        <span className="w-10"></span>
        </div>
        {worldRankings.map((r, i) => (
         <div key={i} className={`flex items-center text-xs px-2 py-1.5 border-b border-white/5 ${r.isPlayer ? 'bg-blue-500/10 border-l-2 border-l-blue-400' : i < 8 ? 'bg-amber-500/5' : ''}`}>
@@ -2134,11 +2135,9 @@ export default function CareerPage() {
           {r.archetype && <span className="text-slate-500 text-[10px] ml-1 capitalize">({r.archetype})</span>}
          </div>
          <span className="w-12 text-right text-slate-400">{r.rating}</span>
-         {r.pointsChange !== undefined && r.pointsChange !== 0 && (
-          <span className={`w-10 text-right text-[10px] ${r.pointsChange > 0 ? 'text-emerald-400' : r.pointsChange < 0 ? 'text-red-400' : 'text-slate-600'}`}>
-           {r.pointsChange > 0 ? '+' : ''}{r.pointsChange}
-          </span>
-         )}
+         <span className={`w-10 text-right text-[10px] ${r.pointsChange > 0 ? 'text-emerald-400' : r.pointsChange < 0 ? 'text-red-400' : 'text-transparent'}`}>
+          {r.pointsChange > 0 ? `+${r.pointsChange}` : r.pointsChange < 0 ? `${r.pointsChange}` : '-'}
+         </span>
         </div>
        ))}
        {playerRankingRow && (

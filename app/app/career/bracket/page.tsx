@@ -364,7 +364,7 @@ export default function CareerBracketPage() {
         });
       } catch {}
       // Award Pro Tour ranking points (Tier 5 only)
-      if (careerTier === 5) try {
+      if (careerTier >= 5) try {
         const placementMap: Record<string, string> = {
           'Winner': 'W', 'Runner-Up': 'RU', 'Semi-Finalist': 'SF',
           'Quarter-Finalist': 'QF', 'Round of 16 Exit': 'L16', 'Last 16': 'L16',
@@ -378,9 +378,11 @@ export default function CareerBracketPage() {
           }
           return 'L64';
         })();
-        await supabase.rpc('rpc_pro_tour_award_points', {
+        console.log('[BRACKET] Awarding Pro Tour points:', { careerId, eventId, shortPlacement, careerTier });
+        const { data: awardResult, error: awardErr } = await supabase.rpc('rpc_pro_tour_award_points', {
           p_career_id: careerId, p_event_id: eventId, p_placement: shortPlacement,
         });
+        console.log('[BRACKET] Award result:', awardResult, 'Error:', awardErr);
         // Simulate a Champions Series night after each Pro Tour tournament
         if (!eventType?.startsWith('champions_series')) {
           try { await supabase.rpc('rpc_champions_series_simulate_night', { p_career_id: careerId }); } catch {}
