@@ -131,6 +131,8 @@ BEGIN
       SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
         v_new_day + t.sequence_no * 14, 'pending'
       FROM career_schedule_templates t WHERE t.tier = 5 ORDER BY t.sequence_no;
+
+      PERFORM rpc_champions_series_init(p_career_id, v_new_season);
     ELSE
       v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 ELSE 7 END;
 

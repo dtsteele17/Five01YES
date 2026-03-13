@@ -783,9 +783,7 @@ BEGIN
     v_new_day + t.sequence_no * 14, 'pending'
   FROM career_schedule_templates t WHERE t.tier = 5 ORDER BY t.sequence_no;
 
-  IF v_qualifies_champions THEN
-    PERFORM rpc_champions_series_init(p_career_id, v_new_season);
-  END IF;
+  PERFORM rpc_champions_series_init(p_career_id, v_new_season);
 
   RETURN json_build_object('success', true, 'new_season', v_new_season,
     'champions_series', COALESCE(v_qualifies_champions, false));
