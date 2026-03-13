@@ -109,6 +109,7 @@ export default function CareerPage() {
  const [relegationData, setRelegationData] = useState<{ tier_name: string; rep_lost: number } | null>(null);
  const [advancingSeason, setAdvancingSeason] = useState(false);
  const [showInvitePopup, setShowInvitePopup] = useState(false);
+ const [showLastChancePopup, setShowLastChancePopup] = useState(false);
  const [pendingInvite, setPendingInvite] = useState<{ event_id: string; event_name: string; bracket_size: number } | null>(null);
  const [pendingInvites, setPendingInvites] = useState<{ event_id: string; event_name: string; bracket_size: number }[]>([]);
  const [showTournamentChoicePopup, setShowTournamentChoicePopup] = useState(false);
@@ -536,6 +537,27 @@ export default function CareerPage() {
     newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
    }
 
+   // Tier 3 end-of-season: if player isn't top 2, send "last chance" email
+   if (tier === 3 && homeData.standings) {
+    const playerStanding = homeData.standings.find((s: any) => s.is_player);
+    const sortedStandings = [...homeData.standings].sort((a: any, b: any) => (b.points - a.points) || ((b.legs_for - b.legs_against) - (a.legs_for - a.legs_against)));
+    const playerPos = sortedStandings.findIndex((s: any) => s.is_player) + 1;
+    const totalOpp = homeData.standings.filter((s: any) => !s.is_player).length;
+    const gamesPlayed = playerStanding?.played || 0;
+    if (gamesPlayed >= totalOpp && playerPos > 2) {
+     const existingLastChance = newEmails.find(e => e.id === `last-chance-s${homeData.career.season}`);
+     if (!existingLastChance) {
+      newEmails.unshift({
+       id: `last-chance-s${homeData.career.season}`,
+       subject: 'Your Last Shot at the National Tour',
+       body: `You finished ${playerPos}${playerPos === 3 ? 'rd' : 'th'} in the league — not enough for automatic promotion. But there\'s still a way in. Win the end-of-season tournament and you\'ll force your way into the National Tour. All eyes are on you. Don\'t waste this.`,
+       type: 'last_chance',
+       isNew: true,
+      });
+     }
+    }
+   }
+
    // Check for pending mid-season tournament invites (Tier 2 only - Tier 3+ handled by popup system)
    try {
     const { data: inviteEvents } = homeData.career.tier === 2 ? await supabase
@@ -955,6 +977,16 @@ export default function CareerPage() {
    // No actual pending invites, clear stale state
    setPendingInvite(null);
    setPendingInvites([]);
+  }
+
+  // Tier 3 last chance popup: show before end-of-season tournament if not in top 2
+  if (data.career.tier === 3 && data.next_event.event_type === 'open' && (data.next_event.sequence_no || 0) >= 200 && data.standings && !showLastChancePopup) {
+   const sorted = [...data.standings].sort((a: any, b: any) => (b.points - a.points) || ((b.legs_for - b.legs_against) - (a.legs_for - a.legs_against)));
+   const pos = sorted.findIndex((s: any) => s.is_player) + 1;
+   if (pos > 2) {
+    setShowLastChancePopup(true);
+    return;
+   }
   }
 
   setPlayingEvent(true);
@@ -2257,6 +2289,30 @@ export default function CareerPage() {
         </Button>
        </>
       )}
+     </motion.div>
+    </div>
+   )}
+
+   {/* Last Chance Popup — Tier 3 end-of-season tournament, not in top 2 */}
+   {showLastChancePopup && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+     <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 max-w-md w-full text-center"
+     >
+      <div className="text-4xl mb-3">🏆</div>
+      <h2 className="text-xl font-bold text-amber-400 mb-2">This Is Your Last Shot</h2>
+      <p className="text-slate-300 text-sm mb-4">
+        You didn't finish in the top 2 this season, but there's still a way into the National Tour. 
+        Win this tournament and you'll force your name into the conversation. All eyes are on you — make it count.
+      </p>
+      <Button
+       onClick={() => { setShowLastChancePopup(false); handlePlayEvent(); }}
+       className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3"
+      >
+       Let's Go →
+      </Button>
      </motion.div>
     </div>
    )}
