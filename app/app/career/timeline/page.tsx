@@ -107,14 +107,21 @@ export default function TimelinePage() {
     setLoading(false);
   }
 
-  // Group milestones by tier
-  const groupedByTier: Record<number, Milestone[]> = {};
+  // Group milestones by tier+season, sorted by most recent first
+  // Each group is a stretch of time in a particular tier
+  type TierGroup = { tier: number; season: number; milestones: Milestone[]; maxDay: number };
+  const tierGroups: TierGroup[] = [];
+  let currentGroup: TierGroup | null = null;
+  
+  // Milestones are already sorted by day desc from the query
   milestones.forEach(m => {
     const t = m.tier || 1;
-    if (!groupedByTier[t]) groupedByTier[t] = [];
-    groupedByTier[t].push(m);
+    if (!currentGroup || currentGroup.tier !== t || currentGroup.season !== m.season) {
+      currentGroup = { tier: t, season: m.season, milestones: [], maxDay: m.day };
+      tierGroups.push(currentGroup);
+    }
+    currentGroup.milestones.push(m);
   });
-  const tierOrder = Object.keys(groupedByTier).map(Number).sort((a, b) => b - a);
 
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white">
@@ -162,18 +169,18 @@ export default function TimelinePage() {
             <p>No milestones yet. Start playing to build your timeline!</p>
           </div>
         ) : (
-          tierOrder.map((tier, tierIdx) => (
-            <div key={tier} className="mb-8">
+          tierGroups.map((group, groupIdx) => (
+            <div key={`${group.tier}-${group.season}`} className="mb-8">
               {/* Tier header */}
-              <div className={`sticky top-14 z-40 flex items-center gap-2 py-2 px-3 mb-3 rounded-lg ${TIER_BG[tier]} border ${TIER_COLORS[tier]} bg-[#0a0a14]/90 backdrop-blur-sm`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${TIER_DOT[tier]}`} />
-                <span className="font-semibold text-sm">{TIER_NAMES[tier] || `Tier ${tier}`}</span>
-                <span className="text-xs text-slate-500 ml-auto">{groupedByTier[tier].length} events</span>
+              <div className={`sticky top-14 z-40 flex items-center gap-2 py-2 px-3 mb-3 rounded-lg ${TIER_BG[group.tier]} border ${TIER_COLORS[group.tier]} bg-[#0a0a14]/90 backdrop-blur-sm`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${TIER_DOT[group.tier]}`} />
+                <span className="font-semibold text-sm">{TIER_NAMES[group.tier] || `Tier ${group.tier}`}</span>
+                <span className="text-xs text-slate-500 ml-auto">Season {group.season} &middot; {group.milestones.length} events</span>
               </div>
 
-              {/* Milestones for this tier */}
+              {/* Milestones for this group */}
               <div className="relative ml-4 border-l-2 border-slate-700/50 pl-6 space-y-3">
-                {groupedByTier[tier].map((m, idx) => (
+                {group.milestones.map((m, idx) => (
                   <motion.div
                     key={m.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -182,7 +189,7 @@ export default function TimelinePage() {
                     className={`relative border-l-4 rounded-r-lg px-4 py-3 ${getMilestoneColor(m.milestone_type)}`}
                   >
                     {/* Timeline dot */}
-                    <div className={`absolute -left-[2.05rem] top-4 w-3 h-3 rounded-full border-2 border-[#0a0a14] ${TIER_DOT[tier]}`} />
+                    <div className={`absolute -left-[2.05rem] top-4 w-3 h-3 rounded-full border-2 border-[#0a0a14] ${TIER_DOT[group.tier]}`} />
 
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
