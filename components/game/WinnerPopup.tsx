@@ -363,70 +363,49 @@ export function WinnerPopup({
           </div>
         )}
 
-        {/* Trust Rating Section - Only for QuickMatch */}
+        {/* Trust Rating */}
         {isQuickMatch && !submitted && (
           <div className="px-4 pb-3">
-            <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Shield className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold text-white">Trust Rating</h3>
+            <div className="border border-slate-700/50 rounded-lg p-3 bg-slate-800/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-slate-300">Rate {opponentName}</span>
               </div>
-              <p className="text-slate-400 text-sm mb-3">
-                How was your experience with <span className="text-white font-medium">{opponentName}</span>?
-              </p>
-              
-              <div className="flex gap-2 justify-center mb-3">
+              <div className="flex gap-1.5 mb-2">
                 {(['A', 'B', 'C', 'D', 'E'] as SafetyGrade[]).map((grade) => (
                   <button
                     key={grade}
                     onClick={() => handleRate(grade)}
-                    className={`
-                      w-10 h-10 rounded-lg font-bold text-sm transition-all
-                      ${selectedGrade === grade 
-                        ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 ' + GRADE_COLORS[grade]
-                        : GRADE_COLORS[grade] + ' hover:opacity-80'
-                      }
-                    `}
+                    className={`flex-1 py-1.5 rounded text-sm font-bold transition-all ${
+                      selectedGrade === grade
+                        ? `${GRADE_COLORS[grade]} ring-2 ring-white/30 scale-105`
+                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                    }`}
                   >
                     {grade}
                   </button>
                 ))}
               </div>
-              
               {selectedGrade && (
-                <div className="text-center mb-3">
-                  <span className="text-sm text-slate-300">{gradeLabels[selectedGrade]}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">{gradeLabels[selectedGrade]}</span>
+                  <button
+                    onClick={handleSubmitRating}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+                  >
+                    Submit
+                  </button>
                 </div>
               )}
-              
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleSubmitRating}
-                  disabled={!selectedGrade}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm font-medium disabled:opacity-50"
-                >
-                  <ThumbsUp className="w-4 h-4 mr-1" />
-                  Submit Rating
-                </Button>
-                <Button
-                  onClick={() => setSubmitted(true)}
-                  variant="outline"
-                  className="border-slate-600 text-slate-400 hover:bg-slate-700 h-9 text-sm"
-                >
-                  Skip
-                </Button>
-              </div>
             </div>
           </div>
         )}
 
         {isQuickMatch && submitted && (
           <div className="px-4 pb-3">
-            <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-xl p-3 text-center">
-              <div className="flex items-center justify-center gap-2 text-emerald-400 text-sm">
-                <Check className="w-4 h-4" />
-                <span>Thanks for rating! Your feedback helps keep the community safe.</span>
-              </div>
+            <div className="flex items-center gap-2 text-sm text-emerald-400 justify-center py-2">
+              <Check className="w-4 h-4" />
+              Rating submitted
             </div>
           </div>
         )}
