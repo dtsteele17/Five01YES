@@ -78,29 +78,6 @@ export default function CareerPage() {
  const careerId = searchParams.get('id');
  const { setConfig } = useTraining();
 
- // Career Mode Lock - Return early if locked
- const isCareerLocked = true; // Set to false to unlock
- if (isCareerLocked) {
-  return (
-   <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6">
-    <div className="max-w-md mx-auto mt-20">
-     <Card className="bg-red-900/20 border-red-500/30 p-8 text-center">
-      <Crown className="w-16 h-16 text-red-400 mx-auto mb-4" />
-      <h1 className="text-2xl font-bold text-white mb-2">Career Mode Locked</h1>
-      <p className="text-red-400 mb-4">Career mode is temporarily locked for testing.</p>
-      <Button 
-       onClick={() => router.push('/app/play')}
-       className="bg-slate-600 hover:bg-slate-500 text-white"
-      >
-       <ArrowLeft className="w-4 h-4 mr-2" />
-       Back to Play Menu
-      </Button>
-     </Card>
-    </div>
-   </div>
-  );
- }
-
  const [data, setData] = useState<CareerHome | null>(null);
  const [loading, setLoading] = useState(true);
  const [saves, setSaves] = useState<any[]>([]);
@@ -1219,6 +1196,25 @@ export default function CareerPage() {
   } finally {
    setPlayingEvent(false);
   }
+ }
+
+ // Career Mode Lock
+ const isCareerLocked = true; // Set to false to unlock
+ if (isCareerLocked) {
+  return (
+   <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6">
+    <div className="max-w-md mx-auto mt-20">
+     <Card className="bg-red-900/20 border-red-500/30 p-8 text-center">
+      <Crown className="w-16 h-16 text-red-400 mx-auto mb-4" />
+      <h1 className="text-2xl font-bold text-white mb-2">Career Mode Locked</h1>
+      <p className="text-red-400 mb-4">Career mode is temporarily locked for testing.</p>
+      <Button onClick={() => router.push('/app/play')} className="bg-slate-600 hover:bg-slate-500 text-white">
+       <ArrowLeft className="w-4 h-4 mr-2" /> Back to Play Menu
+      </Button>
+     </Card>
+    </div>
+   </div>
+  );
  }
 
  if (loading) {
