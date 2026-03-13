@@ -277,6 +277,15 @@ export const FORM_MAX = 1.10;
 // Standard dartboard layout: 20 is at 12 o'clock position
 export const DARTBOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
+// Get adjacent numbers on the dartboard (left and right neighbours)
+function getAdjacentNumbers(num: number): number[] {
+  const idx = DARTBOARD_NUMBERS.indexOf(num);
+  if (idx === -1) return [1, 5, 20];
+  const left = DARTBOARD_NUMBERS[(idx - 1 + 20) % 20];
+  const right = DARTBOARD_NUMBERS[(idx + 1) % 20];
+  return [left, right];
+}
+
 // Segment angle (360 / 20 segments) = 18 degrees = π/10 radians
 const SEGMENT_ANGLE = (2 * Math.PI) / 20;  // 0.314 radians = 18°
 
@@ -1004,20 +1013,40 @@ export function simulateVisit(options: SimulateVisitOptions): VisitResult {
 
     // Calculate sigma for this throw
     // Better bots are MORE accurate on doubles, worse bots have pressure
-    let checkoutPressure = 1.0;
+    let accuracyMod = 1.0;
     if (isCheckoutAttempt) {
-      if (level >= 80) checkoutPressure = 0.85; // Pro+ bots are clutch
-      else if (level >= 65) checkoutPressure = 0.9;
-      else if (level >= 50) checkoutPressure = 1.0; // Neutral
-      else if (level >= 35) checkoutPressure = 1.1; // Slight pressure
-      else checkoutPressure = 1.2; // Beginners choke
+      if (level >= 80) accuracyMod = 0.85;
+      else if (level >= 65) accuracyMod = 0.9;
+      else if (level >= 50) accuracyMod = 1.0;
+      else if (level >= 35) accuracyMod = 1.1;
+      else accuracyMod = 1.2;
+    } else if (aimTarget.startsWith('S') || (!aimTarget.startsWith('T') && !aimTarget.startsWith('D') && aimTarget !== 'DB' && aimTarget !== 'BULL')) {
+      // Singles are bigger targets — bot should be more accurate
+      accuracyMod = 0.75;
     }
-    const sigma = getBaseSigma(level) * formMultiplier * checkoutPressure;
+    const sigma = getBaseSigma(level) * formMultiplier * accuracyMod;
 
     // Simulate the throw — retry if miss and bot level warrants competence
     let dart = simulateDart(aimTarget, sigma);
-    if (dart.offboard && !isAimingAtDouble && level >= 30) {
-      // Competence floor: rethrow with tighter sigma (bot corrects bad throw)
+    // Scoring darts should almost never miss the board entirely
+    if (!isAimingAtDouble) {
+      let retries = 0;
+      while ((dart.offboard || dart.score === 0) && retries < 3) {
+        // Progressively tighter sigma on each retry
+        dart = simulateDart(aimTarget, sigma * (0.6 - retries * 0.1));
+        retries++;
+      }
+      // Absolute floor: if still missing, force a single hit in the target area
+      if (dart.score === 0 && !isAimingAtDouble) {
+        const targetNum = aimTarget.startsWith('T') ? parseInt(aimTarget.slice(1)) || 20 
+          : aimTarget.startsWith('S') ? parseInt(aimTarget.slice(1)) || 20 
+          : parseInt(aimTarget) || 20;
+        const adjacents = getAdjacentNumbers(targetNum);
+        const hitNum = Math.random() < 0.5 ? targetNum : adjacents[Math.floor(Math.random() * adjacents.length)];
+        dart = { ...dart, score: hitNum, label: `S${hitNum}`, offboard: false, isDouble: false, isTreble: false };
+      }
+    } else if (dart.offboard && level >= 30) {
+      // Double aiming: one retry with tighter grouping
       const recoveryChance = Math.min(0.9, level / 100);
       if (Math.random() < recoveryChance) {
         dart = simulateDart(aimTarget, sigma * 0.7);
