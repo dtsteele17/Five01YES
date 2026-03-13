@@ -618,7 +618,7 @@ export default function CareerPage() {
       id: `cs-qual-s${homeData.career.season}`,
       subject: 'Champions Series Selection!',
       body: 'Congratulations! Your world ranking has earned you a spot in the Champions Series. 8 nights of elite knockout darts await. Top 4 qualify for the playoffs. This is where legends are made.',
-      type: 'tournament_invite', isNew: true,
+      type: 'cs_qualification', isNew: true,
      });
     }
    }
@@ -685,7 +685,7 @@ export default function CareerPage() {
 
    // Add new emails that aren't already stored or deleted
    // Critical emails (last_chance, sponsor_slot, tournament_invite) always show even if previously cleared
-   const criticalTypes = new Set(['last_chance', 'sponsor_slot', 'tournament_invite']);
+   const criticalTypes = new Set(['last_chance', 'sponsor_slot', 'tournament_invite', 'cs_qualification']);
    const existingIds = new Set(stored.map(e => e.id));
    const freshEmails = newEmails.filter(e => !existingIds.has(e.id) && (criticalTypes.has(e.type) || !deletedIds.includes(e.id))).map(e => ({ ...e, isNew: true }));
    // Mark existing stored emails as not new
