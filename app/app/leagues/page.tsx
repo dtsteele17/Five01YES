@@ -93,14 +93,20 @@ export default function LeaguesPage() {
 
   return (
     <div className="space-y-6 max-sm:px-1">
+      {/* Testing Lock */}
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+        <Lock className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+        <p className="text-amber-400 font-semibold">Leagues are currently locked for testing</p>
+        <p className="text-slate-400 text-sm mt-1">This feature will be available soon.</p>
+      </div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-4xl font-bold text-white mb-1">Leagues</h1>
           <p className="text-gray-400 text-sm">Join or create leagues and compete with others.</p>
         </div>
         <Button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white w-full sm:w-auto"
+          disabled
+          className="bg-slate-700 text-slate-400 cursor-not-allowed w-full sm:w-auto opacity-60"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create League

@@ -734,11 +734,9 @@ export default function DashboardPage() {
                     Tournaments
                   </Button>
                 </Link>
-                <Link href="/app/leagues">
-                  <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs sm:text-sm px-2 sm:px-3">
-                    Leagues
-                  </Button>
-                </Link>
+                <Button variant="ghost" size="sm" disabled className="text-slate-500 text-xs sm:text-sm px-2 sm:px-3 opacity-50 cursor-not-allowed">
+                  Leagues (Soon)
+                </Button>
               </div>
             </div>
             <div className="p-3 sm:p-6">

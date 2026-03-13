@@ -25,7 +25,7 @@ const navLinks = [
   { href: '/app', label: 'Dashboard', icon: Home },
   { href: '/app/play', label: 'Play', icon: Play },
   { href: '/app/ranked-divisions', label: 'Ranked Divisions', icon: Award },
-  { href: '/app/leagues', label: 'Leagues', icon: Users },
+  { href: '/app/leagues', label: 'Leagues (Soon)', icon: Users, locked: true },
   { href: '/app/tournaments', label: 'Tournaments', icon: Trophy },
   { href: '/app/stats', label: 'Stats', icon: TrendingUp },
 ];
@@ -84,6 +84,21 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href;
+            const locked = (link as any).locked;
+
+            if (locked) {
+              return (
+                <Button
+                  key={link.href}
+                  variant="ghost"
+                  disabled
+                  className="w-full justify-start text-slate-500 opacity-50 cursor-not-allowed"
+                >
+                  <Icon className="w-5 h-5 mr-3" />
+                  {link.label}
+                </Button>
+              );
+            }
 
             return (
               <Link key={link.href} href={link.href} onClick={onClose}>
