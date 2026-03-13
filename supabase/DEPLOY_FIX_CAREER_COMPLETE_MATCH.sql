@@ -117,6 +117,10 @@ BEGIN
     UPDATE career_profiles SET
       week = week + 1, day = day + 7, updated_at = now()
     WHERE id = p_career_id;
+  ELSE
+    UPDATE career_profiles SET
+      week = week + 1, day = GREATEST(day + 1, COALESCE(v_event.day, day + 1)), updated_at = now()
+    WHERE id = p_career_id;
   END IF;
 
   CASE v_career.tier

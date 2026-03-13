@@ -129,7 +129,7 @@ BEGIN
     IF v_new_tier = 5 THEN
       INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day, status)
       SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
-        v_new_day + t.sequence_no * 10, 'pending'
+        v_new_day + t.sequence_no * 14, 'pending'
       FROM career_schedule_templates t WHERE t.tier = 5 ORDER BY t.sequence_no;
     ELSE
       v_num_opponents := CASE v_new_tier WHEN 2 THEN 7 WHEN 3 THEN 9 WHEN 4 THEN 15 ELSE 7 END;

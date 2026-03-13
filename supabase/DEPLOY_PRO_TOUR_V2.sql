@@ -780,7 +780,7 @@ BEGIN
 
   INSERT INTO career_events (career_id, template_id, season, sequence_no, event_type, event_name, format_legs, bracket_size, day, status)
   SELECT p_career_id, t.id, v_new_season, t.sequence_no, t.event_type, t.event_name, t.format_legs, t.bracket_size,
-    v_new_day + t.sequence_no * 10, 'pending'
+    v_new_day + t.sequence_no * 14, 'pending'
   FROM career_schedule_templates t WHERE t.tier = 5 ORDER BY t.sequence_no;
 
   IF v_qualifies_champions THEN

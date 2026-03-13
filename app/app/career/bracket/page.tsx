@@ -350,6 +350,10 @@ export default function CareerBracketPage() {
         await supabase.rpc('rpc_pro_tour_award_points', {
           p_career_id: careerId, p_event_id: eventId, p_placement: shortPlacement,
         });
+        // Simulate a Champions Series night after each Pro Tour tournament
+        if (!eventType?.startsWith('champions_series')) {
+          try { await supabase.rpc('rpc_champions_series_simulate_night', { p_career_id: careerId }); } catch {}
+        }
       } catch {}
       // Champions Series night completion (Tier 5)
       try {
