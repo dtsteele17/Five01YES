@@ -1,6 +1,7 @@
 -- =============================================================
 -- Tour School: Convert from broken individual match events
 -- to a proper 4-player bracket tournament
+-- FIXES: bracket_data format, standings ranking, participant fields
 -- =============================================================
 
 -- 1. Allow bracket_size = 4 for Tour School
@@ -8,7 +9,7 @@ ALTER TABLE career_brackets DROP CONSTRAINT IF EXISTS career_brackets_bracket_si
 ALTER TABLE career_brackets ADD CONSTRAINT career_brackets_bracket_size_check
   CHECK (bracket_size IN (4, 8, 16, 32));
 
--- 2. Replace rpc_tier4_q_school to create a bracket event instead of individual matches
+-- 2. Replace rpc_tier4_q_school to create a bracket event with correct BracketData format
 DROP FUNCTION IF EXISTS rpc_tier4_q_school(UUID);
 CREATE OR REPLACE FUNCTION rpc_tier4_q_school(p_career_id UUID)
 RETURNS JSON
@@ -21,12 +22,12 @@ DECLARE
   v_event_id UUID;
   v_bracket_id UUID;
   v_bracket_data JSONB;
-  -- Variables for getting ranked opponents
-  v_rank3_name TEXT; v_rank3_id UUID;
-  v_rank4_name TEXT; v_rank4_id UUID;
-  v_rank5_name TEXT; v_rank5_id UUID;
-  v_rank6_name TEXT; v_rank6_id UUID;
-  v_standings JSONB;
+  v_standings JSONB;       -- JSONB array of 4 participants (3rd-6th place)
+  v_p3 JSONB; v_p4 JSONB; v_p5 JSONB; v_p6 JSONB;  -- participants by rank
+  v_is_player_semi1 BOOLEAN;
+  v_is_player_semi2 BOOLEAN;
+  v_semi_opponent_name TEXT;
+  v_semi_opponent_rank INT;
 BEGIN
   -- Validate career
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id AND user_id = auth.uid();
@@ -34,17 +35,27 @@ BEGIN
     RETURN json_build_object('error', 'Not a Tier 4 career');
   END IF;
 
-  -- Calculate player rank
-  SELECT COUNT(*)::SMALLINT + 1 INTO v_player_rank
-  FROM career_league_standings
-  WHERE career_id = p_career_id AND season = v_career.season AND tier = 4
-    AND is_player = FALSE
-    AND (points > (SELECT points FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = 4 AND is_player = TRUE)
-      OR (points = (SELECT points FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = 4 AND is_player = TRUE)
-        AND (legs_for - legs_against) > (SELECT legs_for - legs_against FROM career_league_standings WHERE career_id = p_career_id AND season = v_career.season AND tier = 4 AND is_player = TRUE)));
+  -- Get COMBINED standings (player + AI) with correct overall ranking
+  -- This avoids the broken AI-only OFFSET approach
+  WITH ranked_standings AS (
+    SELECT
+      ls.is_player,
+      ls.opponent_id,
+      CASE WHEN ls.is_player THEN 'You'
+           ELSE COALESCE(co.first_name || ' ' || co.last_name, 'Opponent') END as player_name,
+      CASE WHEN ls.is_player THEN 50
+           ELSE COALESCE(co.skill_rating, 50)::int END as skill,
+      CASE WHEN ls.is_player THEN 'allrounder'
+           ELSE COALESCE(co.archetype, 'allrounder')::text END as archetype,
+      ROW_NUMBER() OVER (ORDER BY ls.points DESC, (ls.legs_for - ls.legs_against) DESC) as rank
+    FROM career_league_standings ls
+    LEFT JOIN career_opponents co ON co.id = ls.opponent_id
+    WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4
+  )
+  SELECT rank INTO v_player_rank FROM ranked_standings WHERE is_player = TRUE;
 
-  IF v_player_rank < 3 OR v_player_rank > 6 THEN
-    RETURN json_build_object('error', 'Player rank ' || v_player_rank || ' does not qualify for Tour School (3rd-6th only)');
+  IF v_player_rank IS NULL OR v_player_rank < 3 OR v_player_rank > 6 THEN
+    RETURN json_build_object('error', 'Player rank ' || COALESCE(v_player_rank::text, 'unknown') || ' does not qualify for Tour School (3rd-6th only)');
   END IF;
 
   -- Check if already created
@@ -55,73 +66,107 @@ BEGIN
     RETURN json_build_object('already_exists', true);
   END IF;
 
-  -- Also clean up any old-style q_school_semi/q_school_final events
+  -- Clean up any old-style q_school_semi/q_school_final events
   DELETE FROM career_events WHERE career_id = p_career_id AND season = v_career.season
     AND event_type IN ('q_school_semi', 'q_school_final');
 
-  -- Get the 3rd through 6th place opponents from standings
-  -- We need their names and IDs for the bracket
-  SELECT ls.opponent_id, co.first_name || ' ' || co.last_name
-  INTO v_rank3_id, v_rank3_name
-  FROM career_league_standings ls
-  JOIN career_opponents co ON co.id = ls.opponent_id
-  WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4 AND ls.is_player = FALSE
-  ORDER BY ls.points DESC, (ls.legs_for - ls.legs_against) DESC
-  OFFSET 1 LIMIT 1;  -- offset 1 = 3rd place (after top 2)
+  -- Build participant JSONB objects for positions 3-6
+  -- These MUST match the TypeScript BracketParticipant interface:
+  -- { id: string, name: string, skill: number, archetype: string, isPlayer: boolean, seed: number }
+  WITH ranked_standings AS (
+    SELECT
+      ls.is_player,
+      ls.opponent_id,
+      CASE WHEN ls.is_player THEN 'You'
+           ELSE COALESCE(co.first_name || ' ' || co.last_name, 'Opponent') END as player_name,
+      CASE WHEN ls.is_player THEN 50
+           ELSE COALESCE(co.skill_rating, 50)::int END as skill,
+      CASE WHEN ls.is_player THEN 'allrounder'
+           ELSE COALESCE(co.archetype, 'allrounder')::text END as archetype,
+      ROW_NUMBER() OVER (ORDER BY ls.points DESC, (ls.legs_for - ls.legs_against) DESC) as rank
+    FROM career_league_standings ls
+    LEFT JOIN career_opponents co ON co.id = ls.opponent_id
+    WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4
+  )
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'id', CASE WHEN is_player THEN 'player' ELSE opponent_id::text END,
+      'name', player_name,
+      'skill', skill,
+      'archetype', archetype,
+      'isPlayer', is_player,
+      'seed', rank::int
+    ) ORDER BY rank
+  ) INTO v_standings
+  FROM ranked_standings WHERE rank BETWEEN 3 AND 6;
 
-  SELECT ls.opponent_id, co.first_name || ' ' || co.last_name
-  INTO v_rank4_id, v_rank4_name
-  FROM career_league_standings ls
-  JOIN career_opponents co ON co.id = ls.opponent_id
-  WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4 AND ls.is_player = FALSE
-  ORDER BY ls.points DESC, (ls.legs_for - ls.legs_against) DESC
-  OFFSET 2 LIMIT 1;  -- offset 2 = 4th place
+  -- Extract individual participants: index 0=3rd, 1=4th, 2=5th, 3=6th
+  v_p3 := v_standings->0;
+  v_p4 := v_standings->1;
+  v_p5 := v_standings->2;
+  v_p6 := v_standings->3;
 
-  SELECT ls.opponent_id, co.first_name || ' ' || co.last_name
-  INTO v_rank5_id, v_rank5_name
-  FROM career_league_standings ls
-  JOIN career_opponents co ON co.id = ls.opponent_id
-  WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4 AND ls.is_player = FALSE
-  ORDER BY ls.points DESC, (ls.legs_for - ls.legs_against) DESC
-  OFFSET 3 LIMIT 1;  -- offset 3 = 5th place
-
-  SELECT ls.opponent_id, co.first_name || ' ' || co.last_name
-  INTO v_rank6_id, v_rank6_name
-  FROM career_league_standings ls
-  JOIN career_opponents co ON co.id = ls.opponent_id
-  WHERE ls.career_id = p_career_id AND ls.season = v_career.season AND ls.tier = 4 AND ls.is_player = FALSE
-  ORDER BY ls.points DESC, (ls.legs_for - ls.legs_against) DESC
-  OFFSET 4 LIMIT 1;  -- offset 4 = 6th place
-
-  -- Build the bracket data for 4-player single elimination
+  -- Determine which semis have the player
   -- Semi 1: 3rd vs 6th, Semi 2: 4th vs 5th
-  -- The player can be in any of these positions (3rd, 4th, 5th, or 6th)
-  v_bracket_data := jsonb_build_array(
-    -- Semi-Final 1: 3rd vs 6th
-    jsonb_build_object(
-      'round', 1, 'matchIndex', 0,
-      'participant1', CASE WHEN v_player_rank = 3 THEN jsonb_build_object('type', 'player', 'name', 'You', 'seed', 3)
-        ELSE jsonb_build_object('type', 'opponent', 'id', v_rank3_id, 'name', v_rank3_name, 'seed', 3) END,
-      'participant2', CASE WHEN v_player_rank = 6 THEN jsonb_build_object('type', 'player', 'name', 'You', 'seed', 6)
-        ELSE jsonb_build_object('type', 'opponent', 'id', v_rank6_id, 'name', v_rank6_name, 'seed', 6) END,
-      'winner', null, 'score', null, 'status', 'pending'
+  v_is_player_semi1 := COALESCE((v_p3->>'isPlayer')::boolean, false) OR COALESCE((v_p6->>'isPlayer')::boolean, false);
+  v_is_player_semi2 := COALESCE((v_p4->>'isPlayer')::boolean, false) OR COALESCE((v_p5->>'isPlayer')::boolean, false);
+
+  -- Get semi-final opponent name for intro popup
+  IF v_player_rank = 3 THEN
+    v_semi_opponent_name := v_p6->>'name'; v_semi_opponent_rank := 6;
+  ELSIF v_player_rank = 6 THEN
+    v_semi_opponent_name := v_p3->>'name'; v_semi_opponent_rank := 3;
+  ELSIF v_player_rank = 4 THEN
+    v_semi_opponent_name := v_p5->>'name'; v_semi_opponent_rank := 5;
+  ELSIF v_player_rank = 5 THEN
+    v_semi_opponent_name := v_p4->>'name'; v_semi_opponent_rank := 4;
+  END IF;
+
+  -- Build bracket_data in the EXACT BracketData format expected by TypeScript:
+  -- { size, totalRounds, currentRound, matches: BracketMatch[], playerEliminated, playerEliminatedRound, winnerId, completed }
+  v_bracket_data := jsonb_build_object(
+    'size', 4,
+    'totalRounds', 2,
+    'currentRound', 1,
+    'matches', jsonb_build_array(
+      -- Semi-Final 1: 3rd vs 6th
+      jsonb_build_object(
+        'round', 1,
+        'position', 0,
+        'participant1', v_p3,
+        'participant2', v_p6,
+        'winnerId', null,
+        'score', null,
+        'isPlayerMatch', v_is_player_semi1,
+        'simulated', false
+      ),
+      -- Semi-Final 2: 4th vs 5th
+      jsonb_build_object(
+        'round', 1,
+        'position', 1,
+        'participant1', v_p4,
+        'participant2', v_p5,
+        'winnerId', null,
+        'score', null,
+        'isPlayerMatch', v_is_player_semi2,
+        'simulated', false
+      ),
+      -- Final: TBD vs TBD (populated after semis)
+      jsonb_build_object(
+        'round', 2,
+        'position', 0,
+        'participant1', null,
+        'participant2', null,
+        'winnerId', null,
+        'score', null,
+        'isPlayerMatch', false,
+        'simulated', false
+      )
     ),
-    -- Semi-Final 2: 4th vs 5th
-    jsonb_build_object(
-      'round', 1, 'matchIndex', 1,
-      'participant1', CASE WHEN v_player_rank = 4 THEN jsonb_build_object('type', 'player', 'name', 'You', 'seed', 4)
-        ELSE jsonb_build_object('type', 'opponent', 'id', v_rank4_id, 'name', v_rank4_name, 'seed', 4) END,
-      'participant2', CASE WHEN v_player_rank = 5 THEN jsonb_build_object('type', 'player', 'name', 'You', 'seed', 5)
-        ELSE jsonb_build_object('type', 'opponent', 'id', v_rank5_id, 'name', v_rank5_name, 'seed', 5) END,
-      'winner', null, 'score', null, 'status', 'pending'
-    ),
-    -- Final: TBD vs TBD
-    jsonb_build_object(
-      'round', 2, 'matchIndex', 0,
-      'participant1', null,
-      'participant2', null,
-      'winner', null, 'score', null, 'status', 'pending'
-    )
+    'playerEliminated', false,
+    'playerEliminatedRound', null,
+    'winnerId', null,
+    'completed', false
   );
 
   -- Create the bracket event
@@ -129,7 +174,7 @@ BEGIN
   VALUES (p_career_id, v_career.season, 300, 'q_school', 'Tour School Playoff', 9, 4, 'pending', v_career.day + 5)
   RETURNING id INTO v_event_id;
 
-  -- Create the bracket record
+  -- Create the bracket record with pre-populated data
   INSERT INTO career_brackets (event_id, career_id, bracket_size, rounds_total, current_round, bracket_data, status)
   VALUES (v_event_id, p_career_id, 4, 2, 1, v_bracket_data, 'active')
   RETURNING id INTO v_bracket_id;
@@ -139,7 +184,8 @@ BEGIN
     'player_rank', v_player_rank,
     'event_id', v_event_id,
     'bracket_id', v_bracket_id,
-    'bracket_data', v_bracket_data
+    'semi_opponent', v_semi_opponent_name,
+    'semi_opponent_rank', v_semi_opponent_rank
   );
 END;
 $$;
