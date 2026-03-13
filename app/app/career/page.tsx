@@ -1423,19 +1423,26 @@ export default function CareerPage() {
               // Fall through to advanceToNextSeason below
              }
              
-             // Check for sponsor renewal before advancing
-             try {
-              const supabase = createClient();
-              const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
-               p_career_id: careerId,
-              });
-              if (sponsorOptions?.has_sponsor) {
-               setSponsorRenewalData(sponsorOptions);
-               setShowSponsorRenewal(true);
-               return;
-              }
-             } catch (e) { console.error('Sponsor check failed:', e); }
-             // No sponsor advance directly
+             // Check if player is being relegated (bottom 2) - skip sponsor renewal
+             const leagueSize = standings?.length || 0;
+             const playerPos = standings?.findIndex((s: any) => s.is_player) ?? -1;
+             const isRelegated = career.tier >= 3 && playerPos >= 0 && playerPos >= leagueSize - 2;
+             
+             if (!isRelegated) {
+              // Check for sponsor renewal before advancing (only if NOT relegated)
+              try {
+               const supabase = createClient();
+               const { data: sponsorOptions } = await supabase.rpc('rpc_get_season_end_sponsor_options', {
+                p_career_id: careerId,
+               });
+               if (sponsorOptions?.has_sponsor) {
+                setSponsorRenewalData(sponsorOptions);
+                setShowSponsorRenewal(true);
+                return;
+               }
+              } catch (e) { console.error('Sponsor check failed:', e); }
+             }
+             // Advance directly (relegation handled inside advanceToNextSeason)
              await advanceToNextSeason();
             }}
            >
