@@ -108,6 +108,7 @@ export default function CareerPage() {
  const [showRelegationPopup, setShowRelegationPopup] = useState(false);
  const [relegationData, setRelegationData] = useState<{ tier_name: string; rep_lost: number } | null>(null);
  const [advancingSeason, setAdvancingSeason] = useState(false);
+ const [showCSQualificationPopup, setShowCSQualificationPopup] = useState(false);
  const [showInvitePopup, setShowInvitePopup] = useState(false);
  const [showLastChancePopup, setShowLastChancePopup] = useState(false);
  const [pendingInvite, setPendingInvite] = useState<{ event_id: string; event_name: string; bracket_size: number } | null>(null);
@@ -174,6 +175,33 @@ export default function CareerPage() {
      setData(refreshed);
      setLoading(false);
      return;
+    }
+   }
+
+   // Pro Tour: interleave Champions Series nights with regular events
+   if (homeData.career.tier >= 5 && homeData.next_event) {
+    const { data: csCheck } = await supabase
+     .from('career_champions_series')
+     .select('is_player')
+     .eq('career_id', careerId)
+     .eq('season', homeData.career.season)
+     .eq('is_player', true)
+     .maybeSingle();
+    if (csCheck) {
+     // Player is in CS - check for pending CS night that should play next
+     const { data: csNight } = await supabase
+      .from('career_events')
+      .select('id, event_name, event_type, format_legs, bracket_size, day, status, sequence_no')
+      .eq('career_id', careerId)
+      .eq('season', homeData.career.season)
+      .eq('event_type', 'champions_series_night')
+      .eq('status', 'pending')
+      .order('sequence_no')
+      .limit(1)
+      .maybeSingle();
+     if (csNight && csNight.day <= (homeData.next_event.day || 9999)) {
+      homeData.next_event = csNight;
+     }
     }
    }
 
@@ -576,6 +604,25 @@ export default function CareerPage() {
     }
    }
 
+   // Champions Series qualification email (Tier 5)
+   if (tier >= 5) {
+    const { data: csPlayer } = await supabase
+     .from('career_champions_series')
+     .select('is_player')
+     .eq('career_id', careerId)
+     .eq('season', homeData.career.season)
+     .eq('is_player', true)
+     .maybeSingle();
+    if (csPlayer) {
+     newEmails.unshift({
+      id: `cs-qual-s${homeData.career.season}`,
+      subject: 'Champions Series Selection!',
+      body: 'Congratulations! Your world ranking has earned you a spot in the Champions Series. 8 nights of elite knockout darts await. Top 4 qualify for the playoffs. This is where legends are made.',
+      type: 'tournament_invite', isNew: true,
+     });
+    }
+   }
+
    // Tier 3 end-of-season: if player isn't top 2, send "last chance" email
    if (tier === 3 && homeData.standings) {
     const playerStanding = homeData.standings.find((s: any) => s.is_player);
@@ -872,13 +919,14 @@ export default function CareerPage() {
     const { data: seasonEnd } = await supabase.rpc('rpc_pro_tour_season_end', { p_career_id: careerId });
     if (seasonEnd?.error) throw new Error(seasonEnd.error);
 
-    if (seasonEnd?.qualifies_champions_series) {
-     toast.success('Qualified for the Champions Series!', { duration: 4000 });
-    }
-
     const { data: newSeason, error: nsErr } = await supabase.rpc('rpc_pro_tour_new_season', { p_career_id: careerId });
     if (nsErr) throw nsErr;
-    toast.success(`Pro Tour Season ${newSeason?.new_season} begins!${newSeason?.champions_series ? ' Champions Series awaits!' : ''}`);
+
+    if (seasonEnd?.qualifies_champions_series) {
+     setShowCSQualificationPopup(true);
+    } else {
+     toast.success(`Pro Tour Season ${newSeason?.new_season} begins!`);
+    }
     loadCareer();
     return;
    }
@@ -2649,6 +2697,37 @@ export default function CareerPage() {
          </Button>
         </motion.div>
        </div>
+      </div>
+     </motion.div>
+    </div>
+   )}
+
+   {/* Champions Series Qualification Popup */}
+   {showCSQualificationPopup && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+     <motion.div
+      initial={{ opacity: 0, scale: 0.8, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+      className="relative max-w-md w-full mx-4"
+     >
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-yellow-500/10 to-orange-500/20 rounded-2xl blur-xl" />
+      <div className="relative bg-[#12121f] border border-amber-500/30 rounded-2xl p-8 text-center">
+       <div className="text-6xl mb-4">🏆</div>
+       <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2">
+        Champions Series
+       </h2>
+       <p className="text-lg text-white font-bold mb-2">You've Been Selected!</p>
+       <p className="text-sm text-slate-400 mb-6">
+        Your world ranking has earned you a place among the elite. Compete against the top 8 players
+        over 8 nights of intense knockout darts. Top 4 advance to the playoffs.
+       </p>
+       <Button
+        className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-white font-bold py-3"
+        onClick={() => { setShowCSQualificationPopup(false); }}
+       >
+        Let's Go!
+       </Button>
       </div>
      </motion.div>
     </div>

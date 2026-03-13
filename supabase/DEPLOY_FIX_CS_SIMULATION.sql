@@ -7,6 +7,7 @@ AS $fn$
 DECLARE
   v_career career_profiles;
   v_completed_nights INT;
+  v_player_in_cs BOOLEAN;
   v_cs RECORD;
   v_points INT[] := ARRAY[5,3,2,1,0,0,0,0];
   v_idx INT := 1;
@@ -17,6 +18,15 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM career_champions_series WHERE career_id = p_career_id AND season = v_career.season LIMIT 1) THEN
     RETURN json_build_object('skip', true, 'reason', 'No champions series this season');
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM career_champions_series
+    WHERE career_id = p_career_id AND season = v_career.season AND is_player = TRUE
+  ) INTO v_player_in_cs;
+
+  IF v_player_in_cs THEN
+    RETURN json_build_object('skip', true, 'reason', 'Player is in CS - nights are playable');
   END IF;
 
   SELECT COUNT(*) INTO v_completed_nights
