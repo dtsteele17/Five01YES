@@ -1227,12 +1227,12 @@ export default function CareerPage() {
  const totalLeagueOpponents = standings ? standings.filter((s: any) => !s.is_player).length : 7;
  const leagueMatchday = playerStanding ? (playerStanding.played || 0) + 1 : 1;
  // Season is only complete when all league matches done AND no pending/active tournaments remain
- const leagueMatchesDone = playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents;
+ const leagueMatchesDone = career.tier >= 5 ? true : (playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents);
  // A 'season_end' event is a marker, not playable - treat as no remaining events
- const hasRemainingEvents = next_event != null && next_event.event_type !== 'season_end';
+ const hasRemainingEvents = next_event != null && next_event.event_type !== 'season_end' && next_event.event_type !== 'season_complete';
  const seasonComplete = leagueMatchesDone && !hasRemainingEvents;
- const playerRank = seasonComplete && standings ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
- const willPromote = seasonComplete && playerRank <= 2;
+ const playerRank = seasonComplete && standings && career.tier < 5 ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
+ const willPromote = career.tier >= 5 ? false : (seasonComplete && playerRank <= 2);
  const displayEventName = (career.tier === 1 && chosenName) ? chosenName
   : next_event?.event_type === 'league' ? `Weekend League Night - Matchday ${leagueMatchday}`
   : next_event?.event_name;
@@ -1306,8 +1306,14 @@ export default function CareerPage() {
            <div className="text-center py-2">
             <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
             <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
-            <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
-            <p className="text-xs text-slate-500 mb-4">{willPromote ? ' Promotion secured!' : (career.tier >= 3 && playerRank > (totalLeagueOpponents + 1 - 2)) ? ' Relegation...' : 'New season with fresh competition ahead.'}</p>
+            {career.tier >= 5 ? (
+             <p className="text-xs text-slate-500 mb-4">Another season on the Pro Tour complete. New tournaments and Champions Series await.</p>
+            ) : (
+             <>
+              <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
+              <p className="text-xs text-slate-500 mb-4">{willPromote ? ' Promotion secured!' : (career.tier >= 3 && playerRank > (totalLeagueOpponents + 1 - 2)) ? ' Relegation...' : 'New season with fresh competition ahead.'}</p>
+             </>
+            )}
            </div>
            <Button
             className={`w-full font-black py-3 text-base shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] ${willPromote ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-emerald-500/20' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/20'} text-white`}
