@@ -178,6 +178,27 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
     };
   }, [tournamentId]);
 
+  // Re-check creator status when currentUserId becomes available
+  useEffect(() => {
+    if (currentUserId && tournament) {
+      const checkCreator = async () => {
+        let creator = currentUserId === tournament.created_by;
+        if (!creator) {
+          const { data } = await supabase
+            .from('tournament_participants')
+            .select('role')
+            .eq('tournament_id', tournamentId)
+            .eq('user_id', currentUserId)
+            .eq('role', 'admin')
+            .maybeSingle();
+          if (data) creator = true;
+        }
+        setIsCreator(creator);
+      };
+      checkCreator();
+    }
+  }, [currentUserId, tournament?.id]);
+
   // When user is identified AND tournament is in progress, immediately check for matches
   useEffect(() => {
     if (currentUserId && tournament?.status === 'in_progress') {
@@ -708,7 +729,8 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
       month: 'long',
       day: 'numeric',
       hour: 'numeric',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZoneName: 'short'
     });
   };
 
