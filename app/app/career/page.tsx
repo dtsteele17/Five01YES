@@ -944,8 +944,8 @@ export default function CareerPage() {
     try { await supabase.rpc('rpc_career_lose_sponsor_on_relegation', { p_career_id: careerId }); } catch {}
     
     // Add relegation sponsor email if player had a sponsor
-    if (sponsorContract) {
-     const sponsorName = sponsorContract.sponsor_name || 'Your sponsor';
+    if (data?.sponsor) {
+     const sponsorName = data.sponsor.sponsor_name || 'Your sponsor';
      setEmails(prev => [{
       id: `sponsor-relegation-${Date.now()}`,
       subject: `${sponsorName} has ended their sponsorship`,
