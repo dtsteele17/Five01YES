@@ -74,16 +74,23 @@ export function CheckoutDetailsDialog({
   };
 
   const handleDartsSelected = (darts: number) => {
+    console.log('[CheckoutDialog] Darts selected:', darts, 'step:', step);
     setDartsThrown(darts);
     
     if (isBust) {
-      // For busts, submit immediately (no darts at double to track)
       onSubmit(darts, 0);
     } else {
-      // For checkouts, go to double selection
       setStep('double');
     }
   };
+
+  // Debug: log step state
+  useEffect(() => {
+    if (isOpen) {
+      const opts = getDartsOptions();
+      console.log('[CheckoutDialog] Open. Step:', step, 'Score:', score, 'Options:', opts);
+    }
+  }, [isOpen, step, score]);
 
   const handleDoubleSelected = (doubleDarts: number) => {
     setDartsAtDouble(doubleDarts);
