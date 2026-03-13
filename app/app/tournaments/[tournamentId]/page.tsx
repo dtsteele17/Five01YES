@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import {
   ArrowLeft,
@@ -157,8 +157,24 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
   useEffect(() => {
     loadTournament(true); // Force initial load
     loadCurrentUser();
+
+    // Real-time: update player list when someone joins/leaves
+    const participantChannel = supabase
+      .channel(`tournament_participants_${tournamentId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tournament_participants',
+        filter: `tournament_id=eq.${tournamentId}`
+      }, () => {
+        console.log('[Tournament] Participant change detected via realtime');
+        loadTournament(true);
+      })
+      .subscribe();
+
     return () => {
       if (nextRoundTimerRef.current) clearInterval(nextRoundTimerRef.current);
+      supabase.removeChannel(participantChannel);
     };
   }, [tournamentId]);
 
@@ -1164,6 +1180,9 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                           >
                             <div className="relative">
                               <Avatar className="w-9 h-9 ring-2 ring-slate-800">
+                                {participant.profiles?.avatar_url && (
+                                  <AvatarImage src={participant.profiles.avatar_url} alt={participant.profiles?.username || ''} />
+                                )}
                                 <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-slate-200 text-sm font-bold">
                                   {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
                                 </AvatarFallback>
@@ -1238,6 +1257,9 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
                             </div>
                             {/* Avatar */}
                             <Avatar className="w-10 h-10 ring-2 ring-slate-700/50 group-hover:ring-emerald-500/30 transition-all">
+                              {participant.profiles?.avatar_url && (
+                                <AvatarImage src={participant.profiles.avatar_url} alt={participant.profiles?.username || ''} />
+                              )}
                               <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-white font-bold">
                                 {participant.profiles?.username?.[0]?.toUpperCase() || 'U'}
                               </AvatarFallback>
