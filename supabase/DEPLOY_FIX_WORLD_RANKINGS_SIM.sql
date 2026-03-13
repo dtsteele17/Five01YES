@@ -25,13 +25,15 @@ BEGIN
     FROM career_pro_rankings
     WHERE career_id = p_career_id AND is_player = FALSE
   LOOP
-    v_change := floor(random() * 15)::int - 5;
+    v_change := floor(random() * 30)::int - 10;
     IF v_ai.ranking_position <= 5 THEN
-      v_change := floor(random() * 8)::int - 2;
+      v_change := floor(random() * 20)::int - 5;
     ELSIF v_ai.ranking_position <= 15 THEN
-      v_change := floor(random() * 12)::int - 4;
-    ELSIF v_ai.ranking_position >= 80 THEN
-      v_change := floor(random() * 20)::int - 8;
+      v_change := floor(random() * 25)::int - 8;
+    ELSIF v_ai.ranking_position <= 30 THEN
+      v_change := floor(random() * 35)::int - 12;
+    ELSIF v_ai.ranking_position >= 70 THEN
+      v_change := floor(random() * 40)::int - 18;
     END IF;
 
     UPDATE career_pro_rankings

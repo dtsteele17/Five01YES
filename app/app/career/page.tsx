@@ -704,14 +704,17 @@ export default function CareerPage() {
   const { data: rankData, error: rankErr } = await supabase.rpc('rpc_pro_tour_get_rankings', { p_career_id: careerId });
   if (rankErr) console.error('[RANKINGS] Get error:', rankErr);
   if (rankData?.top25) {
-   setWorldRankings(rankData.top25.map((r: any) => ({
-    rank: r.ranking_position,
-    name: r.player_name,
-    rating: Math.round(r.ranking_points),
-    isPlayer: r.is_player,
-    pointsChange: Math.round(r.points_change || 0),
+   setWorldRankings(rankData.top25
+    .filter((r: any) => tier >= 5 || !r.is_player)
+    .map((r: any) => ({
+     rank: r.ranking_position,
+     name: r.player_name,
+     rating: Math.round(r.ranking_points),
+     isPlayer: tier >= 5 ? r.is_player : false,
+     pointsChange: Math.round(r.points_change || 0),
    })));
-   if (rankData.player && rankData.player_rank > 25) {
+   // Only show player ranking row when on Pro Tour (tier 5)
+   if (tier >= 5 && rankData.player && rankData.player_rank > 25) {
     setPlayerRankingRow({
      rank: rankData.player_rank,
      name: rankData.player.player_name,
@@ -719,6 +722,8 @@ export default function CareerPage() {
      isPlayer: true,
      pointsChange: Math.round(rankData.player.points_change || 0),
     });
+   } else if (tier < 5) {
+    setPlayerRankingRow(null);
    }
   }
   setShowRankings(true);
