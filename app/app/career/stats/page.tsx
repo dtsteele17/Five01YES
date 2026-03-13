@@ -19,6 +19,8 @@ interface SeasonStats {
   legs_against: number;
   average: number;
   tournament_wins: number;
+  league_position?: number;
+  league_total?: number;
 }
 
 interface AllTimeStats {
@@ -94,6 +96,25 @@ export default function CareerStatsPage() {
     // Season 1 is always Tier 1 (Local Circuit Trials)
     if (!seasonTierFromStandings[1]) seasonTierFromStandings[1] = 1;
 
+    // Get player's league position per season
+    const leaguePositions: Record<number, { position: number; total: number }> = {};
+    for (const season of Object.keys(seasonTierFromStandings).map(Number)) {
+      const { data: allStandings } = await supabase
+        .from('career_league_standings')
+        .select('is_player, points, legs_for, legs_against')
+        .eq('career_id', careerId)
+        .eq('season', season)
+        .order('points', { ascending: false });
+      if (allStandings && allStandings.length > 1) {
+        const sorted = allStandings.sort((a: any, b: any) => {
+          if (b.points !== a.points) return b.points - a.points;
+          return (b.legs_for - b.legs_against) - (a.legs_for - a.legs_against);
+        });
+        const pos = sorted.findIndex((s: any) => s.is_player) + 1;
+        leaguePositions[season] = { position: pos, total: sorted.length };
+      }
+    }
+
     // Get tournament wins from milestones
     const { data: tWins } = await supabase
       .from('career_milestones')
@@ -130,6 +151,8 @@ export default function CareerStatsPage() {
           legs_against: 0,
           average: 0,
           tournament_wins: 0,
+          league_position: leaguePositions[season]?.position,
+          league_total: leaguePositions[season]?.total,
         };
       }
 
@@ -283,12 +306,23 @@ export default function CareerStatsPage() {
                         <span className="text-white text-sm font-bold">Season {season.season}</span>
                         <span className="text-slate-500 text-xs ml-2">{season.tierName}</span>
                       </div>
-                      {season.tournament_wins > 0 && (
-                        <div className="flex items-center gap-1 text-amber-400">
-                          <Trophy className="w-3.5 h-3.5" />
-                          <span className="text-xs font-bold">×{season.tournament_wins}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {season.league_position && season.league_total && season.tier >= 2 && (
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                            season.league_position <= 2 ? 'bg-emerald-500/20 text-emerald-400' :
+                            season.league_position > season.league_total - 2 ? 'bg-red-500/20 text-red-400' :
+                            'bg-slate-700/50 text-slate-300'
+                          }`}>
+                            {season.league_position}{season.league_position === 1 ? 'st' : season.league_position === 2 ? 'nd' : season.league_position === 3 ? 'rd' : 'th'}/{season.league_total}
+                          </span>
+                        )}
+                        {season.tournament_wins > 0 && (
+                          <div className="flex items-center gap-1 text-amber-400">
+                            <Trophy className="w-3.5 h-3.5" />
+                            <span className="text-xs font-bold">×{season.tournament_wins}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-5 gap-2">
                       <div className="text-center p-2 rounded-lg bg-white/[0.03]">
