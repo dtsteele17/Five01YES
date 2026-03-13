@@ -91,69 +91,75 @@ export default function ResetPasswordPage() {
   // Validate the reset token when component mounts
   useEffect(() => {
     const validateToken = async () => {
-      // Supabase puts tokens in the hash fragment (#access_token=...) not query params (?access_token=...)
+      const supabase = createClient();
+      const code = searchParams?.get('code');
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token') || searchParams?.get('access_token');
       const refreshToken = hashParams.get('refresh_token') || searchParams?.get('refresh_token');
-      const type = hashParams.get('type') || searchParams?.get('type');
 
-      console.log('[ResetPassword] URL params:', { 
+      console.log('[ResetPassword] Params:', { 
+        code: !!code, 
         accessToken: !!accessToken, 
-        refreshToken: !!refreshToken, 
-        type,
+        refreshToken: !!refreshToken,
         hash: window.location.hash ? 'present' : 'none',
       });
 
-      // If no tokens in URL, try listening for Supabase auth state change (handles PKCE flow)
-      if (!accessToken || !refreshToken) {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          console.log('[ResetPassword] Session already exists from auth callback');
-          setValidatingToken(false);
-          return;
-        }
-
-        // Wait briefly for onAuthStateChange to fire (Supabase processes hash automatically)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          console.log('[ResetPassword] Auth event:', event);
-          if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-            setValidatingToken(false);
-            subscription.unsubscribe();
-          }
-        });
-
-        // Timeout after 5 seconds
-        setTimeout(() => {
-          subscription.unsubscribe();
-          if (validatingToken) {
-            console.error('[ResetPassword] No auth event received');
+      // PKCE flow: exchange code for session
+      if (code) {
+        try {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('[ResetPassword] Code exchange error:', error);
             setTokenError(true);
-            setValidatingToken(false);
+          } else {
+            console.log('[ResetPassword] Code exchanged successfully');
           }
-        }, 5000);
+        } catch (e) {
+          console.error('[ResetPassword] Code exchange failed:', e);
+          setTokenError(true);
+        }
+        setValidatingToken(false);
         return;
       }
 
-      try {
-        const supabase = createClient();
-        const { data: session, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (sessionError) {
-          console.error('[ResetPassword] Session error:', sessionError);
+      // Implicit flow: tokens in hash or query
+      if (accessToken && refreshToken) {
+        try {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error) {
+            console.error('[ResetPassword] Session error:', error);
+            setTokenError(true);
+          }
+        } catch (e) {
+          console.error('[ResetPassword] Token validation error:', e);
           setTokenError(true);
-        } else {
-          console.log('[ResetPassword] Session set successfully');
         }
-      } catch (error) {
-        console.error('[ResetPassword] Token validation error:', error);
-        setTokenError(true);
-      } finally {
         setValidatingToken(false);
+        return;
       }
+
+      // Check if session already exists (e.g. from auth callback redirect)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log('[ResetPassword] Existing session found');
+        setValidatingToken(false);
+        return;
+      }
+
+      // Listen for auth events (Supabase JS may auto-process hash)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+        console.log('[ResetPassword] Auth event:', event);
+        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+          setValidatingToken(false);
+          subscription.unsubscribe();
+        }
+      });
+
+      setTimeout(() => {
+        subscription.unsubscribe();
+        setTokenError(true);
+        setValidatingToken(false);
+      }, 5000);
     };
 
     validateToken();
