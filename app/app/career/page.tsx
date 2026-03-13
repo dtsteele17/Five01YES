@@ -637,8 +637,10 @@ export default function CareerPage() {
    const deletedIds: string[] = JSON.parse(localStorage.getItem(deletedKey) || '[]');
 
    // Add new emails that aren't already stored or deleted
+   // Critical emails (last_chance, sponsor_slot, tournament_invite) always show even if previously cleared
+   const criticalTypes = new Set(['last_chance', 'sponsor_slot', 'tournament_invite']);
    const existingIds = new Set(stored.map(e => e.id));
-   const freshEmails = newEmails.filter(e => !existingIds.has(e.id) && !deletedIds.includes(e.id)).map(e => ({ ...e, isNew: true }));
+   const freshEmails = newEmails.filter(e => !existingIds.has(e.id) && (criticalTypes.has(e.type) || !deletedIds.includes(e.id))).map(e => ({ ...e, isNew: true }));
    // Mark existing stored emails as not new
    const allEmails = [...freshEmails, ...stored.map(e => ({ ...e, isNew: false }))];
    localStorage.setItem(storageKey, JSON.stringify(allEmails.map(e => ({ ...e, isNew: false }))));
