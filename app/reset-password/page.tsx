@@ -117,74 +117,72 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // PKCE flow: exchange code for session
-      if (code) {
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) {
-            console.error('[ResetPassword] Code exchange error:', error);
-            setTokenError(true);
-          } else {
-            console.log('[ResetPassword] Code exchanged successfully');
-          }
-        } catch (e) {
-          console.error('[ResetPassword] Code exchange failed:', e);
-          setTokenError(true);
-        }
-        setValidatingToken(false);
-        return;
-      }
-
-      // Implicit flow: tokens in hash or query
-      if (accessToken && refreshToken) {
-        try {
-          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-          if (error) {
-            console.error('[ResetPassword] Session error:', error);
-            setTokenError(true);
-          }
-        } catch (e) {
-          console.error('[ResetPassword] Token validation error:', e);
-          setTokenError(true);
-        }
-        setValidatingToken(false);
-        return;
-      }
-
-      // Check if session already exists (e.g. from auth callback redirect)
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log('[ResetPassword] Existing session found');
-        setValidatingToken(false);
-        return;
-      }
-
-      // Listen for auth events (Supabase JS may auto-process hash)
+      // detectSessionInUrl may have already processed the code and set a session
+      // Listen for auth state changes first (most reliable)
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
         console.log('[ResetPassword] Auth event:', event, 'session:', !!sess);
-        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setTokenError(false);
-          setValidatingToken(false);
-          subscription.unsubscribe();
+        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+          if (sess) {
+            console.log('[ResetPassword] Session established via auth event');
+            setTokenError(false);
+            setValidatingToken(false);
+          }
         }
       });
 
-      // Give more time for Supabase to process
-      setTimeout(() => {
-        // One final session check before giving up
-        supabase.auth.getSession().then(({ data: { session: finalSession } }) => {
-          if (finalSession) {
-            console.log('[ResetPassword] Late session found');
-            setTokenError(false);
+      // Also try direct approaches in parallel
+      // 1. Check existing session
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        console.log('[ResetPassword] Existing session found immediately');
+        setValidatingToken(false);
+        subscription.unsubscribe();
+        return;
+      }
+
+      // 2. Try PKCE code exchange manually if code exists
+      if (code) {
+        try {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error) {
+            console.log('[ResetPassword] Code exchanged successfully');
             setValidatingToken(false);
-          } else {
-            console.error('[ResetPassword] No session after timeout');
-            setTokenError(true);
-            setValidatingToken(false);
+            subscription.unsubscribe();
+            return;
           }
+          console.error('[ResetPassword] Code exchange error:', error);
+        } catch (e) {
+          console.error('[ResetPassword] Code exchange failed:', e);
+        }
+      }
+
+      // 3. Try implicit flow tokens
+      if (accessToken && refreshToken) {
+        try {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (!error) {
+            setValidatingToken(false);
+            subscription.unsubscribe();
+            return;
+          }
+        } catch (e) {
+          console.error('[ResetPassword] Token set failed:', e);
+        }
+      }
+
+      // 4. Timeout — final check
+      setTimeout(() => {
+        supabase.auth.getSession().then(({ data: { session: finalSession } }) => {
+          console.log('[ResetPassword] Final session check:', !!finalSession);
+          if (finalSession) {
+            setTokenError(false);
+          } else {
+            setTokenError(true);
+          }
+          setValidatingToken(false);
           subscription.unsubscribe();
         });
-      }, 8000);
+      }, 5000);
     };
 
     validateToken();
