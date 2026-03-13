@@ -505,6 +505,11 @@ export default function CareerPage() {
    }
    if (leagueWin) {
     newEmails.push({ id: `league-win-s${homeData.career.season}`, subject: ` ${leagueWin.title}`, body: leagueWin.description || 'You won the league! Incredible season.', type: 'win' });
+    // Unlock 2nd sponsor slot on County League win
+    if (tier === 3 && (homeData.career.sponsor_slots || 1) < 2) {
+     try { await supabase.rpc('rpc_career_unlock_sponsor_slot', { p_career_id: careerId, p_reason: 'league_win' }); } catch {}
+     newEmails.push({ id: `sponsor-slot-${homeData.career.season}`, subject: 'New Sponsor Slot Unlocked!', body: 'Winning the league has attracted serious attention. You can now hold two sponsors at once — bigger deals, bigger rewards.', type: 'sponsor_slot', isNew: true });
+    }
    }
    // Sponsor offer email
    const sponsorOfferMilestone = milestones.find((m: any) => m.milestone_type === 'sponsor_offer');
@@ -535,6 +540,40 @@ export default function CareerPage() {
    }
    if (tier >= 2 && !hasPromotion && !tournamentWin) {
     newEmails.push({ id: `league-s${homeData.career.season}`, subject: 'League Update', body: `Season ${homeData.career.season} is underway. Check the league table and keep climbing the standings.`, type: 'league' });
+   }
+
+   // National Tour (Tier 4): unlock 2nd sponsor slot on 3-win streak or top 8 finish
+   if (tier === 4 && (homeData.career.sponsor_slots || 1) < 2) {
+    // Check 3-win streak
+    const { data: recentMatches } = await supabase
+     .from('career_matches')
+     .select('result')
+     .eq('career_id', careerId)
+     .not('result', 'is', null)
+     .order('id', { ascending: false })
+     .limit(3);
+    const hasThreeWinStreak = recentMatches && recentMatches.length === 3 && recentMatches.every((m: any) => m.result === 'win');
+    
+    // Check top 8 finish (only at season end)
+    const playerStanding4 = homeData.standings?.find((s: any) => s.is_player);
+    const sorted4 = homeData.standings ? [...homeData.standings].sort((a: any, b: any) => (b.points - a.points) || ((b.legs_for - b.legs_against) - (a.legs_for - a.legs_against))) : [];
+    const playerPos4 = sorted4.findIndex((s: any) => s.is_player) + 1;
+    const totalOpp4 = homeData.standings?.filter((s: any) => !s.is_player).length || 0;
+    const seasonDone4 = (playerStanding4?.played || 0) >= totalOpp4;
+    const isTop8 = seasonDone4 && playerPos4 > 0 && playerPos4 <= 8;
+
+    if (hasThreeWinStreak || isTop8) {
+     const reason = hasThreeWinStreak ? 'win_streak' : 'top_8_finish';
+     try { await supabase.rpc('rpc_career_unlock_sponsor_slot', { p_career_id: careerId, p_reason: reason }); } catch {}
+     newEmails.unshift({
+      id: `sponsor-slot-t4-${homeData.career.season}`,
+      subject: 'New Sponsor Slot Unlocked!',
+      body: hasThreeWinStreak
+       ? 'Three wins on the bounce in the National Tour — sponsors are taking notice. You can now carry two sponsors at once.'
+       : 'A top 8 finish in the National Tour has opened doors. You can now hold two sponsors.',
+      type: 'sponsor_slot', isNew: true
+     });
+    }
    }
 
    // Tier 3 end-of-season: if player isn't top 2, send "last chance" email
@@ -931,6 +970,10 @@ export default function CareerPage() {
     setPromotionTierName(result.tier_name);
     setShowPromotionPopup(true);
    } else if (result?.relegated) {
+    // Lose a sponsor on relegation from National Tour
+    if (data?.career?.tier === 4) {
+     try { await supabase.rpc('rpc_career_lose_sponsor_on_relegation', { p_career_id: careerId }); } catch {}
+    }
     setRelegationData({ tier_name: result.tier_name, rep_lost: result.rep_lost || 0 });
     setShowRelegationPopup(true);
    } else {
