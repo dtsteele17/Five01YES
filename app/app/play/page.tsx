@@ -616,16 +616,22 @@ export default function PlayPage() {
                   <p className="text-slate-300 text-xs sm:text-sm mt-2 mb-3 sm:mb-4 line-clamp-2">Climb from pub leagues to the world stage. Play offline vs AI opponents.</p>
                 </div>
                 <div className="flex gap-2 pt-3 sm:pt-4 border-t border-slate-700/30">
-                  <Link href="/app/career/start" className="flex-1 min-w-0">
-                    <Button variant="outline" size="sm" className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 text-xs sm:text-sm px-2 sm:px-3">
-                      New
-                    </Button>
-                  </Link>
-                  <Link href="/app/career" className="flex-1 min-w-0">
-                    <Button variant="outline" size="sm" className="w-full border-slate-600 text-slate-300 hover:bg-slate-700/50 text-xs sm:text-sm px-2 sm:px-3">
-                      Load
-                    </Button>
-                  </Link>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled
+                    className="flex-1 border-slate-600 text-slate-500 bg-slate-800/50 cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    New (Locked)
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled
+                    className="flex-1 border-slate-600 text-slate-500 bg-slate-800/50 cursor-not-allowed text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    Load (Locked)
+                  </Button>
                 </div>
               </div>
             </Card>
