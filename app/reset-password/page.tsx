@@ -96,13 +96,26 @@ export default function ResetPasswordPage() {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token') || searchParams?.get('access_token');
       const refreshToken = hashParams.get('refresh_token') || searchParams?.get('refresh_token');
+      const errorCode = searchParams?.get('error');
+      const errorDesc = searchParams?.get('error_description');
 
+      console.log('[ResetPassword] Full URL:', window.location.href);
       console.log('[ResetPassword] Params:', { 
         code: !!code, 
         accessToken: !!accessToken, 
         refreshToken: !!refreshToken,
-        hash: window.location.hash ? 'present' : 'none',
+        hash: window.location.hash || 'none',
+        error: errorCode,
+        errorDesc,
+        allSearchParams: searchParams?.toString(),
       });
+
+      if (errorCode) {
+        console.error('[ResetPassword] Error from Supabase:', errorCode, errorDesc);
+        setTokenError(true);
+        setValidatingToken(false);
+        return;
+      }
 
       // PKCE flow: exchange code for session
       if (code) {
@@ -147,19 +160,31 @@ export default function ResetPasswordPage() {
       }
 
       // Listen for auth events (Supabase JS may auto-process hash)
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        console.log('[ResetPassword] Auth event:', event);
-        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
+        console.log('[ResetPassword] Auth event:', event, 'session:', !!sess);
+        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setTokenError(false);
           setValidatingToken(false);
           subscription.unsubscribe();
         }
       });
 
+      // Give more time for Supabase to process
       setTimeout(() => {
-        subscription.unsubscribe();
-        setTokenError(true);
-        setValidatingToken(false);
-      }, 5000);
+        // One final session check before giving up
+        supabase.auth.getSession().then(({ data: { session: finalSession } }) => {
+          if (finalSession) {
+            console.log('[ResetPassword] Late session found');
+            setTokenError(false);
+            setValidatingToken(false);
+          } else {
+            console.error('[ResetPassword] No session after timeout');
+            setTokenError(true);
+            setValidatingToken(false);
+          }
+          subscription.unsubscribe();
+        });
+      }, 8000);
     };
 
     validateToken();
