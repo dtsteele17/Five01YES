@@ -406,7 +406,7 @@ export default function TournamentsPage() {
       case 'live':
         return matchesSearch && tournament.status === 'in_progress';
       case 'completed':
-        return matchesSearch && tournament.status === 'completed';
+        return matchesSearch && tournament.status === 'completed' && tournament.is_registered;
       default:
         return matchesSearch;
     }
@@ -424,7 +424,7 @@ export default function TournamentsPage() {
   // Get counts for tab badges
   const openCount = tournaments.filter(t => ['registration', 'ready', 'scheduled', 'checkin'].includes(t.status)).length;
   const liveCount = tournaments.filter(t => t.status === 'in_progress').length;
-  const completedCount = tournaments.filter(t => t.status === 'completed').length;
+  const completedCount = tournaments.filter(t => t.status === 'completed' && t.is_registered).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
