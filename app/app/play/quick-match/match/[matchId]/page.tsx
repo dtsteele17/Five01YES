@@ -50,7 +50,7 @@ import { submitRating, subscribeToRatings, getUserSafetyRating, hasRatedOpponent
 import { onSafetyRatingUpdated } from '@/lib/safety/safetyEvents';
 import { useQuickMatchRematch } from '@/lib/hooks/useQuickMatchRematch';
 import { CoinTossModal } from '@/components/game/CoinTossModal';
-import { CheckoutDetailsDialog } from '@/components/game/CheckoutDetailsDialog';
+import { DartsAtDoubleModal, getDartsAtDoubleOptions, shouldShowDartsAtDoublePopup } from '@/components/app/DartsAtDoubleModal';
 import { PreGameLobby } from '@/components/match/PreGameLobby';
 import { TurnTimer } from '@/components/game/TurnTimer';
 import { AfkWarningModal } from '@/components/game/AfkWarningModal';
@@ -2799,6 +2799,8 @@ export default function QuickMatchRoomPage() {
     remainingBefore: number;
     isBust: boolean;
   } | null>(null);
+  const [showDartsAtDoubleModal, setShowDartsAtDoubleModal] = useState(false);
+  const [pendingVisitData, setPendingVisitData] = useState<{ score: number; options: number[]; isCheckout: boolean } | null>(null);
 
   // Submission lock to prevent race conditions between button and typed inputs
   const submitLockRef = useRef(false);
@@ -2873,75 +2875,33 @@ export default function QuickMatchRoomPage() {
     const currentRemaining = isPlayer1 ? room.player1_remaining : room.player2_remaining;
     const newRemaining = currentRemaining - score;
     
-    // Check for bust conditions
+    // Check for bust/checkout/double scenarios
     const isBust = newRemaining < 0 || newRemaining === 1;
     const isCheckout = newRemaining === 0;
-    
-    // If it's a BUST or CHECKOUT, check how many darts options there are
-    if (isBust || isCheckout) {
-      const dartsOptions = getDartsOptions(score, isBust);
-      
-      // If only 1 option, auto-pick it and don't show dialog
-      if (dartsOptions.length === 1) {
-        const dartsThrown = dartsOptions[0];
-        console.log('[TYPED SCORE] Auto-picking', dartsThrown, 'darts (only option)');
-        
-        try {
-          // Create darts array
-          const darts: Dart[] = [];
-          if (isBust) {
-            // Bust: all misses
-            for (let i = 0; i < dartsThrown; i++) {
-              darts.push({
-                type: 'single', number: 0, value: 0, multiplier: 1,
-                label: 'Miss', score: 0, is_double: false
-              });
-            }
-            await submitScore(0, true, darts, false, true);
-          } else {
-            // Checkout: last dart is the checkout
-            for (let i = 0; i < dartsThrown; i++) {
-              const isLastDart = i === dartsThrown - 1;
-              darts.push({
-                type: isLastDart ? 'double' : 'single',
-                number: isLastDart ? score : 0,
-                value: isLastDart ? score : 0,
-                multiplier: isLastDart ? 2 : 1,
-                label: isLastDart ? `D${score/2}` : 'Miss',
-                score: isLastDart ? score : 0,
-                is_double: isLastDart
-              });
-            }
-            await submitScoreWithCheckoutDetails(score, darts, dartsThrown, 1);
-          }
-        } finally {
-          // Release submission lock
-          submitLockRef.current = false;
-        }
-        setScoreInput('');
-        return;
-      }
-      
-      // Multiple options - show dialog (lock will be released by dialog handler)
-      console.log('[TYPED SCORE] Bust or Checkout detected, showing darts dialog');
-      setPendingCheckoutInfo({ 
-        score: isBust ? 0 : score,
-        remainingBefore: currentRemaining,
-        isBust 
-      });
-      setShowCheckoutDialog(true);
-      // Note: Lock is NOT released here - it will be released by handleCheckoutDetailsSubmit
+    const doubleOut = room.double_out !== false;
+
+    // Use same logic as dartbot: show darts-at-double popup when remaining drops to <=50 OR checkout
+    if (doubleOut && (isCheckout || shouldShowDartsAtDoublePopup(currentRemaining, score))) {
+      const options = getDartsAtDoubleOptions(currentRemaining);
+      console.log('[TYPED SCORE] Showing darts at double popup. Score:', score, 'Remaining:', currentRemaining, 'New:', newRemaining, 'Options:', options);
+      setPendingVisitData({ score, options, isCheckout });
+      setShowDartsAtDoubleModal(true);
       return;
     }
-    
-    // Check if player was throwing at doubles: either started on checkout (≤50) or ended on checkout (remaining >0 and ≤50)
-    const wasOnCheckout = room.double_out !== false && currentRemaining <= 50 && isInCheckoutRange(currentRemaining);
-    const nowOnCheckout = room.double_out !== false && newRemaining > 0 && newRemaining <= 50 && isInCheckoutRange(newRemaining);
-    
-    if (wasOnCheckout || nowOnCheckout) {
-      console.log('[TYPED SCORE] Checkout range - was:', currentRemaining, 'now:', newRemaining, 'asking darts at double');
-      setPendingTypedScore({ score, remaining: wasOnCheckout ? currentRemaining : newRemaining });
-      setShowDartsAtDoubleDialog(true);
+
+    // Bust without being on a double - just submit
+    if (isBust) {
+      const bustDarts: Dart[] = [
+        { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+        { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+        { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }
+      ];
+      try {
+        await submitScore(0, true, bustDarts, false, true);
+      } finally {
+        submitLockRef.current = false;
+      }
+      setScoreInput('');
       return;
     }
     
@@ -3058,6 +3018,35 @@ export default function QuickMatchRoomPage() {
       setSubmitting(false);
     }
   }
+
+  // Handler for DartsAtDoubleModal (same as dartbot)
+  const handleDartsAtDoubleConfirm = async (dartsAtDouble: number) => {
+    if (!pendingVisitData) return;
+    const { score, isCheckout } = pendingVisitData;
+    
+    const genericDarts: Dart[] = isCheckout ? [
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+      { type: 'double', number: score, value: score, multiplier: 2, label: `D${Math.floor(score/2)}`, score, is_double: true }
+    ] : [
+      { type: 'single', number: score, value: score, multiplier: 1, label: score.toString(), score, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false },
+      { type: 'single', number: 0, value: 0, multiplier: 1, label: 'Miss', score: 0, is_double: false }
+    ];
+
+    try {
+      if (isCheckout) {
+        await submitScoreWithCheckoutDetails(score, genericDarts, 3, dartsAtDouble);
+      } else {
+        await submitScore(score, false, genericDarts, false, true, dartsAtDouble);
+      }
+    } finally {
+      submitLockRef.current = false;
+    }
+    setShowDartsAtDoubleModal(false);
+    setPendingVisitData(null);
+    setScoreInput('');
+  };
 
   const handleCheckoutDetailsSubmit = async (dartsThrown: number, dartsAtDouble: number) => {
     if (!pendingCheckoutInfo) {
@@ -5102,46 +5091,22 @@ export default function QuickMatchRoomPage() {
         />
       )}
 
-      {/* Checkout Details Dialog - shows when typed score is a checkout or bust */}
-      {showCheckoutDialog && pendingCheckoutInfo && (
-        <CheckoutDetailsDialog
-          isOpen={showCheckoutDialog}
-          score={pendingCheckoutInfo.score}
-          remainingBefore={pendingCheckoutInfo.remainingBefore}
-          isBust={pendingCheckoutInfo.isBust}
-          onSubmit={handleCheckoutDetailsSubmit}
+      {/* Darts at Double Modal - same as dartbot */}
+      {pendingVisitData && (
+        <DartsAtDoubleModal
+          isOpen={showDartsAtDoubleModal}
+          options={pendingVisitData.options}
+          isCheckout={pendingVisitData.isCheckout}
+          onConfirm={handleDartsAtDoubleConfirm}
+          onCancel={() => {
+            setShowDartsAtDoubleModal(false);
+            setPendingVisitData(null);
+            submitLockRef.current = false;
+          }}
         />
       )}
 
-      {/* Darts at Double Dialog — typed score when on a checkout but didn't finish */}
-      {showDartsAtDoubleDialog && pendingTypedScore && (
-        <AlertDialog open={showDartsAtDoubleDialog}>
-          <AlertDialogContent className="bg-slate-900 border-white/10 max-w-xs">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-white text-center">
-                Darts at Double?
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-slate-400 text-center">
-                You were on {pendingTypedScore.remaining}. How many darts did you throw at a double?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="flex justify-center gap-3 py-4">
-              {[0, 1, 2, 3].map(n => (
-                <Button
-                  key={n}
-                  onClick={() => handleDartsAtDoubleSubmit(n)}
-                  variant={n === 0 ? 'outline' : 'default'}
-                  className={n === 0 
-                    ? 'border-white/10 text-white w-14 h-14 text-lg' 
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 text-lg'}
-                >
-                  {n}
-                </Button>
-              ))}
-            </div>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      {/* Old darts-at-double dialog removed — now using DartsAtDoubleModal */}
 
       {/* Ranked Winner Popup - premium end-game for ranked matches */}
       {matchEndStats && room?.status === 'finished' && !isTournamentMatch && isRankedMatch && (
