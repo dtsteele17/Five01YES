@@ -963,19 +963,19 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4"
+          className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4"
         >
           {/* Players */}
-          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 sm:p-5 hover:border-emerald-500/20 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 bg-emerald-500/15 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
-                <Users className="w-4.5 h-4.5 text-emerald-400" />
+          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-3 sm:p-5 hover:border-emerald-500/20 transition-all duration-300">
+            <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-emerald-500/15 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/25 transition-colors">
+                <Users className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-emerald-400" />
               </div>
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Players</span>
+              <span className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">Players</span>
             </div>
-            <div className="text-2xl font-black text-white">{participants.length}<span className="text-slate-500 text-lg font-medium">/{tournament.max_participants}</span></div>
-            <div className="mt-2.5">
-              <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="text-xl sm:text-2xl font-black text-white">{participants.length}<span className="text-slate-500 text-base sm:text-lg font-medium">/{tournament.max_participants}</span></div>
+            <div className="mt-1.5 sm:mt-2.5">
+              <div className="h-1 sm:h-1.5 bg-slate-800 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${getRegistrationProgress()}%` }}
@@ -987,45 +987,44 @@ export default function TournamentDetailPage({ params }: { params: { tournamentI
           </div>
 
           {/* Format */}
-          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 sm:p-5 hover:border-blue-500/20 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 bg-blue-500/15 rounded-xl flex items-center justify-center group-hover:bg-blue-500/25 transition-colors">
-                <Target className="w-4.5 h-4.5 text-blue-400" />
+          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-3 sm:p-5 hover:border-blue-500/20 transition-all duration-300">
+            <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-blue-500/15 rounded-xl flex items-center justify-center group-hover:bg-blue-500/25 transition-colors">
+                <Target className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-blue-400" />
               </div>
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Format</span>
+              <span className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">Format</span>
             </div>
-            <div className="text-2xl font-black text-white">BO{tournament.legs_per_match}</div>
+            <div className="text-xl sm:text-2xl font-black text-white">BO{tournament.legs_per_match}</div>
             <div className="text-xs text-slate-500 mt-1">{tournament.game_mode} · {tournament.round_scheduling === 'multiDay' ? 'Multi-Day' : 'Single Day'}</div>
           </div>
 
           {/* Rounds */}
-          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 sm:p-5 hover:border-purple-500/20 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 bg-purple-500/15 rounded-xl flex items-center justify-center group-hover:bg-purple-500/25 transition-colors">
-                <Zap className="w-4.5 h-4.5 text-purple-400" />
+          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-3 sm:p-5 hover:border-purple-500/20 transition-all duration-300">
+            <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-purple-500/15 rounded-xl flex items-center justify-center group-hover:bg-purple-500/25 transition-colors">
+                <Zap className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-purple-400" />
               </div>
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Rounds</span>
+              <span className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">Rounds</span>
             </div>
-            <div className="text-2xl font-black text-white">{totalRounds}</div>
+            <div className="text-xl sm:text-2xl font-black text-white">{totalRounds}</div>
             <div className="text-xs text-slate-500 mt-1">Single Elimination</div>
           </div>
 
           {/* Status */}
-          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-4 sm:p-5 hover:border-amber-500/20 transition-all duration-300">
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+          <div className="group bg-slate-900/70 backdrop-blur-sm border border-white/[0.06] rounded-2xl p-3 sm:p-5 hover:border-amber-500/20 transition-all duration-300">
+            <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+              <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
                 tournament.status === 'in_progress' ? 'bg-red-500/15 group-hover:bg-red-500/25' :
                 tournament.status === 'completed' ? 'bg-amber-500/15 group-hover:bg-amber-500/25' :
                 'bg-emerald-500/15 group-hover:bg-emerald-500/25'
               }`}>
-                {tournament.status === 'in_progress' ? <Flame className="w-4.5 h-4.5 text-red-400" /> :
-                 tournament.status === 'completed' ? <Crown className="w-4.5 h-4.5 text-amber-400" /> :
-                 <Clock className="w-4.5 h-4.5 text-emerald-400" />}
+                {tournament.status === 'in_progress' ? <Flame className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-red-400" /> :
+                 tournament.status === 'completed' ? <Crown className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-amber-400" /> :
+                 <Clock className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-emerald-400" />}
               </div>
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Status</span>
+              <span className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wider">Status</span>
             </div>
-            <div className={`text-2xl font-black ${
-              tournament.status === 'in_progress' ? 'text-red-400' :
+            <div className={`text-xl sm:text-2xl font-black ${tournament.status === 'in_progress' ? 'text-red-400' :
               tournament.status === 'completed' ? 'text-amber-400' : 'text-white'
             }`}>
               {(() => {
