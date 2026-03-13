@@ -24,14 +24,14 @@ export function CheckoutDetailsDialog({
   const [dartsThrown, setDartsThrown] = useState<number>(3);
   const [dartsAtDouble, setDartsAtDouble] = useState<number>(1);
 
-  // Reset state when dialog opens
+  // Reset state when dialog opens or score changes
   useEffect(() => {
     if (isOpen) {
       setStep('darts');
       setDartsThrown(3);
       setDartsAtDouble(1);
     }
-  }, [isOpen]);
+  }, [isOpen, score]);
 
   // Calculate darts options based on score
   const getDartsOptions = () => {
