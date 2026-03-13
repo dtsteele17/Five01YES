@@ -2524,9 +2524,9 @@ export default function CareerPage() {
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
      <div className="relative max-w-lg w-full mx-4 bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl ring-1 ring-amber-500/30 shadow-2xl overflow-hidden">
       <div className="p-6 text-center">
-       <div className="text-4xl mb-3"></div>
-       <h2 className="text-xl font-bold text-white mb-1">Tournament Invitation</h2>
-       <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league.</p>
+       <div className="text-4xl mb-3">🏆</div>
+       <h2 className="text-xl font-bold text-white mb-1">You have been invited to these tournaments!</h2>
+       <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league. Larger tournaments award more REP!</p>
        
        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         {/* Option 1 */}
@@ -2562,10 +2562,11 @@ export default function CareerPage() {
         >
          <div className="text-amber-400 text-lg font-bold mb-1">{tournamentOptions.option1.name}</div>
          <div className="flex items-center gap-2 text-slate-400 text-xs">
-          <span> {tournamentOptions.option1.bracket_size} players</span>
-          <span></span>
+          <span>{tournamentOptions.option1.bracket_size} players</span>
+          <span>|</span>
           <span>{tournamentOptions.option1.format}</span>
          </div>
+         <div className="mt-2 text-emerald-400 text-xs font-semibold">+{Math.round(tournamentOptions.option1.bracket_size * 1.5)} REP for winning</div>
         </button>
 
         {/* Option 2 */}
@@ -2601,10 +2602,11 @@ export default function CareerPage() {
         >
          <div className="text-blue-400 text-lg font-bold mb-1">{tournamentOptions.option2.name}</div>
          <div className="flex items-center gap-2 text-slate-400 text-xs">
-          <span> {tournamentOptions.option2.bracket_size} players</span>
-          <span></span>
+          <span>{tournamentOptions.option2.bracket_size} players</span>
+          <span>|</span>
           <span>{tournamentOptions.option2.format}</span>
          </div>
+         <div className="mt-2 text-emerald-400 text-xs font-semibold">+{Math.round(tournamentOptions.option2.bracket_size * 1.5)} REP for winning</div>
         </button>
        </div>
 
