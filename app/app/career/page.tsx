@@ -115,6 +115,7 @@ export default function CareerPage() {
  const [pendingInvites, setPendingInvites] = useState<{ event_id: string; event_name: string; bracket_size: number }[]>([]);
  const [showTournamentChoicePopup, setShowTournamentChoicePopup] = useState(false);
  const [sponsorOffer, setSponsorOffer] = useState<any>(null);
+ const [sponsorGoals, setSponsorGoals] = useState<any[]>([]);
  const [tournamentChoiceEvent, setTournamentChoiceEvent] = useState<{ id: string; name: string } | null>(null);
  const [tournamentOptions, setTournamentOptions] = useState<{ option1: any; option2: any } | null>(null);
  const [choosingTournament, setChoosingTournament] = useState(false);
@@ -455,6 +456,31 @@ export default function CareerPage() {
      setSponsorOffer(null);
     }
    } catch (e) { /* no pending offer */ setSponsorOffer(null); }
+
+   // Fetch sponsor goals and check progress
+   try {
+    const { data: goals } = await supabase
+     .from('career_sponsor_goals')
+     .select('*')
+     .eq('career_id', careerId)
+     .order('completed', { ascending: true });
+    setSponsorGoals(goals || []);
+    
+    // Check goal progress
+    const { data: goalCheck } = await supabase.rpc('rpc_check_sponsor_goals', { p_career_id: careerId });
+    if (goalCheck?.newly_completed?.length > 0) {
+     for (const g of goalCheck.newly_completed) {
+      toast.success(`Goal complete: ${g.description} (+${g.reward} fans!)`);
+     }
+     // Refresh goals after completion
+     const { data: updatedGoals } = await supabase
+      .from('career_sponsor_goals')
+      .select('*')
+      .eq('career_id', careerId)
+      .order('completed', { ascending: true });
+     setSponsorGoals(updatedGoals || []);
+    }
+   } catch (e) { setSponsorGoals([]); }
 
    // Track pending tournament invite
    if (homeData.pending_invite) {
@@ -1549,6 +1575,8 @@ export default function CareerPage() {
                p_accept: true,
               });
               if (error || res?.error) { toast.error(res?.error || 'Failed'); return; }
+              // Create sponsor goals for the new contract
+              try { await supabase.rpc('rpc_create_sponsor_goals', { p_career_id: careerId, p_contract_id: sponsorOffer.contract_id }); } catch {}
               toast.success(res?.message || 'Sponsor accepted!');
               loadCareer();
              }}
@@ -1588,15 +1616,31 @@ export default function CareerPage() {
                <Award className="w-4 h-4 text-purple-400" />
               </div>
              </div>
-             {sp.rep_objectives && sp.rep_objectives.length > 0 && (
-              <div className={`text-[10px] mt-2 px-2 py-1.5 rounded-lg ${sp.objectives_progress?.completed ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/5'}`}>
-               {sp.objectives_progress?.completed ? (
-                <span className="text-emerald-400 font-bold"> Goal Reached! +10 fans</span>
-               ) : (
-                <span className="text-amber-400/70"> Goal: {sp.rep_objectives[0]?.description}</span>
-               )}
-              </div>
-             )}
+             {(() => {
+              const contractGoals = sponsorGoals.filter((g: any) => g.contract_id === sp.contract_id);
+              if (contractGoals.length === 0) return null;
+              return (
+               <div className="mt-2 space-y-1.5">
+                {contractGoals.map((g: any) => (
+                 <div key={g.id} className={`text-[10px] px-2 py-1.5 rounded-lg ${g.completed ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/5'}`}>
+                  {g.completed ? (
+                   <span className="text-emerald-400 font-bold">&#10003; {g.goal_description} +{g.fans_reward} fans!</span>
+                  ) : (
+                   <div>
+                    <div className="flex justify-between mb-0.5">
+                     <span className="text-amber-400/70">&#127919; {g.goal_description}</span>
+                     <span className="text-slate-500">{g.current_value}/{g.target_value}</span>
+                    </div>
+                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                     <div className="h-full bg-amber-500/60 rounded-full transition-all" style={{ width: `${Math.min(100, (g.current_value / g.target_value) * 100)}%` }} />
+                    </div>
+                   </div>
+                  )}
+                 </div>
+                ))}
+               </div>
+              );
+             })()}
             </div>
            ))}
           </div>
@@ -2463,7 +2507,11 @@ export default function CareerPage() {
           onClick={async () => {
            setProcessingRenewal(true);
            const supabase = createClient();
-           await supabase.rpc('rpc_career_end_season_sponsor', { p_career_id: careerId, p_action: 'renew' });
+           const { data: renewRes } = await supabase.rpc('rpc_career_end_season_sponsor', { p_career_id: careerId, p_action: 'renew' });
+           // Create new goals for renewed contract
+           if (sponsorRenewalData.current_sponsor?.contract_id) {
+            try { await supabase.rpc('rpc_create_sponsor_goals', { p_career_id: careerId, p_contract_id: sponsorRenewalData.current_sponsor.contract_id }); } catch {}
+           }
            toast.success('Sponsor renewed!');
            setShowSponsorRenewal(false);
            setProcessingRenewal(false);

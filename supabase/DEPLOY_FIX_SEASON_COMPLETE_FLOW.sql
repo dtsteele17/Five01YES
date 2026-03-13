@@ -112,7 +112,7 @@ BEGIN
   -- Sponsors
   SELECT json_agg(row_to_json(sc)) INTO v_sponsor
   FROM (
-    SELECT c.slot, s.name, s.rep_bonus_pct, s.rep_objectives, c.objectives_progress, c.status
+    SELECT c.id as contract_id, c.slot, s.name, s.rep_bonus_pct, s.rep_objectives, c.objectives_progress, c.status
     FROM career_sponsor_contracts c
     JOIN career_sponsor_catalog s ON s.id = c.sponsor_id
     WHERE c.career_id = p_career_id AND c.status = 'active'
