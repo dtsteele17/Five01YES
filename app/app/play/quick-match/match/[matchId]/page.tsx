@@ -3038,7 +3038,7 @@ export default function QuickMatchRoomPage() {
       if (isCheckout) {
         await submitScoreWithCheckoutDetails(score, genericDarts, 3, dartsAtDouble);
       } else {
-        await submitScore(score, false, genericDarts, false, true, dartsAtDouble);
+        await submitScoreWithDartsAtDouble(score, genericDarts, dartsAtDouble);
       }
     } finally {
       submitLockRef.current = false;
