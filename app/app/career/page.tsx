@@ -369,22 +369,15 @@ export default function CareerPage() {
      }
     }
 
-    // After match 10: Tournament 2 (32-player, mandatory)
-    // Check if T1 is done first, then trigger T2
-    if (leagueGamesPlayed >= 10) {
-     const { data: t1check } = await supabase.from('career_events').select('id, status')
+    // After match 10: Tournament 2 (16-player league tournament, mandatory)
+    if (leagueGamesPlayed >= 10 && (nextIsLeague || noPlayableEvents)) {
+     const { data: t2 } = await supabase.from('career_events').select('id')
       .eq('career_id', careerId).eq('season', homeData.career.season)
-      .eq('event_type', 'open').gte('sequence_no', 50).lt('sequence_no', 60).limit(1);
-     const t1Done = t1check && t1check.length > 0 && (t1check[0].status === 'completed' || t1check[0].status === 'skipped');
-     if (t1Done) {
-      const { data: t2 } = await supabase.from('career_events').select('id')
-       .eq('career_id', careerId).eq('season', homeData.career.season)
-       .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
-      if (!t2 || t2.length === 0) {
-       try { await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 2 }); } catch {}
-       const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
-       if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
-      }
+      .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
+     if (!t2 || t2.length === 0) {
+      try { await supabase.rpc('rpc_create_tier4_tournament', { p_career_id: careerId, p_tournament_num: 2 }); } catch {}
+      const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+      if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
      }
     }
 
