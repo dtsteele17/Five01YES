@@ -92,6 +92,18 @@ BEGIN
       END IF;
     END IF;
 
+    IF p_won THEN
+      UPDATE career_league_standings SET
+        played = played + 1, lost = lost + 1,
+        legs_for = legs_for + p_opponent_legs, legs_against = legs_against + p_player_legs
+      WHERE career_id = p_career_id AND opponent_id = v_match.opponent_id AND season = v_career.season;
+    ELSE
+      UPDATE career_league_standings SET
+        played = played + 1, won = won + 1, points = points + 2,
+        legs_for = legs_for + p_opponent_legs, legs_against = legs_against + p_player_legs
+      WHERE career_id = p_career_id AND opponent_id = v_match.opponent_id AND season = v_career.season;
+    END IF;
+
     BEGIN
       PERFORM rpc_simulate_matchday_results(
         p_career_id,
