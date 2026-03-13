@@ -269,27 +269,58 @@ export default function CareerBracketPage() {
         seed: i + 2,
       });
     }
-    // Fill remaining spots with random outside players
+    // For Pro Tour (tier 5): add top 25 ranked players first
+    if (career.tier >= 5) {
+      const { data: rankings } = await supabase
+        .from('career_pro_rankings')
+        .select('player_name, ranking_points, ranking_position, is_player')
+        .eq('career_id', carId)
+        .order('ranking_position')
+        .limit(25);
+      if (rankings) {
+        for (const r of rankings) {
+          if (r.is_player) continue; // player already added
+          if (usedNames.has(r.player_name)) continue;
+          if (participants.length >= bracketSize) break;
+          usedNames.add(r.player_name);
+          participants.push({
+            id: `ranked_${r.ranking_position}`,
+            name: r.player_name,
+            skill: Math.round(Math.max(40, 85 - (r.ranking_position - 1) * 1.5) * mult),
+            archetype: 'allrounder',
+            isPlayer: false,
+            seed: participants.length + 1,
+          });
+        }
+      }
+    }
+    // Fill remaining spots with seeded random outside players (no duplicates)
     if (participants.length < bracketSize) {
-      const firstNames = ['James','Thomas','Chris','Ryan','Jake','Daniel','Michael','Sam','Luke','Alex','Joseph','William','Benjamin','Matt','Nathan','Robert','Stephen','David','Philip','Ian','Lee','Gary','Paul','Peter','Kevin','Andrew','Marcus','John','Liam','Owen','Theo','Max','Kai','Finn','Jack','Noah','Leon','Kyle','Callum','Connor','Declan','Ethan','Harry','Aiden','Charlie','Oscar','Rory','Kev','Wayne','Barry','Craig','Darren','Jason','Shaun','Neil','Glen','Karl','Ollie','Toby','Freddie','Alfie','George','Archie','Dylan','Logan','Tyler','Bradley','Patrick','Dominic','Kieran','Miguel','Carlos','Stefan','Jan','Lars','Kris','Sven','Marco','Fabio','Klaus','Hans','Erik','Nils','Piotr','Tomas','Andrei','Viktor','Dmitri','Yuki','Kenji','Raj','Arjun','Vikram','Hamza','Omar','Ali','Isaac','Gabriel','Felix','Hugo','Rafael','Antonio','Pedro','Diego','Mateo','Sofia','Elena','Maria','Kev','Gemma','Amy','Sarah','Emma','Holly','Zoe','Kate','Lucy','Sophie','Lily','Eva','Isla','Ruby','Ellie','Freya','Hannah','Grace','Chloe','Lauren','Molly','Amber','Jade','Ella','Megan','Rachel','Becky','Natalie','Fiona','Kelly','Donna','Stacey','Tara','Nadia','Simone','Anya','Yuki','Mei','Priya','Aisha','Fatima','Rosa','Ingrid','Hanna'];
-      const lastNames = ['Smith','Jones','Brown','Wilson','Taylor','Clark','Lewis','Walker','Hall','Green','Baker','King','Wright','Scott','Adams','Hill','Moore','Wood','Kelly','Evans','Murphy','Cox','Webb','Stone','Cole','Ford','Ross','Reed','Mills','West','Fox','Hayes','Day','Hart','Long','Cross','Lane','Flynn','Nash','Burke','Walsh','Burns','Quinn','Rhodes','Marshall','Hunter','Barker','Holmes','Watson','Palmer','Ryan','Wells','Price','Bennett','Campbell','Murray','Stewart','Crawford','Cameron','Davidson','Grant','Hamilton','Robertson','Thomson','Henderson','Ferguson','Simpson','Patterson','O\'Brien','McCarthy','O\'Neill','Byrne','Doyle','Brennan','Daly','Gallagher','Reilly','Novak','Kowalski','Petrov','Ivanov','Mueller','Fischer','Weber','Schneider','Becker','Hoffman','Berg','Lindqvist','Johansson','Andersen','Olsen','Virtanen','De Boer','Van Dijk','Jansen','Garcia','Martinez','Lopez','Hernandez','Gonzalez','Perez','Santos','Silva','Costa','Ferreira','Patel','Sharma','Singh','Kumar','Khan','Tanaka','Sato','Chen','Wang','Kim','Park','Lee','Yang'];
+      const firstNames = ['James','Thomas','Chris','Ryan','Jake','Daniel','Michael','Sam','Luke','Alex','Joseph','William','Benjamin','Matt','Nathan','Robert','Stephen','David','Philip','Ian','Lee','Gary','Paul','Peter','Kevin','Andrew','Marcus','John','Liam','Owen','Theo','Max','Kai','Finn','Jack','Noah','Leon','Kyle','Callum','Connor','Declan','Ethan','Harry','Aiden','Charlie','Oscar','Rory','Wayne','Barry','Craig','Darren','Jason','Shaun','Neil','Glen','Karl','Ollie','Toby','Freddie','Alfie','George','Archie','Dylan','Logan','Tyler','Bradley','Patrick','Dominic','Kieran','Miguel','Carlos','Stefan','Jan','Lars','Kris','Sven','Marco','Fabio','Klaus','Hans','Erik','Nils','Piotr','Tomas','Andrei','Viktor','Isaac','Gabriel','Felix','Hugo','Rafael','Antonio','Pedro','Diego','Mateo','Sofia','Elena','Maria','Gemma','Amy','Sarah','Emma','Holly','Zoe','Kate','Lucy','Sophie','Lily','Eva','Isla','Ruby','Ellie','Freya','Hannah','Grace','Chloe','Lauren','Molly','Amber','Jade','Ella','Megan','Rachel','Becky','Natalie','Fiona','Bob','Mark','Adam','Richie','Kev'];
+      const lastNames = ['Smith','Jones','Brown','Wilson','Taylor','Clark','Lewis','Walker','Hall','Green','Baker','King','Wright','Scott','Adams','Hill','Moore','Wood','Kelly','Evans','Murphy','Cox','Webb','Stone','Cole','Ford','Ross','Reed','Mills','West','Fox','Hayes','Day','Hart','Long','Cross','Lane','Flynn','Nash','Burke','Walsh','Burns','Quinn','Rhodes','Marshall','Hunter','Barker','Holmes','Watson','Palmer','Ryan','Wells','Price','Bennett','Campbell','Murray','Stewart','Crawford','Cameron','Grant','Hamilton','Robertson','Thomson','Henderson','Ferguson','Simpson','Patterson','Byrne','Doyle','Brennan','Gallagher','Reilly','Novak','Kowalski','Petrov','Mueller','Fischer','Weber','Schneider','Becker','Berg','Johansson','Andersen','De Boer','Van Dijk','Jansen','Garcia','Martinez','Lopez','Hernandez','Santos','Silva','Costa','Ferreira','Patel','Sharma','Tanaka','Chen','Kim','Merz','Russo','Romano','Diaz','Maguire','Wagner'];
       const archetypes = ['allrounder','power','precision','finishing'];
+      const nicknames = ['The Hammer','Ice','Bulletproof','The Ace','Dynamite','Ironside','The Flash','Viper','Blitz','Thunder','The Machine','Scorpion','Wildcard','The Wolf','Maverick','The Surgeon','Hotshot','Cobra','The Natural','Laser','The Viking','Tornado','The Dart','The Beast','Lightning','Big Dog','Hard Man','Showtime','Nino','Jackpot','Smooth'];
+      // Seeded hash for deterministic generation per event
+      const seededHash = (n: number) => { let t = (seed + n) | 0; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0); };
       const remaining = bracketSize - participants.length;
-      const nicknames = ['The Hammer','Ice','Bulletproof','The Ace','Dynamite','Ironside','The Flash','Viper','The Rock','Blitz','Thunder','The Machine','Scorpion','Wildcard','The Wolf','Maverick','The Surgeon','Hotshot','Cobra','The Natural','Laser','The Viking','Tornado','The Dart','The Beast','The Thorn','Lightning','Old Reliable','Big Dog','Hard Man'];
-      let attempts = 0;
-      for (let i = 0; i < remaining && attempts < 500; attempts++) {
-        const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
-        const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
-        const nick = Math.random() < 0.25 ? nicknames[Math.floor(Math.random() * nicknames.length)] : null;
+      let genIdx = 0;
+      for (let i = 0; i < remaining && genIdx < 1000; genIdx++) {
+        const fnI = seededHash(genIdx * 3 + 1) % firstNames.length;
+        const lnI = seededHash(genIdx * 3 + 2) % lastNames.length;
+        const hasNick = (seededHash(genIdx * 3 + 3) % 4) === 0;
+        const nickI = seededHash(genIdx * 7 + 5) % nicknames.length;
+        const fn = firstNames[fnI];
+        const ln = lastNames[lnI];
+        const nick = hasNick ? nicknames[nickI] : null;
         const name = nick ? `${fn} '${nick}' ${ln}` : `${fn} ${ln}`;
         if (!usedNames.has(name)) {
           usedNames.add(name);
-          const skill = Math.round((30 + Math.random() * 40) * mult);
+          const skill = Math.round((30 + (seededHash(genIdx * 11) % 40)) * mult);
           participants.push({
             id: `outside_${i}`,
             name,
             skill,
-            archetype: archetypes[Math.floor(Math.random() * archetypes.length)],
+            archetype: archetypes[seededHash(genIdx * 13) % archetypes.length],
             isPlayer: false,
             seed: participants.length + 1,
           });
