@@ -1,15 +1,4 @@
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'career_league_standings' AND column_name = 'tier'
-  ) THEN
-    ALTER TABLE career_league_standings ADD COLUMN tier SMALLINT NOT NULL DEFAULT 1;
-    CREATE INDEX IF NOT EXISTS idx_career_standings_career ON career_league_standings(career_id, season, tier);
-  END IF;
-END $$;
-
-DO $$
+DO $fn$
 DECLARE
   r RECORD;
 BEGIN
@@ -21,7 +10,7 @@ BEGIN
   LOOP
     EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig || ' CASCADE';
   END LOOP;
-END $$;
+END $fn$;
 
 CREATE OR REPLACE FUNCTION rpc_career_complete_match(
   p_career_id UUID,
@@ -38,7 +27,7 @@ CREATE OR REPLACE FUNCTION rpc_career_complete_match(
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $fn$
 DECLARE
   v_career career_profiles;
   v_match career_matches;
@@ -48,6 +37,7 @@ DECLARE
   v_streak INTEGER;
   v_streak_bonus INTEGER := 0;
   v_loss_penalty INTEGER := 0;
+  v_has_tier BOOLEAN;
 BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id AND user_id = auth.uid();
   IF NOT FOUND THEN RETURN json_build_object('success', false, 'error', 'Career not found'); END IF;
@@ -70,30 +60,47 @@ BEGIN
 
   UPDATE career_events SET status = 'completed' WHERE id = v_event.id AND status IN ('active', 'pending');
 
+  SELECT EXISTS(
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'career_league_standings' AND column_name = 'tier'
+  ) INTO v_has_tier;
+
   IF v_event.event_type = 'league' THEN
-    IF p_won THEN
-      UPDATE career_league_standings SET
-        played = played + 1, won = won + 1, points = points + 2,
-        legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
-      WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
+    IF v_has_tier THEN
+      IF p_won THEN
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1, points = points + 2,
+          legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
+        WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
+      ELSE
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
+        WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
+      END IF;
     ELSE
-      UPDATE career_league_standings SET
-        played = played + 1, lost = lost + 1,
-        legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
-      WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
+      IF p_won THEN
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1, points = points + 2,
+          legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
+        WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season;
+      ELSE
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
+        WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season;
+      END IF;
     END IF;
 
-    UPDATE career_matchday_fixtures SET
-      home_score = p_player_legs,
-      away_score = p_opponent_legs,
-      simulated = TRUE
-    WHERE event_id = v_event.id AND (is_player_home = TRUE OR is_player_away = TRUE);
-
-    PERFORM rpc_simulate_matchday_results(
-      p_career_id,
-      v_event.id,
-      COALESCE(v_event.format_legs, CASE v_career.tier WHEN 3 THEN 5 WHEN 4 THEN 7 ELSE 3 END)::SMALLINT
-    );
+    BEGIN
+      PERFORM rpc_simulate_matchday_results(
+        p_career_id,
+        v_event.id,
+        COALESCE(v_event.format_legs, CASE v_career.tier WHEN 3 THEN 5 WHEN 4 THEN 7 ELSE 3 END)::SMALLINT
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RAISE NOTICE 'simulate_matchday_results failed: %', SQLERRM;
+    END;
 
     UPDATE career_profiles SET
       week = week + 1, day = day + 7, updated_at = now()
@@ -155,4 +162,6 @@ BEGIN
     'opponent_legs', p_opponent_legs
   );
 END;
-$$;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION rpc_career_complete_match(UUID, UUID, BOOLEAN, SMALLINT, SMALLINT, REAL, REAL, REAL, SMALLINT, SMALLINT) TO authenticated;

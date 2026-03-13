@@ -1,14 +1,3 @@
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'career_league_standings' AND column_name = 'tier'
-  ) THEN
-    ALTER TABLE career_league_standings ADD COLUMN tier SMALLINT NOT NULL DEFAULT 1;
-    CREATE INDEX IF NOT EXISTS idx_career_standings_career ON career_league_standings(career_id, season, tier);
-  END IF;
-END $$;
-
 DROP FUNCTION IF EXISTS rpc_simulate_matchday_results(UUID, UUID, SMALLINT);
 
 CREATE OR REPLACE FUNCTION rpc_simulate_matchday_results(
@@ -38,11 +27,17 @@ DECLARE
   v_temp UUID;
   v_j INTEGER;
   v_seed INTEGER;
+  v_has_tier BOOLEAN;
 BEGIN
   SELECT * INTO v_career FROM career_profiles WHERE id = p_career_id;
   IF NOT FOUND THEN RETURN json_build_object('simulated', 0); END IF;
 
   v_legs_to_win := ceil(p_best_of::REAL / 2);
+
+  SELECT EXISTS(
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'career_league_standings' AND column_name = 'tier'
+  ) INTO v_has_tier;
 
   SELECT cm.opponent_id INTO v_player_opponent_id
   FROM career_matches cm
@@ -54,24 +49,35 @@ BEGIN
   WHERE career_id = p_career_id
     AND event_type = 'league'
     AND season = v_career.season
-    AND tier = v_career.tier
     AND status IN ('completed', 'active', 'pending')
     AND id <= p_event_id;
 
-  SELECT array_agg(co.id ORDER BY co.id)
-  INTO v_ai_ids
-  FROM career_opponents co
-  JOIN career_league_standings ls ON ls.opponent_id = co.id AND ls.career_id = p_career_id
-    AND ls.season = v_career.season AND ls.tier = v_career.tier
-  WHERE co.career_id = p_career_id
-    AND co.id != COALESCE(v_player_opponent_id, '00000000-0000-0000-0000-000000000000'::UUID);
+  IF v_has_tier THEN
+    SELECT array_agg(ls.opponent_id ORDER BY ls.opponent_id)
+    INTO v_ai_ids
+    FROM career_league_standings ls
+    WHERE ls.career_id = p_career_id
+      AND ls.season = v_career.season
+      AND ls.tier = v_career.tier
+      AND ls.is_player = FALSE
+      AND ls.opponent_id IS NOT NULL
+      AND ls.opponent_id != COALESCE(v_player_opponent_id, '00000000-0000-0000-0000-000000000000'::UUID);
+  ELSE
+    SELECT array_agg(ls.opponent_id ORDER BY ls.opponent_id)
+    INTO v_ai_ids
+    FROM career_league_standings ls
+    WHERE ls.career_id = p_career_id
+      AND ls.season = v_career.season
+      AND ls.is_player = FALSE
+      AND ls.opponent_id IS NOT NULL
+      AND ls.opponent_id != COALESCE(v_player_opponent_id, '00000000-0000-0000-0000-000000000000'::UUID);
+  END IF;
 
   IF v_ai_ids IS NULL OR array_length(v_ai_ids, 1) < 2 THEN
     RETURN json_build_object('simulated', 0);
   END IF;
 
   v_n := array_length(v_ai_ids, 1);
-
   IF v_n % 2 = 1 THEN
     v_ai_ids := v_ai_ids[1:v_n-1];
     v_n := v_n - 1;
@@ -95,30 +101,50 @@ BEGIN
     v_winner_legs := v_legs_to_win;
     v_loser_legs := (abs(hashtext(v_away_id::text || v_home_id::text || v_matchday_num::text)) % v_legs_to_win)::SMALLINT;
 
-    IF v_home_wins THEN
-      UPDATE career_league_standings SET
-        played = played + 1, won = won + 1, points = points + 2,
-        legs_for = legs_for + v_winner_legs, legs_against = legs_against + v_loser_legs
-      WHERE career_id = p_career_id AND opponent_id = v_home_id
-        AND season = v_career.season AND tier = v_career.tier;
-
-      UPDATE career_league_standings SET
-        played = played + 1, lost = lost + 1,
-        legs_for = legs_for + v_loser_legs, legs_against = legs_against + v_winner_legs
-      WHERE career_id = p_career_id AND opponent_id = v_away_id
-        AND season = v_career.season AND tier = v_career.tier;
+    IF v_has_tier THEN
+      IF v_home_wins THEN
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1, points = points + 2,
+          legs_for = legs_for + v_winner_legs, legs_against = legs_against + v_loser_legs
+        WHERE career_id = p_career_id AND opponent_id = v_home_id
+          AND season = v_career.season AND tier = v_career.tier;
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + v_loser_legs, legs_against = legs_against + v_winner_legs
+        WHERE career_id = p_career_id AND opponent_id = v_away_id
+          AND season = v_career.season AND tier = v_career.tier;
+      ELSE
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1, points = points + 2,
+          legs_for = legs_for + v_winner_legs, legs_against = legs_against + v_loser_legs
+        WHERE career_id = p_career_id AND opponent_id = v_away_id
+          AND season = v_career.season AND tier = v_career.tier;
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + v_loser_legs, legs_against = legs_against + v_winner_legs
+        WHERE career_id = p_career_id AND opponent_id = v_home_id
+          AND season = v_career.season AND tier = v_career.tier;
+      END IF;
     ELSE
-      UPDATE career_league_standings SET
-        played = played + 1, won = won + 1, points = points + 2,
-        legs_for = legs_for + v_winner_legs, legs_against = legs_against + v_loser_legs
-      WHERE career_id = p_career_id AND opponent_id = v_away_id
-        AND season = v_career.season AND tier = v_career.tier;
-
-      UPDATE career_league_standings SET
-        played = played + 1, lost = lost + 1,
-        legs_for = legs_for + v_loser_legs, legs_against = legs_against + v_winner_legs
-      WHERE career_id = p_career_id AND opponent_id = v_home_id
-        AND season = v_career.season AND tier = v_career.tier;
+      IF v_home_wins THEN
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1, points = points + 2,
+          legs_for = legs_for + v_winner_legs, legs_against = legs_against + v_loser_legs
+        WHERE career_id = p_career_id AND opponent_id = v_home_id AND season = v_career.season;
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + v_loser_legs, legs_against = legs_against + v_winner_legs
+        WHERE career_id = p_career_id AND opponent_id = v_away_id AND season = v_career.season;
+      ELSE
+        UPDATE career_league_standings SET
+          played = played + 1, won = won + 1, points = points + 2,
+          legs_for = legs_for + v_winner_legs, legs_against = legs_against + v_loser_legs
+        WHERE career_id = p_career_id AND opponent_id = v_away_id AND season = v_career.season;
+        UPDATE career_league_standings SET
+          played = played + 1, lost = lost + 1,
+          legs_for = legs_for + v_loser_legs, legs_against = legs_against + v_winner_legs
+        WHERE career_id = p_career_id AND opponent_id = v_home_id AND season = v_career.season;
+      END IF;
     END IF;
 
     v_simulated := v_simulated + 1;
