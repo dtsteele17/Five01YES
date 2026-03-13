@@ -1349,7 +1349,7 @@ export default function CareerPage() {
       <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1.5">
        <Star className="w-3.5 h-3.5 text-amber-400" />
        <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
-       <span className="text-amber-400/60 text-[10px] font-medium">REP</span>
+       <span className="text-amber-400/60 text-[10px] font-medium">FANS</span>
       </div>
       {/* Form indicator hidden until form tracking is implemented */}
      </div>
@@ -1530,7 +1530,7 @@ export default function CareerPage() {
             </div>
             <div className="flex-1">
              <span className="text-amber-400 font-bold text-sm">{sponsorOffer.sponsor_name}</span>
-             <p className="text-slate-400 text-[10px]">+{(sponsorOffer.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+             <p className="text-slate-400 text-[10px]">+{(sponsorOffer.rep_bonus_pct * 100).toFixed(0)}% fans bonus</p>
             </div>
            </div>
            <p className="text-slate-400 text-xs mb-3">{sponsorOffer.flavour_text}</p>
@@ -1582,7 +1582,7 @@ export default function CareerPage() {
              <div className="flex items-center justify-between mb-1">
               <div>
                <span className="text-white font-semibold text-sm">{sp.name}</span>
-               <p className="text-purple-300/60 text-xs">+{Math.min(sp.rep_bonus_pct * 100, sp.first_sponsor ? 5 : sp.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+               <p className="text-purple-300/60 text-xs">+{Math.min(sp.rep_bonus_pct * 100, sp.first_sponsor ? 5 : sp.rep_bonus_pct * 100).toFixed(0)}% fans bonus</p>
               </div>
               <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
                <Award className="w-4 h-4 text-purple-400" />
@@ -1591,7 +1591,7 @@ export default function CareerPage() {
              {sp.rep_objectives && sp.rep_objectives.length > 0 && (
               <div className={`text-[10px] mt-2 px-2 py-1.5 rounded-lg ${sp.objectives_progress?.completed ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/5'}`}>
                {sp.objectives_progress?.completed ? (
-                <span className="text-emerald-400 font-bold"> Goal Reached! +10 REP</span>
+                <span className="text-emerald-400 font-bold"> Goal Reached! +10 fans</span>
                ) : (
                 <span className="text-amber-400/70"> Goal: {sp.rep_objectives[0]?.description}</span>
                )}
@@ -1612,10 +1612,10 @@ export default function CareerPage() {
 
          {/* REP total */}
          <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-          <span className="text-slate-400 text-xs font-medium">Reputation</span>
+          <span className="text-slate-400 text-xs font-medium">Supporters</span>
           <div className="flex items-baseline gap-1.5">
            <span className="text-amber-400 font-black text-lg tabular-nums">{career.rep.toLocaleString()}</span>
-           <span className="text-amber-400/50 text-[10px] font-semibold uppercase">REP</span>
+           <span className="text-amber-400/50 text-[10px] font-semibold uppercase">FANS</span>
           </div>
          </div>
         </div>
@@ -2474,7 +2474,7 @@ export default function CareerPage() {
            <span className="text-xs text-purple-400 font-bold uppercase"> Renew</span>
           </div>
           <div className="text-white font-bold">{sponsorRenewalData.current_sponsor.name}</div>
-          <p className="text-purple-300/60 text-xs">+{(sponsorRenewalData.current_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+          <p className="text-purple-300/60 text-xs">+{(sponsorRenewalData.current_sponsor.rep_bonus_pct * 100).toFixed(0)}% fans bonus</p>
          </button>
         )}
 
@@ -2501,7 +2501,7 @@ export default function CareerPage() {
            <span className="text-xs text-blue-400 font-bold uppercase"> Switch to</span>
           </div>
           <div className="text-white font-bold">{sponsorRenewalData.alternative_sponsor.name}</div>
-          <p className="text-blue-300/60 text-xs">+{(sponsorRenewalData.alternative_sponsor.rep_bonus_pct * 100).toFixed(0)}% REP bonus</p>
+          <p className="text-blue-300/60 text-xs">+{(sponsorRenewalData.alternative_sponsor.rep_bonus_pct * 100).toFixed(0)}% fans bonus</p>
          </button>
         )}
 
@@ -2534,7 +2534,7 @@ export default function CareerPage() {
       <div className="p-6 text-center">
        <div className="text-4xl mb-3">🏆</div>
        <h2 className="text-xl font-bold text-white mb-1">You have been invited to these tournaments!</h2>
-       <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league. Larger tournaments award more REP!</p>
+       <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league. Larger tournaments award more fans!/p>
        
        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         {/* Option 1 */}
@@ -2574,7 +2574,7 @@ export default function CareerPage() {
           <span>|</span>
           <span>{tournamentOptions.option1.format}</span>
          </div>
-         <div className="mt-2 text-emerald-400 text-xs font-semibold">+{Math.round(tournamentOptions.option1.bracket_size * 1.5)} REP for winning</div>
+         <div className="mt-2 text-emerald-400 text-xs font-semibold">+{Math.round(tournamentOptions.option1.bracket_size * 1.5)} fans for winning</div>
         </button>
 
         {/* Option 2 */}
@@ -2614,7 +2614,7 @@ export default function CareerPage() {
           <span>|</span>
           <span>{tournamentOptions.option2.format}</span>
          </div>
-         <div className="mt-2 text-emerald-400 text-xs font-semibold">+{Math.round(tournamentOptions.option2.bracket_size * 1.5)} REP for winning</div>
+         <div className="mt-2 text-emerald-400 text-xs font-semibold">+{Math.round(tournamentOptions.option2.bracket_size * 1.5)} fans for winning</div>
         </button>
        </div>
 
@@ -2805,7 +2805,7 @@ export default function CareerPage() {
          </p>
          {relegationData.rep_lost > 0 && (
           <p className="text-red-400/80 text-xs mb-1">
-           -{relegationData.rep_lost} REP lost
+           -{relegationData.rep_lost} fans lost
           </p>
          )}
          <p className="text-slate-500 text-xs mb-6">
