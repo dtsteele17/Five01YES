@@ -1199,7 +1199,7 @@ export default function CareerPage() {
  }
 
  // Career Mode Lock
- const isCareerLocked = true; // Set to false to unlock
+ const isCareerLocked = false; // Set to true to lock
  if (isCareerLocked) {
   return (
    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 sm:p-6">

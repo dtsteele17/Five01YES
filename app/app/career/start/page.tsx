@@ -185,21 +185,6 @@ export default function CareerStartPage() {
           </Button>
         </div>
 
-        {/* Lock Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <Card className="bg-red-900/20 border-red-500/30 p-4">
-            <div className="flex items-center justify-center gap-3">
-              <Lock className="w-5 h-5 text-red-400" />
-              <p className="text-red-400 font-semibold">Career Mode is temporarily locked for testing</p>
-              <Lock className="w-5 h-5 text-red-400" />
-            </div>
-          </Card>
-        </motion.div>
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -262,11 +247,12 @@ export default function CareerStartPage() {
 
             <div className="pt-4">
               <Button
-                disabled
-                className="w-full bg-slate-600 text-slate-400 font-bold py-3 text-lg cursor-not-allowed"
+                onClick={() => setStep('slot')}
+                disabled={!selectedDifficulty}
+                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3 text-lg disabled:opacity-40"
               >
-                Continue (Locked)
-                <Lock className="w-5 h-5 ml-1" />
+                Continue
+                <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
             </div>
           </motion.div>
@@ -364,11 +350,21 @@ export default function CareerStartPage() {
 
             <div className="pt-4">
               <Button
-                disabled
-                className="w-full bg-slate-600 text-slate-400 font-bold py-3 text-lg cursor-not-allowed"
+                onClick={handleCreate}
+                disabled={creating || !selectedDifficulty}
+                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3 text-lg disabled:opacity-40"
               >
-                <Lock className="w-5 h-5 mr-2" />
-                Start Career (Locked)
+                {creating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Creating Career...
+                  </>
+                ) : (
+                  <>
+                    <Swords className="w-5 h-5 mr-2" />
+                    Start Career
+                  </>
+                )}
               </Button>
             </div>
           </motion.div>
