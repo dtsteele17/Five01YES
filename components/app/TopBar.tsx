@@ -44,7 +44,7 @@ const navLinks = [
   { href: '/app/play', label: 'Play', icon: Play },
   { href: '/app/ranked-divisions', label: 'Ranked Divisions', icon: Award },
   { href: '#', label: 'Leagues', icon: Users, locked: true },
-  { href: '#', label: 'Tournaments', icon: Trophy, locked: true },
+  { href: '/app/tournaments', label: 'Tournaments', icon: Trophy },
   { href: '/app/stats', label: 'Stats', icon: TrendingUp },
 ];
 
