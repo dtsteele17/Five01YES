@@ -5182,6 +5182,7 @@ export default function QuickMatchRoomPage() {
           gameMode={room?.game_mode?.toString() || '501'}
           bestOf={room?.legs_to_win ? room.legs_to_win * 2 - 1 : 1}
           currentUserId={currentUserId || ''}
+          matchRoomId={matchId}
         />
       )}
 

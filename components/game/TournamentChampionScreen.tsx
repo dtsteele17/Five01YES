@@ -2,8 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Trophy, Crown, Sparkles, Target, Home } from 'lucide-react';
+import { Trophy, Crown, Sparkles, Target, Home, Shield, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 interface PlayerStats {
   name: string;
@@ -29,6 +31,7 @@ interface TournamentChampionScreenProps {
   gameMode: string;
   bestOf: number;
   currentUserId: string;
+  matchRoomId?: string;
 }
 
 export function TournamentChampionScreen({
@@ -41,9 +44,30 @@ export function TournamentChampionScreen({
   gameMode,
   bestOf,
   currentUserId,
+  matchRoomId,
 }: TournamentChampionScreenProps) {
   const router = useRouter();
+  const supabase = createClient();
   const isChampion = winner.id === currentUserId;
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+
+  const opponentId = currentUserId === winner.id ? loser.id : winner.id;
+  const opponentName = currentUserId === winner.id ? loser.name : winner.name;
+  const GRADE_COLORS: Record<string, string> = {
+    'A': 'bg-emerald-600 text-white', 'B': 'bg-blue-600 text-white',
+    'C': 'bg-yellow-600 text-white', 'D': 'bg-orange-600 text-white', 'E': 'bg-red-600 text-white'
+  };
+  const gradeLabels: Record<string, string> = {
+    'A': 'Excellent - Fair play', 'B': 'Good', 'C': 'Average', 'D': 'Suspicious', 'E': 'Cheating'
+  };
+  const handleSubmitRating = async () => {
+    if (!selectedGrade || !matchRoomId) return;
+    try {
+      await supabase.rpc('rate_opponent_safety', { p_match_id: matchRoomId, p_rated_user_id: opponentId, p_grade: selectedGrade });
+    } catch (e) { console.log('Rating error:', e); }
+    setRatingSubmitted(true);
+  };
 
   const fmt = (v: number, suffix = '') => (v > 0 ? `${v.toFixed(1)}${suffix}` : '-');
   const fmtInt = (v: number) => (v > 0 ? v.toString() : '-');
@@ -78,7 +102,7 @@ export function TournamentChampionScreen({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-950 via-amber-950/20 to-slate-950 flex items-center justify-center overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-950 via-amber-950/30 to-slate-950 flex items-center justify-center overflow-y-auto" style={{ backgroundColor: 'rgba(5, 5, 15, 0.98)' }}>
       {/* Floating sparkles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(12)].map((_, i) => (
@@ -130,7 +154,7 @@ export function TournamentChampionScreen({
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7 }}
-          className="bg-slate-800/60 backdrop-blur rounded-2xl p-6 border border-amber-500/20"
+          className="bg-slate-800 rounded-2xl p-6 border border-amber-500/20"
         >
           <p className="text-center text-slate-400 text-sm mb-3 uppercase tracking-wide">Final Score</p>
           <div className="flex items-center justify-center gap-12">
@@ -157,6 +181,51 @@ export function TournamentChampionScreen({
           <StatBlock stats={winnerStats} name={winner.name} isWinner={true} />
           <StatBlock stats={loserStats} name={loser.name} isWinner={false} />
         </motion.div>
+
+        {/* Trust Rating */}
+        {matchRoomId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.0 }}
+          >
+            {!ratingSubmitted ? (
+              <div className="bg-slate-800 border border-slate-700/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-slate-300">Rate {opponentName}</span>
+                </div>
+                <div className="flex gap-2 mb-3">
+                  {['A', 'B', 'C', 'D', 'E'].map(grade => (
+                    <button
+                      key={grade}
+                      onClick={() => setSelectedGrade(grade)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
+                        selectedGrade === grade
+                          ? `${GRADE_COLORS[grade]} ring-2 ring-white/30 scale-105`
+                          : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                      }`}
+                    >
+                      {grade}
+                    </button>
+                  ))}
+                </div>
+                {selectedGrade && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">{gradeLabels[selectedGrade]}</span>
+                    <button onClick={handleSubmitRating} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded transition-colors">
+                      Submit
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-emerald-400 justify-center py-2">
+                <Check className="w-4 h-4" /> Rating submitted
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Actions */}
         <motion.div
