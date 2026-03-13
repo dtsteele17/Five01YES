@@ -63,9 +63,9 @@ INSERT INTO career_schedule_templates (tier, sequence_no, event_type, event_name
   '{"country":"Scotland","tournament_number":5,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
 (5, 6,  'pro_players_championship', 'Players Championship - Austria', 'pc_austria', 9, 64, FALSE,
   '{"country":"Austria","tournament_number":6,"optional":true,"round_formats":{"L64":9,"L32":9,"L16":11,"QF":13,"SF":13,"F":15},"rating_table":{"L64":5,"L32":10,"L16":20,"QF":30,"SF":45,"RU":60,"W":80}}'),
-(5, 7,  'pro_major', 'Pro Tour Major - England', 'pro_major_england', 11, 128, FALSE,
+(5, 8,  'pro_major', 'Pro Tour Major - England', 'pro_major_england', 11, 128, FALSE,
   '{"country":"England","tournament_number":7,"optional":false,"qualification_required":true,"top_32_auto_qualify":true,"qualifier_format":11,"round_formats":{"L128":11,"L64":11,"L32":13,"L16":15,"QF":17,"SF":19,"F":21},"rating_table":{"L128":5,"L64":12,"L32":20,"L16":35,"QF":50,"SF":70,"RU":95,"W":130}}'),
-(5, 8,  'pro_world_series', 'World Series - USA', 'ws_usa', 9, 128, FALSE,
+(5, 9,  'pro_world_series', 'World Series - USA', 'ws_usa', 9, 128, FALSE,
   '{"country":"USA","tournament_number":8,"optional":false,"round_formats":{"L128":9,"L64":9,"L32":11,"L16":13,"QF":15,"SF":17,"F":19},"rating_table":{"L128":3,"L64":8,"L32":15,"L16":25,"QF":40,"SF":55,"RU":75,"W":100}}');
 
 DROP FUNCTION IF EXISTS rpc_pro_tour_init_rankings(UUID);
@@ -491,7 +491,7 @@ BEGIN
     END IF;
 
     INSERT INTO career_events (career_id, season, sequence_no, event_type, event_name, format_legs, day, status)
-    VALUES (p_career_id, v_career.season, 70, 'pro_major_qualifier', 'Pro Tour Major Qualifier', 11, v_career.day + 2, 'pending')
+    VALUES (p_career_id, v_career.season, 7, 'pro_major_qualifier', 'Pro Tour Major Qualifier', 11, v_career.day + 2, 'pending')
     RETURNING id INTO v_qual_event_id;
 
     RETURN json_build_object('success', true, 'auto_qualified', false, 'player_rank', v_player_rank,
