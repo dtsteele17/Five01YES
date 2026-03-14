@@ -48,6 +48,17 @@ export default function CareerBracketPage() {
   const [showResults, setShowResults] = useState(false);
   const [tournamentResult, setTournamentResult] = useState<any>(null);
   const [routingToTraining, setRoutingToTraining] = useState(false);
+
+  // Replace "You" with actual player name in bracket data
+  function patchPlayerName(bracketData: any, name: string): any {
+    if (!bracketData?.matches || name === 'You') return bracketData;
+    const patched = JSON.parse(JSON.stringify(bracketData));
+    for (const m of patched.matches) {
+      if (m.participant1?.isPlayer && m.participant1.name === 'You') m.participant1.name = name;
+      if (m.participant2?.isPlayer && m.participant2.name === 'You') m.participant2.name = name;
+    }
+    return patched;
+  }
   const [pendingResult, setPendingResult] = useState<{ won: boolean; playerLegs: number; opponentLegs: number } | null>(null);
 
   useEffect(() => {
@@ -139,13 +150,13 @@ export default function CareerBracketPage() {
               event_id: eventId, career_id: careerId, bracket_size: bSize,
               rounds_total: Math.log2(bSize), current_round: 1, bracket_data: newBracket, status: 'active'
             }).select('id').single();
-            if (newRow) { setBracketId(newRow.id); setBracket(newBracket); setLoading(false); return; }
+            if (newRow) { setBracketId(newRow.id); setBracket(patchPlayerName(newBracket, playerName)); setLoading(false); return; }
           }
         }
       }
       // ✅ Bracket has real data — load it directly, no RPC call
       setBracketId(existingBracket!.id);
-      setBracket(existingBracket!.bracket_data);
+      setBracket(patchPlayerName(existingBracket!.bracket_data, playerName));
       setLoading(false);
       // Check for pending match result from sessionStorage
       setTimeout(() => {
@@ -173,7 +184,7 @@ export default function CareerBracketPage() {
           await supabase.from('career_events').update({ status: 'active' }).eq('id', eventId);
         }
         setBracketId(existingBracket.id);
-        setBracket(newBracket);
+        setBracket(patchPlayerName(newBracket, playerName));
         setLoading(false);
         return;
       }
@@ -200,7 +211,7 @@ export default function CareerBracketPage() {
           const newBracket = generateBracket(participants, bSize, fLegs);
           await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', newRow.id);
           setBracketId(newRow.id);
-          setBracket(newBracket);
+          setBracket(patchPlayerName(newBracket, playerName));
           setLoading(false);
           return;
         }
@@ -221,12 +232,12 @@ export default function CareerBracketPage() {
       if (csParticipants.length >= (data.bracket_size || 8)) {
         const newBracket = generateBracket(csParticipants, data.bracket_size || 8, data.format_legs || 11);
         await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', data.bracket_id);
-        setBracket(newBracket);
+        setBracket(patchPlayerName(newBracket, playerName));
       } else if (data.bracket_data?.matches?.length > 0) {
-        setBracket(data.bracket_data);
+        setBracket(patchPlayerName(data.bracket_data, playerName));
       }
     } else if (data.bracket_data?.matches?.length > 0) {
-      setBracket(data.bracket_data);
+      setBracket(patchPlayerName(data.bracket_data, playerName));
     } else {
       // Generate from participants returned by RPC
       const participants = data.participants?.length > 0 ? data.participants
@@ -234,7 +245,7 @@ export default function CareerBracketPage() {
       const newBracket = generateBracket(participants, data.bracket_size || 8, data.format_legs || 3);
       // Save using direct update (more reliable than RPC)
       await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', data.bracket_id);
-      setBracket(newBracket);
+      setBracket(patchPlayerName(newBracket, playerName));
     }
 
     setLoading(false);
@@ -756,7 +767,7 @@ export default function CareerBracketPage() {
         )}
 
         {/* ═══ HORIZONTAL BRACKET ═══ */}
-        <Card className="p-5 bg-slate-800/60 border border-white/10 overflow-x-auto">
+        <Card className={`p-5 border overflow-x-auto ${getTierTheme(careerTier).cardBg} ${getTierTheme(careerTier).cardBorder}`}>
           <div className="flex gap-0 min-w-max">
             {rounds.map((round, ri) => {
               const isFinalRound = round.round === bracket.totalRounds;
@@ -766,15 +777,15 @@ export default function CareerBracketPage() {
                 <div className="text-center mb-4 px-3">
                   {isFinalRound ? (
                     <div className="flex items-center justify-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="text-xs font-black uppercase tracking-widest text-amber-400">
+                      <Trophy className={`w-3.5 h-3.5 ${getTierTheme(careerTier).accent}`} />
+                      <span className={`text-xs font-black uppercase tracking-widest ${getTierTheme(careerTier).accent}`}>
                         {round.name}
                       </span>
-                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                      <Trophy className={`w-3.5 h-3.5 ${getTierTheme(careerTier).accent}`} />
                     </div>
                   ) : (
                   <span className={`text-xs font-bold uppercase tracking-wider ${
-                    round.round === bracket.currentRound && !bracket.completed ? 'text-amber-400' : 'text-slate-500'
+                    round.round === bracket.currentRound && !bracket.completed ? getTierTheme(careerTier).accent : 'text-slate-500'
                   }`}>
                     {round.name}
                   </span>
@@ -801,16 +812,14 @@ export default function CareerBracketPage() {
                               ? 'border-white/10 bg-slate-800/50'
                               : 'border-white/5 bg-slate-900/30'
                         }`}>
-                          <MatchSlot
-                            name={match.participant1?.name || 'TBD'}
+                          <MatchSlot tierAccent={getTierTheme(careerTier).accent} name={match.participant1?.name || 'TBD'}
                             isPlayer={match.participant1?.isPlayer}
                             isWinner={match.winnerId === match.participant1?.id}
                             score={match.score?.p1Legs}
                             decided={!!match.winnerId}
                           />
                           <div className="border-t border-white/5" />
-                          <MatchSlot
-                            name={match.participant2?.name || 'TBD'}
+                          <MatchSlot tierAccent={getTierTheme(careerTier).accent} name={match.participant2?.name || 'TBD'}
                             isPlayer={match.participant2?.isPlayer}
                             isWinner={match.winnerId === match.participant2?.id}
                             score={match.score?.p2Legs}
@@ -902,15 +911,15 @@ export default function CareerBracketPage() {
   );
 }
 
-function MatchSlot({ name, isPlayer, isWinner, score, decided }: {
-  name: string; isPlayer?: boolean; isWinner: boolean; score?: number; decided: boolean;
+function MatchSlot({ name, isPlayer, isWinner, score, decided, tierAccent }: {
+  name: string; isPlayer?: boolean; isWinner: boolean; score?: number; decided: boolean; tierAccent?: string;
 }) {
   const isTBD = name === 'TBD';
   return (
     <div className={`flex items-center justify-between px-3 py-2 ${decided && isWinner ? 'bg-white/5' : ''}`}>
       <span className={`flex-1 ${
         isTBD ? 'text-slate-600 italic'
-        : isPlayer ? 'text-amber-400 font-semibold'
+        : isPlayer ? `${tierAccent || 'text-amber-400'} font-semibold`
         : decided && isWinner ? 'text-white font-semibold'
         : decided ? 'text-slate-500'
         : 'text-slate-300'
@@ -924,3 +933,5 @@ function MatchSlot({ name, isPlayer, isWinner, score, decided }: {
     </div>
   );
 }
+
+

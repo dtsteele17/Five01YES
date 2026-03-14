@@ -175,6 +175,8 @@ export default function WeekFixtures() {
       const bestOfMap: Record<number, any> = { 1: 'best-of-1', 3: 'best-of-3', 5: 'best-of-5', 7: 'best-of-7', 9: 'best-of-9', 11: 'best-of-11', 13: 'best-of-13', 15: 'best-of-15', 17: 'best-of-17', 19: 'best-of-19', 21: 'best-of-21', 23: 'best-of-23' };
 
       const opponentName = playerFixture.away_team;
+      const { data: cpName } = await supabase.from('career_profiles').select('player_name').eq('id', careerId).single();
+      const pName = cpName?.player_name || 'You';
       
       // Store return context — return to THIS matchday's results after the game
       sessionStorage.setItem('career_fixtures_return', JSON.stringify({
@@ -198,6 +200,7 @@ export default function WeekFixtures() {
           opponentName: opponentName,
           returnToFixtures: true,
           tier: weekData.tier,
+          playerName: pName,
         },
       });
       

@@ -1008,7 +1008,7 @@ export default function DartbotMatchPage() {
       
       const p1FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
-        true, 'You', p1Legs, completedLegs
+        true, config?.career?.playerName || 'You', p1Legs, completedLegs
       );
       const p2FullStats = calculatePlayerStatsFromVisits(
         allVisitsFormatted.map(v => ({ ...v, player: v.player === 'user' ? 'player1' : 'player2' })), 
@@ -1016,7 +1016,7 @@ export default function DartbotMatchPage() {
       );
       
       setMatchEndStats({
-        player1: { id: 'player1', name: 'You', legs: p1Legs },
+        player1: { id: 'player1', name: config?.career?.playerName || 'You', legs: p1Legs },
         player2: { id: 'player2', name: botName, legs: p2Legs },
         player1FullStats: p1FullStats,
         player2FullStats: p2FullStats,
@@ -2057,7 +2057,7 @@ export default function DartbotMatchPage() {
         <Card className="flex-1 bg-slate-800/50 border-white/10 p-2 overflow-hidden min-h-0">
           <VisitHistoryPanel 
             visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} 
-            myName="You" 
+            myName={config?.career?.playerName || "You"} 
             botName={botName} 
             currentLeg={currentLeg.legNumber} 
             onEditVisit={handleEditVisit}
@@ -2184,7 +2184,7 @@ export default function DartbotMatchPage() {
           {/* Player Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <QuickMatchPlayerCard
-              name="You"
+              name={config?.career?.playerName || "You"}
               remaining={player1Score}
               legs={player1LegsWon}
               legsToWin={legsToWin}
@@ -2227,7 +2227,7 @@ export default function DartbotMatchPage() {
             ) : (
               <VisitHistoryPanel 
                 visits={[...allLegs.flatMap(l => l.visits), ...currentLeg.visits]} 
-                myName="You" 
+                myName={config?.career?.playerName || "You"} 
                 botName={botName} 
                 currentLeg={currentLeg.legNumber} 
                 onEditVisit={handleEditVisit}
@@ -2386,3 +2386,4 @@ export default function DartbotMatchPage() {
     </div>
   );
 }
+
