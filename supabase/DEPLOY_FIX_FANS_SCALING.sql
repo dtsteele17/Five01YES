@@ -60,12 +60,33 @@ BEGIN
         played = played + 1, won = won + 1, points = points + 2,
         legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
       WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
+      -- Update opponent's record (they lost)
+      UPDATE career_league_standings SET
+        played = played + 1, lost = lost + 1,
+        legs_for = legs_for + p_opponent_legs, legs_against = legs_against + p_player_legs
+      WHERE career_id = p_career_id AND opponent_id = v_match.opponent_id AND season = v_career.season;
     ELSE
       UPDATE career_league_standings SET
         played = played + 1, lost = lost + 1,
         legs_for = legs_for + p_player_legs, legs_against = legs_against + p_opponent_legs
       WHERE career_id = p_career_id AND is_player = TRUE AND season = v_career.season AND tier = v_career.tier;
+      -- Update opponent's record (they won)
+      UPDATE career_league_standings SET
+        played = played + 1, won = won + 1, points = points + 2,
+        legs_for = legs_for + p_opponent_legs, legs_against = legs_against + p_player_legs
+      WHERE career_id = p_career_id AND opponent_id = v_match.opponent_id AND season = v_career.season;
     END IF;
+
+    -- Simulate AI matchday results
+    BEGIN
+      PERFORM rpc_simulate_matchday_results(
+        p_career_id,
+        v_event.id,
+        COALESCE(v_event.format_legs, CASE v_career.tier WHEN 3 THEN 5 WHEN 4 THEN 7 ELSE 3 END)::SMALLINT
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RAISE NOTICE 'simulate_matchday_results failed: %', SQLERRM;
+    END;
 
     UPDATE career_profiles SET
       week = week + 1, day = day + 7, updated_at = now()
