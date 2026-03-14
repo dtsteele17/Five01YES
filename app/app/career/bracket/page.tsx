@@ -593,10 +593,12 @@ export default function CareerBracketPage() {
           }
           // Batch update AI CS standings
           try {
-            await supabase.rpc('rpc_champions_series_update_ai', {
+            console.log('[BRACKET] Updating AI CS standings:', JSON.stringify(aiCSResults));
+            const aiUpdateRes = await supabase.rpc('rpc_champions_series_update_ai', {
               p_career_id: careerId,
               p_results: aiCSResults,
             });
+            console.log('[BRACKET] AI CS update result:', JSON.stringify(aiUpdateRes.data), 'error:', aiUpdateRes.error);
           } catch (e) { console.error('[BRACKET] AI CS update error:', e); }
         }
       } catch {}
