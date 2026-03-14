@@ -679,6 +679,7 @@ export default function DartbotMatchPage() {
   const { triggerLevelUp, LevelUpToastComponent } = useLevelUpToast();
   const [botLastVisitWasBust, setBotLastVisitWasBust] = useState(false);
   const [showVisualization, setShowVisualization] = useState(true);
+  const [botSpeed, setBotSpeed] = useState<1 | 2>(1);
   const [debugMode, setDebugMode] = useState(false);
   const [lastThreeDarts, setLastThreeDarts] = useState<DartResult[]>([]);
   const [botFormMultiplier] = useState(() => 0.85 + Math.random() * 0.3);
@@ -1220,7 +1221,8 @@ export default function DartbotMatchPage() {
     for (let i = 0; i < thrownDarts.length; i++) {
       const dart = thrownDarts[i];
       await new Promise<void>((resolve) => {
-        dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), i === 0 ? 600 : 1200);
+        const baseDelay = i === 0 ? 600 : 1200;
+        dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), baseDelay / botSpeed);
       });
 
       setDartboardHits(prev => [...prev, { x: dart.x, y: dart.y, label: dart.label, offboard: dart.offboard }]);
@@ -1228,7 +1230,7 @@ export default function DartbotMatchPage() {
 
       if (i < thrownDarts.length - 1) {
         await new Promise<void>((resolve) => {
-          dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 400);
+          dartboardAnimationTimerRef.current = window.setTimeout(() => resolve(), 400 / botSpeed);
         });
       }
     }
@@ -1240,11 +1242,11 @@ export default function DartbotMatchPage() {
       dartboardAnimationTimerRef.current = window.setTimeout(() => {
         setDartboardHits([]);
         resolve();
-      }, 1500);
+      }, 1500 / botSpeed);
     });
 
     botTurnInProgressRef.current = false;
-  }, [clearDartboardAnimationTimer]);
+  }, [clearDartboardAnimationTimer, botSpeed]);
 
   const botTakeTurn = useCallback(async () => {
     if (matchOverRef.current || isLegTransitioning) return;
@@ -1981,6 +1983,16 @@ export default function DartbotMatchPage() {
         {showVisualization && (currentPlayer === 'player2' || isBotThinking) && (
           <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
             <div className="relative flex items-start justify-center pt-1 pb-2">
+              <div className="absolute top-2 right-2 z-10 flex gap-1">
+                <button onClick={() => setBotSpeed(1)}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${botSpeed === 1 ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                  x1
+                </button>
+                <button onClick={() => setBotSpeed(2)}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${botSpeed === 2 ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                  x2
+                </button>
+              </div>
               <div className="relative w-full max-w-[260px] aspect-square -translate-y-1">
                 <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
               </div>
