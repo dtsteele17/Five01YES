@@ -81,15 +81,29 @@ BEGIN
     RETURN json_build_object('error', 'No goals available');
   END IF;
 
-  FOR v_i IN 1..LEAST(2, v_total) LOOP
-    v_goal := v_goals->(floor(random() * v_total)::integer);
-    
-    v_target := (v_goal->>'target')::integer;
-    v_desc := replace(v_goal->>'desc', '{n}', v_target::text);
+  -- Pick 2 unique goals (no duplicates of same type+target)
+  DECLARE
+    v_used_types TEXT[] := ARRAY[]::TEXT[];
+    v_attempts INT := 0;
+    v_key TEXT;
+    v_created INT := 0;
+  BEGIN
+    WHILE v_created < LEAST(2, v_total) AND v_attempts < 20 LOOP
+      v_attempts := v_attempts + 1;
+      v_goal := v_goals->(floor(random() * v_total)::integer);
+      v_key := (v_goal->>'type') || '_' || (v_goal->>'target');
+      
+      IF NOT (v_key = ANY(v_used_types)) THEN
+        v_used_types := array_append(v_used_types, v_key);
+        v_target := (v_goal->>'target')::integer;
+        v_desc := replace(v_goal->>'desc', '{n}', v_target::text);
 
-    INSERT INTO career_sponsor_goals (contract_id, career_id, goal_type, goal_description, target_value, fans_reward)
-    VALUES (p_contract_id, p_career_id, v_goal->>'type', v_desc, v_target, (v_goal->>'reward')::integer);
-  END LOOP;
+        INSERT INTO career_sponsor_goals (contract_id, career_id, goal_type, goal_description, target_value, fans_reward)
+        VALUES (p_contract_id, p_career_id, v_goal->>'type', v_desc, v_target, (v_goal->>'reward')::integer);
+        v_created := v_created + 1;
+      END IF;
+    END LOOP;
+  END;
 
   RETURN json_build_object('success', true, 'goals_created', LEAST(2, v_total));
 END;

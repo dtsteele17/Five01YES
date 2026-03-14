@@ -40,6 +40,7 @@ export default function CareerBracketPage() {
   const [eventType, setEventType] = useState('');
   const [eventSequence, setEventSequence] = useState<number | null>(null);
   const [careerTier, setCareerTier] = useState<number>(0);
+  const [playerName, setPlayerName] = useState('You');
   const [formatLegs, setFormatLegs] = useState(3);
   const [roundFormats, setRoundFormats] = useState<Record<string, number> | null>(null);
   const [playingMatch, setPlayingMatch] = useState(false);
@@ -78,8 +79,8 @@ export default function CareerBracketPage() {
       setEventSequence(eventInfo.sequence_no ?? null);
       setFormatLegs(eventInfo.format_legs || 3);
       // Get career tier
-      const { data: cp } = await supabase.from('career_profiles').select('tier').eq('id', careerId).single();
-      if (cp) setCareerTier(cp.tier);
+      const { data: cp } = await supabase.from('career_profiles').select('tier, player_name').eq('id', careerId).single();
+      if (cp) { setCareerTier(cp.tier); if (cp.player_name) setPlayerName(cp.player_name); }
       
       // Load round-specific formats for Pro Tour events
       if (eventInfo.event_type?.startsWith('pro_') || eventInfo.event_type === 'champions_series_night') {
@@ -253,7 +254,7 @@ export default function CareerBracketPage() {
 
   // Build participants from career_opponents table (deterministic, no RPC needed)
   async function buildParticipantsFromDB(supabase: any, carId: string, bracketSize: number, evtId: string) {
-    const { data: career } = await supabase.from('career_profiles').select('tier, career_seed, difficulty, season').eq('id', carId).single();
+    const { data: career } = await supabase.from('career_profiles').select('tier, career_seed, difficulty, season, player_name').eq('id', carId).single();
     const { data: evt } = await supabase.from('career_events').select('sequence_no, event_type').eq('id', evtId).single();
     if (!career) return [];
 
@@ -300,7 +301,7 @@ export default function CareerBracketPage() {
     const diffMult: Record<string, number> = { rookie: 0.7, amateur: 0.85, 'semi-pro': 1.0, pro: 1.15, 'world-class': 1.3, nightmare: 1.5 };
     const mult = diffMult[career.difficulty] || 1.0;
     const participants: BracketParticipant[] = [
-      { id: 'player', name: 'You', skill: 50, archetype: 'allrounder', isPlayer: true, seed: 1 },
+      { id: 'player', name: career.player_name || 'You', skill: 50, archetype: 'allrounder', isPlayer: true, seed: 1 },
     ];
     const usedNames = new Set<string>();
     // For Pro Tour (tier 5): ONLY use ranked players + random fill (no league opponents)
@@ -667,7 +668,8 @@ export default function CareerBracketPage() {
       mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
       bestOf: bestOfMap[matchFormat] || 'best-of-3', atcOpponent: 'bot',
       career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
-        opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds },
+        opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds,
+        playerName },
     });
     router.push('/app/play/training/501');
   }
@@ -742,7 +744,7 @@ export default function CareerBracketPage() {
                   <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
                     <Star className="w-5 h-5 text-amber-400" />
                   </div>
-                  <span className="text-amber-400 font-bold text-xs mt-1 block">You</span>
+                  <span className="text-amber-400 font-bold text-xs mt-1 block">{playerName}</span>
                 </div>
                 <div className="text-center">
                   <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block">{roundName}</span>

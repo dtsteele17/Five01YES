@@ -1947,7 +1947,7 @@ export default function DartbotMatchPage() {
         {/* Compact score tiles */}
         <div className="grid grid-cols-2 gap-2">
           <Card className={`bg-slate-800/50 border p-2 ${currentPlayer === 'player1' ? 'border-emerald-500/30' : 'border-white/10'}`}>
-            <div className="text-[10px] uppercase tracking-wide text-slate-400">You {currentPlayer === 'player1' && !matchWinner ? '🎯' : ''}</div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">{config?.career?.playerName || 'You'} {currentPlayer === 'player1' && !matchWinner ? '🎯' : ''}</div>
             <div className="mt-1 flex items-end justify-between">
               <div className="text-2xl font-bold text-emerald-400 leading-none">{player1Score}</div>
               <div className="text-right leading-none">
