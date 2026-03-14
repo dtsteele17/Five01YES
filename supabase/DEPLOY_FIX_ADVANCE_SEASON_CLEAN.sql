@@ -99,6 +99,22 @@ BEGIN
       v_career.tier, v_career.season, v_career.week, v_career.day);
   END IF;
 
+  -- Store Pro Tour ranking position at end of season
+  IF v_career.tier >= 5 THEN
+    DECLARE v_end_rank INT;
+    BEGIN
+      SELECT ranking_position INTO v_end_rank FROM career_pro_rankings
+      WHERE career_id = p_career_id AND is_player = TRUE;
+      IF v_end_rank IS NOT NULL THEN
+        INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, day)
+        VALUES (p_career_id, 'season_ranking',
+          'Season ' || v_career.season || ' Final Ranking: #' || v_end_rank,
+          'Finished the Pro Tour season ranked #' || v_end_rank || ' in the world.',
+          5, v_career.season, v_career.day);
+      END IF;
+    END;
+  END IF;
+
   v_new_season := v_career.season + 1;
   v_new_day := v_career.day + 5;
 

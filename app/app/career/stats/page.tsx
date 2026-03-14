@@ -21,6 +21,7 @@ interface SeasonStats {
   tournament_wins: number;
   league_position?: number;
   league_total?: number;
+  ranking_finish?: number;
 }
 
 interface AllTimeStats {
@@ -116,6 +117,18 @@ export default function CareerStatsPage() {
       }
     }
 
+    // Get Pro Tour season end rankings from milestones
+    const { data: rankMilestones } = await supabase
+      .from('career_milestones')
+      .select('season, title')
+      .eq('career_id', careerId)
+      .eq('milestone_type', 'season_ranking');
+    const seasonRankings: Record<number, number> = {};
+    for (const rm of (rankMilestones || [])) {
+      const match = rm.title?.match(/#(\d+)/);
+      if (match) seasonRankings[rm.season] = parseInt(match[1]);
+    }
+
     // Get tournament wins from milestones
     const { data: tWins } = await supabase
       .from('career_milestones')
@@ -154,6 +167,7 @@ export default function CareerStatsPage() {
           tournament_wins: 0,
           league_position: leaguePositions[season]?.position,
           league_total: leaguePositions[season]?.total,
+          ranking_finish: seasonRankings[season],
         };
       }
 
@@ -327,7 +341,12 @@ export default function CareerStatsPage() {
                         <span className="text-slate-500 text-xs ml-2">{season.tierName}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {season.league_position && season.league_total && season.tier >= 2 && (
+                        {season.ranking_finish && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                            #{season.ranking_finish} World
+                          </span>
+                        )}
+                        {season.league_position && season.league_total && season.tier >= 2 && season.tier < 5 && (
                           <span className={`text-xs font-bold px-2 py-0.5 rounded ${
                             season.league_position <= 2 ? 'bg-emerald-500/20 text-emerald-400' :
                             season.league_position > season.league_total - 2 ? 'bg-red-500/20 text-red-400' :
