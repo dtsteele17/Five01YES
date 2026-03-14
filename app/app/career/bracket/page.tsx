@@ -110,10 +110,9 @@ export default function CareerBracketPage() {
     if (existingBracket?.bracket_data?.matches?.length > 0) {
       // For CS events, verify the bracket has the correct CS players (not random names)
       const isCSEvent = eventInfo?.event_type?.startsWith('champions_series');
-      if (isCSEvent && existingBracket.bracket_data.matches[0]) {
-        const firstMatch = existingBracket.bracket_data.matches[0];
+      if (isCSEvent && existingBracket?.bracket_data?.matches?.[0]) {
         const bracketNames = new Set<string>();
-        for (const m of existingBracket.bracket_data.matches) {
+        for (const m of existingBracket!.bracket_data.matches) {
           if (m.participant1?.name && !m.participant1.isPlayer) bracketNames.add(m.participant1.name);
           if (m.participant2?.name && !m.participant2.isPlayer) bracketNames.add(m.participant2.name);
         }
