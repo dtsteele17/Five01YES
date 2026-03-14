@@ -213,15 +213,19 @@ export default function CareerBracketPage() {
     const { data: evt } = await supabase.from('career_events').select('sequence_no, event_type').eq('id', evtId).single();
     if (!career) return [];
 
-    // Champions Series night — 8 fixed players from career_champions_series
-    if (evt?.event_type === 'champions_series_night') {
+    // Champions Series events — 8 fixed players from career_champions_series
+    if (evt?.event_type?.startsWith('champions_series')) {
       const { data: csPlayers } = await supabase
         .from('career_champions_series')
         .select('player_name, is_player, ranking_at_qualification, points')
         .eq('career_id', carId)
         .eq('season', career.season)
         .order('ranking_at_qualification');
-      if (!csPlayers) return [];
+      console.log('[BRACKET] CS players found:', csPlayers?.length, 'season:', career.season);
+      if (!csPlayers || csPlayers.length === 0) {
+        console.error('[BRACKET] No CS players found for season', career.season);
+        return [];
+      }
       const seed = (career.career_seed || 0) + (evt.sequence_no || 0) * 100;
       const hash = (n: number) => { let t = n + 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
       const shuffled = [...csPlayers].sort((a: any, b: any) => hash(seed + a.player_name.length * 31) - hash(seed + b.player_name.length * 37));
@@ -470,6 +474,36 @@ export default function CareerBracketPage() {
             p_career_id: careerId, p_event_id: eventId,
             p_player_result: csResult, p_player_legs_for: pLegsFor, p_player_legs_against: pLegsAgainst,
           });
+          
+          // Also update AI CS players based on bracket results
+          const csPointsMap: Record<string, number> = { 'W': 5, 'RU': 3, 'SF': 2, 'QF': 1 };
+          const aiCSResults: Record<string, { placement: string; legsFor: number; legsAgainst: number }> = {};
+          const aiCSPlayers = new Map<string, { id: string; name: string }>();
+          for (const m of updated.matches) {
+            if (m.participant1 && !m.participant1.isPlayer && m.participant1.name) aiCSPlayers.set(m.participant1.id, m.participant1);
+            if (m.participant2 && !m.participant2.isPlayer && m.participant2.name) aiCSPlayers.set(m.participant2.id, m.participant2);
+          }
+          for (const [, p] of aiCSPlayers) {
+            let lastRound = 0; let wasWinner = false;
+            let lf = 0; let la = 0;
+            for (const m of updated.matches) {
+              const isP1 = m.participant1?.id === p.id;
+              const isP2 = m.participant2?.id === p.id;
+              if (!isP1 && !isP2) continue;
+              if (m.round > lastRound) { lastRound = m.round; wasWinner = m.winnerId === p.id; }
+              if (m.score) { lf += isP1 ? (m.score.p1Legs||0) : (m.score.p2Legs||0); la += isP1 ? (m.score.p2Legs||0) : (m.score.p1Legs||0); }
+            }
+            const tr = updated.totalRounds || 3;
+            const pl = wasWinner && lastRound === tr ? 'W' : lastRound === tr ? 'RU' : lastRound === tr-1 ? 'SF' : 'QF';
+            aiCSResults[p.name] = { placement: pl, legsFor: lf, legsAgainst: la };
+          }
+          // Batch update AI CS standings
+          try {
+            await supabase.rpc('rpc_champions_series_update_ai', {
+              p_career_id: careerId,
+              p_results: aiCSResults,
+            });
+          } catch (e) { console.error('[BRACKET] AI CS update error:', e); }
         }
       } catch {}
       setShowResults(true);
