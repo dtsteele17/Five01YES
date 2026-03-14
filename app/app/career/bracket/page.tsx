@@ -93,7 +93,7 @@ export default function CareerBracketPage() {
       // Get career tier
       const { data: cp } = await supabase.from('career_profiles').select('tier, player_name').eq('id', careerId).single();
       if (cp) { setCareerTier(cp.tier); if (cp.player_name) setPlayerName(cp.player_name); }
-      
+
       // Load round-specific formats for Pro Tour events
       if (eventInfo.event_type?.startsWith('pro_') || eventInfo.event_type === 'champions_series_night') {
         const { data: tmpl } = await supabase
@@ -154,7 +154,7 @@ export default function CareerBracketPage() {
           }
         }
       }
-      // ✅ Bracket has real data — load it directly, no RPC call
+      // ✅ Bracket has real data - load it directly, no RPC call
       setBracketId(existingBracket!.id);
       setBracket(patchPlayerName(existingBracket!.bracket_data, playerName));
       setLoading(false);
@@ -172,7 +172,7 @@ export default function CareerBracketPage() {
     }
 
     if (existingBracket?.id && (!existingBracket.bracket_data?.matches || existingBracket.bracket_data.matches.length === 0)) {
-      // Bracket row exists but data is empty — generate from opponents directly (NO RPC call)
+      // Bracket row exists but data is empty - generate from opponents directly (NO RPC call)
       const bSize = existingBracket.bracket_size || eventInfo?.bracket_size || 8;
       const fLegs = eventInfo?.format_legs || 3;
       const participants = await buildParticipantsFromDB(supabase, careerId!, bSize, eventId!);
@@ -190,7 +190,7 @@ export default function CareerBracketPage() {
       }
     }
 
-    // Step 2: No bracket at all — call init RPC ONCE to create the bracket row + generate opponents
+    // Step 2: No bracket at all - call init RPC ONCE to create the bracket row + generate opponents
     const { data, error } = await supabase.rpc('rpc_career_init_bracket_event', { p_career_id: careerId, p_event_id: eventId });
     if (error || data?.error) {
       console.warn('[BRACKET] RPC failed, falling back to client-side generation:', error?.message || data?.error);
@@ -270,7 +270,7 @@ export default function CareerBracketPage() {
     const { data: evt } = await supabase.from('career_events').select('sequence_no, event_type').eq('id', evtId).single();
     if (!career) return [];
 
-    // Champions Series events — 8 fixed players from career_champions_series
+    // Champions Series events - 8 fixed players from career_champions_series
     if (evt?.event_type?.startsWith('champions_series')) {
       const { data: csPlayers } = await supabase
         .from('career_champions_series')
@@ -421,7 +421,7 @@ export default function CareerBracketPage() {
           .or(`first_name.eq.${nameClean},last_name.eq.${nameClean}`)
           .limit(1)
           .maybeSingle();
-        
+
         let oppId = existingOpp?.id;
         if (!oppId) {
           // Create a temporary opponent record for tournament tracking
@@ -508,7 +508,7 @@ export default function CareerBracketPage() {
           p_career_id: careerId, p_event_id: eventId, p_placement: shortPlacement,
         });
         console.log('[BRACKET] Award result:', awardResult, 'Error:', awardErr);
-        
+
         // Award ranking points to ALL AI players based on their bracket results
         if (updated.matches) {
           const aiResults: Record<string, string> = {};
@@ -561,8 +561,24 @@ export default function CareerBracketPage() {
             console.log('[BRACKET] AI ranking points awarded:', Object.keys(aiResults).length, 'players');
           } catch (e) { console.error('[BRACKET] AI points error:', e); }
         }
-        
-        // CS standings are ONLY updated when actual CS tournaments are played — no simulation
+
+        // Simulate CS night for AI players when player is NOT in the CS
+        // (keeps CS standings progressing in the background)
+        if (!eventType?.startsWith('champions_series')) {
+          try {
+            // Check if player is in CS this season
+            const { data: csEntry } = await supabase
+              .from('career_champions_series')
+              .select('id')
+              .eq('career_id', careerId)
+              .eq('is_player', true)
+              .maybeSingle();
+            if (!csEntry) {
+              // Player not in CS — simulate a night for the AI
+              await supabase.rpc('rpc_champions_series_simulate_night', { p_career_id: careerId });
+            }
+          } catch {}
+        }
       } catch {}
       // Champions Series night completion (Tier 5)
       try {
@@ -578,7 +594,7 @@ export default function CareerBracketPage() {
             p_career_id: careerId, p_event_id: eventId,
             p_player_result: csResult, p_player_legs_for: pLegsFor, p_player_legs_against: pLegsAgainst,
           });
-          
+
           // Also update AI CS players based on bracket results
           const csPointsMap: Record<string, number> = { 'W': 5, 'RU': 3, 'SF': 2, 'QF': 1 };
           const aiCSResults: Record<string, { placement: string; legsFor: number; legsAgainst: number }> = {};
@@ -889,7 +905,7 @@ export default function CareerBracketPage() {
                   <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-3 mb-4">
                     <Zap className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
                     <span className="text-emerald-400 font-bold text-sm">
-                      {tournamentResult.new_tier === 2 ? 'Welcome to the Pub Leagues!' 
+                      {tournamentResult.new_tier === 2 ? 'Welcome to the Pub Leagues!'
                         : tournamentResult.new_tier === 3 ? 'Moving up to the County Circuit!'
                         : tournamentResult.new_tier === 4 ? 'You\'ve made the Pro Tour!'
                         : tournamentResult.new_tier === 5 ? 'Premier League awaits!'
