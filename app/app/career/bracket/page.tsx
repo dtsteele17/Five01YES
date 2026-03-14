@@ -421,7 +421,7 @@ export default function CareerBracketPage() {
               if (!isP1 && !isP2) continue;
               if (m.round > lastRound) {
                 lastRound = m.round;
-                wasWinner = m.winner === p.id;
+                wasWinner = m.winnerId === p.id;
               }
             }
             const totalRounds = updated.totalRounds || 6;
