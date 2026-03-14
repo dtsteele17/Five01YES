@@ -30,6 +30,7 @@ export interface TrainingConfig {
     bracketPosition?: number;
     returnToResults?: boolean;
     returnToFixtures?: boolean;
+    playerName?: string;
   };
 }
 
