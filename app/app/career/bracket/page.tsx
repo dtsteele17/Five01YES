@@ -255,19 +255,22 @@ export default function CareerBracketPage() {
       { id: 'player', name: 'You', skill: 50, archetype: 'allrounder', isPlayer: true, seed: 1 },
     ];
     const usedNames = new Set<string>();
-    // Add league opponents first (all of them for Tier 4)
-    for (let i = 0; i < bracketSize - 1 && i < shuffled.length; i++) {
-      const o = shuffled[i];
-      const name = `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`;
-      usedNames.add(name);
-      participants.push({
-        id: o.id,
-        name,
-        skill: Math.round(o.skill_rating * mult),
-        archetype: o.archetype,
-        isPlayer: false,
-        seed: i + 2,
-      });
+    // For Pro Tour (tier 5): ONLY use ranked players + random fill (no league opponents)
+    // For other tiers: add league opponents first
+    if (career.tier < 5) {
+      for (let i = 0; i < bracketSize - 1 && i < shuffled.length; i++) {
+        const o = shuffled[i];
+        const name = `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`;
+        usedNames.add(name);
+        participants.push({
+          id: o.id,
+          name,
+          skill: Math.round(o.skill_rating * mult),
+          archetype: o.archetype,
+          isPlayer: false,
+          seed: i + 2,
+        });
+      }
     }
     // For Pro Tour (tier 5): add top 25 ranked players first
     if (career.tier >= 5) {
@@ -383,6 +386,55 @@ export default function CareerBracketPage() {
           p_career_id: careerId, p_event_id: eventId, p_placement: shortPlacement,
         });
         console.log('[BRACKET] Award result:', awardResult, 'Error:', awardErr);
+        
+        // Award ranking points to ALL AI players based on their bracket results
+        if (updated.matches && updated.participants) {
+          const aiResults: Record<string, string> = {};
+          // Find how far each AI player got
+          for (const p of updated.participants) {
+            if (p.isPlayer || !p.name) continue;
+            // Find last match this AI played
+            let lastRound = 0;
+            let wasWinner = false;
+            for (const m of updated.matches) {
+              const isP1 = m.participant1?.id === p.id;
+              const isP2 = m.participant2?.id === p.id;
+              if (!isP1 && !isP2) continue;
+              if (m.round > lastRound) {
+                lastRound = m.round;
+                wasWinner = m.winner === p.id;
+              }
+            }
+            // Map round to placement
+            const totalRounds = updated.totalRounds || 6;
+            if (wasWinner && lastRound === totalRounds) {
+              // This shouldn't happen for AI if player won, but handle it
+              aiResults[p.name] = 'W';
+            } else if (lastRound === totalRounds) {
+              aiResults[p.name] = 'RU';
+            } else if (lastRound === totalRounds - 1) {
+              aiResults[p.name] = 'SF';
+            } else if (lastRound === totalRounds - 2) {
+              aiResults[p.name] = 'QF';
+            } else if (lastRound === totalRounds - 3) {
+              aiResults[p.name] = 'L16';
+            } else if (lastRound === totalRounds - 4) {
+              aiResults[p.name] = 'L32';
+            } else {
+              aiResults[p.name] = 'L64';
+            }
+          }
+          // Batch update AI rankings
+          try {
+            await supabase.rpc('rpc_pro_tour_award_ai_points', {
+              p_career_id: careerId,
+              p_event_id: eventId,
+              p_results: aiResults,
+            });
+            console.log('[BRACKET] AI ranking points awarded:', Object.keys(aiResults).length, 'players');
+          } catch (e) { console.error('[BRACKET] AI points error:', e); }
+        }
+        
         // Simulate a Champions Series night after each Pro Tour tournament
         if (!eventType?.startsWith('champions_series')) {
           try { await supabase.rpc('rpc_champions_series_simulate_night', { p_career_id: careerId }); } catch {}
