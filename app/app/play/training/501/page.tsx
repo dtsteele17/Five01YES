@@ -2273,6 +2273,7 @@ export default function DartbotMatchPage() {
             bracketRound: config.career.bracketRound && config.career.totalRounds
               ? getRoundName(config.career.bracketRound, config.career.totalRounds)
               : undefined,
+            tier: config.career.tier,
           } : undefined}
         />
       )}
