@@ -31,6 +31,7 @@ export interface TrainingConfig {
     returnToResults?: boolean;
     returnToFixtures?: boolean;
     playerName?: string;
+    tier?: number;
   };
 }
 

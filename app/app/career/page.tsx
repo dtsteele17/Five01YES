@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import { Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight, ArrowLeft, Loader as Loader2, Star, TrendingUp, Calendar, Dumbbell, Award, Zap, Users, ChartBar as BarChart3, Sparkles, Clock, Settings, Save, Bell, Table2, ChevronDown, X, Trash2, Mail, Globe, Lock } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { CAREER_TRAINING_RETURN_KEY, getRandomCareerTrainingRoute } from '@/lib/career/trainingRoutes';
+import { getTierTheme } from '@/lib/career/tierThemes';
 
 const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; accent: string }> = {
  1: { name: 'Local Circuit Trials', icon: Target, color: 'emerald', accent: 'emerald-500' },
@@ -1382,8 +1383,10 @@ export default function CareerPage() {
  const bracketSize = next_event?.bracket_size || 0;
  const bracketRounds = bracketSize > 0 ? Math.log2(bracketSize) : 0;
 
+ const tierTheme = getTierTheme(career.tier);
  return (
-  <div className="min-h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-4 lg:p-6">
+  <div className={`min-h-[100dvh] ${tierTheme.pageBg} p-3 sm:p-4 lg:p-6`}>
+   <div className={`fixed top-0 left-0 right-0 h-1 ${tierTheme.accentGradient} z-50`} />
    <div className="max-w-7xl mx-auto space-y-4">
 
     {/* ? TOP BAR: Name + Tier + REP ? */}
@@ -1393,8 +1396,8 @@ export default function CareerPage() {
        <ArrowLeft className="w-4 h-4" />
       </Button>
       <div className="flex items-center gap-2.5">
-       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/30 flex items-center justify-center">
-        <tierCfg.icon className="w-4 h-4 text-amber-400" />
+       <div className={`w-8 h-8 rounded-lg ${tierTheme.accentBg} border ${tierTheme.accentBorder} flex items-center justify-center`}>
+        <tierCfg.icon className={`w-4 h-4 ${tierTheme.accent}`} />
        </div>
        <div>
         <h1 className="font-black text-white text-lg leading-tight">{tierCfg.name}</h1>
@@ -1428,30 +1431,16 @@ export default function CareerPage() {
 
       {/* CONTINUE / NEXT EVENT - highlighted card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-       <Card className={`relative overflow-hidden border-0 shadow-lg ${
-        next_event?.event_type?.startsWith('champions_series')
-         ? 'bg-gradient-to-br from-purple-600/20 via-amber-500/10 to-slate-900/80 ring-1 ring-purple-500/40 shadow-purple-500/10'
-         : 'bg-gradient-to-br from-amber-500/15 via-orange-600/10 to-slate-900/80 ring-1 ring-amber-500/30 shadow-amber-500/5'
-       }`}>
-        {/* Decorative glow */}
-        {next_event?.event_type?.startsWith('champions_series') ? (
-         <>
-          <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
-         </>
-        ) : (
-         <>
-          <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-orange-600/8 rounded-full blur-3xl" />
-         </>
-        )}
+       <Card className={`relative overflow-hidden border-0 shadow-lg ${tierTheme.cardBg} ring-1 ${tierTheme.cardRing}`}>
+        {/* Decorative glow + top accent bar */}
+        <div className={`absolute -top-12 -right-12 w-40 h-40 ${tierTheme.accentBg} rounded-full blur-3xl`} />
+        <div className={`absolute top-0 left-0 right-0 h-0.5 ${tierTheme.accentGradient}`} />
 
         <div className="relative z-10 p-5">
          <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-           <div className={`w-2 h-2 rounded-full animate-pulse ${next_event?.event_type?.startsWith('champions_series') ? 'bg-purple-400' : 'bg-amber-400'}`} />
-           <span className={`text-[11px] font-bold uppercase tracking-widest ${next_event?.event_type?.startsWith('champions_series') ? 'text-purple-400/80' : 'text-amber-400/80'}`}>
+           <div className={`w-2 h-2 rounded-full animate-pulse ${tierTheme.dotColor}`} />
+           <span className={`text-[11px] font-bold uppercase tracking-widest ${tierTheme.accentMuted}`}>
             {next_event?.event_type?.startsWith('champions_series') ? '⭐ Champions Series' : 'Next Match'}
            </span>
           </div>
@@ -1767,14 +1756,14 @@ export default function CareerPage() {
 
       {/* Tournament Draw / Bracket Preview LARGE */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-       <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-           <div className="w-6 h-6 rounded-md bg-teal-500/15 flex items-center justify-center">
-            <Table2 className="w-3.5 h-3.5 text-teal-400" />
+           <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+            <Table2 className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
            </div>
-           <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">
+           <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>
             {standings && standings.length > 0 ? 'League Table' : next_event?.bracket_size ? 'Tournament Draw' : 'Current Event'}
            </span>
           </div>

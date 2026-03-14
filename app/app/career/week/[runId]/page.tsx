@@ -197,6 +197,7 @@ export default function WeekFixtures() {
           opponentId: matchData.opponent?.id,
           opponentName: opponentName,
           returnToFixtures: true,
+          tier: weekData.tier,
         },
       });
       

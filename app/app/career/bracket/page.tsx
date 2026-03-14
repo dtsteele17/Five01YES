@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTraining } from '@/lib/context/TrainingContext';
+import { getTierTheme } from '@/lib/career/tierThemes';
 import {
   CAREER_TRAINING_AUTO_PROMOTE_KEY,
   CAREER_TRAINING_RETURN_KEY,
@@ -669,7 +670,7 @@ export default function CareerBracketPage() {
       bestOf: bestOfMap[matchFormat] || 'best-of-3', atcOpponent: 'bot',
       career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
         opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds,
-        playerName },
+        playerName, tier: careerTier },
     });
     router.push('/app/play/training/501');
   }
@@ -695,14 +696,8 @@ export default function CareerBracketPage() {
   }
 
   return (
-    <div className={`min-h-screen p-3 sm:p-5 ${
-      eventType?.startsWith('champions_series')
-        ? 'bg-gradient-to-br from-purple-950/50 via-slate-900 to-slate-950'
-        : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
-    }`}>
-      {eventType?.startsWith('champions_series') && (
-        <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500 z-50" />
-      )}
+    <div className={`min-h-screen p-3 sm:p-5 ${getTierTheme(careerTier).pageBg}`}>
+      <div className={`fixed top-0 left-0 right-0 h-1 ${getTierTheme(careerTier).accentGradient} z-50`} />
       <div className="max-w-6xl mx-auto space-y-4">
 
         {/* Header */}
@@ -711,9 +706,8 @@ export default function CareerBracketPage() {
             <Button variant="ghost" size="sm" onClick={() => void handleBackToCareer()} className="text-slate-400 hover:text-white px-2" disabled={routingToTraining}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <span className={eventType?.startsWith('champions_series') ? 'text-lg' : ''}>{eventType?.startsWith('champions_series') ? '🏆' : ''}</span>
-            <Trophy className={`w-5 h-5 ${eventType?.startsWith('champions_series') ? 'text-purple-400' : 'text-purple-400'}`} />
-            <h1 className={`text-lg font-black ${eventType?.startsWith('champions_series') ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400' : 'text-white'}`}>{eventName}</h1>
+            <Trophy className={`w-5 h-5 ${getTierTheme(careerTier).accent}`} />
+            <h1 className={`text-lg font-black text-transparent bg-clip-text ${getTierTheme(careerTier).textGradient}`}>{eventName}</h1>
           </div>
           <div className="flex gap-1.5">
             <Badge className="bg-white/10 text-white/70 text-[10px]">{bracket.size}-Player</Badge>
@@ -732,11 +726,7 @@ export default function CareerBracketPage() {
 
         {/* Your Match Fixture Bar */}
         {!bracket.completed && !bracket.playerEliminated && playerOpponent && (
-          <Card className={`p-3 border ${
-            eventType?.startsWith('champions_series')
-              ? 'bg-gradient-to-r from-purple-600/15 via-amber-500/5 to-purple-600/15 border-purple-500/30'
-              : 'bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 border-amber-500/20'
-          }`}>
+          <Card className={`p-3 border ${getTierTheme(careerTier).cardBg} ${getTierTheme(careerTier).cardBorder}`}>
             <div className="flex items-center justify-between">
               <div className="w-20" />
               <div className="flex items-center gap-4">
