@@ -2062,14 +2062,16 @@ export default function CareerPage() {
       {/* Champions Series Standings (Tier 5 only) */}
       {career.tier >= 5 && (
        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
-        <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-purple-500/20 shadow-lg">
-         <div className="p-4">
+        <Card className="border-0 relative overflow-hidden bg-gradient-to-br from-purple-600/15 via-amber-500/5 to-slate-900/80 ring-1 ring-purple-500/30 shadow-lg shadow-purple-500/5">
+         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
+         <div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl" />
+         <div className="relative z-10 p-4">
           <div className="flex items-center gap-2 mb-2">
-           <Trophy className="w-4 h-4 text-purple-400" />
-           <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Champions Series</span>
+           <span className="text-lg">🏆</span>
+           <span className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400 uppercase tracking-widest">Champions Series</span>
           </div>
-          <p className="text-slate-400 text-xs mb-2">Top 8 players compete over 8 nights</p>
-          <Button variant="ghost" size="sm" className="text-purple-400 text-xs hover:text-purple-300"
+          <p className="text-slate-400 text-xs mb-3">Top 8 players compete over 8 nights</p>
+          <Button variant="ghost" size="sm" className="text-purple-400 text-xs hover:text-purple-300 border border-purple-500/20 hover:border-purple-500/40"
            onClick={loadChampionsStandings}>
            View Standings
           </Button>

@@ -600,7 +600,14 @@ export default function CareerBracketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-3 sm:p-5">
+    <div className={`min-h-screen p-3 sm:p-5 ${
+      eventType?.startsWith('champions_series')
+        ? 'bg-gradient-to-br from-purple-950/50 via-slate-900 to-slate-950'
+        : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
+    }`}>
+      {eventType?.startsWith('champions_series') && (
+        <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500 z-50" />
+      )}
       <div className="max-w-6xl mx-auto space-y-4">
 
         {/* Header */}
@@ -609,8 +616,9 @@ export default function CareerBracketPage() {
             <Button variant="ghost" size="sm" onClick={() => void handleBackToCareer()} className="text-slate-400 hover:text-white px-2" disabled={routingToTraining}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <Trophy className="w-5 h-5 text-purple-400" />
-            <h1 className="text-lg font-black text-white">{eventName}</h1>
+            <span className={eventType?.startsWith('champions_series') ? 'text-lg' : ''}>{eventType?.startsWith('champions_series') ? '🏆' : ''}</span>
+            <Trophy className={`w-5 h-5 ${eventType?.startsWith('champions_series') ? 'text-purple-400' : 'text-purple-400'}`} />
+            <h1 className={`text-lg font-black ${eventType?.startsWith('champions_series') ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400' : 'text-white'}`}>{eventName}</h1>
           </div>
           <div className="flex gap-1.5">
             <Badge className="bg-white/10 text-white/70 text-[10px]">{bracket.size}-Player</Badge>
