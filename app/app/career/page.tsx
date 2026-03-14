@@ -1406,7 +1406,22 @@ export default function CareerPage() {
  const bracketSize = next_event?.bracket_size || 0;
  const bracketRounds = bracketSize > 0 ? Math.log2(bracketSize) : 0;
 
- const tierTheme = getTierTheme(career.tier);
+ // Use CS purple/gold theme when next event is Champions Series, otherwise use tier theme
+ const isCSEvent = next_event?.event_type?.startsWith('champions_series');
+ const tierTheme = isCSEvent ? {
+   ...getTierTheme(career.tier),
+   pageBg: 'bg-gradient-to-br from-purple-950/30 via-slate-900 to-slate-950',
+   cardBg: 'bg-gradient-to-br from-purple-900/15 via-slate-800/40 to-slate-900/80',
+   cardBorder: 'border-purple-500/20',
+   cardRing: 'ring-purple-500/20',
+   accent: 'text-purple-400',
+   accentMuted: 'text-purple-400/60',
+   accentBg: 'bg-purple-500/10',
+   accentBorder: 'border-purple-500/30',
+   accentGradient: 'bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500',
+   textGradient: 'bg-gradient-to-r from-purple-400 to-amber-400',
+   dotColor: 'bg-purple-400',
+ } : getTierTheme(career.tier);
  return (
   <div className={`min-h-[100dvh] ${tierTheme.pageBg} p-3 sm:p-4 lg:p-6`}>
    <div className={`fixed top-0 left-0 right-0 h-1 ${tierTheme.accentGradient} z-50`} />
@@ -1438,7 +1453,7 @@ export default function CareerPage() {
      </div>
      <div className="flex items-center gap-3">
       <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1.5">
-       <Star className="w-3.5 h-3.5 text-amber-400" />
+       <Star className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
        <span className="text-amber-400 font-black text-sm">{career.rep.toLocaleString()}</span>
        <span className="text-amber-400/60 text-[10px] font-medium">FANS</span>
       </div>
@@ -1605,13 +1620,13 @@ export default function CareerPage() {
 
       {/* SPONSORS + REP */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-       <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center gap-2 mb-4">
-          <div className="w-6 h-6 rounded-md bg-rose-500/15 flex items-center justify-center">
-           <Bell className="w-3.5 h-3.5 text-rose-400" />
+          <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+           <Bell className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
           </div>
-          <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">Notifications</span>
+          <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Notifications</span>
          </div>
 
          {/* Pending sponsor offer */}
@@ -1735,14 +1750,14 @@ export default function CareerPage() {
 
       {/* Timeline Button */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-       <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-           <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+           <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+            <Sparkles className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
            </div>
-           <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Timeline</span>
+           <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Timeline</span>
            {recent_milestones && recent_milestones.length > 0 && (
             <span className="text-[10px] text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded-full">{recent_milestones.length}+ events</span>
            )}
@@ -1946,7 +1961,7 @@ export default function CareerPage() {
            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${emails.some(e => e.isNew) ? 'bg-cyan-500/30 animate-pulse' : 'bg-cyan-500/15'}`}>
             <Mail className="w-3.5 h-3.5 text-cyan-400" />
            </div>
-           <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Emails</span>
+           <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Emails</span>
            {emails.some(e => e.isNew) && <Badge className="bg-cyan-400 text-slate-900 text-[10px] font-black px-1.5">NEW</Badge>}
            <Badge className="bg-cyan-500/10 text-cyan-400 text-[10px] border border-cyan-500/20 ml-auto">{emails.length}</Badge>
           </div>
@@ -2044,14 +2059,14 @@ export default function CareerPage() {
      {/* ? RIGHT COLUMN: World Rankings (always) ? */}
      <div className="lg:col-span-3 space-y-4">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-       <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-           <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
-            <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+           <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+            <BarChart3 className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
            </div>
-           <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Rankings</span>
+           <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Rankings</span>
           </div>
           <Button variant="ghost" size="sm" className="text-slate-500 hover:text-white text-[10px] px-2 h-6" onClick={loadWorldRankings}>
            View All
@@ -2094,13 +2109,13 @@ export default function CareerPage() {
 
       {/* Awards / Trophy Cabinet */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-       <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 rounded-md bg-amber-500/15 flex items-center justify-center">
-           <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+           <Trophy className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
           </div>
-          <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Awards</span>
+          <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Awards</span>
          </div>
          {(() => {
           // Filter out first_tournament_win (has generic title), keep tournament_win + league_win
@@ -2149,14 +2164,14 @@ export default function CareerPage() {
 
       {/* Season Stats */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}>
-       <Card className="border-0 bg-slate-800/40 backdrop-blur-sm ring-1 ring-white/[0.06] shadow-lg">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-           <div className="w-6 h-6 rounded-md bg-blue-500/15 flex items-center justify-center">
-            <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+           <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+            <BarChart3 className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
            </div>
-           <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Season Stats</span>
+           <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Season Stats</span>
           </div>
          </div>
          {(() => {
@@ -3102,4 +3117,10 @@ export default function CareerPage() {
   </div>
  );
 }
+
+
+
+
+
+
 
