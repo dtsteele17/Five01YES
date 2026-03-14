@@ -549,10 +549,7 @@ export default function CareerBracketPage() {
           } catch (e) { console.error('[BRACKET] AI points error:', e); }
         }
         
-        // Simulate a Champions Series night after each Pro Tour tournament
-        if (!eventType?.startsWith('champions_series')) {
-          try { await supabase.rpc('rpc_champions_series_simulate_night', { p_career_id: careerId }); } catch {}
-        }
+        // CS standings are ONLY updated when actual CS tournaments are played — no simulation
       } catch {}
       // Champions Series night completion (Tier 5)
       try {
