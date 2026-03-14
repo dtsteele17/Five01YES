@@ -116,6 +116,8 @@ export default function CareerPage() {
  const [showTournamentChoicePopup, setShowTournamentChoicePopup] = useState(false);
  const [sponsorOffer, setSponsorOffer] = useState<any>(null);
  const [sponsorGoals, setSponsorGoals] = useState<any[]>([]);
+ const [csWinnerName, setCSWinnerName] = useState<string>('');
+ const [showCSWinnerPopup, setShowCSWinnerPopup] = useState(false);
  const [tournamentChoiceEvent, setTournamentChoiceEvent] = useState<{ id: string; name: string } | null>(null);
  const [tournamentOptions, setTournamentOptions] = useState<{ option1: any; option2: any } | null>(null);
  const [choosingTournament, setChoosingTournament] = useState(false);
@@ -203,6 +205,40 @@ export default function CareerPage() {
      if (csNight && csNight.day <= (homeData.next_event.day || 9999)) {
       homeData.next_event = csNight;
      }
+    }
+   }
+
+   // If next event is CS semi/final but player is NOT in CS, auto-simulate playoffs
+   if (homeData.next_event && (homeData.next_event.event_type === 'champions_series_semi' || homeData.next_event.event_type === 'champions_series_final')) {
+    const { data: csPlayerCheck } = await supabase
+     .from('career_champions_series')
+     .select('is_player')
+     .eq('career_id', careerId)
+     .eq('season', homeData.career.season)
+     .eq('is_player', true)
+     .maybeSingle();
+    if (!csPlayerCheck) {
+     // Player not in CS — auto-simulate playoffs
+     try {
+      const { data: playoffResult } = await supabase.rpc('rpc_champions_series_playoffs', { p_career_id: careerId });
+      console.log('[CS] Auto-simulated playoffs:', playoffResult);
+      // Mark the CS events as completed
+      await supabase
+       .from('career_events')
+       .update({ status: 'completed' })
+       .eq('career_id', careerId)
+       .eq('season', homeData.career.season)
+       .in('event_type', ['champions_series_semi', 'champions_series_final'])
+       .in('status', ['pending', 'active']);
+      // Show popup with CS winner
+      if (playoffResult?.winner_name) {
+       setCSWinnerName(playoffResult.winner_name);
+       setShowCSWinnerPopup(true);
+      }
+     } catch (e) { console.error('[CS] Playoff sim error:', e); }
+     // Reload to get next real event
+     const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+     if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
     }
    }
 
@@ -2483,6 +2519,34 @@ export default function CareerPage() {
         </div>
        </div>
       ))}
+     </motion.div>
+    </div>
+   )}
+
+   {/* Champions Series Winner Popup */}
+   {showCSWinnerPopup && csWinnerName && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+     <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+      className="max-w-md w-full mx-4"
+     >
+      <Card className="border-0 bg-gradient-to-b from-amber-900/40 to-slate-900 ring-1 ring-amber-500/30 shadow-2xl overflow-hidden">
+       <div className="p-6 text-center">
+        <div className="text-6xl mb-3">🏆</div>
+        <h2 className="text-xl font-bold text-amber-400 mb-2">Champions Series Complete!</h2>
+        <p className="text-white text-lg font-semibold mb-1">{csWinnerName}</p>
+        <p className="text-slate-400 text-sm mb-5">has won the Champions Series!</p>
+        <p className="text-slate-500 text-xs mb-4">The top 8 players competed across 8 nights of intense darts. {csWinnerName} emerged as the ultimate champion.</p>
+        <Button
+         onClick={() => { setShowCSWinnerPopup(false); loadCareer(); }}
+         className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold px-8"
+        >
+         Continue
+        </Button>
+       </div>
+      </Card>
      </motion.div>
     </div>
    )}
