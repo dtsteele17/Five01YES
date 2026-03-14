@@ -115,6 +115,15 @@ BEGIN
     END;
   END IF;
 
+  -- Decay ranking points at end of season (simulate rolling window)
+  -- All players lose 30% of their points, keeping rankings competitive
+  IF v_career.tier >= 5 THEN
+    UPDATE career_pro_rankings SET
+      ranking_points = GREATEST(0, ROUND(ranking_points * 0.7)),
+      points_change = 0
+    WHERE career_id = p_career_id;
+  END IF;
+
   v_new_season := v_career.season + 1;
   v_new_day := v_career.day + 5;
 

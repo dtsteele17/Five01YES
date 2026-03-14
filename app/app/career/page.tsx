@@ -845,7 +845,7 @@ export default function CareerPage() {
     .filter((r: any) => tier >= 5 || !r.is_player)
     .map((r: any) => ({
      rank: r.ranking_position,
-     name: r.player_name,
+     name: r.is_player && careerName ? careerName : r.player_name,
      rating: Math.round(r.ranking_points),
      isPlayer: tier >= 5 ? r.is_player : false,
      pointsChange: Math.round(r.points_change || 0),
@@ -2288,6 +2288,11 @@ export default function CareerPage() {
          if (!careerId) return;
          const supabase = createClient();
          await supabase.from('career_profiles').update({ player_name: careerName || null }).eq('id', careerId);
+         // Update name in CS standings and world rankings too
+         if (careerName) {
+          await supabase.from('career_champions_series').update({ player_name: careerName }).eq('career_id', careerId).eq('is_player', true);
+          await supabase.from('career_pro_rankings').update({ player_name: careerName }).eq('career_id', careerId).eq('is_player', true);
+         }
          toast.success('Player name saved!');
          setShowSettings(false);
          loadCareer();
@@ -2411,7 +2416,7 @@ export default function CareerPage() {
       {championsStandings.map((p: any, i: number) => (
        <div key={i} className={`flex items-center text-xs px-2 py-1.5 border-b border-white/5 ${p.is_player ? 'bg-blue-500/10 border-l-2 border-l-blue-400' : i < 4 ? 'bg-purple-500/5' : ''}`}>
         <span className={`w-6 ${i < 4 ? 'text-purple-400 font-bold' : 'text-slate-500'}`}>{i + 1}</span>
-        <span className={`flex-1 font-medium ${p.is_player ? 'text-blue-400' : 'text-slate-300'}`}>{p.player_name}</span>
+        <span className={`flex-1 font-medium ${p.is_player ? 'text-blue-400' : 'text-slate-300'}`}>{p.is_player && careerName ? careerName : p.player_name}</span>
         <span className="w-8 text-center text-white font-bold">{p.points}</span>
         <span className={`w-10 text-center ${p.leg_difference > 0 ? 'text-emerald-400' : p.leg_difference < 0 ? 'text-red-400' : 'text-slate-500'}`}>{p.leg_difference > 0 ? '+' : ''}{p.leg_difference}</span>
         <span className="w-8 text-center text-slate-500">{p.legs_for}</span>
