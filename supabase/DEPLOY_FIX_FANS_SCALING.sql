@@ -366,6 +366,17 @@ BEGIN
       v_career.tier, v_career.season, v_career.day);
   END IF;
 
+  -- Tier 1 auto-promote to Tier 2 on reaching the final (runner-up or winner)
+  IF v_career.tier = 1 AND (v_placement = 'Winner' OR v_placement = 'Runner-Up') THEN
+    UPDATE career_profiles SET
+      tier = 2, season = 1, week = 1, day = 1, updated_at = now()
+    WHERE id = p_career_id;
+    INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, day)
+    VALUES (p_career_id, 'promotion', 'Welcome to the Pub Leagues!',
+      'Your performance in ' || COALESCE(v_event.event_name, 'a tournament') || ' earned you a spot in the Open Circuit.',
+      2, 1, 1);
+  END IF;
+
   RETURN json_build_object(
     'success', true,
     'placement', v_placement,
@@ -373,7 +384,8 @@ BEGIN
     'won_tournament', p_player_won_tournament,
     'form_delta', v_form_delta,
     'event_type', v_event.event_type,
-    'event_name', v_event.event_name
+    'event_name', v_event.event_name,
+    'new_tier', CASE WHEN v_career.tier = 1 AND (v_placement = 'Winner' OR v_placement = 'Runner-Up') THEN 2 ELSE v_career.tier END
   );
 END;
 $$;

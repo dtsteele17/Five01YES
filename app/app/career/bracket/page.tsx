@@ -470,7 +470,8 @@ export default function CareerBracketPage() {
         p_total_rounds: updated.totalRounds as any,
       });
       const placement = getPlacement(updated.playerEliminatedRound, updated.totalRounds, playerWon);
-      setTournamentResult({ ...completeData, placement, playerWon });
+      const promoted = completeData?.new_tier && completeData.new_tier > careerTier;
+      setTournamentResult({ ...completeData, placement, playerWon, promoted, new_tier: completeData?.new_tier });
       // Pro Major Qualifier: restore major event if player won
       if (eventType === 'pro_major_qualifier') {
         try {
