@@ -108,6 +108,40 @@ export default function CareerBracketPage() {
       .maybeSingle();
 
     if (existingBracket?.bracket_data?.matches?.length > 0) {
+      // For CS events, verify the bracket has the correct CS players (not random names)
+      const isCSEvent = eventInfo?.event_type?.startsWith('champions_series');
+      if (isCSEvent && existingBracket.bracket_data.matches[0]) {
+        const firstMatch = existingBracket.bracket_data.matches[0];
+        const bracketNames = new Set<string>();
+        for (const m of existingBracket.bracket_data.matches) {
+          if (m.participant1?.name && !m.participant1.isPlayer) bracketNames.add(m.participant1.name);
+          if (m.participant2?.name && !m.participant2.isPlayer) bracketNames.add(m.participant2.name);
+        }
+        // Check if bracket players match CS standings
+        const { data: csCheck } = await supabase
+          .from('career_champions_series')
+          .select('player_name')
+          .eq('career_id', careerId)
+          .eq('is_player', false);
+        const csNames = new Set((csCheck || []).map((p: any) => p.player_name));
+        const hasCorrectPlayers = [...bracketNames].some(n => csNames.has(n));
+        if (!hasCorrectPlayers && csNames.size > 0) {
+          console.warn('[BRACKET] CS bracket has wrong players, regenerating...');
+          // Delete old bracket and regenerate
+          await supabase.from('career_brackets').delete().eq('id', existingBracket.id);
+          const bSize = existingBracket.bracket_size || 8;
+          const fLegs = eventInfo?.format_legs || 11;
+          const participants = await buildParticipantsFromDB(supabase, careerId!, bSize, eventId!);
+          if (participants.length >= bSize) {
+            const newBracket = generateBracket(participants, bSize, fLegs);
+            const { data: newRow } = await supabase.from('career_brackets').insert({
+              event_id: eventId, career_id: careerId, bracket_size: bSize,
+              rounds_total: Math.log2(bSize), current_round: 1, bracket_data: newBracket, status: 'active'
+            }).select('id').single();
+            if (newRow) { setBracketId(newRow.id); setBracket(newBracket); setLoading(false); return; }
+          }
+        }
+      }
       // ✅ Bracket has real data — load it directly, no RPC call
       setBracketId(existingBracket!.id);
       setBracket(existingBracket!.bracket_data);
@@ -179,7 +213,18 @@ export default function CareerBracketPage() {
     if (data.event_name) setEventName(data.event_name);
     if (data.format_legs) setFormatLegs(data.format_legs);
 
-    if (data.bracket_data?.matches?.length > 0) {
+    // For CS events, ALWAYS regenerate with correct CS players (RPC uses random opponents)
+    const isCSEvent2 = eventInfo?.event_type?.startsWith('champions_series');
+    if (isCSEvent2) {
+      const csParticipants = await buildParticipantsFromDB(supabase, careerId!, data.bracket_size || 8, eventId!);
+      if (csParticipants.length >= (data.bracket_size || 8)) {
+        const newBracket = generateBracket(csParticipants, data.bracket_size || 8, data.format_legs || 11);
+        await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', data.bracket_id);
+        setBracket(newBracket);
+      } else if (data.bracket_data?.matches?.length > 0) {
+        setBracket(data.bracket_data);
+      }
+    } else if (data.bracket_data?.matches?.length > 0) {
       setBracket(data.bracket_data);
     } else {
       // Generate from participants returned by RPC
