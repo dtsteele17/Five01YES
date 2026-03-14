@@ -1874,10 +1874,21 @@ export default function DartbotMatchPage() {
     .at(-1);
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex flex-col">
+    <div className={`h-screen w-screen overflow-hidden flex flex-col ${
+      config?.career?.eventName?.includes('Champions Series')
+        ? 'bg-gradient-to-br from-purple-950/50 via-slate-900 to-slate-950'
+        : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
+    }`}>
       {LevelUpToastComponent}
+      {config?.career?.eventName?.includes('Champions Series') && (
+        <div className="h-1 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500 flex-shrink-0" />
+      )}
       {/* Top Bar */}
-      <div className="flex items-center justify-between p-3 border-b border-white/10">
+      <div className={`flex items-center justify-between p-3 border-b ${
+        config?.career?.eventName?.includes('Champions Series')
+          ? 'border-purple-500/20 bg-purple-950/20'
+          : 'border-white/10'
+      }`}>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowEndMatchDialog(true)} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
             <X className="w-4 h-4 mr-2" />End
@@ -1906,8 +1917,12 @@ export default function DartbotMatchPage() {
         </div>
         {config?.career ? (
           <div className="text-center">
-            <h2 className="text-sm font-bold text-white leading-tight">{config.career.eventName || 'Career Match'}</h2>
-            <p className="text-[10px] text-slate-400">
+            <h2 className={`text-sm font-bold leading-tight ${
+              config.career.eventName?.includes('Champions Series')
+                ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400'
+                : 'text-white'
+            }`}>{config.career.eventName || 'Career Match'}</h2>
+            <p className={`text-[10px] ${config.career.eventName?.includes('Champions Series') ? 'text-purple-400/70' : 'text-slate-400'}`}>
               {config.career.bracketRound && config.career.totalRounds
                 ? `${getRoundName(config.career.bracketRound, config.career.totalRounds)} • `
                 : ''}
