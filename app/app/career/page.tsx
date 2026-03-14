@@ -1428,16 +1428,32 @@ export default function CareerPage() {
 
       {/* CONTINUE / NEXT EVENT - highlighted card */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-       <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500/15 via-orange-600/10 to-slate-900/80 ring-1 ring-amber-500/30 shadow-lg shadow-amber-500/5">
+       <Card className={`relative overflow-hidden border-0 shadow-lg ${
+        next_event?.event_type?.startsWith('champions_series')
+         ? 'bg-gradient-to-br from-purple-600/20 via-amber-500/10 to-slate-900/80 ring-1 ring-purple-500/40 shadow-purple-500/10'
+         : 'bg-gradient-to-br from-amber-500/15 via-orange-600/10 to-slate-900/80 ring-1 ring-amber-500/30 shadow-amber-500/5'
+       }`}>
         {/* Decorative glow */}
-        <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-orange-600/8 rounded-full blur-3xl" />
+        {next_event?.event_type?.startsWith('champions_series') ? (
+         <>
+          <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
+         </>
+        ) : (
+         <>
+          <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-orange-600/8 rounded-full blur-3xl" />
+         </>
+        )}
 
         <div className="relative z-10 p-5">
          <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-           <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-           <span className="text-[11px] font-bold text-amber-400/80 uppercase tracking-widest">Next Match</span>
+           <div className={`w-2 h-2 rounded-full animate-pulse ${next_event?.event_type?.startsWith('champions_series') ? 'bg-purple-400' : 'bg-amber-400'}`} />
+           <span className={`text-[11px] font-bold uppercase tracking-widest ${next_event?.event_type?.startsWith('champions_series') ? 'text-purple-400/80' : 'text-amber-400/80'}`}>
+            {next_event?.event_type?.startsWith('champions_series') ? '⭐ Champions Series' : 'Next Match'}
+           </span>
           </div>
          </div>
 

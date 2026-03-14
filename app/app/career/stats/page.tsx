@@ -33,6 +33,7 @@ interface AllTimeStats {
   overall_average: number;
   tournament_wins: number;
   highest_tier: number;
+  current_ranking: number | null;
   seasons: SeasonStats[];
 }
 
@@ -193,6 +194,18 @@ export default function CareerStatsPage() {
     const matchesWithAvg = (matches || []).filter(m => m.player_average && m.player_average > 0).length;
     const overallAvg = matchesWithAvg > 0 ? totalAvgSum / matchesWithAvg : 0;
 
+    // Get current world ranking (if on Pro Tour)
+    let currentRanking: number | null = null;
+    if (career.tier >= 5) {
+      const { data: rankData } = await supabase
+        .from('career_pro_rankings')
+        .select('ranking_position')
+        .eq('career_id', careerId)
+        .eq('is_player', true)
+        .maybeSingle();
+      if (rankData) currentRanking = rankData.ranking_position;
+    }
+
     setStats({
       total_played: totalPlayed,
       total_won: totalWon,
@@ -203,6 +216,7 @@ export default function CareerStatsPage() {
       overall_average: overallAvg,
       tournament_wins: tournamentWins,
       highest_tier: career.tier,
+      current_ranking: currentRanking,
       seasons,
     });
     setLoading(false);
@@ -286,6 +300,12 @@ export default function CareerStatsPage() {
                   <p className="text-slate-300 text-sm font-semibold">{TIER_NAMES[stats.highest_tier] || `Tier ${stats.highest_tier}`}</p>
                   <p className="text-slate-600 text-[10px]">Current Tier</p>
                 </div>
+                {stats.current_ranking && (
+                  <div className="text-center p-2 rounded-lg bg-gradient-to-b from-amber-500/10 to-transparent border border-amber-500/20">
+                    <p className="text-amber-400 text-sm font-bold">#{stats.current_ranking}</p>
+                    <p className="text-amber-400/60 text-[10px]">World Ranking</p>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
