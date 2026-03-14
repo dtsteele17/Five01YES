@@ -1143,7 +1143,7 @@ export default function DartbotMatchPage() {
               
               if (careerResult.data?.success) {
                 console.log('🏆 Career match reported:', careerResult.data);
-                toast.success(`+${careerResult.data.rep_earned} REP`);
+                toast.success(`+${careerResult.data.rep_earned} fans`);
               } else {
                 console.error('Career match report failed:', careerResult.data);
                 toast.error(`Match completion failed: ${careerResult.data?.error || 'Unknown error'}`);

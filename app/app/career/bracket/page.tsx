@@ -882,7 +882,7 @@ export default function CareerBracketPage() {
                 )}
                 <div className="mb-4">
                   <span className="text-2xl font-bold text-amber-400">+{tournamentResult.rep_earned}</span>
-                  <p className="text-xs text-slate-400">REP earned</p>
+                  <p className="text-xs text-slate-400">Fans earned</p>
                 </div>
                 {tournamentResult.promoted && (
                   <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-3 mb-4">

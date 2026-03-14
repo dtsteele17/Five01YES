@@ -101,7 +101,7 @@ export default function SponsorOfferPage() {
       if (error) throw error;
       if (result?.error) throw new Error(result.error);
       
-      toast.success(`Signed with ${result.sponsor_name}! +${(result.rep_bonus_pct * 100).toFixed(0)}% REP bonus`);
+      toast.success(`Signed with ${result.sponsor_name}! +${(result.rep_bonus_pct * 100).toFixed(0)}% Fans Bonus`);
       router.push(`/app/career?id=${careerId}`);
       
     } catch (err: any) {
@@ -189,7 +189,7 @@ export default function SponsorOfferPage() {
                   FIFA-Style Sponsor System
                 </Badge>
                 <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">
-                  REP Bonus Available
+                  Fans Bonus Available
                 </Badge>
               </div>
             </div>
@@ -220,11 +220,11 @@ export default function SponsorOfferPage() {
                       <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
                         <TrendingUp className="w-4 h-4 text-green-400" />
                         <span className="text-green-400 font-bold">
-                          +{(sponsor.rep_bonus_pct * 100).toFixed(0)}% REP Bonus
+                          +{(sponsor.rep_bonus_pct * 100).toFixed(0)}% Fans Bonus
                         </span>
                       </div>
                       <div className="text-slate-500 text-sm">
-                        Earn extra REP on every match win
+                        Earn extra fans on every match win
                       </div>
                     </div>
                   </div>
@@ -241,7 +241,7 @@ export default function SponsorOfferPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-400" />
                     <span className="text-slate-300">
-                      +{(sponsor.rep_bonus_pct * 100).toFixed(0)}% REP on match wins
+                      +{(sponsor.rep_bonus_pct * 100).toFixed(0)}% fans on match wins
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -308,8 +308,8 @@ export default function SponsorOfferPage() {
                 <div>Triggered by win streaks or tournament success</div>
               </div>
               <div>
-                <div className="font-semibold text-white mb-1">REP Bonuses</div>
-                <div>Earn extra reputation points for career progression</div>
+                <div className="font-semibold text-white mb-1">Fans Bonuses</div>
+                <div>Earn extra fansutation points for career progression</div>
               </div>
               <div>
                 <div className="font-semibold text-white mb-1">Career Impact</div>
