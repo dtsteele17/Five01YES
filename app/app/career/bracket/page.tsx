@@ -475,8 +475,8 @@ export default function CareerBracketPage() {
           p_career_id: careerId, p_event_id: eventId, p_placement: placement,
         });
       } catch {}
-      // Award Pro Tour ranking points (Tier 5 only)
-      if (careerTier >= 5) try {
+      // Award Pro Tour ranking points (Tier 5 only, NOT Champions Series)
+      if (careerTier >= 5 && !eventType?.startsWith('champions_series')) try {
         const placementMap: Record<string, string> = {
           'Winner': 'W', 'Runner-Up': 'RU', 'Semi-Finalist': 'SF',
           'Quarter-Finalist': 'QF', 'Round of 16 Exit': 'L16', 'Last 16': 'L16',
