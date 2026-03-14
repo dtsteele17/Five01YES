@@ -1071,23 +1071,29 @@ export default function DartbotMatchPage() {
         botAvg: opponentStats.threeDartAverage,
       });
       
-      const result = await recordDartbotMatchCompletion(dartbotStats);
-      console.log('📊 DARTBOT MATCH SAVED:', result);
-      if (result.success) {
-        toast.success('Match stats saved!');
-        
-        // Track achievements for the winner
-        if (currentMatchWinner === 'player1' && currentUserId) {
-          trackMatchEnd(currentUserId, {
-            won: true,
-            matchType: 'practice',
-            legsWon: p1Legs,
-            legsLost: p2Legs,
-            average: userStats.threeDartAverage,
-            durationMinutes: matchStartTime ? Math.floor((Date.now() - matchStartTime) / 60000) : 15,
-          }).catch(console.error);
+      // Skip match_history save and XP for career matches (tracked separately in career_matches)
+      if (config?.career) {
+        console.log('📊 CAREER MATCH — skipping match_history save and XP');
+      } else {
+        const result = await recordDartbotMatchCompletion(dartbotStats);
+        console.log('📊 DARTBOT MATCH SAVED:', result);
+        if (result.success) {
+          toast.success('Match stats saved!');
+          
+          // Track achievements for the winner
+          if (currentMatchWinner === 'player1' && currentUserId) {
+            trackMatchEnd(currentUserId, {
+              won: true,
+              matchType: 'practice',
+              legsWon: p1Legs,
+              legsLost: p2Legs,
+              average: userStats.threeDartAverage,
+              durationMinutes: matchStartTime ? Math.floor((Date.now() - matchStartTime) / 60000) : 15,
+            }).catch(console.error);
+          }
         }
-        
+      }
+
         // Report career match result if this is a career match
         if (config?.career) {
           const isBracketMatch = config.career.matchId.startsWith('bracket-');
