@@ -8,11 +8,10 @@ DECLARE
   v_career career_profiles;
   v_top4 JSON;
   v_player_pos INT;
-  v_players RECORD[];
-  v_p1 RECORD;
-  v_p2 RECORD;
-  v_p3 RECORD;
-  v_p4 RECORD;
+  v_p1 TEXT;
+  v_p2 TEXT;
+  v_p3 TEXT;
+  v_p4 TEXT;
   v_semi1_winner TEXT;
   v_semi2_winner TEXT;
   v_final_winner TEXT;
@@ -57,10 +56,10 @@ BEGIN
     ORDER BY points DESC, (legs_for - legs_against) DESC LIMIT 1 OFFSET 3;
 
     v_hash := abs(hashtext(p_career_id::text || v_career.season::text || 'semi1'));
-    IF v_hash % 3 < 2 THEN v_semi1_winner := v_p1.player_name; ELSE v_semi1_winner := v_p4.player_name; END IF;
+    IF v_hash % 3 < 2 THEN v_semi1_winner := v_p1; ELSE v_semi1_winner := v_p4; END IF;
 
     v_hash := abs(hashtext(p_career_id::text || v_career.season::text || 'semi2'));
-    IF v_hash % 3 < 2 THEN v_semi2_winner := v_p2.player_name; ELSE v_semi2_winner := v_p3.player_name; END IF;
+    IF v_hash % 3 < 2 THEN v_semi2_winner := v_p2; ELSE v_semi2_winner := v_p3; END IF;
 
     v_hash := abs(hashtext(p_career_id::text || v_career.season::text || 'final'));
     IF v_hash % 2 = 0 THEN v_final_winner := v_semi1_winner; ELSE v_final_winner := v_semi2_winner; END IF;
@@ -69,16 +68,16 @@ BEGIN
     VALUES (p_career_id, 'cs_result',
       'Champions Series Winner: ' || v_final_winner,
       v_final_winner || ' won the Champions Series! Semi 1: ' || v_semi1_winner || ' beat ' ||
-        CASE WHEN v_semi1_winner = v_p1.player_name THEN v_p4.player_name ELSE v_p1.player_name END ||
+        CASE WHEN v_semi1_winner = v_p1 THEN v_p4 ELSE v_p1 END ||
         '. Semi 2: ' || v_semi2_winner || ' beat ' ||
-        CASE WHEN v_semi2_winner = v_p2.player_name THEN v_p3.player_name ELSE v_p2.player_name END,
+        CASE WHEN v_semi2_winner = v_p2 THEN v_p3 ELSE v_p2 END,
       5, v_career.season, v_career.day);
 
     RETURN json_build_object('qualified', false, 'player_position', v_player_pos,
       'simulated', true,
       'winner_name', v_final_winner,
-      'semi1', json_build_object('p1', v_p1.player_name, 'p2', v_p4.player_name, 'winner', v_semi1_winner),
-      'semi2', json_build_object('p1', v_p2.player_name, 'p2', v_p3.player_name, 'winner', v_semi2_winner),
+      'semi1', json_build_object('p1', v_p1, 'p2', v_p4, 'winner', v_semi1_winner),
+      'semi2', json_build_object('p1', v_p2, 'p2', v_p3, 'winner', v_semi2_winner),
       'final', json_build_object('p1', v_semi1_winner, 'p2', v_semi2_winner, 'winner', v_final_winner),
       'message', 'Champions Series simulated - ' || v_final_winner || ' wins!');
   END IF;
