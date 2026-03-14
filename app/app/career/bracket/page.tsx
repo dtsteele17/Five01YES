@@ -360,6 +360,17 @@ export default function CareerBracketPage() {
       });
       const placement = getPlacement(updated.playerEliminatedRound, updated.totalRounds, playerWon);
       setTournamentResult({ ...completeData, placement, playerWon });
+      // Pro Major Qualifier: restore major event if player won
+      if (eventType === 'pro_major_qualifier') {
+        try {
+          await supabase.rpc('rpc_pro_tour_restore_major_after_qualifier', { p_career_id: careerId });
+          if (playerWon) {
+            toast.success('Qualified for the Pro Tour Major!', { duration: 5000 });
+          } else {
+            toast.error('Eliminated from Major qualification.', { duration: 5000 });
+          }
+        } catch {}
+      }
       // Award tournament league points for Tier 4 National Tour
       try {
         await supabase.rpc('rpc_tier4_award_tournament_points', {

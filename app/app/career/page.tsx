@@ -414,6 +414,18 @@ export default function CareerPage() {
     }
    }
 
+   // Pro Tour Major: proactively check qualification so qualifier shows BEFORE major
+   if (homeData.next_event?.event_type === 'pro_major' && homeData.career.tier >= 5) {
+    try {
+     const { data: qualResult } = await supabase.rpc('rpc_pro_tour_major_qualification', { p_career_id: careerId });
+     if (qualResult && !qualResult.auto_qualified && !qualResult.already_exists) {
+      // Qualifier created — reload to show it as next event
+      const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+      if (refreshed && !refreshed.error) { setData(refreshed); setLoading(false); return; }
+     }
+    } catch {}
+   }
+
    // Check if next event is a tournament choice show popup
    if (homeData.next_event?.event_type === 'tournament_choice') {
     const { data: options } = await supabase.rpc('rpc_get_tournament_choice_options', { 
@@ -1073,17 +1085,8 @@ export default function CareerPage() {
 
    // Pro Tour Major Qualifier match - dartbot BO11
    if (next_event.event_type === 'pro_major_qualifier') {
-    const supabase = createClient();
-    const { data: matchData, error } = await supabase.rpc('rpc_pro_tour_start_qualifier', { p_career_id: careerId });
-    if (error || matchData?.error) { toast.error(matchData?.error || 'Failed to start qualifier'); setPlayingEvent(false); return; }
-    const avg = data?.career?.difficulty ? getDifficultyAverage(data.career.difficulty, data.career.tier || 1) : (matchData.bot_average || 50);
-    const diffKey = avg <= 40 ? 'beginner' : avg <= 50 ? 'casual' : avg <= 60 ? 'intermediate' : avg <= 70 ? 'advanced' : avg <= 80 ? 'elite' : avg <= 90 ? 'pro' : 'worldClass';
-    setConfig({
-     mode: '501', botDifficulty: diffKey as any, botAverage: avg, doubleOut: true,
-     bestOf: 'best-of-11', atcOpponent: 'bot',
-     career: { careerId, eventId: matchData.event_id, eventName: next_event.event_name, matchId: matchData.match_id, opponentId: 'qualifier_bot', opponentName: matchData.opponent.name },
-    });
-    router.push('/app/play/training/501');
+    // Qualifier is now a mini-bracket (4 or 8 players) — route to bracket page
+    router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
     return;
    }
 
@@ -1177,7 +1180,7 @@ export default function CareerPage() {
     return;
    }
 
-   const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_open', 'pro_major', 'pro_world_series', 'relegation_tournament', 'q_school'];
+   const bracketTypes = ['open', 'qualifier', 'trial_tournament', 'major', 'season_finals', 'county_championship_knockout', 'regional_tournament', 'pro_open', 'pro_major', 'pro_major_qualifier', 'pro_world_series', 'relegation_tournament', 'q_school'];
    if (bracketTypes.includes(next_event.event_type) && next_event.bracket_size) {
     router.push(`/app/career/bracket?careerId=${careerId}&eventId=${next_event.id}`);
     return;
