@@ -2080,6 +2080,16 @@ export default function DartbotMatchPage() {
           {showVisualization ? (
             <>
               <div className="flex-1 relative flex items-center justify-center p-4">
+                <div className="absolute top-2 right-2 z-10 flex gap-1">
+                  <button onClick={() => setBotSpeed(1)}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${botSpeed === 1 ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                    x1
+                  </button>
+                  <button onClick={() => setBotSpeed(2)}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${botSpeed === 2 ? 'bg-amber-500 text-black' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                    x2
+                  </button>
+                </div>
                 <div className="relative w-full max-w-lg aspect-square">
                   <DartboardOverlay hits={dartboardHits} showDebugRings={debugMode} />
                 </div>
