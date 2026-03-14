@@ -56,7 +56,7 @@ export default function CareerBracketPage() {
   useEffect(() => {
     if (pendingResult && bracket && bracketId) {
       console.log('[BRACKET] Processing pending result:', pendingResult, 'currentRound:', bracket.currentRound);
-      handleMatchResult(pendingResult.won, pendingResult.playerLegs, pendingResult.opponentLegs);
+      handleMatchResult(pendingResult.won, pendingResult.playerLegs, pendingResult.opponentLegs, pendingResult);
       setPendingResult(null);
     }
   }, [pendingResult, bracket, bracketId]);
@@ -382,7 +382,7 @@ export default function CareerBracketPage() {
     return participants;
   }
 
-  async function handleMatchResult(won: boolean, playerLegs: number, opponentLegs: number) {
+  async function handleMatchResult(won: boolean, playerLegs: number, opponentLegs: number, extraStats?: any) {
     if (!bracket || !bracketId || !careerId || !eventId) {
       console.error('[BRACKET] handleMatchResult: missing data', { bracket: !!bracket, bracketId, careerId, eventId });
       return;
@@ -392,6 +392,56 @@ export default function CareerBracketPage() {
     console.log('[BRACKET] After process:', { newRound: updated.currentRound, completed: updated.completed, playerEliminated: updated.playerEliminated });
     setBracket(updated);
     const supabase = createClient();
+
+    // Record tournament match in career_matches for stats tracking
+    try {
+      const opponent = getPlayerOpponent(bracket);
+      // Find or create a career_opponents entry for the bracket opponent
+      if (opponent && !opponent.isPlayer) {
+        // Use the bracket opponent's id to find the career_opponents record, or insert via RPC
+        const nameClean = opponent.name || 'Unknown';
+        // Try to find existing opponent by name
+        const { data: existingOpp } = await supabase
+          .from('career_opponents')
+          .select('id')
+          .eq('career_id', careerId)
+          .or(`first_name.eq.${nameClean},last_name.eq.${nameClean}`)
+          .limit(1)
+          .maybeSingle();
+        
+        let oppId = existingOpp?.id;
+        if (!oppId) {
+          // Create a temporary opponent record for tournament tracking
+          const { data: newOpp } = await supabase.from('career_opponents').insert({
+            career_id: careerId,
+            first_name: nameClean,
+            last_name: '',
+            skill_rating: opponent.skill || 50,
+            archetype: 'allrounder',
+            tier: careerTier || 5,
+          }).select('id').single();
+          oppId = newOpp?.id;
+        }
+        if (oppId) {
+          await supabase.from('career_matches').insert({
+            career_id: careerId,
+            event_id: eventId,
+            opponent_id: oppId,
+            bracket_round: bracket.currentRound,
+            format_legs: formatLegs,
+            result: won ? 'win' : 'loss',
+            player_legs_won: playerLegs,
+            opponent_legs_won: opponentLegs,
+            player_average: extraStats?.playerAverage || null,
+            opponent_average: extraStats?.opponentAverage || null,
+            player_checkout_pct: extraStats?.playerCheckoutPct || null,
+            player_180s: extraStats?.player180s || null,
+            player_highest_checkout: extraStats?.playerHighestCheckout || null,
+            played_at: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (e) { console.error('[BRACKET] Failed to record career_match:', e); }
     // Save bracket state directly to table (more reliable than RPC)
     const { error: saveError } = await supabase.from('career_brackets').update({
       bracket_data: updated as any,

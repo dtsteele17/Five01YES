@@ -142,16 +142,21 @@ export default function CareerStatsPage() {
       eventMap[e.id] = e;
     }
 
-    // Use standings-based tier lookup
-    const seasonTiers = seasonTierFromStandings;
+    // Use standings-based tier lookup, enriched with Pro Tour event types
+    const seasonTiersFromEvents: Record<number, number> = {};
+    for (const e of (events || [])) {
+      if (e.event_type?.startsWith('pro_') || e.event_type?.startsWith('champions_series')) {
+        seasonTiersFromEvents[e.season] = 5;
+      }
+    }
+    const seasonTiers = { ...seasonTiersFromEvents, ...seasonTierFromStandings };
 
-    // Build per-season stats directly from career_matches
     const seasonMap: Record<number, SeasonStats> = {};
 
     for (const m of (matches || [])) {
       const evt = eventMap[m.event_id];
       const season = evt?.season || 1;
-      const tier = evt?.tier || seasonTiers[season] || 1;
+      const tier = seasonTiers[season] || career?.tier || 1;
 
       if (!seasonMap[season]) {
         seasonMap[season] = {

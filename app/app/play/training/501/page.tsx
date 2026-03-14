@@ -1095,6 +1095,11 @@ export default function DartbotMatchPage() {
               won: currentMatchWinner === 'player1',
               playerLegs: p1Legs,
               opponentLegs: p2Legs,
+              playerAverage: userStats.threeDartAverage,
+              opponentAverage: opponentStats.threeDartAverage,
+              playerCheckoutPct: userStats.checkoutPercent,
+              player180s: userStats.oneEighties,
+              playerHighestCheckout: userStats.highestCheckout,
             }));
           } else {
             // League/single match — report directly
