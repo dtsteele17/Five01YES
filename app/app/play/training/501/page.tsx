@@ -1922,8 +1922,8 @@ export default function DartbotMatchPage() {
         {config?.career ? (
           <div className="text-center">
             <h2 className={`text-sm font-bold leading-tight ${
-              config.career.tier
-                ? `text-transparent bg-clip-text ${getTierTheme(config.career.tier).textGradient}`
+              config.career.eventName?.includes('Champions Series')
+                ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400'
                 : 'text-white'
             }`}>{config.career.eventName || 'Career Match'}</h2>
             <p className={`text-[10px] ${config.career.tier ? getTierTheme(config.career.tier).accentMuted : 'text-slate-400'}`}>
