@@ -637,7 +637,11 @@ export default function CareerBracketPage() {
 
         {/* Your Match Fixture Bar */}
         {!bracket.completed && !bracket.playerEliminated && playerOpponent && (
-          <Card className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 border border-amber-500/20">
+          <Card className={`p-3 border ${
+            eventType?.startsWith('champions_series')
+              ? 'bg-gradient-to-r from-purple-600/15 via-amber-500/5 to-purple-600/15 border-purple-500/30'
+              : 'bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 border-amber-500/20'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="w-20" />
               <div className="flex items-center gap-4">

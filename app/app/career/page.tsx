@@ -2382,9 +2382,11 @@ export default function CareerPage() {
 
    {/* Champions Series Standings */}
    <Dialog open={showChampionsStandings} onOpenChange={setShowChampionsStandings}>
-    <DialogContent className="bg-[#12121f] border-white/10 text-white max-w-md">
-     <DialogTitle className="flex items-center gap-2">
-      <Trophy className="w-5 h-5 text-purple-400" /> Champions Series Standings
+    <DialogContent className="bg-gradient-to-b from-[#1a1030] to-[#12121f] border-purple-500/20 text-white max-w-md overflow-hidden">
+     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
+     <DialogTitle className="flex items-center gap-2 text-lg font-black">
+      <span className="text-xl">🏆</span>
+      <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400">Champions Series Standings</span>
      </DialogTitle>
      <div className="space-y-0">
       <div className="flex text-[10px] text-slate-500 uppercase px-2 py-1 border-b border-white/10">
