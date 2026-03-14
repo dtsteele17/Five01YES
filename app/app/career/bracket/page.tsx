@@ -399,12 +399,20 @@ export default function CareerBracketPage() {
         console.log('[BRACKET] Award result:', awardResult, 'Error:', awardErr);
         
         // Award ranking points to ALL AI players based on their bracket results
-        if (updated.matches && updated.participants) {
+        if (updated.matches) {
           const aiResults: Record<string, string> = {};
+          // Collect all unique AI participants from matches
+          const aiPlayers = new Map<string, { id: string; name: string }>();
+          for (const m of updated.matches) {
+            if (m.participant1 && !m.participant1.isPlayer && m.participant1.name) {
+              aiPlayers.set(m.participant1.id, { id: m.participant1.id, name: m.participant1.name });
+            }
+            if (m.participant2 && !m.participant2.isPlayer && m.participant2.name) {
+              aiPlayers.set(m.participant2.id, { id: m.participant2.id, name: m.participant2.name });
+            }
+          }
           // Find how far each AI player got
-          for (const p of updated.participants) {
-            if (p.isPlayer || !p.name) continue;
-            // Find last match this AI played
+          for (const [, p] of aiPlayers) {
             let lastRound = 0;
             let wasWinner = false;
             for (const m of updated.matches) {
@@ -416,10 +424,8 @@ export default function CareerBracketPage() {
                 wasWinner = m.winner === p.id;
               }
             }
-            // Map round to placement
             const totalRounds = updated.totalRounds || 6;
             if (wasWinner && lastRound === totalRounds) {
-              // This shouldn't happen for AI if player won, but handle it
               aiResults[p.name] = 'W';
             } else if (lastRound === totalRounds) {
               aiResults[p.name] = 'RU';
@@ -435,7 +441,6 @@ export default function CareerBracketPage() {
               aiResults[p.name] = 'L64';
             }
           }
-          // Batch update AI rankings
           try {
             await supabase.rpc('rpc_pro_tour_award_ai_points', {
               p_career_id: careerId,
