@@ -206,6 +206,29 @@ export default function CareerPage() {
      if (csNight && csNight.day <= (homeData.next_event.day || 9999)) {
       homeData.next_event = csNight;
      }
+    } else {
+     // Player NOT in CS - auto-complete all pending CS events so they don't block season end
+     await supabase
+      .from('career_events')
+      .update({ status: 'skipped' })
+      .eq('career_id', careerId)
+      .eq('season', homeData.career.season)
+      .like('event_type', 'champions_series%')
+      .in('status', ['pending', 'active']);
+     // If current next_event is a CS event, reload to get the real next event
+     if (homeData.next_event?.event_type?.startsWith('champions_series')) {
+      const { data: realNext } = await supabase
+       .from('career_events')
+       .select('id, event_name, event_type, format_legs, bracket_size, day, status, sequence_no')
+       .eq('career_id', careerId)
+       .eq('season', homeData.career.season)
+       .in('status', ['pending', 'active'])
+       .not('event_type', 'like', 'champions_series%')
+       .order('sequence_no')
+       .limit(1)
+       .maybeSingle();
+      homeData.next_event = realNext || null;
+     }
     }
    }
 
