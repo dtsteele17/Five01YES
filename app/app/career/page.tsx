@@ -2582,7 +2582,7 @@ export default function CareerPage() {
       <div className="p-6 text-center">
        <div className="text-4xl mb-3">🏆</div>
        <h2 className="text-xl font-bold text-white mb-1">You have been invited to these tournaments!</h2>
-       <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league. Larger tournaments award more fans!/p>
+       <p className="text-slate-400 text-sm mb-5">Choose a tournament to enter, or skip and continue with the league. Larger tournaments bring more fans!</p>
        
        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         {/* Option 1 */}
