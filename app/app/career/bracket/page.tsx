@@ -394,13 +394,19 @@ export default function CareerBracketPage() {
       { id: 'player', name: career.player_name || 'You', skill: 50, archetype: 'allrounder', isPlayer: true, seed: 1 },
     ];
     const usedNames = new Set<string>();
+    const usedBaseNames = new Set<string>(); // first+last without nickname, for dedup
+    const usedFirstNames = new Set<string>();
     // For Pro Tour (tier 5): ONLY use ranked players + random fill (no league opponents)
     // For other tiers: add league opponents first
     if (career.tier < 5) {
       for (let i = 0; i < bracketSize - 1 && i < shuffled.length; i++) {
         const o = shuffled[i];
+        const baseName = `${o.first_name} ${o.last_name}`;
+        if (usedBaseNames.has(baseName)) continue; // skip duplicate first+last combos
         const name = `${o.first_name}${o.nickname ? ` '${o.nickname}'` : ''} ${o.last_name}`;
         usedNames.add(name);
+        usedBaseNames.add(baseName);
+        usedFirstNames.add(o.first_name);
         participants.push({
           id: o.id,
           name,
@@ -422,9 +428,12 @@ export default function CareerBracketPage() {
       if (rankings) {
         for (const r of rankings) {
           if (r.is_player) continue; // player already added
-          if (usedNames.has(r.player_name)) continue;
+          const rFirstName = r.player_name.split(/[\s']/)[0];
+          if (usedNames.has(r.player_name) || usedFirstNames.has(rFirstName)) continue;
           if (participants.length >= bracketSize) break;
           usedNames.add(r.player_name);
+          usedBaseNames.add(r.player_name.replace(/'[^']*'\s*/g, ''));
+          usedFirstNames.add(rFirstName);
           participants.push({
             id: `ranked_${r.ranking_position}`,
             name: r.player_name,
@@ -453,10 +462,15 @@ export default function CareerBracketPage() {
         const nickI = seededHash(genIdx * 7 + 5) % nicknames.length;
         const fn = firstNames[fnI];
         const ln = lastNames[lnI];
+        const baseName = `${fn} ${ln}`;
+        // Skip if this first+last combo exists, or first name already used (avoid "Sven King" + "Sven Murphy")
+        if (usedBaseNames.has(baseName) || usedFirstNames.has(fn)) continue;
         const nick = hasNick ? nicknames[nickI] : null;
         const name = nick ? `${fn} '${nick}' ${ln}` : `${fn} ${ln}`;
         if (!usedNames.has(name)) {
           usedNames.add(name);
+          usedBaseNames.add(baseName);
+          usedFirstNames.add(fn);
           const skill = Math.round((30 + (seededHash(genIdx * 11) % 40)) * mult);
           participants.push({
             id: `outside_${i}`,
