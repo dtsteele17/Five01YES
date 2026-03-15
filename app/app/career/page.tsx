@@ -1786,8 +1786,9 @@ export default function CareerPage() {
        </Card>
       </motion.div>
 
-      {/* Timeline Button */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+      {/* Timeline Button — hidden on mobile (shown above Season Stats instead) */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+       className="hidden lg:block">
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center justify-between">
@@ -2203,6 +2204,46 @@ export default function CareerPage() {
         </div>
        </Card>
       </motion.div>
+
+      {/* Timeline — mobile only (desktop version is in left column) */}
+      <div className="lg:hidden">
+       <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
+        <div className="p-4">
+         <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+           <div className={`w-6 h-6 rounded-md ${tierTheme.accentBg} flex items-center justify-center`}>
+            <Sparkles className={`w-3.5 h-3.5 ${tierTheme.accent}`} />
+           </div>
+           <span className={`text-xs font-bold ${tierTheme.accent} uppercase tracking-widest`}>Timeline</span>
+           {recent_milestones && recent_milestones.length > 0 && (
+            <span className="text-[10px] text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded-full">{recent_milestones.length}+ events</span>
+           )}
+          </div>
+          <Button
+           variant="ghost" size="sm"
+           onClick={() => router.push(`/app/career/timeline?careerId=${careerId}`)}
+           className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 text-xs"
+          >
+           View Timeline &rarr;
+          </Button>
+         </div>
+         {recent_milestones && recent_milestones.length > 0 && (
+          <div className="mt-3 flex items-start gap-3">
+           <div className="mt-1 shrink-0">
+            <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-amber-400/20" />
+           </div>
+           <div className="min-w-0">
+            <div className="flex items-center gap-2">
+             <p className="text-white text-xs font-semibold truncate">{recent_milestones[0].title}</p>
+             {recent_milestones[0].day && <span className="text-slate-600 text-[10px] font-medium">Day {recent_milestones[0].day}</span>}
+            </div>
+            {recent_milestones[0].description && <p className="text-slate-500 text-xs mt-0.5">{recent_milestones[0].description}</p>}
+           </div>
+          </div>
+         )}
+        </div>
+       </Card>
+      </div>
 
       {/* Season Stats */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}>
