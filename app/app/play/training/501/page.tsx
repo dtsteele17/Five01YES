@@ -1188,7 +1188,6 @@ export default function DartbotMatchPage() {
           }
         }
       }
-      else console.error('Failed to save match:', result.error);
     } catch (error) { 
       console.error('Error saving match stats:', error); 
     }
