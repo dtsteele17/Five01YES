@@ -1612,8 +1612,10 @@ export default function CareerPage() {
           </>
          ) : (
           <div className="text-center py-6">
-           <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-3" />
-           <p className="text-white font-black text-lg">Season Complete!</p>
+           <Loader2 className="w-8 h-8 text-slate-500 mx-auto mb-3 animate-spin" />
+           <p className="text-slate-400 font-semibold text-sm">Loading next event...</p>
+           <p className="text-slate-600 text-xs mt-1">Your season is being prepared</p>
+           <Button variant="ghost" size="sm" className="mt-3 text-slate-500" onClick={() => loadCareer()}>Refresh</Button>
           </div>
          )}
         </div>
@@ -1981,8 +1983,8 @@ export default function CareerPage() {
           </div>
          ) : (
           <div className="text-center py-8">
-           <Trophy className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-           <p className="text-slate-500 text-sm font-medium">Season complete</p>
+           <Loader2 className="w-8 h-8 text-slate-500 mx-auto mb-2 animate-spin" />
+           <p className="text-slate-500 text-sm font-medium">Preparing next event...</p>
           </div>
          )}
         </div>
