@@ -441,9 +441,9 @@ export default function CareerPage() {
     const noPlayableEvents = !homeData.next_event || homeData.next_event.event_type === 'season_end';
     const nextIsLeague = homeData.next_event?.event_type === 'league';
 
-    // After match 5: Tournament 1 (32-player, mandatory)
-    if (leagueGamesPlayed >= 5 && (nextIsLeague || noPlayableEvents)) {
-     const { data: t1 } = await supabase.from('career_events').select('id')
+    // After match 5: Tournament 1 (32-player, mandatory) — create if not exists regardless of current next event
+    if (leagueGamesPlayed >= 5) {
+     const { data: t1 } = await supabase.from('career_events').select('id, status')
       .eq('career_id', careerId).eq('season', homeData.career.season)
       .eq('event_type', 'open').gte('sequence_no', 50).lt('sequence_no', 60).limit(1);
      if (!t1 || t1.length === 0) {
@@ -453,9 +453,9 @@ export default function CareerPage() {
      }
     }
 
-    // After match 10: Tournament 2 (16-player league tournament, mandatory)
-    if (leagueGamesPlayed >= 10 && (nextIsLeague || noPlayableEvents)) {
-     const { data: t2 } = await supabase.from('career_events').select('id')
+    // After match 10: Tournament 2 (16-player league tournament, mandatory) — create if not exists
+    if (leagueGamesPlayed >= 10) {
+     const { data: t2 } = await supabase.from('career_events').select('id, status')
       .eq('career_id', careerId).eq('season', homeData.career.season)
       .eq('event_type', 'open').gte('sequence_no', 100).lt('sequence_no', 110).limit(1);
      if (!t2 || t2.length === 0) {
