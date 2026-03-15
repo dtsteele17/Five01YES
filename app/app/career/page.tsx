@@ -300,74 +300,7 @@ export default function CareerPage() {
     }
    }
 
-   // Any tier (2-4): if no next event and season just started, create league events directly
-   if (homeData.career.tier >= 2 && homeData.career.tier <= 4 && !homeData.next_event) {
-    const ps = homeData.standings?.find((s: any) => s.is_player);
-    if (!ps || (ps.played || 0) === 0) {
-     console.log('[CAREER] No events for fresh tier', homeData.career.tier, 'season', homeData.career.season, '- creating league events');
-     // Check if events exist but aren't returned by home RPC
-     const { data: existingEvents } = await supabase
-      .from('career_events')
-      .select('id')
-      .eq('career_id', careerId)
-      .eq('season', homeData.career.season)
-      .in('status', ['pending', 'active'])
-      .limit(1);
-     
-     if (!existingEvents || existingEvents.length === 0) {
-      // No events at all — create league events directly from schedule templates
-      const { data: templates } = await supabase
-       .from('career_schedule_templates')
-       .select('id, sequence_no, event_type, event_name, format_legs, bracket_size')
-       .eq('tier', homeData.career.tier)
-       .order('sequence_no');
-      
-      if (templates && templates.length > 0) {
-       const baseDay = homeData.career.day || 1;
-       const events = templates.map((t: any) => ({
-        career_id: careerId,
-        template_id: t.id,
-        season: homeData.career.season,
-        sequence_no: t.sequence_no,
-        event_type: t.event_type,
-        event_name: t.event_name,
-        format_legs: t.format_legs,
-        bracket_size: t.bracket_size,
-        day: baseDay + t.sequence_no * 6,
-        status: 'pending',
-       }));
-       const { error: insertErr } = await supabase.from('career_events').insert(events);
-       console.log('[CAREER] Created', events.length, 'events from templates', insertErr ? `ERROR: ${insertErr.message}` : 'OK');
-      } else {
-       // No templates — create 7 league events manually for T2
-       const numMatches = homeData.career.tier === 2 ? 7 : homeData.career.tier === 3 ? 9 : 14;
-       const baseDay = homeData.career.day || 1;
-       const events = Array.from({ length: numMatches }, (_, i) => ({
-        career_id: careerId,
-        season: homeData.career.season,
-        sequence_no: i + 1,
-        event_type: 'league',
-        event_name: 'Weekend League Night',
-        format_legs: homeData.career.tier === 2 ? 3 : homeData.career.tier === 3 ? 5 : 7,
-        day: baseDay + (i + 1) * 6,
-        status: 'pending',
-       }));
-       const { error: insertErr } = await supabase.from('career_events').insert(events);
-       console.log('[CAREER] Created', events.length, 'manual league events', insertErr ? `ERROR: ${insertErr.message}` : 'OK');
-      }
-     }
-     // Reload to pick up new events
-     const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
-     if (refreshed && !refreshed.error) {
-      setData(refreshed);
-      setLoading(false);
-      // Load player name
-      const { data: pData } = await supabase.from('career_profiles').select('player_name').eq('id', careerId).single();
-      if (pData?.player_name) setCareerName(pData.player_name);
-      return;
-     }
-    }
-   }
+   
 
    // Tier 2 Pub Leagues: after 7 league matches, auto-create mandatory end-of-season tournament
    if (homeData.career.tier === 2 && homeData.standings) {

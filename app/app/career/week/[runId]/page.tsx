@@ -152,7 +152,7 @@ export default function WeekFixtures() {
     if (!careerId || !weekData || playingMatch) return;
     setPlayingMatch(true);
     try {
-      const playerFixture = weekData.fixtures.find(f => f.is_player_match);
+      const playerFixture = (weekData.fixtures || []).find(f => f.is_player_match);
       if (!playerFixture || playerFixture.status === 'completed') {
         toast.error('No match to play');
         return;
@@ -235,11 +235,12 @@ export default function WeekFixtures() {
     );
   }
 
-  if (!weekData) {
+  if (!weekData || weekData.error || !weekData.fixtures) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-white mb-4">No fixtures found</h2>
+          <h2 className="text-xl font-bold text-white mb-4">{weekData?.error || 'No fixtures found'}</h2>
+          <p className="text-slate-500 text-sm mb-4">Try going back and clicking Continue again</p>
           <Button variant="ghost" onClick={() => router.back()} className="text-slate-300">
             <ArrowLeft className="w-4 h-4 mr-2" /> Go Back
           </Button>
