@@ -169,6 +169,10 @@ BEGIN
         v_new_day + t.sequence_no * 6
       FROM career_schedule_templates t WHERE t.tier = v_new_tier ORDER BY t.sequence_no;
 
+      -- Clean any orphan standings first (from partial previous runs)
+      DELETE FROM career_league_standings
+      WHERE career_id = p_career_id AND season = v_new_season AND tier = v_new_tier;
+
       INSERT INTO career_league_standings (career_id, season, tier, is_player)
       VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
 
@@ -215,6 +219,10 @@ BEGIN
     PERFORM rpc_generate_career_opponents(p_career_id, v_new_tier::SMALLINT, v_num_opponents,
       v_career.career_seed + v_new_season * 100);
 
+    -- Clean any orphan standings first
+    DELETE FROM career_league_standings
+    WHERE career_id = p_career_id AND season = v_new_season AND tier = v_new_tier;
+
     INSERT INTO career_league_standings (career_id, season, tier, is_player)
     VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
 
@@ -260,6 +268,10 @@ BEGIN
       UPDATE career_profiles SET
         season = v_new_season, week = 1, day = v_new_day, updated_at = now()
       WHERE id = p_career_id;
+
+      -- Clean any orphan standings first
+      DELETE FROM career_league_standings
+      WHERE career_id = p_career_id AND season = v_new_season AND tier = v_new_tier;
 
       INSERT INTO career_league_standings (career_id, season, tier, is_player)
       VALUES (p_career_id, v_new_season, v_new_tier, TRUE);
