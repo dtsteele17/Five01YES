@@ -1094,7 +1094,7 @@ export default function DartbotMatchPage() {
         }
       }
 
-        // Report career match result if this is a career match
+      // Report career match result if this is a career match
         if (config?.career) {
           const isBracketMatch = config.career.matchId.startsWith('bracket-');
           if (isBracketMatch) {
@@ -1187,7 +1187,6 @@ export default function DartbotMatchPage() {
             triggerLevelUp(xpResult.levelUp.oldLevel, xpResult.levelUp.newLevel);
           }
         }
-      }
     } catch (error) { 
       console.error('Error saving match stats:', error); 
     }
