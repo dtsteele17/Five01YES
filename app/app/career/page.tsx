@@ -2198,9 +2198,9 @@ export default function CareerPage() {
           return (
            <div className="space-y-2 max-h-48 overflow-y-auto">
             {Object.values(grouped).map((award: any, i: number) => (
-             <div key={i} className="flex items-center gap-2.5 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
-               <Trophy className="w-4 h-4 text-amber-400" />
+             <div key={i} className={`flex items-center gap-2.5 p-2 rounded-lg ${award.title?.includes('Winner') || award.title?.includes('Champion') ? 'bg-amber-500/5 border border-amber-500/10' : 'bg-slate-500/5 border border-slate-500/10'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${award.title?.includes('Winner') || award.title?.includes('Champion') ? 'bg-amber-500/15' : 'bg-slate-500/15'}`}>
+               <Trophy className={`w-4 h-4 ${award.title?.includes('Winner') || award.title?.includes('Champion') ? 'text-amber-400' : 'text-slate-400'}`} />
               </div>
               <div className="flex-1 min-w-0">
                <div className="flex items-center gap-1.5">

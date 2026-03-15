@@ -105,7 +105,7 @@ BEGIN
     SELECT title, description, milestone_type, day, created_at
     FROM career_milestones
     WHERE career_id = p_career_id 
-      AND milestone_type IN ('tournament_win', 'first_tournament_win', 'league_champion', 'league_runner_up', 'promotion')
+      AND milestone_type IN ('tournament_win', 'tournament_result', 'first_tournament_win', 'league_champion', 'league_runner_up', 'promotion')
     ORDER BY created_at DESC LIMIT 10
   ) a;
 

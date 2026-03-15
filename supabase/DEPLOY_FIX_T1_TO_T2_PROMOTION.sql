@@ -189,6 +189,14 @@ BEGIN
     FROM jsonb_array_elements(p_matches_played) AS m;
   END IF;
 
+  -- Tournament result milestone (all placements, not just wins)
+  INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, day)
+  VALUES (p_career_id,
+    CASE WHEN p_player_won_tournament THEN 'tournament_win' ELSE 'tournament_result' END,
+    COALESCE(v_event.event_name, 'Tournament') || ' - ' || v_placement,
+    v_placement || ' in ' || COALESCE(v_event.event_name, 'a tournament') || ' (+' || v_rep_earned || ' fans)',
+    v_career.tier, v_career.season, v_career.day);
+
   -- Q-school winner milestone for promotion tracking
   IF v_career.tier = 4 AND p_player_won_tournament AND v_event.event_name ILIKE '%tour school%' THEN
     INSERT INTO career_milestones (career_id, milestone_type, title, description, tier, season, day)
