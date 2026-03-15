@@ -1885,17 +1885,19 @@ export default function DartbotMatchPage() {
     .filter(v => v.player === 'player2')
     .at(-1);
 
+  const cTheme = config?.career?.tier ? getEventTheme(config.career.tier, config.career.eventType, config.career.eventName) : null;
+
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col ${
-      config?.career?.tier ? getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).pageBg : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
+      cTheme ? cTheme.pageBg : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
     }`}>
       {LevelUpToastComponent}
-      {config?.career?.tier && (
-        <div className={`h-1 ${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).accentGradient} flex-shrink-0`} />
+      {cTheme && (
+        <div className={`${cTheme.accentBarHeight} ${cTheme.accentGradient} flex-shrink-0`} />
       )}
       {/* Top Bar */}
       <div className={`flex items-center justify-between p-3 border-b ${
-        config?.career?.tier ? `${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).headerBorder} ${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).headerBg}` : 'border-white/10'
+        cTheme ? `${cTheme.headerBorder} ${cTheme.headerBg}` : 'border-white/10'
       }`}>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowEndMatchDialog(true)} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
@@ -1926,11 +1928,11 @@ export default function DartbotMatchPage() {
         {config?.career ? (
           <div className="text-center">
             <h2 className={`text-sm leading-tight ${
-              config.career.tier
-                ? `${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).titleWeight} text-transparent bg-clip-text ${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).textGradient}`
+              cTheme
+                ? `${cTheme.titleWeight} text-transparent bg-clip-text ${cTheme.textGradient}`
                 : 'font-bold text-white'
             }`}>{config.career.eventName || 'Career Match'}</h2>
-            <p className={`text-[10px] ${config.career.tier ? getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).accentMuted : 'text-slate-400'}`}>
+            <p className={`text-[10px] ${cTheme ? cTheme.accentMuted : 'text-slate-400'}`}>
               {config.career.bracketRound && config.career.totalRounds
                 ? `${getRoundName(config.career.bracketRound, config.career.totalRounds)} • `
                 : ''}
@@ -2073,7 +2075,7 @@ export default function DartbotMatchPage() {
       {/* ===== DESKTOP LAYOUT ===== */}
       <div className="hidden sm:grid flex-1 grid-cols-1 sm:grid-cols-2 gap-3 p-3 overflow-hidden">
         {/* LEFT: Dartboard */}
-        <Card className="bg-slate-800/50 border-white/10 overflow-hidden flex flex-col">
+        <Card className={`${cTheme ? `${cTheme.cardBg} ${cTheme.cardBorder}` : 'bg-slate-800/50 border-white/10'} overflow-hidden flex flex-col`}>
           <div className="flex items-center justify-between p-2 border-b border-white/5">
             <span className="text-xs text-gray-400">Dartboard</span>
             <div className="text-xs text-purple-400">{botName}</div>
@@ -2196,6 +2198,7 @@ export default function DartbotMatchPage() {
               color="text-emerald-400"
               position="left"
               stats={calculateMatchStats(true)}
+              theme={cTheme}
             />
             <QuickMatchPlayerCard
               name={botName}
@@ -2206,11 +2209,12 @@ export default function DartbotMatchPage() {
               color="text-purple-400"
               position="right"
               stats={calculateMatchStats(false)}
+              theme={cTheme}
             />
           </div>
 
           {/* CONDITIONAL: Show Scoring Panel when my turn, Visit History when bot turn */}
-          <Card className="flex-1 bg-slate-800/50 border-white/10 p-3 overflow-hidden">
+          <Card className={`flex-1 ${cTheme ? `${cTheme.cardBg} ${cTheme.cardBorder}` : 'bg-slate-800/50 border-white/10'} p-3 overflow-hidden`}>
             {currentPlayer === 'player1' && !matchWinner ? (
               <ScoringPanel
                 scoreInput={scoreInput}

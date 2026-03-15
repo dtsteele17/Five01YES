@@ -3,6 +3,7 @@
 import { UserAvatar } from '@/components/app/UserAvatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import type { TierTheme } from '@/lib/career/tierThemes';
 
 interface QuickMatchPlayerCardProps {
   name: string;
@@ -19,6 +20,7 @@ interface QuickMatchPlayerCardProps {
   };
   previewRemaining?: number | null;
   userId?: string | null;
+  theme?: TierTheme | null;
 }
 
 export function QuickMatchPlayerCard({
@@ -32,12 +34,26 @@ export function QuickMatchPlayerCard({
   stats,
   previewRemaining,
   userId,
+  theme,
 }: QuickMatchPlayerCardProps) {
-  const statColor = position === 'left' ? 'text-emerald-400' : 'text-blue-400';
-  const borderColor = position === 'left' ? 'border-emerald-500/30' : 'border-blue-500/30';
+  // Use theme accent for stats if available, otherwise default colors
+  const statColor = theme ? theme.accent : position === 'left' ? 'text-emerald-400' : 'text-blue-400';
+  const borderActive = theme ? theme.accentBorder : position === 'left' ? 'border-emerald-500/30' : 'border-blue-500/30';
+  const dotFill = theme ? theme.dotColor : position === 'left' ? 'bg-emerald-500' : 'bg-blue-500';
+  const cardBg = theme ? theme.scoreBg : 'bg-slate-800/50';
+  const cardBorder = theme ? theme.scoreBorder : '';
+  const cardRadius = theme ? theme.cardRadius : 'rounded-xl';
+  const avatarFallback = theme 
+    ? `${theme.accentBg} text-white text-xs`
+    : position === 'left' 
+      ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs' 
+      : 'bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-xs';
 
   const showPreview = previewRemaining !== null && previewRemaining !== undefined && previewRemaining !== remaining;
   const isBust = showPreview && previewRemaining < 0;
+
+  // Score font weight varies by tier
+  const scoreFontWeight = theme ? theme.titleWeight : 'font-bold';
 
   return (
     <div className="relative flex items-stretch gap-1 sm:gap-2">
@@ -58,19 +74,19 @@ export function QuickMatchPlayerCard({
         </div>
       )}
 
-      <Card className={`flex-1 bg-slate-800/50 border-2 ${isActive ? borderColor : 'border-white/10'} transition-all`}>
+      <Card className={`flex-1 ${cardBg} border-2 ${isActive ? borderActive : cardBorder || 'border-white/10'} ${cardRadius} transition-all`}>
         <div className="p-3 space-y-3">
           <div className="flex items-center space-x-2">
             <UserAvatar 
               userId={userId} 
               name={name} 
               className="w-8 h-8"
-              fallbackClassName={position === 'left' ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-xs' : 'bg-gradient-to-br from-blue-400 to-cyan-500 text-white text-xs'}
+              fallbackClassName={avatarFallback}
             />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-white text-sm truncate">{name}</p>
               {isActive && (
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-xs px-1 py-0">
+                <Badge className={`${theme ? `${theme.badgeBg} ${theme.accent}` : 'bg-emerald-500/20 text-emerald-400'} border-transparent text-xs px-1 py-0`}>
                   Your Turn
                 </Badge>
               )}
@@ -78,7 +94,7 @@ export function QuickMatchPlayerCard({
           </div>
 
           <div className="text-center py-1">
-            <div className="text-4xl sm:text-6xl md:text-7xl font-display font-bold text-white tracking-tight" style={{ fontWeight: 700, letterSpacing: '-0.02em' }}>{remaining}</div>
+            <div className={`text-4xl sm:text-6xl md:text-7xl font-display ${scoreFontWeight} text-white tracking-tight`} style={{ letterSpacing: '-0.02em' }}>{remaining}</div>
             {showPreview && (
               <div className={`text-sm mt-1 ${isBust ? 'text-red-400' : 'text-gray-400'}`}>
                 Remaining: {isBust ? 'Bust' : previewRemaining}
@@ -96,7 +112,7 @@ export function QuickMatchPlayerCard({
                 <div
                   key={idx}
                   className={`w-3 h-3 rounded-full ${
-                    idx < legs ? `${position === 'left' ? 'bg-emerald-500' : 'bg-blue-500'}` : 'bg-slate-700'
+                    idx < legs ? dotFill : 'bg-slate-700'
                   }`}
                 />
               ))}

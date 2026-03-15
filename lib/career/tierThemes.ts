@@ -110,7 +110,7 @@ const TIER_1: TierTheme = {
   
   buttonBg: 'bg-gradient-to-r from-green-700 to-emerald-700',
   buttonHover: 'hover:from-green-600 hover:to-emerald-600',
-  buttonText: 'text-white',
+  buttonText: 'text-white font-semibold',
   buttonShadow: '',
   
   dotColor: 'bg-green-600',

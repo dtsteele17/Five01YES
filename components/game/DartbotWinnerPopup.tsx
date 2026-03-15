@@ -128,8 +128,8 @@ export function DartbotWinnerPopup({
             </motion.div>
             
             <DialogHeader className="space-y-0">
-              <DialogTitle className={`${theme ? `${theme.titleSize} ${theme.titleWeight} text-transparent bg-clip-text ${theme.textGradient}` : `text-lg sm:text-xl font-black ${isPlayer1Winner ? 'text-emerald-400' : 'text-red-400'}`}`}>
-                {isPlayer1Winner ? '🎉 You Win!' : '😔 Bot Wins!'}
+              <DialogTitle className={`text-xl sm:text-2xl font-black ${isPlayer1Winner ? 'text-emerald-400' : 'text-red-400'}`}>
+                {isPlayer1Winner ? 'VICTORY!' : 'DEFEAT'}
               </DialogTitle>
             </DialogHeader>
             
