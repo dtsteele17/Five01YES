@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Trophy, Users, Play, CheckCircle, RefreshCw, Swords, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { getEventTheme } from '@/lib/career/tierThemes';
 
 interface Fixture {
   id: string;
@@ -258,8 +259,11 @@ export default function WeekFixtures() {
   const matchdayMatch = weekData.event_name.match(/Matchday\s*(\d+)/i);
   const matchday = matchdayMatch ? matchdayMatch[1] : weekData.week.toString();
 
+  const theme = getEventTheme(weekData.tier, undefined, weekData.event_name);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className={`min-h-screen ${theme.pageBg}`}>
+      <div className={`fixed top-0 left-0 right-0 ${theme.accentBarHeight} ${theme.accentGradient} z-50`} />
       <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         
         {/* Header */}
@@ -273,14 +277,14 @@ export default function WeekFixtures() {
             className="flex items-center gap-1 text-slate-400 hover:text-white text-xs sm:text-sm mb-3 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Career Home
+            ← Career Home
           </button>
           
           <div className="text-center">
-            <div className="text-[10px] sm:text-xs font-medium text-emerald-400 uppercase tracking-widest mb-1">
+            <div className={`text-[10px] sm:text-xs font-medium ${theme.accent} uppercase tracking-widest mb-1`}>
               {tierName} • Season {weekData.season}
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
+            <h1 className={`${theme.titleSize} sm:text-2xl ${theme.titleWeight} text-white`}>
               {isResultsView && playerCompleted ? `Matchday ${matchday} — Results` : `Matchday ${matchday}`}
             </h1>
             <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Best of {bestOf}</p>
@@ -295,23 +299,23 @@ export default function WeekFixtures() {
             transition={{ delay: 0.1 }}
             className="mb-4 sm:mb-6"
           >
-            <div className={`relative rounded-xl border overflow-hidden ${
+            <div className={`relative ${theme.cardRadius} ${theme.borderStyle} overflow-hidden ${
               playerCompleted 
                 ? playerWon 
-                  ? 'bg-emerald-500/5 border-emerald-500/20' 
+                  ? `${theme.cardBg} ${theme.accentBorder}` 
                   : 'bg-red-500/5 border-red-500/20'
-                : 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20'
-            }`}>
+                : `${theme.cardBg} ${theme.cardBorder}`
+            } ${theme.cardShadow}`}>
               <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-center gap-3 sm:gap-6">
                   <div className="flex-1 text-right">
-                    <div className="text-base sm:text-lg font-bold text-white">You</div>
+                    <div className={`text-base sm:text-lg ${theme.titleWeight} text-white`}>{playerFixture.home_team}</div>
                   </div>
                   
                   <div className="flex items-center gap-2 sm:gap-3 min-w-[80px] sm:min-w-[100px] justify-center">
                     {playerCompleted ? (
                       <>
-                        <span className={`text-2xl sm:text-3xl font-black ${playerWon ? 'text-emerald-400' : 'text-white'}`}>
+                        <span className={`text-2xl sm:text-3xl font-black ${playerWon ? theme.accent : 'text-white'}`}>
                           {playerFixture.home_score}
                         </span>
                         <span className="text-slate-600 text-xs sm:text-sm">-</span>
@@ -325,7 +329,7 @@ export default function WeekFixtures() {
                   </div>
                   
                   <div className="flex-1 text-left">
-                    <div className="text-base sm:text-lg font-bold text-white">{playerFixture.away_team}</div>
+                    <div className={`text-base sm:text-lg ${theme.titleWeight} text-white`}>{playerFixture.away_team}</div>
                   </div>
                 </div>
 
@@ -333,7 +337,7 @@ export default function WeekFixtures() {
                   {playerCompleted ? (
                     <Badge className={`text-xs px-3 py-1 ${
                       playerWon 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        ? `${theme.badgeBg} ${theme.accent} ${theme.borderStyle} ${theme.accentBorder}` 
                         : 'bg-red-500/20 text-red-400 border border-red-500/30'
                     }`}>
                       {playerWon ? '✓ Victory' : '✗ Defeat'}
@@ -343,7 +347,7 @@ export default function WeekFixtures() {
                       onClick={handlePlayMatch}
                       disabled={playingMatch}
                       size="lg"
-                      className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-10 gap-2 shadow-lg shadow-amber-500/20"
+                      className={`${theme.buttonBg} ${theme.buttonHover} ${theme.buttonText} font-bold px-10 gap-2 ${theme.buttonShadow}`}
                     >
                       {playingMatch ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -366,7 +370,7 @@ export default function WeekFixtures() {
           transition={{ delay: 0.2 }}
           className="mb-6 sm:mb-8"
         >
-          <h3 className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-2">
+          <h3 className={`text-[10px] sm:text-xs font-medium ${theme.accentMuted} uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-2`}>
             <Swords className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             Other Matches
           </h3>
@@ -383,10 +387,10 @@ export default function WeekFixtures() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 + index * 0.05 }}
                 >
-                  <div className={`rounded-lg border px-3 sm:px-4 py-2 sm:py-3 ${
+                  <div className={`${theme.cardRadius} ${theme.borderStyle} px-3 sm:px-4 py-2 sm:py-3 ${
                     isCompleted 
-                      ? 'bg-slate-800/30 border-white/5' 
-                      : 'bg-slate-800/20 border-white/5'
+                      ? `bg-slate-800/30 ${theme.cardBorder}` 
+                      : `bg-slate-800/20 ${theme.cardBorder}`
                   }`}>
                     <div className="flex items-center justify-center gap-2 sm:gap-4">
                       <div className="flex-1 text-right">
@@ -438,7 +442,7 @@ export default function WeekFixtures() {
           {playerCompleted ? (
             <Button 
               onClick={handleBackToCareer}
-              className="bg-slate-800 hover:bg-slate-700 text-white font-medium px-8 gap-2 border border-white/10"
+              className={`${theme.buttonBg} ${theme.buttonHover} ${theme.buttonText} font-medium px-8 gap-2 ${theme.buttonShadow}`}
             >
               Back to Career
               <ChevronRight className="w-4 h-4" />
