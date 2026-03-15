@@ -127,19 +127,17 @@ export default function WeekFixtures() {
     const bestOf = data.format_legs || (data.tier === 3 ? 5 : data.tier === 4 ? 7 : data.tier === 5 ? 9 : 3);
     const legsToWin = Math.ceil(bestOf / 2);
     
+    // Clamp scores to respect best-of format (don't randomize — just cap)
     data.fixtures = data.fixtures.map((f: Fixture) => {
       if (!f.is_player_match && f.status === 'completed') {
-        // Ensure scores respect best-of format
         const hs = f.home_score ?? 0;
         const as = f.away_score ?? 0;
-        if (hs > legsToWin || as > legsToWin || (hs !== legsToWin && as !== legsToWin)) {
-          const homeWins = Math.random() < 0.5;
-          const winnerLegs = legsToWin;
-          const loserLegs = Math.floor(Math.random() * legsToWin);
+        // Only clamp if scores exceed the format — never randomize
+        if (hs > legsToWin || as > legsToWin) {
           return {
             ...f,
-            home_score: homeWins ? winnerLegs : loserLegs,
-            away_score: homeWins ? loserLegs : winnerLegs,
+            home_score: Math.min(hs, legsToWin),
+            away_score: Math.min(as, legsToWin),
           };
         }
       }
