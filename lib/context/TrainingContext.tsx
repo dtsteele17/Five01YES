@@ -32,6 +32,7 @@ export interface TrainingConfig {
     returnToFixtures?: boolean;
     playerName?: string;
     tier?: number;
+    eventType?: string;
   };
 }
 

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTraining } from '@/lib/context/TrainingContext';
-import { getTierTheme } from '@/lib/career/tierThemes';
+import { getTierTheme, getEventTheme } from '@/lib/career/tierThemes';
 import {
   CAREER_TRAINING_AUTO_PROMOTE_KEY,
   CAREER_TRAINING_RETURN_KEY,
@@ -698,7 +698,7 @@ export default function CareerBracketPage() {
       bestOf: bestOfMap[matchFormat] || 'best-of-3', atcOpponent: 'bot',
       career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
         opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds,
-        playerName, tier: careerTier },
+        playerName, tier: careerTier, eventType },
     });
     router.push('/app/play/training/501');
   }
@@ -724,16 +724,8 @@ export default function CareerBracketPage() {
   }
 
   return (
-    <div className={`min-h-screen p-3 sm:p-5 ${
-      eventType?.startsWith('champions_series')
-        ? 'bg-gradient-to-br from-purple-950/30 via-slate-900 to-slate-950'
-        : getTierTheme(careerTier).pageBg
-    }`}>
-      <div className={`fixed top-0 left-0 right-0 h-1 ${
-        eventType?.startsWith('champions_series')
-          ? 'bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500'
-          : getTierTheme(careerTier).accentGradient
-      } z-50`} />
+    <div className={`min-h-screen p-3 sm:p-5 ${getEventTheme(careerTier, eventType, eventName).pageBg}`}>
+      <div className={`fixed top-0 left-0 right-0 ${getEventTheme(careerTier, eventType, eventName).accentBarHeight} ${getEventTheme(careerTier, eventType, eventName).accentGradient} z-50`} />
       <div className="max-w-6xl mx-auto space-y-4">
 
         {/* Header */}
@@ -742,12 +734,8 @@ export default function CareerBracketPage() {
             <Button variant="ghost" size="sm" onClick={() => void handleBackToCareer()} className="text-slate-400 hover:text-white px-2" disabled={routingToTraining}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <Trophy className={`w-5 h-5 ${eventType?.startsWith('champions_series') ? 'text-purple-400' : getTierTheme(careerTier).accent}`} />
-            <h1 className={`text-lg font-black ${
-              eventType?.startsWith('champions_series')
-                ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400'
-                : 'text-white'
-            }`}>{eventName}</h1>
+            <Trophy className={`w-5 h-5 ${getEventTheme(careerTier, eventType, eventName).accent}`} />
+            <h1 className={`${getEventTheme(careerTier, eventType, eventName).titleSize} ${getEventTheme(careerTier, eventType, eventName).titleWeight} text-transparent bg-clip-text ${getEventTheme(careerTier, eventType, eventName).textGradient}`}>{eventName}</h1>
           </div>
           <div className="flex gap-1.5">
             <Badge className="bg-white/10 text-white/70 text-[10px]">{bracket.size}-Player</Badge>
@@ -766,11 +754,7 @@ export default function CareerBracketPage() {
 
         {/* Your Match Fixture Bar */}
         {!bracket.completed && !bracket.playerEliminated && playerOpponent && (
-          <Card className={`p-3 border ${
-            eventType?.startsWith('champions_series')
-              ? 'bg-gradient-to-r from-purple-600/15 via-amber-500/5 to-purple-600/15 border-purple-500/30'
-              : `${getTierTheme(careerTier).cardBg} ${getTierTheme(careerTier).cardBorder}`
-          }`}>
+          <Card className={`p-3 ${getEventTheme(careerTier, eventType, eventName).borderStyle} ${getEventTheme(careerTier, eventType, eventName).cardBg} ${getEventTheme(careerTier, eventType, eventName).cardBorder} ${getEventTheme(careerTier, eventType, eventName).cardShadow}`}>
             <div className="flex items-center justify-between">
               <div className="w-20" />
               <div className="flex items-center gap-4">
@@ -800,11 +784,7 @@ export default function CareerBracketPage() {
         )}
 
         {/* ═══ HORIZONTAL BRACKET ═══ */}
-        <Card className={`p-5 border overflow-x-auto ${
-          eventType?.startsWith('champions_series')
-            ? 'bg-gradient-to-br from-purple-900/15 via-slate-800/40 to-slate-900/80 border-purple-500/20'
-            : `${getTierTheme(careerTier).cardBg} ${getTierTheme(careerTier).cardBorder}`
-        }`}>
+        <Card className={`p-5 overflow-x-auto ${getEventTheme(careerTier, eventType, eventName).borderStyle} ${getEventTheme(careerTier, eventType, eventName).cardBg} ${getEventTheme(careerTier, eventType, eventName).cardBorder} ${getEventTheme(careerTier, eventType, eventName).cardRadius}`}>
           <div className="flex gap-0 min-w-max">
             {rounds.map((round, ri) => {
               const isFinalRound = round.round === bracket.totalRounds;
@@ -814,15 +794,15 @@ export default function CareerBracketPage() {
                 <div className="text-center mb-4 px-3">
                   {isFinalRound ? (
                     <div className="flex items-center justify-center gap-1.5">
-                      <Trophy className={`w-3.5 h-3.5 ${getTierTheme(careerTier).accent}`} />
-                      <span className={`text-xs font-black uppercase tracking-widest ${getTierTheme(careerTier).accent}`}>
+                      <Trophy className={`w-3.5 h-3.5 ${getEventTheme(careerTier, eventType, eventName).accent}`} />
+                      <span className={`text-xs font-black uppercase tracking-widest ${getEventTheme(careerTier, eventType, eventName).accent}`}>
                         {round.name}
                       </span>
-                      <Trophy className={`w-3.5 h-3.5 ${getTierTheme(careerTier).accent}`} />
+                      <Trophy className={`w-3.5 h-3.5 ${getEventTheme(careerTier, eventType, eventName).accent}`} />
                     </div>
                   ) : (
                   <span className={`text-xs font-bold uppercase tracking-wider ${
-                    round.round === bracket.currentRound && !bracket.completed ? getTierTheme(careerTier).accent : 'text-slate-500'
+                    round.round === bracket.currentRound && !bracket.completed ? getEventTheme(careerTier, eventType, eventName).accent : 'text-slate-500'
                   }`}>
                     {round.name}
                   </span>
@@ -849,14 +829,14 @@ export default function CareerBracketPage() {
                               ? 'border-white/10 bg-slate-800/50'
                               : 'border-white/5 bg-slate-900/30'
                         }`}>
-                          <MatchSlot tierAccent={getTierTheme(careerTier).accent} name={match.participant1?.name || 'TBD'}
+                          <MatchSlot tierAccent={getEventTheme(careerTier, eventType, eventName).accent} name={match.participant1?.name || 'TBD'}
                             isPlayer={match.participant1?.isPlayer}
                             isWinner={match.winnerId === match.participant1?.id}
                             score={match.score?.p1Legs}
                             decided={!!match.winnerId}
                           />
                           <div className="border-t border-white/5" />
-                          <MatchSlot tierAccent={getTierTheme(careerTier).accent} name={match.participant2?.name || 'TBD'}
+                          <MatchSlot tierAccent={getEventTheme(careerTier, eventType, eventName).accent} name={match.participant2?.name || 'TBD'}
                             isPlayer={match.participant2?.isPlayer}
                             isWinner={match.winnerId === match.participant2?.id}
                             score={match.score?.p2Legs}
@@ -970,5 +950,6 @@ function MatchSlot({ name, isPlayer, isWinner, score, decided, tierAccent }: {
     </div>
   );
 }
+
 
 

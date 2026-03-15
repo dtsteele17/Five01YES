@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Trophy, Target, TrendingUp, Award, RotateCcw, Undo2, Crown, Sparkles } from 'lucide-react';
-import { getTierTheme } from '@/lib/career/tierThemes';
+import { getEventTheme } from '@/lib/career/tierThemes';
 import { Button } from '@/components/ui/button';
 import { LegByLegStats } from '@/components/match/LegByLegStats';
 import type { LegStats } from '@/lib/stats/legByLegStats';
@@ -87,7 +87,7 @@ export function DartbotWinnerPopup({
     <Dialog open={true} modal>
       <DialogContent 
         className={`text-white w-full max-w-[95vw] sm:max-w-2xl lg:max-w-3xl p-0 overflow-y-auto ${
-          career?.tier ? `bg-slate-900 ${getTierTheme(career.tier).cardBorder}` : 'bg-slate-900 border-slate-700'
+          career?.tier ? `bg-slate-900 ${getEventTheme(career.tier, career.eventType, career.eventName).cardBorder}` : 'bg-slate-900 border-slate-700'
         }`}
         style={{ maxHeight: '90vh' }}
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -95,10 +95,10 @@ export function DartbotWinnerPopup({
       >
         {/* Winner Header */}
         <div className={`relative p-3 sm:p-4 ${career?.tier
-          ? `${getTierTheme(career.tier).cardBg} border-b ${getTierTheme(career.tier).accentBorder}`
+          ? `${getEventTheme(career.tier, career.eventType, career.eventName).cardBg} border-b ${getEventTheme(career.tier, career.eventType, career.eventName).accentBorder}`
           : `bg-gradient-to-r ${isPlayer1Winner ? 'from-emerald-600/20 via-emerald-500/20 to-emerald-600/20 border-b border-emerald-500/30' : 'from-red-600/20 via-red-500/20 to-red-600/20 border-b border-red-500/30'}`
         }`}>
-          {career?.tier && <div className={`absolute top-0 left-0 right-0 h-1 ${getTierTheme(career.tier).accentGradient}`} />}
+          {career?.tier && <div className={`absolute top-0 left-0 right-0 h-1 ${getEventTheme(career.tier, career.eventType, career.eventName).accentGradient}`} />}
           {/* Sparkles */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {[...Array(4)].map((_, i) => (
@@ -324,3 +324,4 @@ export function DartbotWinnerPopup({
     </Dialog>
   );
 }
+

@@ -31,7 +31,7 @@ import { playGameOnSfx, hasPlayedGameOnForSession, markGameOnPlayedForSession } 
 import { DartboardOverlay, DartHit } from '@/components/app/DartboardOverlay';
 import { simulateVisit, DartResult, BotPerformanceTracker, updatePerformanceTracker, findBestCheckoutRoute } from '@/lib/botThrowEngine';
 import { getCheckoutSuggestion as getCheckoutFromRoutes, formatDartLabel } from '@/lib/darts/checkoutRoutes';
-import { getTierTheme } from '@/lib/career/tierThemes';
+import { getEventTheme } from '@/lib/career/tierThemes';
 import { isDartbotVisualizationEnabled, isDartbotDebugModeEnabled } from '@/lib/dartbotSettings';
 import { recordDartbotMatchCompletion, type DartbotMatchStats } from '@/lib/dartbot';
 import { awardXP } from '@/lib/training/xpTracker';
@@ -1887,15 +1887,15 @@ export default function DartbotMatchPage() {
 
   return (
     <div className={`h-screen w-screen overflow-hidden flex flex-col ${
-      config?.career?.tier ? getTierTheme(config.career.tier).pageBg : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
+      config?.career?.tier ? getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).pageBg : 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
     }`}>
       {LevelUpToastComponent}
       {config?.career?.tier && (
-        <div className={`h-1 ${getTierTheme(config.career.tier).accentGradient} flex-shrink-0`} />
+        <div className={`h-1 ${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).accentGradient} flex-shrink-0`} />
       )}
       {/* Top Bar */}
       <div className={`flex items-center justify-between p-3 border-b ${
-        config?.career?.tier ? `${getTierTheme(config.career.tier).headerBorder} ${getTierTheme(config.career.tier).headerBg}` : 'border-white/10'
+        config?.career?.tier ? `${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).headerBorder} ${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).headerBg}` : 'border-white/10'
       }`}>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setShowEndMatchDialog(true)} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
@@ -1925,12 +1925,12 @@ export default function DartbotMatchPage() {
         </div>
         {config?.career ? (
           <div className="text-center">
-            <h2 className={`text-sm font-bold leading-tight ${
-              config.career.eventName?.includes('Champions Series')
-                ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-amber-400'
-                : 'text-white'
+            <h2 className={`text-sm leading-tight ${
+              config.career.tier
+                ? `${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).titleWeight} text-transparent bg-clip-text ${getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).textGradient}`
+                : 'font-bold text-white'
             }`}>{config.career.eventName || 'Career Match'}</h2>
-            <p className={`text-[10px] ${config.career.tier ? getTierTheme(config.career.tier).accentMuted : 'text-slate-400'}`}>
+            <p className={`text-[10px] ${config.career.tier ? getEventTheme(config.career.tier, config.career.eventType, config.career.eventName).accentMuted : 'text-slate-400'}`}>
               {config.career.bracketRound && config.career.totalRounds
                 ? `${getRoundName(config.career.bracketRound, config.career.totalRounds)} • `
                 : ''}
@@ -2390,4 +2390,6 @@ export default function DartbotMatchPage() {
     </div>
   );
 }
+
+
 

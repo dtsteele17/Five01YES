@@ -16,7 +16,7 @@ import { motion } from 'framer-motion';
 import { Trophy, Target, Flame, Shield, Crown, Skull, Swords, Play, ChevronRight, ArrowLeft, Loader as Loader2, Star, TrendingUp, Calendar, Dumbbell, Award, Zap, Users, ChartBar as BarChart3, Sparkles, Clock, Settings, Save, Bell, Table2, ChevronDown, X, Trash2, Mail, Globe, Lock } from 'lucide-react';
 import { useTraining } from '@/lib/context/TrainingContext';
 import { CAREER_TRAINING_RETURN_KEY, getRandomCareerTrainingRoute } from '@/lib/career/trainingRoutes';
-import { getTierTheme } from '@/lib/career/tierThemes';
+import { getTierTheme, getEventTheme } from '@/lib/career/tierThemes';
 
 const TIER_CONFIG: Record<number, { name: string; icon: any; color: string; accent: string }> = {
  1: { name: 'Local Circuit Trials', icon: Target, color: 'emerald', accent: 'emerald-500' },
@@ -1406,25 +1406,11 @@ export default function CareerPage() {
  const bracketSize = next_event?.bracket_size || 0;
  const bracketRounds = bracketSize > 0 ? Math.log2(bracketSize) : 0;
 
- // Use CS purple/gold theme when next event is Champions Series, otherwise use tier theme
- const isCSEvent = next_event?.event_type?.startsWith('champions_series');
- const tierTheme = isCSEvent ? {
-   ...getTierTheme(career.tier),
-   pageBg: 'bg-gradient-to-br from-purple-950/30 via-slate-900 to-slate-950',
-   cardBg: 'bg-gradient-to-br from-purple-900/15 via-slate-800/40 to-slate-900/80',
-   cardBorder: 'border-purple-500/20',
-   cardRing: 'ring-purple-500/20',
-   accent: 'text-purple-400',
-   accentMuted: 'text-purple-400/60',
-   accentBg: 'bg-purple-500/10',
-   accentBorder: 'border-purple-500/30',
-   accentGradient: 'bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500',
-   textGradient: 'bg-gradient-to-r from-purple-400 to-amber-400',
-   dotColor: 'bg-purple-400',
- } : getTierTheme(career.tier);
+ // Dynamic theme based on tier + current event type
+ const tierTheme = getEventTheme(career.tier, next_event?.event_type, next_event?.event_name);
  return (
   <div className={`min-h-[100dvh] ${tierTheme.pageBg} p-3 sm:p-4 lg:p-6`}>
-   <div className={`fixed top-0 left-0 right-0 h-1 ${tierTheme.accentGradient} z-50`} />
+   <div className={`fixed top-0 left-0 right-0 ${tierTheme.accentBarHeight} ${tierTheme.accentGradient} z-50`} />
    <div className="max-w-7xl mx-auto space-y-4">
 
     {/* ? TOP BAR: Name + Tier + REP ? */}
