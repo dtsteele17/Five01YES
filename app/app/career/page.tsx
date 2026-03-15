@@ -133,6 +133,11 @@ export default function CareerPage() {
  const [qSchoolData, setQSchoolData] = useState<{ player_rank: number; semi_opponent: string; semi_opponent_rank: number } | null>(null);
  const [showChampionshipIntro, setShowChampionshipIntro] = useState(false);
  const [csChampion, setCsChampion] = useState<{ name: string; isPlayer: boolean; season: number } | null>(null);
+ // Mobile tab state
+ const [mobileTab, setMobileTab] = useState<'emails' | 'notifications' | 'event' | 'awards'>('event');
+ const [seenEmails, setSeenEmails] = useState<Set<string>>(new Set());
+ const [seenAwards, setSeenAwards] = useState(false);
+ const [seenNotifications, setSeenNotifications] = useState(false);
  const [showGroupResults, setShowGroupResults] = useState(false);
  const [groupStandings, setGroupStandings] = useState<any[]>([]);
  const [showOptionalTournament, setShowOptionalTournament] = useState(false);
@@ -1614,8 +1619,44 @@ export default function CareerPage() {
        </Card>
       </motion.div>
 
-      {/* SPONSORS + REP */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      {/* 📱 MOBILE TABS — only visible on small screens */}
+      <div className="lg:hidden">
+       <div className={`flex rounded-xl overflow-hidden ${tierTheme.borderStyle} ${tierTheme.cardBorder} ${tierTheme.cardBg}`}>
+        {([
+         { key: 'event' as const, label: 'Event', icon: '📋', count: 0 },
+         { key: 'emails' as const, label: 'Emails', icon: '📧', count: emails.filter(e => e.isNew && !seenEmails.has(e.id)).length },
+         { key: 'notifications' as const, label: 'Alerts', icon: '🔔', count: !seenNotifications && sponsorOffer ? 1 : 0 },
+         { key: 'awards' as const, label: 'Awards', icon: '🏆', count: !seenAwards && data?.awards && data.awards.length > 0 ? data.awards.length : 0 },
+        ]).map(tab => (
+         <button
+          key={tab.key}
+          onClick={() => {
+           setMobileTab(tab.key);
+           if (tab.key === 'emails') setSeenEmails(new Set(emails.map(e => e.id)));
+           if (tab.key === 'awards') setSeenAwards(true);
+           if (tab.key === 'notifications') setSeenNotifications(true);
+          }}
+          className={`flex-1 py-2.5 text-center text-xs font-bold relative transition-all ${
+           mobileTab === tab.key
+            ? `${tierTheme.accentBg} ${tierTheme.accent}`
+            : 'text-slate-500 hover:text-slate-300'
+          }`}
+         >
+          <span className="block text-sm">{tab.icon}</span>
+          <span>{tab.label}</span>
+          {tab.count > 0 && (
+           <span className="absolute top-1 right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
+            {tab.count}
+           </span>
+          )}
+         </button>
+        ))}
+       </div>
+      </div>
+
+      {/* SPONSORS + REP — visible on desktop always, mobile only when notifications tab active */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+       className={`lg:block ${mobileTab === 'notifications' ? 'block' : 'hidden lg:block'}`}>
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center gap-2 mb-4">
@@ -1789,7 +1830,9 @@ export default function CareerPage() {
      <div className="lg:col-span-5 space-y-4">
 
       {/* Tournament Draw / Bracket Preview LARGE */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+      {/* Tournament Draw / League — desktop always, mobile only on event tab */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+       className={`lg:block ${mobileTab === 'event' ? 'block' : 'hidden lg:block'}`}>
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center justify-between mb-4">
@@ -1944,9 +1987,10 @@ export default function CareerPage() {
        </Card>
       </motion.div>
 
-      {/* Emails Tile */}
+      {/* Emails Tile — desktop always, mobile only on emails tab */}
       {emails.length > 0 && (
-       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+        className={`lg:block ${mobileTab === 'emails' ? 'block' : 'hidden lg:block'}`}>
         <Card className={`border-0 backdrop-blur-sm shadow-lg ${
          emails.some(e => e.isNew) 
           ? 'bg-cyan-500/10 ring-2 ring-cyan-400/40 shadow-cyan-500/10' 
@@ -2103,8 +2147,9 @@ export default function CareerPage() {
        </motion.div>
       )}
 
-      {/* Awards / Trophy Cabinet */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+      {/* Awards / Trophy Cabinet — desktop always, mobile only on awards tab */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+       className={`lg:block ${mobileTab === 'awards' ? 'block' : 'hidden lg:block'}`}>
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center gap-2 mb-3">
