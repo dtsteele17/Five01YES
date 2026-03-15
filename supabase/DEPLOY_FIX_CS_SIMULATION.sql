@@ -37,16 +37,18 @@ BEGIN
     RETURN json_build_object('skip', true, 'reason', 'All nights complete');
   END IF;
 
+  -- Use random() for genuine randomization each night — no deterministic hash
+  -- Higher-ranked players (by current CS points) get a slight advantage but results vary
   FOR v_cs IN
-    SELECT id, player_name, is_player FROM career_champions_series
+    SELECT id, player_name, is_player, points AS current_pts FROM career_champions_series
     WHERE career_id = p_career_id AND season = v_career.season
-    ORDER BY md5(id::text || v_completed_nights::text)
+    ORDER BY (random() * 0.7 + (points::float / GREATEST(1, (SELECT MAX(points) FROM career_champions_series WHERE career_id = p_career_id AND season = v_career.season))) * 0.3) DESC
   LOOP
     IF v_idx <= array_length(v_points, 1) THEN
       UPDATE career_champions_series SET
         points = points + v_points[v_idx],
-        legs_for = legs_for + 3 + (ascii(md5(id::text || v_completed_nights::text || v_idx::text)) % 8),
-        legs_against = legs_against + 2 + (ascii(md5(id::text || v_completed_nights::text || 'a' || v_idx::text)) % 6)
+        legs_for = legs_for + 2 + floor(random() * 8)::int,
+        legs_against = legs_against + 1 + floor(random() * 7)::int
       WHERE id = v_cs.id;
       v_idx := v_idx + 1;
     END IF;
