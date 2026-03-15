@@ -479,7 +479,7 @@ export default function CareerBracketPage() {
         });
       }
     }
-    // For Pro Tour (tier 5): add ALL top 25 ranked players first (no first-name dedup for ranked players)
+    // For Pro Tour (tier 5): add ALL ranked players, then fill with unique random names
     if (career.tier >= 5) {
       const { data: rankings } = await supabase
         .from('career_pro_rankings')
@@ -487,17 +487,21 @@ export default function CareerBracketPage() {
         .eq('career_id', carId)
         .order('ranking_position')
         .limit(25);
+      // Get player's ranking
+      const playerRanking = rankings?.find((r: any) => r.is_player);
+      if (playerRanking) {
+        participants[0].rank = playerRanking.ranking_position;
+      }
       if (rankings) {
         for (const r of rankings) {
-          if (r.is_player) continue; // player already added
-          // Skip exact duplicate full names only (shouldn't happen but safety check)
-          if (usedNames.has(r.player_name)) continue;
+          if (r.is_player) continue;
           if (participants.length >= bracketSize) break;
-          // Track names to prevent random fill from using the same names
-          const rFirstName = r.player_name.split(/[\s']/)[0];
+          // Extract all name parts for dedup
+          const baseName = r.player_name.replace(/'[^']*'\s*/g, '').trim();
+          const firstName = r.player_name.split(/[\s']/)[0];
           usedNames.add(r.player_name);
-          usedBaseNames.add(r.player_name.replace(/'[^']*'\s*/g, ''));
-          usedFirstNames.add(rFirstName);
+          usedBaseNames.add(baseName);
+          usedFirstNames.add(firstName);
           participants.push({
             id: `ranked_${r.ranking_position}`,
             name: r.player_name,
@@ -505,48 +509,54 @@ export default function CareerBracketPage() {
             archetype: 'allrounder',
             isPlayer: false,
             seed: participants.length + 1,
-            rank: r.ranking_position, // Include ranking for display
+            rank: r.ranking_position,
           });
         }
       }
     }
-    // Fill remaining spots with seeded random outside players (no duplicates)
+    // Fill remaining spots with random outside players — ZERO duplicates
     if (participants.length < bracketSize) {
-      const firstNames = ['James','Thomas','Chris','Ryan','Jake','Daniel','Michael','Sam','Luke','Alex','Joseph','William','Benjamin','Matt','Nathan','Robert','Stephen','David','Philip','Ian','Lee','Gary','Paul','Peter','Kevin','Andrew','Marcus','John','Liam','Owen','Theo','Max','Kai','Finn','Jack','Noah','Leon','Kyle','Callum','Connor','Declan','Ethan','Harry','Aiden','Charlie','Oscar','Rory','Wayne','Barry','Craig','Darren','Jason','Shaun','Neil','Glen','Karl','Ollie','Toby','Freddie','Alfie','George','Archie','Dylan','Logan','Tyler','Bradley','Patrick','Dominic','Kieran','Miguel','Carlos','Stefan','Jan','Lars','Kris','Sven','Marco','Fabio','Klaus','Hans','Erik','Nils','Piotr','Tomas','Andrei','Viktor','Isaac','Gabriel','Felix','Hugo','Rafael','Antonio','Pedro','Diego','Mateo','Sofia','Elena','Maria','Gemma','Amy','Sarah','Emma','Holly','Zoe','Kate','Lucy','Sophie','Lily','Eva','Isla','Ruby','Ellie','Freya','Hannah','Grace','Chloe','Lauren','Molly','Amber','Jade','Ella','Megan','Rachel','Becky','Natalie','Fiona','Bob','Mark','Adam','Richie','Kev'];
-      const lastNames = ['Smith','Jones','Brown','Wilson','Taylor','Clark','Lewis','Walker','Hall','Green','Baker','King','Wright','Scott','Adams','Hill','Moore','Wood','Kelly','Evans','Murphy','Cox','Webb','Stone','Cole','Ford','Ross','Reed','Mills','West','Fox','Hayes','Day','Hart','Long','Cross','Lane','Flynn','Nash','Burke','Walsh','Burns','Quinn','Rhodes','Marshall','Hunter','Barker','Holmes','Watson','Palmer','Ryan','Wells','Price','Bennett','Campbell','Murray','Stewart','Crawford','Cameron','Grant','Hamilton','Robertson','Thomson','Henderson','Ferguson','Simpson','Patterson','Byrne','Doyle','Brennan','Gallagher','Reilly','Novak','Kowalski','Petrov','Mueller','Fischer','Weber','Schneider','Becker','Berg','Johansson','Andersen','De Boer','Van Dijk','Jansen','Garcia','Martinez','Lopez','Hernandez','Santos','Silva','Costa','Ferreira','Patel','Sharma','Tanaka','Chen','Kim','Merz','Russo','Romano','Diaz','Maguire','Wagner'];
+      const firstNames = ['James','Thomas','Chris','Ryan','Jake','Daniel','Michael','Sam','Luke','Alex','Joseph','William','Benjamin','Matt','Nathan','Robert','Stephen','David','Philip','Ian','Lee','Gary','Paul','Peter','Kevin','Andrew','Marcus','John','Liam','Owen','Theo','Max','Kai','Finn','Jack','Noah','Leon','Kyle','Callum','Connor','Declan','Ethan','Harry','Aiden','Charlie','Oscar','Rory','Wayne','Barry','Craig','Darren','Jason','Shaun','Neil','Glen','Karl','Ollie','Toby','Freddie','Alfie','George','Archie','Dylan','Logan','Tyler','Bradley','Patrick','Dominic','Kieran','Miguel','Carlos','Stefan','Jan','Lars','Kris','Sven','Marco','Fabio','Klaus','Hans','Erik','Nils','Piotr','Tomas','Andrei','Viktor','Isaac','Gabriel','Felix','Hugo','Rafael','Antonio','Pedro','Diego','Mateo','Sofia','Elena','Maria','Gemma','Amy','Sarah','Emma','Holly','Zoe','Kate','Lucy','Sophie','Lily','Eva','Isla','Ruby','Ellie','Freya','Hannah','Grace','Chloe','Lauren','Molly','Amber','Jade','Ella','Megan','Rachel','Becky','Natalie','Fiona','Bob','Mark','Adam','Richie','Kev','Niall','Mick','Sean','Colm','Oisin','Cian','Tadhg','Roisin','Siobhan','Aoife','Ciara','Maeve','Sorcha','Ewan','Blair','Hamish','Angus','Fraser','Murray','Ross','Trent','Brody','Heath','Zane','Jude','Reece','Troy','Dale','Clive','Stuart','Gareth','Rhys','Gavin','Trevor','Graham'];
+      const lastNames = ['Smith','Jones','Brown','Wilson','Taylor','Clark','Lewis','Walker','Hall','Green','Baker','King','Wright','Scott','Adams','Hill','Moore','Wood','Kelly','Evans','Murphy','Cox','Webb','Stone','Cole','Ford','Ross','Reed','Mills','West','Fox','Hayes','Day','Hart','Long','Cross','Lane','Flynn','Nash','Burke','Walsh','Burns','Quinn','Rhodes','Marshall','Hunter','Barker','Holmes','Watson','Palmer','Ryan','Wells','Price','Bennett','Campbell','Murray','Stewart','Crawford','Cameron','Grant','Hamilton','Robertson','Thomson','Henderson','Ferguson','Simpson','Patterson','Byrne','Doyle','Brennan','Gallagher','Reilly','Novak','Kowalski','Petrov','Mueller','Fischer','Weber','Schneider','Becker','Berg','Johansson','Andersen','De Boer','Van Dijk','Jansen','Garcia','Martinez','Lopez','Hernandez','Santos','Silva','Costa','Ferreira','Patel','Sharma','Tanaka','Chen','Kim','Merz','Russo','Romano','Diaz','Maguire','Wagner','Doherty','McLaughlin','O\'Brien','McCarthy','O\'Sullivan','Carroll','Fitzgerald','Sweeney','Lynch','Nolan','Duffy','Power','Whelan','Buckley','Healy'];
       const archetypes = ['allrounder','power','precision','finishing'];
-      const nicknames = ['The Hammer','Ice','Bulletproof','The Ace','Dynamite','Ironside','The Flash','Viper','Blitz','Thunder','The Machine','Scorpion','Wildcard','The Wolf','Maverick','The Surgeon','Hotshot','Cobra','The Natural','Laser','The Viking','Tornado','The Dart','The Beast','Lightning','Big Dog','Hard Man','Showtime','Nino','Jackpot','Smooth'];
-      // Seeded hash for deterministic generation per event
+      const nicknames = ['The Hammer','Ice','Bulletproof','The Ace','Dynamite','Ironside','The Flash','Viper','Blitz','Thunder','The Machine','Scorpion','Wildcard','The Wolf','Maverick','The Surgeon','Hotshot','Cobra','The Natural','Laser','The Viking','Tornado','The Dart','The Beast','Lightning','Big Dog','Hard Man','Showtime','Nino','Jackpot','Smooth','The Professor','Double Top','Treble Top','The Phoenix','The Chief','The Power','Barney','Sparky','The Magician'];
+      // Filter out first names already used by ranked players
+      const availableFirstNames = firstNames.filter(fn => !usedFirstNames.has(fn));
       const seededHash = (n: number) => { let t = (seed + n) | 0; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0); };
+      // Pre-shuffle available first names deterministically
+      const shuffledFN = [...availableFirstNames].sort((a, b) => seededHash(a.charCodeAt(0) * 31 + a.length) - seededHash(b.charCodeAt(0) * 31 + b.length));
       const remaining = bracketSize - participants.length;
-      let genIdx = 0;
-      for (let i = 0; i < remaining && genIdx < 1000; genIdx++) {
-        const fnI = seededHash(genIdx * 3 + 1) % firstNames.length;
-        const lnI = seededHash(genIdx * 3 + 2) % lastNames.length;
-        const hasNick = (seededHash(genIdx * 3 + 3) % 4) === 0;
-        const nickI = seededHash(genIdx * 7 + 5) % nicknames.length;
-        const fn = firstNames[fnI];
-        const ln = lastNames[lnI];
-        const baseName = `${fn} ${ln}`;
-        // Skip if this first+last combo exists, or first name already used (avoid "Sven King" + "Sven Murphy")
-        if (usedBaseNames.has(baseName) || usedFirstNames.has(fn)) continue;
-        const nick = hasNick ? nicknames[nickI] : null;
-        const name = nick ? `${fn} '${nick}' ${ln}` : `${fn} ${ln}`;
-        if (!usedNames.has(name)) {
-          usedNames.add(name);
-          usedBaseNames.add(baseName);
-          usedFirstNames.add(fn);
-          const skill = Math.round((30 + (seededHash(genIdx * 11) % 40)) * mult);
-          participants.push({
-            id: `outside_${i}`,
-            name,
-            skill,
-            archetype: archetypes[seededHash(genIdx * 13) % archetypes.length],
-            isPlayer: false,
-            seed: participants.length + 1,
-          });
-          i++;
+      let fnIdx = 0;
+      for (let i = 0; i < remaining && fnIdx < shuffledFN.length; fnIdx++) {
+        const fn = shuffledFN[fnIdx];
+        // Pick a last name that hasn't been used with any first name
+        let ln = '';
+        for (let attempt = 0; attempt < lastNames.length; attempt++) {
+          const lnCandidate = lastNames[seededHash(fnIdx * 7 + attempt * 3 + 2) % lastNames.length];
+          const baseName = `${fn} ${lnCandidate}`;
+          if (!usedBaseNames.has(baseName)) { ln = lnCandidate; break; }
         }
+        if (!ln) continue;
+        const baseName = `${fn} ${ln}`;
+        const hasNick = (seededHash(fnIdx * 3 + 3) % 4) === 0;
+        const nick = hasNick ? nicknames[seededHash(fnIdx * 7 + 5) % nicknames.length] : null;
+        const name = nick ? `${fn} '${nick}' ${ln}` : `${fn} ${ln}`;
+        usedNames.add(name);
+        usedBaseNames.add(baseName);
+        usedFirstNames.add(fn);
+        const skill = Math.round((30 + (seededHash(fnIdx * 11) % 40)) * mult);
+        // For Pro Tour, assign a random ranking between 26-100
+        const randomRank = career.tier >= 5 ? 26 + (seededHash(fnIdx * 17 + 7) % 75) : undefined;
+        participants.push({
+          id: `outside_${i}`,
+          name,
+          skill,
+          archetype: archetypes[seededHash(fnIdx * 13) % archetypes.length],
+          isPlayer: false,
+          seed: participants.length + 1,
+          rank: randomRank,
+        });
+        i++;
       }
     }
     return participants;
