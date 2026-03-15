@@ -248,8 +248,9 @@ export default function WeekFixtures() {
     );
   }
 
-  const playerFixture = weekData.fixtures.find(f => f.is_player_match);
-  const otherFixtures = weekData.fixtures.filter(f => !f.is_player_match);
+  const fixtures = weekData.fixtures || [];
+  const playerFixture = fixtures.find(f => f.is_player_match);
+  const otherFixtures = fixtures.filter(f => !f.is_player_match);
   const playerCompleted = playerFixture?.status === 'completed';
   const playerWon = playerCompleted && (playerFixture?.home_score || 0) > (playerFixture?.away_score || 0);
   const tierName = TIER_NAMES[weekData.tier] || `Tier ${weekData.tier}`;
