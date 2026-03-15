@@ -1396,7 +1396,8 @@ export default function CareerPage() {
  const leagueMatchesDone = career.tier >= 5 ? true : career.tier === 1 ? false : (playerStanding && (playerStanding.played || 0) >= totalLeagueOpponents);
  // A 'season_end' event is a marker, not playable - treat as no remaining events
  const hasRemainingEvents = next_event != null && next_event.event_type !== 'season_end' && next_event.event_type !== 'season_complete';
- const seasonComplete = leagueMatchesDone && !hasRemainingEvents && standings && standings.length > 0;
+ // Also require at least 1 match played — can't be "complete" on day 1
+ const seasonComplete = leagueMatchesDone && !hasRemainingEvents && standings && standings.length > 0 && (career.tier >= 5 || (playerStanding && (playerStanding.played || 0) > 0));
  const playerRank = seasonComplete && standings && career.tier < 5 ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
  const willPromote = career.tier >= 5 ? false : (seasonComplete && playerRank <= 2);
  const displayEventName = (career.tier === 1 && chosenName) ? chosenName
