@@ -134,7 +134,7 @@ export default function CareerPage() {
  const [showChampionshipIntro, setShowChampionshipIntro] = useState(false);
  const [csChampion, setCsChampion] = useState<{ name: string; isPlayer: boolean; season: number } | null>(null);
  // Mobile tab state
- const [mobileTab, setMobileTab] = useState<'emails' | 'notifications' | 'event' | 'awards'>('event');
+ const [mobileTab, setMobileTab] = useState<'emails' | 'notifications' | 'event' | 'stats'>('event');
  const [seenEmails, setSeenEmails] = useState<Set<string>>(new Set());
  const [seenAwards, setSeenAwards] = useState(false);
  const [seenNotifications, setSeenNotifications] = useState(false);
@@ -297,6 +297,24 @@ export default function CareerPage() {
      // No more events in Tier 1, advance to Pub Leagues
      await advanceToNextSeason();
      return;
+    }
+   }
+
+   // Any tier (2-4): if no next event and season just started, force-create first event via play RPC
+   if (homeData.career.tier >= 2 && homeData.career.tier <= 4 && !homeData.next_event) {
+    const ps = homeData.standings?.find((s: any) => s.is_player);
+    if (!ps || (ps.played || 0) === 0) {
+     console.log('[CAREER] No events for fresh season, force-creating via play RPC');
+     try {
+      await supabase.rpc('rpc_career_play_next_event_locked_fixed', { p_career_id: careerId });
+      // Reload to get the created event
+      const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+      if (refreshed && !refreshed.error && refreshed.next_event) {
+       setData(refreshed);
+       setLoading(false);
+       return;
+      }
+     } catch (e) { console.error('[CAREER] Force-create event error:', e); }
     }
    }
 
@@ -1629,14 +1647,14 @@ export default function CareerPage() {
          { key: 'event' as const, label: 'Event', icon: '📋', count: 0 },
          { key: 'emails' as const, label: 'Emails', icon: '📧', count: emails.filter(e => e.isNew && !seenEmails.has(e.id)).length },
          { key: 'notifications' as const, label: 'Alerts', icon: '🔔', count: !seenNotifications && sponsorOffer ? 1 : 0 },
-         { key: 'awards' as const, label: 'Awards', icon: '🏆', count: !seenAwards && data?.awards && data.awards.length > 0 ? data.awards.length : 0 },
+         { key: 'stats' as const, label: 'Stats', icon: '📊', count: 0 },
         ]).map(tab => (
          <button
           key={tab.key}
           onClick={() => {
            setMobileTab(tab.key);
            if (tab.key === 'emails') setSeenEmails(new Set(emails.map(e => e.id)));
-           if (tab.key === 'awards') setSeenAwards(true);
+           
            if (tab.key === 'notifications') setSeenNotifications(true);
           }}
           className={`flex-1 py-2.5 text-center text-xs font-bold relative transition-all ${
@@ -2103,7 +2121,7 @@ export default function CareerPage() {
      {/* ? RIGHT COLUMN: World Rankings (always) ? */}
      <div className="lg:col-span-3 space-y-4 flex flex-col">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-       className="order-2 lg:order-none">
+       className="order-3 lg:order-none">
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center justify-between mb-4">
@@ -2134,7 +2152,7 @@ export default function CareerPage() {
       {/* Champions Series Standings (Tier 5 only) */}
       {career.tier >= 5 && (
        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}
-        className="order-3 lg:order-none">
+        className="order-4 lg:order-none">
         <Card className="border-0 relative overflow-hidden bg-gradient-to-br from-purple-600/15 via-amber-500/5 to-slate-900/80 ring-1 ring-purple-500/30 shadow-lg shadow-purple-500/5">
          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
          <div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl" />
@@ -2153,9 +2171,9 @@ export default function CareerPage() {
        </motion.div>
       )}
 
-      {/* Awards / Trophy Cabinet — desktop always, mobile only on awards tab */}
+      {/* Awards / Trophy Cabinet — always visible */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-       className={`order-1 lg:order-none lg:block ${mobileTab === 'awards' ? 'block' : 'hidden lg:block'}`}>
+       className="order-5 lg:order-none">
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center gap-2 mb-3">
@@ -2210,7 +2228,7 @@ export default function CareerPage() {
       </motion.div>
 
       {/* Timeline — mobile only (desktop version is in left column) */}
-      <div className="lg:hidden">
+      <div className="lg:hidden order-2 lg:order-none">
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center justify-between">
@@ -2249,8 +2267,9 @@ export default function CareerPage() {
        </Card>
       </div>
 
-      {/* Season Stats */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}>
+      {/* Season Stats — desktop always, mobile only on stats tab */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.29 }}
+       className={`order-4 lg:order-none lg:block ${mobileTab === 'stats' ? 'block' : 'hidden lg:block'}`}>
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center justify-between mb-3">
