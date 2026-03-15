@@ -138,6 +138,7 @@ export default function CareerPage() {
  const [seenEmails, setSeenEmails] = useState<Set<string>>(new Set());
  const [seenAwards, setSeenAwards] = useState(false);
  const [seenNotifications, setSeenNotifications] = useState(false);
+ const [respondedInvites, setRespondedInvites] = useState<Set<string>>(new Set());
  const [showGroupResults, setShowGroupResults] = useState(false);
  const [groupStandings, setGroupStandings] = useState<any[]>([]);
  const [showOptionalTournament, setShowOptionalTournament] = useState(false);
@@ -768,7 +769,7 @@ export default function CareerPage() {
      .lt('sequence_no', 200)
      .order('sequence_no', { ascending: true })
      .limit(1) : { data: null };
-    if (inviteEvents && inviteEvents.length > 0) {
+    if (inviteEvents && inviteEvents.length > 0 && !respondedInvites.has(inviteEvents[0].id)) {
      setPendingInvite({
       event_id: inviteEvents[0].id,
       event_name: inviteEvents[0].event_name,
@@ -2048,6 +2049,8 @@ export default function CareerPage() {
                  if (error) { toast.error(`Failed to accept: ${error.message}`); return; }
                  if (res?.error) { toast.error(res.error); return; }
                  toast.success(res?.message || 'Tournament accepted!');
+                 // Mark as responded so reload doesn't recreate invite email
+                 setRespondedInvites(prev => new Set([...prev, eventId]));
                  // Update this email to accepted, remove all other tournament invites (auto-declined on backend)
                  setEmails(prev => prev
                   .filter(e => e.type !== 'tournament_invite' || e.id === email.id)
@@ -2078,6 +2081,8 @@ export default function CareerPage() {
                  if (error) { toast.error(`Failed to decline: ${error.message}`); return; }
                  if (res?.error) { toast.error(res.error); return; }
                  toast.success(res?.message || 'Tournament declined.');
+                 // Mark as responded so reload doesn't recreate invite email
+                 setRespondedInvites(prev => new Set([...prev, eventId]));
                  // Change email to show declined status
                  setEmails(prev => prev.map(e => 
                   e.id === email.id ? { ...e, type: 'tournament_declined', body: `You declined the invitation. Focus on the league! ` } : e
