@@ -300,6 +300,45 @@ export default function CareerPage() {
     }
    }
 
+   // Tier 2-4: if no next event exists at all, check DB directly and create if needed
+   if (homeData.career.tier >= 2 && homeData.career.tier <= 4 && !homeData.next_event) {
+    const { data: dbEvents, error: dbErr } = await supabase
+     .from('career_events')
+     .select('id, status, event_type')
+     .eq('career_id', careerId)
+     .eq('season', homeData.career.season)
+     .in('status', ['pending', 'active'])
+     .limit(1);
+    console.log('[CAREER] T' + homeData.career.tier + ' no next_event from RPC, DB check:', dbEvents?.length || 0, 'events', dbErr?.message || '');
+    if (!dbEvents || dbEvents.length === 0) {
+     // Events genuinely missing — create league events
+     const numMatches = homeData.career.tier === 2 ? 7 : homeData.career.tier === 3 ? 9 : 14;
+     const bestOf = homeData.career.tier === 2 ? 3 : homeData.career.tier === 3 ? 5 : 7;
+     const baseDay = homeData.career.day || 1;
+     const events = Array.from({ length: numMatches }, (_, i) => ({
+      career_id: careerId,
+      season: homeData.career.season,
+      sequence_no: i + 1,
+      event_type: 'league',
+      event_name: 'Weekend League Night',
+      format_legs: bestOf,
+      day: baseDay + (i + 1) * 6,
+      status: 'pending' as const,
+     }));
+     await supabase.from('career_events').insert(events);
+     console.log('[CAREER] Created', numMatches, 'league events for season', homeData.career.season);
+    }
+    // Reload
+    const { data: refreshed } = await supabase.rpc('rpc_get_career_home_with_season_end_locked_fixed_v3', { p_career_id: careerId });
+    if (refreshed?.next_event) {
+     setData(refreshed);
+     const { data: pData } = await supabase.from('career_profiles').select('player_name').eq('id', careerId).single();
+     if (pData?.player_name) setCareerName(pData.player_name);
+     setLoading(false);
+     return;
+    }
+   }
+
    
 
    // Tier 2 Pub Leagues: after 7 league matches, auto-create mandatory end-of-season tournament
