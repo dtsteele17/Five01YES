@@ -132,6 +132,7 @@ export default function CareerPage() {
  const [showQSchoolIntro, setShowQSchoolIntro] = useState(false);
  const [qSchoolData, setQSchoolData] = useState<{ player_rank: number; semi_opponent: string; semi_opponent_rank: number } | null>(null);
  const [showChampionshipIntro, setShowChampionshipIntro] = useState(false);
+ const [csChampion, setCsChampion] = useState<{ name: string; isPlayer: boolean; season: number } | null>(null);
  const [showGroupResults, setShowGroupResults] = useState(false);
  const [groupStandings, setGroupStandings] = useState<any[]>([]);
  const [showOptionalTournament, setShowOptionalTournament] = useState(false);
@@ -267,6 +268,16 @@ export default function CareerPage() {
    }
 
    setData(homeData);
+
+   // Check for CS champion announcement from bracket completion
+   const csChampionData = sessionStorage.getItem('cs_champion');
+   if (csChampionData) {
+    try {
+     const champ = JSON.parse(csChampionData);
+     setCsChampion({ name: champ.name, isPlayer: champ.isPlayer, season: homeData.career.season });
+     sessionStorage.removeItem('cs_champion');
+    } catch {}
+   }
 
    // Load player name from career_profiles
    const { data: profileData } = await supabase.from('career_profiles').select('player_name').eq('id', careerId).single();
@@ -1462,7 +1473,20 @@ export default function CareerPage() {
             <Trophy className="w-10 h-10 text-amber-400 mx-auto mb-2" />
             <h2 className="text-xl font-black text-white mb-1">Season {career.season} Complete!</h2>
             {career.tier >= 5 ? (
-             <p className="text-xs text-slate-500 mb-4">Another season on the Pro Tour complete. New tournaments and Champions Series await.</p>
+             <>
+              {(() => {
+               const playerEntry = worldRankings.find((r: any) => r.isPlayer);
+               const pRank = playerEntry?.rank || playerRankingRow?.rank || '?';
+               const pPoints = playerEntry?.rating || playerRankingRow?.rating || 0;
+               return (
+                <div className="mb-4">
+                 <p className="text-sm text-slate-400 mb-1">World Ranking: <span className="text-amber-400 font-black text-lg">#{pRank}</span></p>
+                 <p className="text-xs text-slate-500">{pPoints.toLocaleString()} ranking points</p>
+                </div>
+               );
+              })()}
+              <p className="text-xs text-slate-500 mb-4">New tournaments and Champions Series await next season.</p>
+             </>
             ) : (
              <>
               <p className="text-sm text-slate-400 mb-1">You finished <span className={playerRank <= 2 ? 'text-emerald-400 font-bold' : 'text-white font-bold'}>{playerRank}{playerRank === 1 ? 'st' : playerRank === 2 ? 'nd' : playerRank === 3 ? 'rd' : 'th'}</span></p>
@@ -2566,6 +2590,41 @@ export default function CareerPage() {
         <Button
          onClick={() => { setShowCSWinnerPopup(false); loadCareer(); }}
          className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold px-8"
+        >
+         Continue
+        </Button>
+       </div>
+      </Card>
+     </motion.div>
+    </div>
+   )}
+
+   {/* CS Champion Popup (from bracket completion) */}
+   {csChampion && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+     <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+      className="max-w-md w-full mx-4"
+     >
+      <Card className="border-2 border-purple-500/30 bg-gradient-to-b from-purple-950/80 via-purple-900/30 to-slate-900 ring-1 ring-amber-500/20 shadow-2xl overflow-hidden">
+       <div className="h-1.5 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
+       <div className="p-6 text-center">
+        <div className="text-6xl mb-2">👑</div>
+        <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-amber-300 to-purple-400 mb-3">
+         Champions Series Winner!
+        </h2>
+        <p className="text-white text-xl font-black mb-1">{csChampion.name}</p>
+        <p className="text-purple-300 text-sm mb-2">Season {csChampion.season} Champion</p>
+        {csChampion.isPlayer ? (
+         <p className="text-amber-400 text-sm mb-5 font-semibold">🎉 Congratulations! You are the Champions Series Champion!</p>
+        ) : (
+         <p className="text-slate-400 text-sm mb-5">Crowned Champions Series Champion after dominating the playoffs.</p>
+        )}
+        <Button
+         onClick={() => setCsChampion(null)}
+         className="bg-gradient-to-r from-purple-600 via-amber-500 to-purple-600 hover:from-purple-500 hover:to-purple-500 text-white font-bold px-8 shadow-lg shadow-purple-600/30"
         >
          Continue
         </Button>

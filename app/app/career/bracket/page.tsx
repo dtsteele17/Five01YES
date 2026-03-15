@@ -705,6 +705,21 @@ export default function CareerBracketPage() {
             });
             console.log('[BRACKET] AI CS update result:', JSON.stringify(aiUpdateRes.data), 'error:', aiUpdateRes.error);
           } catch (e) { console.error('[BRACKET] AI CS update error:', e); }
+
+          // CS Final completed — store champion name for career home popup
+          if (eventType === 'champions_series_final') {
+            const winnerMatch = updated.matches.find((m: any) => m.round === updated.totalRounds && m.winnerId);
+            if (winnerMatch) {
+              const winnerIsPlayer = winnerMatch.winnerId === 'player';
+              const winnerName = winnerIsPlayer 
+                ? (winnerMatch.participant1?.isPlayer ? winnerMatch.participant1.name : winnerMatch.participant2?.name)
+                : (winnerMatch.participant1?.id === winnerMatch.winnerId ? winnerMatch.participant1?.name : winnerMatch.participant2?.name);
+              sessionStorage.setItem('cs_champion', JSON.stringify({ 
+                name: winnerName || 'Unknown', 
+                isPlayer: winnerIsPlayer 
+              }));
+            }
+          }
         }
       } catch {}
       setShowResults(true);
