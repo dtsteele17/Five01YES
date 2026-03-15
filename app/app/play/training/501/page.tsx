@@ -2277,7 +2277,7 @@ export default function DartbotMatchPage() {
             isCareer: true,
             playerWon: matchWinner === 'player1',
             eventName: config.career.eventName || 'Career Match',
-            eventType: config.career.matchId?.startsWith('bracket-') ? 'tournament' : 'league',
+            eventType: config.career.eventType || (config.career.matchId?.startsWith('bracket-') ? 'tournament' : 'league'),
             bracketRound: config.career.bracketRound && config.career.totalRounds
               ? getRoundName(config.career.bracketRound, config.career.totalRounds)
               : undefined,

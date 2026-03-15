@@ -161,12 +161,12 @@ export function DartbotWinnerPopup({
             <div className="flex items-center justify-center gap-6 sm:gap-12">
               <div className="text-center">
                 <div className={`${p1Color} text-xs sm:text-sm font-bold mb-1 truncate`}>{player1.name}</div>
-                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black ${theme ? `text-transparent bg-clip-text ${theme.textGradient}` : p1Color}`}>{player1.legs}</div>
+                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black ${isPlayer1Winner ? 'text-emerald-400' : 'text-white'}`}>{player1.legs}</div>
               </div>
               <div className="text-lg sm:text-2xl font-bold text-slate-500">-</div>
               <div className="text-center">
                 <div className={`${p2Color} text-xs sm:text-sm font-bold mb-1 truncate`}>{player2.name}</div>
-                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black ${p2Color}`}>{player2.legs}</div>
+                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black ${!isPlayer1Winner ? 'text-emerald-400' : 'text-white'}`}>{player2.legs}</div>
               </div>
             </div>
           </div>
