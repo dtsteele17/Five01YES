@@ -12,6 +12,7 @@ export interface BracketParticipant {
   archetype: string;
   isPlayer: boolean;
   seed: number;
+  rank?: number;       // Pro Tour ranking (1-25) if this is a ranked player
 }
 
 export interface BracketMatch {

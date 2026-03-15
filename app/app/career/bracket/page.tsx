@@ -417,7 +417,7 @@ export default function CareerBracketPage() {
         });
       }
     }
-    // For Pro Tour (tier 5): add top 25 ranked players first
+    // For Pro Tour (tier 5): add ALL top 25 ranked players first (no first-name dedup for ranked players)
     if (career.tier >= 5) {
       const { data: rankings } = await supabase
         .from('career_pro_rankings')
@@ -428,9 +428,11 @@ export default function CareerBracketPage() {
       if (rankings) {
         for (const r of rankings) {
           if (r.is_player) continue; // player already added
-          const rFirstName = r.player_name.split(/[\s']/)[0];
-          if (usedNames.has(r.player_name) || usedFirstNames.has(rFirstName)) continue;
+          // Skip exact duplicate full names only (shouldn't happen but safety check)
+          if (usedNames.has(r.player_name)) continue;
           if (participants.length >= bracketSize) break;
+          // Track names to prevent random fill from using the same names
+          const rFirstName = r.player_name.split(/[\s']/)[0];
           usedNames.add(r.player_name);
           usedBaseNames.add(r.player_name.replace(/'[^']*'\s*/g, ''));
           usedFirstNames.add(rFirstName);
@@ -441,6 +443,7 @@ export default function CareerBracketPage() {
             archetype: 'allrounder',
             isPlayer: false,
             seed: participants.length + 1,
+            rank: r.ranking_position, // Include ranking for display
           });
         }
       }
@@ -941,6 +944,7 @@ export default function CareerBracketPage() {
                             isWinner={match.winnerId === match.participant1?.id}
                             score={match.score?.p1Legs}
                             decided={!!match.winnerId}
+                            rank={match.participant1?.rank}
                           />
                           <div className="border-t border-white/5" />
                           <MatchSlot tierAccent={getEventTheme(careerTier, eventType, eventName).accent} name={match.participant2?.name || 'TBD'}
@@ -948,6 +952,7 @@ export default function CareerBracketPage() {
                             isWinner={match.winnerId === match.participant2?.id}
                             score={match.score?.p2Legs}
                             decided={!!match.winnerId}
+                            rank={match.participant2?.rank}
                           />
                         </div>
 
@@ -1035,20 +1040,30 @@ export default function CareerBracketPage() {
   );
 }
 
-function MatchSlot({ name, isPlayer, isWinner, score, decided, tierAccent }: {
-  name: string; isPlayer?: boolean; isWinner: boolean; score?: number; decided: boolean; tierAccent?: string;
+function MatchSlot({ name, isPlayer, isWinner, score, decided, tierAccent, rank }: {
+  name: string; isPlayer?: boolean; isWinner: boolean; score?: number; decided: boolean; tierAccent?: string; rank?: number;
 }) {
   const isTBD = name === 'TBD';
   return (
     <div className={`flex items-center justify-between px-3 py-2 ${decided && isWinner ? 'bg-white/5' : ''}`}>
-      <span className={`flex-1 ${
+      <span className={`flex-1 flex items-center gap-1.5 ${
         isTBD ? 'text-slate-600 italic'
         : isPlayer ? `${tierAccent || 'text-amber-400'} font-semibold`
         : decided && isWinner ? 'text-white font-semibold'
         : decided ? 'text-slate-500'
         : 'text-slate-300'
       }`}>
-        {name}
+        {rank && rank <= 25 && (
+          <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
+            rank <= 3 ? 'bg-amber-500/30 text-amber-300' :
+            rank <= 8 ? 'bg-purple-500/25 text-purple-300' :
+            'bg-slate-600/40 text-slate-400'
+          }`}>#{rank}</span>
+        )}
+        {isPlayer && (
+          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/30 text-amber-300">YOU</span>
+        )}
+        <span className="truncate">{name}</span>
       </span>
       {decided && (
         <span className={`ml-2 font-bold ${isWinner ? 'text-white' : 'text-slate-600'}`}>{score}</span>
