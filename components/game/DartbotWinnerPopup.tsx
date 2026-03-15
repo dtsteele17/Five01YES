@@ -142,17 +142,18 @@ export function DartbotWinnerPopup({
             </motion.div>
           </div>
           
-          <p className="text-slate-400 text-xs text-center mt-1">
-            {career?.isCareer ? (
-              <>
-                <span className={theme ? `${theme.accent} font-medium` : ''}>{career.eventName}</span>
-                {career.bracketRound && <> • {career.bracketRound}</>}
-                {' • vs '}{player2.name}
-              </>
-            ) : (
-              <>{gameMode} • Best of {bestOf} • vs {player2.name}</>
-            )}
-          </p>
+          {career?.isCareer ? (
+            <div className="text-center mt-2 space-y-0.5">
+              <p className={`text-sm font-bold ${theme ? theme.accent : 'text-white'}`}>{career.eventName}</p>
+              <p className="text-slate-400 text-xs">
+                {career.bracketRound || 'League Match'} • vs {player2.name}
+              </p>
+            </div>
+          ) : (
+            <p className="text-slate-400 text-xs text-center mt-1">
+              {gameMode} • Best of {bestOf} • vs {player2.name}
+            </p>
+          )}
         </div>
 
         {/* Score Display */}
