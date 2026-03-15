@@ -184,17 +184,19 @@ export default function CareerBracketPage() {
           }
         }
       }
-      // Check for duplicate names in bracket — regenerate if found (legacy brackets)
-      if (existingBracket!.bracket_data?.currentRound === 1 && !existingBracket!.bracket_data?.matches?.some((m: any) => m.winnerId)) {
-        const allNames: string[] = [];
-        for (const m of existingBracket!.bracket_data.matches) {
-          if (m.participant1?.name) allNames.push(m.participant1.name);
-          if (m.participant2?.name) allNames.push(m.participant2.name);
+      // Check for duplicate names in bracket — ONLY regenerate if no matches played yet
+      const hasAnyResult = existingBracket!.bracket_data?.matches?.some((m: any) => m.winnerId);
+      if (!hasAnyResult && existingBracket!.bracket_data?.currentRound === 1) {
+        const firstRoundNames: string[] = [];
+        for (const m of existingBracket!.bracket_data.matches.filter((m: any) => m.round === 1)) {
+          if (m.participant1?.name) firstRoundNames.push(m.participant1.name);
+          if (m.participant2?.name) firstRoundNames.push(m.participant2.name);
         }
-        const baseNames = allNames.map(n => n.replace(/'[^']*'\s*/g, ''));
+        // Strip nicknames properly: "Rob 'The Hammer' Davies" → "Rob Davies"
+        const baseNames = firstRoundNames.map(n => n.replace(/\s*'[^']*'\s*/g, ' ').trim());
         const uniqueBase = new Set(baseNames);
         if (uniqueBase.size < baseNames.length) {
-          console.warn('[BRACKET] Found duplicate names, regenerating bracket...');
+          console.warn('[BRACKET] Found duplicate names in fresh bracket, regenerating...');
           await supabase.from('career_brackets').delete().eq('id', existingBracket!.id);
           const bSize = existingBracket!.bracket_size || 16;
           const fLegs = eventInfo?.format_legs || 9;
@@ -208,17 +210,19 @@ export default function CareerBracketPage() {
             if (newRow) {
               setBracketId(newRow.id);
               const patched2 = patchPlayerName(newBracket, playerName);
-              patchRankings(patched2, careerId!).then(ranked => setBracket(ranked));
+              const ranked2 = await patchRankings(patched2, careerId!);
+              setBracket(ranked2);
               setLoading(false);
               return;
             }
           }
         }
       }
-      // ✅ Bracket has real data - load it directly, no RPC call
+      // ✅ Bracket has real data - load it directly
       setBracketId(existingBracket!.id);
       const patched = patchPlayerName(existingBracket!.bracket_data, playerName);
-      patchRankings(patched, careerId!).then(ranked => setBracket(ranked));
+      const ranked = await patchRankings(patched, careerId!);
+      setBracket(ranked);
       setLoading(false);
       // Check for pending match result from sessionStorage
       setTimeout(() => {
@@ -917,6 +921,11 @@ export default function CareerBracketPage() {
     </div>;
   }
   if (!bracket) return null;
+
+  // Scroll to top when bracket loads
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [bracket?.currentRound]);
 
   const playerOpponent = getPlayerOpponent(bracket);
   const roundName = getRoundName(bracket.currentRound, bracket.totalRounds);
