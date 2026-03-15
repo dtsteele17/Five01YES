@@ -81,19 +81,20 @@ export function generateBracket(
   const totalRounds = getRoundsForSize(size);
   const matches: BracketMatch[] = [];
 
-  // Seed participants — player gets a random but fair position
-  // Sort by skill descending for seeding, but shuffle within tiers
-  const sorted = [...participants].sort((a, b) => {
-    if (a.isPlayer) return -1; // Player gets top half seeding
-    if (b.isPlayer) return 1;
-    return b.skill - a.skill;
-  });
+  // Randomly place all participants — no seeding order, feels like a real draw
+  // Player gets a random position like everyone else
+  const shuffled = [...participants];
+  // Fisher-Yates shuffle using a simple seeded random for reproducibility
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
 
-  // Create first round matches
+  // Create first round matches by pairing consecutive shuffled participants
   const firstRoundMatches = size / 2;
   for (let i = 0; i < firstRoundMatches; i++) {
-    const p1 = sorted[i] || null;
-    const p2 = sorted[size - 1 - i] || null; // Standard seeding: 1v8, 2v7, etc.
+    const p1 = shuffled[i * 2] || null;
+    const p2 = shuffled[i * 2 + 1] || null;
     const isPlayerMatch = (p1?.isPlayer || p2?.isPlayer) || false;
 
     matches.push({

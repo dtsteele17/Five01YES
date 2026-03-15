@@ -1152,11 +1152,12 @@ function MatchSlot({ name, isPlayer, isWinner, score, decided, tierAccent, rank 
         : decided ? 'text-slate-500'
         : 'text-slate-300'
       }`}>
-        {rank && rank <= 25 && (
+        {rank && (
           <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${
             rank <= 3 ? 'bg-amber-500/30 text-amber-300' :
             rank <= 8 ? 'bg-purple-500/25 text-purple-300' :
-            'bg-slate-600/40 text-slate-400'
+            rank <= 25 ? 'bg-slate-600/40 text-slate-400' :
+            'bg-slate-700/30 text-slate-500'
           }`}>#{rank}</span>
         )}
 
