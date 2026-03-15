@@ -89,18 +89,18 @@ BEGIN
         v_base_points := v_placement_points[v_finish_position];
         
         -- Calculate expectation penalty
-        -- Top 2: Lose points if exit before SF (pos 3-4)
+        -- Top 2: Heavy penalties for early exits — they're expected to go deep
         IF v_ai.ranking_position <= 2 THEN
-          IF v_finish_position >= 33 THEN v_penalty := 15;      -- R1 exit
-          ELSIF v_finish_position >= 17 THEN v_penalty := 12;   -- L32
+          IF v_finish_position >= 33 THEN v_penalty := 22;      -- R1 exit (was 15)
+          ELSIF v_finish_position >= 17 THEN v_penalty := 16;   -- L32 (was 12)
           ELSIF v_finish_position >= 9 THEN v_penalty := 8;     -- L16
           ELSIF v_finish_position >= 5 THEN v_penalty := 3;     -- QF
           END IF;
-        -- Top 8: Lose points if exit before QF (pos 5-8)
+        -- Top 8: Significant penalties for early exits
         ELSIF v_ai.ranking_position <= 8 THEN
-          IF v_finish_position >= 33 THEN v_penalty := 10;
-          ELSIF v_finish_position >= 17 THEN v_penalty := 8;
-          ELSIF v_finish_position >= 9 THEN v_penalty := 4;
+          IF v_finish_position >= 33 THEN v_penalty := 15;      -- R1 (was 10)
+          ELSIF v_finish_position >= 17 THEN v_penalty := 11;   -- L32 (was 8)
+          ELSIF v_finish_position >= 9 THEN v_penalty := 4;     -- L16
           END IF;
         -- Top 15: Lose points if exit before L16 (pos 9-16)
         ELSIF v_ai.ranking_position <= 15 THEN
@@ -358,17 +358,17 @@ BEGIN
         ELSE 65
       END;
       
-      -- Top 2: Lose points if exit before SF
+      -- Top 2: Heavy penalties for early exits
       IF v_ranking_position <= 2 THEN
-        IF v_place_rank >= 33 THEN v_penalty := ROUND(15 * v_multiplier);
-        ELSIF v_place_rank >= 17 THEN v_penalty := ROUND(12 * v_multiplier);
+        IF v_place_rank >= 33 THEN v_penalty := ROUND(22 * v_multiplier);
+        ELSIF v_place_rank >= 17 THEN v_penalty := ROUND(16 * v_multiplier);
         ELSIF v_place_rank >= 9 THEN v_penalty := ROUND(8 * v_multiplier);
         ELSIF v_place_rank >= 5 THEN v_penalty := ROUND(3 * v_multiplier);
         END IF;
-      -- Top 8: Lose points if exit before QF
+      -- Top 8: Significant penalties for early exits
       ELSIF v_ranking_position <= 8 THEN
-        IF v_place_rank >= 33 THEN v_penalty := ROUND(10 * v_multiplier);
-        ELSIF v_place_rank >= 17 THEN v_penalty := ROUND(8 * v_multiplier);
+        IF v_place_rank >= 33 THEN v_penalty := ROUND(15 * v_multiplier);
+        ELSIF v_place_rank >= 17 THEN v_penalty := ROUND(11 * v_multiplier);
         ELSIF v_place_rank >= 9 THEN v_penalty := ROUND(4 * v_multiplier);
         END IF;
       -- Top 15: Lose points if exit before L16
