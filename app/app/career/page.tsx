@@ -922,7 +922,7 @@ export default function CareerPage() {
   } else {
    // Use snapshotted CS players (fixed for the season)
    const { data: csPlayers } = await supabase.from('career_champions_series')
-    .select('player_name, is_player, points, legs_for, legs_against, ranking_at_qualification')
+    .select('player_name, is_player, points, legs_for, legs_against, ranking_at_qualification, wins')
     .eq('career_id', careerId).eq('season', data.career.season)
     .order('ranking_at_qualification', { ascending: true });
    if (csPlayers && csPlayers.length >= 8) {
@@ -1404,7 +1404,7 @@ export default function CareerPage() {
  // A 'season_end' event is a marker, not playable - treat as no remaining events
  const hasRemainingEvents = next_event != null && next_event.event_type !== 'season_end' && next_event.event_type !== 'season_complete';
  // Also require at least 1 match played — can't be "complete" on day 1
- const seasonComplete = leagueMatchesDone && !hasRemainingEvents && standings && standings.length > 0 && (career.tier >= 5 || (playerStanding && (playerStanding.played || 0) > 0));
+ const seasonComplete = leagueMatchesDone && !hasRemainingEvents && (career.tier >= 5 || (standings && standings.length > 0 && playerStanding && (playerStanding.played || 0) > 0));
  const playerRank = seasonComplete && standings && career.tier < 5 ? [...standings].sort((a: any, b: any) => b.points - a.points || (b.legs_diff ?? 0) - (a.legs_diff ?? 0)).findIndex((s: any) => s.is_player) + 1 : 0;
  const willPromote = career.tier >= 5 ? false : (seasonComplete && playerRank <= 2);
  const displayEventName = (career.tier === 1 && chosenName) ? chosenName
@@ -2523,6 +2523,7 @@ export default function CareerPage() {
       <div className="flex text-[10px] text-slate-500 uppercase px-2 py-1 border-b border-white/10">
        <span className="w-6">#</span>
        <span className="flex-1">Player</span>
+       <span className="w-6 text-center">W</span>
        <span className="w-8 text-center">Pts</span>
        <span className="w-10 text-center">LD</span>
        <span className="w-8 text-center">LF</span>
@@ -2531,6 +2532,7 @@ export default function CareerPage() {
        <div key={i} className={`flex items-center text-xs px-2 py-1.5 border-b border-white/5 ${p.is_player ? 'bg-blue-500/10 border-l-2 border-l-blue-400' : i < 4 ? 'bg-purple-500/5' : ''}`}>
         <span className={`w-6 ${i < 4 ? 'text-purple-400 font-bold' : 'text-slate-500'}`}>{i + 1}</span>
         <span className={`flex-1 font-medium ${p.is_player ? 'text-blue-400' : 'text-slate-300'}`}>{p.is_player && careerName ? careerName : p.player_name}</span>
+        <span className="w-6 text-center text-amber-400 font-bold">{p.wins || 0}</span>
         <span className="w-8 text-center text-white font-bold">{p.points}</span>
         <span className={`w-10 text-center ${p.leg_difference > 0 ? 'text-emerald-400' : p.leg_difference < 0 ? 'text-red-400' : 'text-slate-500'}`}>{p.leg_difference > 0 ? '+' : ''}{p.leg_difference}</span>
         <span className="w-8 text-center text-slate-500">{p.legs_for}</span>
