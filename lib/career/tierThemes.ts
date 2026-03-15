@@ -85,7 +85,7 @@ const TIER_1: TierTheme = {
   name: 'Local Circuit',
   subtitle: 'Pub Darts',
   
-  pageBg: 'bg-gradient-to-br from-green-950/40 via-stone-900 to-stone-950',
+  pageBg: 'bg-gradient-to-br from-green-950 via-stone-900 to-green-950/80',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-green-700 to-emerald-700',
@@ -148,7 +148,7 @@ const TIER_2: TierTheme = {
   name: 'Open Circuit',
   subtitle: 'Pub Leagues',
   
-  pageBg: 'bg-gradient-to-br from-blue-950/40 via-slate-900 to-slate-950',
+  pageBg: 'bg-gradient-to-br from-blue-950 via-slate-900 to-blue-950/80',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600',
@@ -211,7 +211,7 @@ const TIER_3: TierTheme = {
   name: 'County Circuit',
   subtitle: 'Semi-Professional',
   
-  pageBg: 'bg-gradient-to-br from-cyan-950/40 via-slate-900 to-gray-950',
+  pageBg: 'bg-gradient-to-br from-cyan-950 via-slate-900 to-cyan-950/80',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-500',
@@ -274,7 +274,7 @@ const TIER_4: TierTheme = {
   name: 'National Tour',
   subtitle: 'Professional Circuit',
   
-  pageBg: 'bg-gradient-to-br from-orange-950/40 via-slate-900 to-amber-950/20',
+  pageBg: 'bg-gradient-to-br from-orange-950 via-amber-950/40 to-orange-950/80',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-orange-500 via-amber-400 to-orange-500',
@@ -337,7 +337,7 @@ const TIER_5_DEFAULT: TierTheme = {
   name: 'Pro Tour',
   subtitle: 'Players Championship',
   
-  pageBg: 'bg-gradient-to-br from-red-950/40 via-slate-900 to-rose-950/20',
+  pageBg: 'bg-gradient-to-br from-red-950 via-slate-900 to-rose-950/80',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-red-500 via-rose-400 to-red-500',
@@ -400,7 +400,7 @@ const TIER_5_CS: TierTheme = {
   name: 'Champions Series',
   subtitle: 'Elite Invitational',
   
-  pageBg: 'bg-gradient-to-br from-purple-950/50 via-slate-900 to-amber-950/10',
+  pageBg: 'bg-gradient-to-br from-purple-950 via-purple-900/30 to-amber-950/40',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500',
@@ -463,7 +463,7 @@ const TIER_5_WS: TierTheme = {
   name: 'World Series',
   subtitle: 'International Circuit',
   
-  pageBg: 'bg-gradient-to-br from-indigo-950/50 via-slate-900 to-sky-950/20',
+  pageBg: 'bg-gradient-to-br from-indigo-950 via-slate-900 to-sky-950/60',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-indigo-400 via-sky-300 to-indigo-400',
@@ -526,7 +526,7 @@ const TIER_5_OPEN: TierTheme = {
   name: 'Pro Tour Open',
   subtitle: 'Open Championship',
   
-  pageBg: 'bg-gradient-to-br from-emerald-950/40 via-slate-900 to-teal-950/20',
+  pageBg: 'bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950/60',
   pageOverlay: '',
   
   accentGradient: 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500',
