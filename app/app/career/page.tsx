@@ -2099,8 +2099,9 @@ export default function CareerPage() {
      </div>
 
      {/* ? RIGHT COLUMN: World Rankings (always) ? */}
-     <div className="lg:col-span-3 space-y-4">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+     <div className="lg:col-span-3 space-y-4 flex flex-col">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+       className="order-2 lg:order-none">
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-5">
          <div className="flex items-center justify-between mb-4">
@@ -2130,7 +2131,8 @@ export default function CareerPage() {
 
       {/* Champions Series Standings (Tier 5 only) */}
       {career.tier >= 5 && (
-       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}
+        className="order-3 lg:order-none">
         <Card className="border-0 relative overflow-hidden bg-gradient-to-br from-purple-600/15 via-amber-500/5 to-slate-900/80 ring-1 ring-purple-500/30 shadow-lg shadow-purple-500/5">
          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500" />
          <div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl" />
@@ -2151,7 +2153,7 @@ export default function CareerPage() {
 
       {/* Awards / Trophy Cabinet — desktop always, mobile only on awards tab */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-       className={`lg:block ${mobileTab === 'awards' ? 'block' : 'hidden lg:block'}`}>
+       className={`order-1 lg:order-none lg:block ${mobileTab === 'awards' ? 'block' : 'hidden lg:block'}`}>
        <Card className={`border-0 ${tierTheme.cardBg} backdrop-blur-sm ring-1 ${tierTheme.cardRing} shadow-lg`}>
         <div className="p-4">
          <div className="flex items-center gap-2 mb-3">
