@@ -828,7 +828,7 @@ export default function CareerBracketPage() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <Trophy className={`w-5 h-5 ${getEventTheme(careerTier, eventType, eventName).accent}`} />
-            <h1 className={`${getEventTheme(careerTier, eventType, eventName).titleSize} ${getEventTheme(careerTier, eventType, eventName).titleWeight} text-transparent bg-clip-text ${getEventTheme(careerTier, eventType, eventName).textGradient}`}>{eventName}</h1>
+            <h1 className={`${getEventTheme(careerTier, eventType, eventName).titleSize} ${getEventTheme(careerTier, eventType, eventName).titleWeight} ${getEventTheme(careerTier, eventType, eventName).accent}`}>{eventName}</h1>
           </div>
           <div className="flex gap-1.5">
             <Badge className="bg-white/10 text-white/70 text-[10px]">{bracket.size}-Player</Badge>

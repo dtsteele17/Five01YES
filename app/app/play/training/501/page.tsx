@@ -1929,7 +1929,7 @@ export default function DartbotMatchPage() {
           <div className="text-center">
             <h2 className={`text-sm leading-tight ${
               cTheme
-                ? `${cTheme.titleWeight} text-transparent bg-clip-text ${cTheme.textGradient}`
+                ? `${cTheme.titleWeight} ${cTheme.accent}`
                 : 'font-bold text-white'
             }`}>{config.career.eventName || 'Career Match'}</h2>
             <p className={`text-[10px] ${cTheme ? cTheme.accentMuted : 'text-slate-400'}`}>
