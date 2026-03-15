@@ -59,6 +59,36 @@ export default function CareerBracketPage() {
     }
     return patched;
   }
+
+  // Inject ranking data into bracket participants (for brackets created before rank was stored)
+  async function patchRankings(bracketData: any, carId: string): Promise<any> {
+    if (!bracketData?.matches || careerTier < 5) return bracketData;
+    const supabase = createClient();
+    const { data: rankings } = await supabase
+      .from('career_pro_rankings')
+      .select('player_name, ranking_position, is_player')
+      .eq('career_id', carId)
+      .order('ranking_position')
+      .limit(50);
+    if (!rankings || rankings.length === 0) return bracketData;
+    const rankMap = new Map<string, number>();
+    for (const r of rankings) {
+      rankMap.set(r.player_name, r.ranking_position);
+      if (r.is_player) rankMap.set('__player__', r.ranking_position);
+    }
+    const patched = JSON.parse(JSON.stringify(bracketData));
+    for (const m of patched.matches) {
+      if (m.participant1) {
+        if (m.participant1.isPlayer && rankMap.has('__player__')) m.participant1.rank = rankMap.get('__player__');
+        else if (rankMap.has(m.participant1.name)) m.participant1.rank = rankMap.get(m.participant1.name);
+      }
+      if (m.participant2) {
+        if (m.participant2.isPlayer && rankMap.has('__player__')) m.participant2.rank = rankMap.get('__player__');
+        else if (rankMap.has(m.participant2.name)) m.participant2.rank = rankMap.get(m.participant2.name);
+      }
+    }
+    return patched;
+  }
   const [pendingResult, setPendingResult] = useState<{ won: boolean; playerLegs: number; opponentLegs: number } | null>(null);
 
   useEffect(() => {
@@ -154,9 +184,41 @@ export default function CareerBracketPage() {
           }
         }
       }
+      // Check for duplicate names in bracket — regenerate if found (legacy brackets)
+      if (existingBracket!.bracket_data?.currentRound === 1 && !existingBracket!.bracket_data?.matches?.some((m: any) => m.winnerId)) {
+        const allNames: string[] = [];
+        for (const m of existingBracket!.bracket_data.matches) {
+          if (m.participant1?.name) allNames.push(m.participant1.name);
+          if (m.participant2?.name) allNames.push(m.participant2.name);
+        }
+        const baseNames = allNames.map(n => n.replace(/'[^']*'\s*/g, ''));
+        const uniqueBase = new Set(baseNames);
+        if (uniqueBase.size < baseNames.length) {
+          console.warn('[BRACKET] Found duplicate names, regenerating bracket...');
+          await supabase.from('career_brackets').delete().eq('id', existingBracket!.id);
+          const bSize = existingBracket!.bracket_size || 16;
+          const fLegs = eventInfo?.format_legs || 9;
+          const participants = await buildParticipantsFromDB(supabase, careerId!, bSize, eventId!);
+          if (participants.length >= 2) {
+            const newBracket = generateBracket(participants, bSize, fLegs);
+            const { data: newRow } = await supabase.from('career_brackets').insert({
+              event_id: eventId, career_id: careerId, bracket_size: bSize,
+              rounds_total: Math.log2(bSize), current_round: 1, bracket_data: newBracket, status: 'active'
+            }).select('id').single();
+            if (newRow) {
+              setBracketId(newRow.id);
+              const patched2 = patchPlayerName(newBracket, playerName);
+              patchRankings(patched2, careerId!).then(ranked => setBracket(ranked));
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      }
       // ✅ Bracket has real data - load it directly, no RPC call
       setBracketId(existingBracket!.id);
-      setBracket(patchPlayerName(existingBracket!.bracket_data, playerName));
+      const patched = patchPlayerName(existingBracket!.bracket_data, playerName);
+      patchRankings(patched, careerId!).then(ranked => setBracket(ranked));
       setLoading(false);
       // Check for pending match result from sessionStorage
       setTimeout(() => {
@@ -1060,9 +1122,7 @@ function MatchSlot({ name, isPlayer, isWinner, score, decided, tierAccent, rank 
             'bg-slate-600/40 text-slate-400'
           }`}>#{rank}</span>
         )}
-        {isPlayer && (
-          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/30 text-amber-300">YOU</span>
-        )}
+
         <span className="truncate">{name}</span>
       </span>
       {decided && (
