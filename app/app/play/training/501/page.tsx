@@ -2199,6 +2199,7 @@ export default function DartbotMatchPage() {
               position="left"
               stats={calculateMatchStats(true)}
               theme={cTheme}
+              rank={config?.career?.playerRank}
             />
             <QuickMatchPlayerCard
               name={botName}
@@ -2210,6 +2211,7 @@ export default function DartbotMatchPage() {
               position="right"
               stats={calculateMatchStats(false)}
               theme={cTheme}
+              rank={config?.career?.opponentRank}
             />
           </div>
 

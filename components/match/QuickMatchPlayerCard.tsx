@@ -21,6 +21,7 @@ interface QuickMatchPlayerCardProps {
   previewRemaining?: number | null;
   userId?: string | null;
   theme?: TierTheme | null;
+  rank?: number;
 }
 
 export function QuickMatchPlayerCard({
@@ -35,6 +36,7 @@ export function QuickMatchPlayerCard({
   previewRemaining,
   userId,
   theme,
+  rank,
 }: QuickMatchPlayerCardProps) {
   // Use theme accent for stats if available, otherwise default colors
   const statColor = theme ? theme.accent : position === 'left' ? 'text-emerald-400' : 'text-blue-400';
@@ -84,7 +86,10 @@ export function QuickMatchPlayerCard({
               fallbackClassName={avatarFallback}
             />
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-white text-sm truncate">{name}</p>
+              <p className="font-semibold text-white text-sm truncate flex items-center gap-1.5">
+                {rank && <span className={`text-[9px] font-bold px-1 py-0.5 rounded shrink-0 ${rank <= 3 ? 'bg-amber-500/30 text-amber-300' : rank <= 8 ? 'bg-purple-500/25 text-purple-300' : rank <= 25 ? 'bg-slate-600/40 text-slate-400' : 'bg-slate-700/30 text-slate-500'}`}>#{rank}</span>}
+                <span className="truncate">{name}</span>
+              </p>
               {isActive && (
                 <Badge className={`${theme ? `${theme.badgeBg} ${theme.accent}` : 'bg-emerald-500/20 text-emerald-400'} border-transparent text-xs px-1 py-0`}>
                   Your Turn

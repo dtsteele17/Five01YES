@@ -33,6 +33,8 @@ export interface TrainingConfig {
     playerName?: string;
     tier?: number;
     eventType?: string;
+    opponentRank?: number;
+    playerRank?: number;
   };
 }
 

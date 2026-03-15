@@ -905,7 +905,8 @@ export default function CareerBracketPage() {
       bestOf: bestOfMap[matchFormat] || 'best-of-3', atcOpponent: 'bot',
       career: { careerId, eventId, eventName, matchId: `bracket-${bracketId}-r${bracket.currentRound}`,
         opponentId: opponent.id, opponentName: opponent.name, bracketRound: bracket.currentRound, totalRounds: bracket.totalRounds,
-        playerName, tier: careerTier, eventType },
+        playerName, tier: careerTier, eventType,
+        opponentRank: opponent.rank, playerRank: bracket.matches.find((m: any) => m.participant1?.isPlayer || m.participant2?.isPlayer)?.participant1?.isPlayer ? bracket.matches.find((m: any) => m.participant1?.isPlayer)?.participant1?.rank : bracket.matches.find((m: any) => m.participant2?.isPlayer)?.participant2?.rank },
     });
     router.push('/app/play/training/501');
   }
