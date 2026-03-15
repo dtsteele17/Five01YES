@@ -228,9 +228,13 @@ export default function CareerBracketPage() {
     // For CS events, ALWAYS regenerate with correct CS players (RPC uses random opponents)
     const isCSEvent2 = eventInfo?.event_type?.startsWith('champions_series');
     if (isCSEvent2) {
-      const csParticipants = await buildParticipantsFromDB(supabase, careerId!, data.bracket_size || 8, eventId!);
-      if (csParticipants.length >= (data.bracket_size || 8)) {
-        const newBracket = generateBracket(csParticipants, data.bracket_size || 8, data.format_legs || 11);
+      // CS semi = 4 players, CS final = 2 players, CS night = 8 players
+      const csBracketSize = eventInfo?.event_type === 'champions_series_semi' ? 4 
+        : eventInfo?.event_type === 'champions_series_final' ? 2 
+        : data.bracket_size || 8;
+      const csParticipants = await buildParticipantsFromDB(supabase, careerId!, csBracketSize, eventId!);
+      if (csParticipants.length >= csBracketSize) {
+        const newBracket = generateBracket(csParticipants, csBracketSize, data.format_legs || 11);
         await supabase.from('career_brackets').update({ bracket_data: newBracket as any }).eq('id', data.bracket_id);
         setBracket(patchPlayerName(newBracket, playerName));
       } else if (data.bracket_data?.matches?.length > 0) {
@@ -270,19 +274,93 @@ export default function CareerBracketPage() {
     const { data: evt } = await supabase.from('career_events').select('sequence_no, event_type').eq('id', evtId).single();
     if (!career) return [];
 
-    // Champions Series events - 8 fixed players from career_champions_series
+    // Champions Series events - players from career_champions_series
     if (evt?.event_type?.startsWith('champions_series')) {
       const { data: csPlayers } = await supabase
         .from('career_champions_series')
         .select('player_name, is_player, ranking_at_qualification, points')
         .eq('career_id', carId)
         .eq('season', career.season)
-        .order('ranking_at_qualification');
-      console.log('[BRACKET] CS players found:', csPlayers?.length, 'season:', career.season);
+        .order('points', { ascending: false });
+      console.log('[BRACKET] CS players found:', csPlayers?.length, 'season:', career.season, 'event_type:', evt.event_type);
       if (!csPlayers || csPlayers.length === 0) {
         console.error('[BRACKET] No CS players found for season', career.season);
         return [];
       }
+
+      // Semi-final: top 4 by points, seeded 1st vs 4th, 2nd vs 3rd
+      if (evt.event_type === 'champions_series_semi') {
+        const top4 = csPlayers.slice(0, 4);
+        // Order for bracket: [1st, 4th, 2nd, 3rd] so generateBracket pairs 1v4, 2v3
+        const seeded = [top4[0], top4[3], top4[1], top4[2]];
+        console.log('[BRACKET] CS Semi seeding:', seeded.map((p: any, i: number) => `${i+1}. ${p.player_name} (${p.points}pts)`));
+        return seeded.map((p: any, i: number) => ({
+          id: p.is_player ? 'player' : `cs_${i}`,
+          name: p.player_name,
+          skill: Math.max(30, 80 - (p.ranking_at_qualification || 1) * 3),
+          archetype: 'allrounder',
+          isPlayer: p.is_player,
+          seed: i + 1,
+        }));
+      }
+
+      // Final: 2 winners from semi-final bracket
+      if (evt.event_type === 'champions_series_final') {
+        // Find the completed semi-final bracket for this season
+        const { data: semiEvent } = await supabase
+          .from('career_events')
+          .select('id')
+          .eq('career_id', carId)
+          .eq('season', career.season)
+          .eq('event_type', 'champions_series_semi')
+          .eq('status', 'completed')
+          .single();
+        if (semiEvent) {
+          const { data: semiBracket } = await supabase
+            .from('career_brackets')
+            .select('bracket_data')
+            .eq('event_id', semiEvent.id)
+            .single();
+          if (semiBracket?.bracket_data?.matches) {
+            // Find the semi-final match winners (final round matches)
+            const matches = semiBracket.bracket_data.matches;
+            const maxRound = Math.max(...matches.map((m: any) => m.round));
+            const finalRoundMatches = matches.filter((m: any) => m.round === maxRound);
+            const finalists: any[] = [];
+            for (const m of finalRoundMatches) {
+              if (m.winnerId) {
+                const winner = m.player1Id === m.winnerId ? m.player1Name : m.player2Name;
+                const isPlayer = m.winnerId === 'player';
+                const csEntry = csPlayers.find((p: any) => p.player_name === winner);
+                finalists.push({
+                  id: isPlayer ? 'player' : `cs_final_${finalists.length}`,
+                  name: winner,
+                  skill: csEntry ? Math.max(30, 80 - (csEntry.ranking_at_qualification || 1) * 3) : 70,
+                  archetype: 'allrounder',
+                  isPlayer,
+                  seed: finalists.length + 1,
+                });
+              }
+            }
+            if (finalists.length === 2) {
+              console.log('[BRACKET] CS Final finalists:', finalists.map((f: any) => f.name));
+              return finalists;
+            }
+          }
+        }
+        // Fallback: top 2 by points
+        const top2 = csPlayers.slice(0, 2);
+        return top2.map((p: any, i: number) => ({
+          id: p.is_player ? 'player' : `cs_final_${i}`,
+          name: p.player_name,
+          skill: Math.max(30, 80 - (p.ranking_at_qualification || 1) * 3),
+          archetype: 'allrounder',
+          isPlayer: p.is_player,
+          seed: i + 1,
+        }));
+      }
+
+      // For regular CS nights (8-player bracket), shuffle all 8
       const seed = (career.career_seed || 0) + (evt.sequence_no || 0) * 100;
       const hash = (n: number) => { let t = n + 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
       const shuffled = [...csPlayers].sort((a: any, b: any) => hash(seed + a.player_name.length * 31) - hash(seed + b.player_name.length * 37));
