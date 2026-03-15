@@ -435,14 +435,14 @@ export default function CareerBracketPage() {
         seed: i + 1,
       }));
     }
-    const { data: opponents } = await supabase
+    const { data: opponents } = career.tier < 5 ? await supabase
       .from('career_opponents')
       .select('id, first_name, last_name, nickname, skill_rating, archetype')
       .eq('career_id', carId)
       .eq('tier', career.tier)
-      .order('id') // deterministic order
-      .limit(50);
-    if (!opponents) return [];
+      .order('id')
+      .limit(50) : { data: [] };
+    if (!opponents && career.tier < 5) return [];
     // Deterministic shuffle using career_seed + event sequence
     const seed = (career.career_seed || 0) + (evt?.sequence_no || 0) * 100;
     const shuffled = [...opponents].sort((a: any, b: any) => {
@@ -559,7 +559,32 @@ export default function CareerBracketPage() {
         i++;
       }
     }
-    return participants;
+    // Final safety: remove any duplicates that slipped through (keep first occurrence)
+    const finalNames = new Set<string>();
+    const deduped = participants.filter(p => {
+      const base = p.name.replace(/'[^']*'\s*/g, '').trim();
+      if (finalNames.has(base)) {
+        console.warn('[BRACKET] Removing duplicate:', p.name);
+        return false;
+      }
+      finalNames.add(base);
+      return true;
+    });
+    // Also ensure unique random ranks for non-top-25 players
+    if (career.tier >= 5) {
+      const usedRanks = new Set<number>();
+      for (const p of deduped) {
+        if (p.rank && p.rank <= 25) usedRanks.add(p.rank);
+      }
+      for (const p of deduped) {
+        if (p.rank && p.rank > 25) {
+          while (usedRanks.has(p.rank)) p.rank++;
+          usedRanks.add(p.rank);
+        }
+      }
+    }
+    console.log(`[BRACKET] Built ${deduped.length} participants (${participants.length - deduped.length} dupes removed)`);
+    return deduped;
   }
 
   async function handleMatchResult(won: boolean, playerLegs: number, opponentLegs: number, extraStats?: any) {
@@ -945,6 +970,7 @@ export default function CareerBracketPage() {
                     <Star className="w-5 h-5 text-amber-400" />
                   </div>
                   <span className="text-amber-400 font-bold text-xs mt-1 block">{playerName}</span>
+                  {(() => { const pm = bracket.matches.find((m: any) => m.participant1?.isPlayer || m.participant2?.isPlayer); const p = pm?.participant1?.isPlayer ? pm.participant1 : pm?.participant2; return p?.rank ? <span className="text-slate-400 text-[10px]">#{p.rank}</span> : null; })()}
                 </div>
                 <div className="text-center">
                   <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block">{roundName}</span>
@@ -955,6 +981,7 @@ export default function CareerBracketPage() {
                     <Shield className="w-5 h-5 text-slate-400" />
                   </div>
                   <span className="text-white font-bold text-xs mt-1 block">{playerOpponent.name}</span>
+                  {playerOpponent.rank && <span className="text-slate-400 text-[10px]">#{playerOpponent.rank}</span>}
                 </div>
               </div>
               <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold px-6"
